@@ -17,6 +17,14 @@
       "env": {
         "LLMQUANT_API_KEY": "${LLMQUANT_API_KEY}"
       }
+    },
+    "web-search-prime": {
+      "transport": "http",
+      "url": "https://open.bigmodel.cn/api/mcp/web_search_prime/mcp"
+    },
+    "web-reader": {
+      "transport": "http",
+      "url": "https://open.bigmodel.cn/api/mcp/web_reader/mcp"
     }
   }
 }
