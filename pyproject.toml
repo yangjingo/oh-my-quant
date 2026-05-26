@@ -8,6 +8,7 @@ dependencies = [
     "rich>=13.0",
     "pandas>=2.0",
     "numpy>=1.26",
+    "akshare>=1.18.63",
 ]
 
 [project.optional-dependencies]
