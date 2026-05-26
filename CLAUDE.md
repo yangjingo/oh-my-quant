@@ -1,6 +1,6 @@
 ---
 name: oh-my-quant
-description: 量化金融 Agent Skills 纯合集——8 个 Claude Code 自定义 skills，覆盖数据、因子、回测、风险、研究、情报和基准评测。
+description: 量化金融 Agent Skills 纯合集——7 个 Claude Code 自定义 skills + 1 个 benchmark 模块，覆盖数据、因子、回测、风险、研究、情报和基准评测。
 ---
 
 # oh-my-quant
@@ -15,18 +15,19 @@ oh-my-quant/
 ├── README.md
 ├── CHANGELOG.md
 ├── docs/reference.MD      # 量化资源索引
-├── benchmark/             # 评测数据与结果
+├── benchmark/             # 评测 skill + 数据 + 结果
+│   ├── SKILL.md           #   策略评测 skill（对齐 AI-Trader）
+│   ├── scripts/           #   score.py, dashboard.py
 │   ├── data/              #   评测输入（OHLCV、因子面板）
 │   ├── results/           #   评测结果 JSON/CSV
 │   └── reports/           #   评测报告 Markdown
-├── skills/                # 8 个 Agent Skills
+├── skills/                # 7 个 Agent Skills
     ├── data/              # 数据获取与清洗 + scripts/fetch.py
     ├── factor/            # 因子研究 + scripts/compute.py, analysis.py
     ├── backtest/          # 策略回测 + scripts/metrics.py
     ├── risk/              # 风险管理 + scripts/risk_metrics.py, optimize.py
     ├── research/          # 综合研究入口（编排 data→factor→backtest→risk）
     ├── intel/             # 投资大师观点抓取（手动 + Cron 定期）
-    ├── benchmark/         # 策略评测 + scripts/score.py
     └── validate/          # 验证 skills+CLI 工具 + scripts/smoke_test.py, cross_check.py
 ```
 
@@ -40,7 +41,7 @@ oh-my-quant/
 | `risk` | 风险/VaR/压力测试/组合优化 | 风险指标+压力测试+优化 |
 | `research` | 量化研究/策略研究/完整流程 | 编排上述 4 个 skills |
 | `intel` | 巴菲特/Dalio/大师/股东信 | 投资大师观点抓取 |
-| `benchmark` | benchmark/评测/对比/排名 | 策略标准化评测（对齐 AI-Trader） |
+| `benchmark` | benchmark/评测/对比/排名 | 策略评测（对齐 AI-Trader），位于 `benchmark/` 目录 |
 | `validate` | 验证/validate/测试 skill/回归 | 验证 skills+CLI 工具，cross-check 对账 |
 
 ## 设计原则

@@ -11,7 +11,7 @@ TEST_CASES = {
     "backtest": "回测平安银行2024年1月到12月的20日/60日均线交叉策略，输出年化收益和最大回撤",
     "risk": "计算上证指数2024年的年化波动率、95%VaR和最大回撤",
     "intel": "抓取Howard Marks(Oaktree Capital)最新一篇备忘录的标题和核心观点",
-    "benchmark": "对沪深300指数2024年买入持有策略进行基准评测，输出综合得分",
+    "benchmark": "对沪深300指数2024年买入持有策略进行基准评测，输出综合得分（benchmark SKILL 位于 benchmark/SKILL.md）",
 }
 
 MCP_TOOLS = {
@@ -32,17 +32,23 @@ def run_smoke(skill: str) -> dict:
 
     # 检查 SKILL.md 存在
     import os
-    skill_md = f"skills/{skill}/SKILL.md"
-    if os.path.exists(skill_md):
+    # benchmark skill 位于 benchmark/ 而非 skills/
+    skill_paths = [f"skills/{skill}/SKILL.md"]
+    if skill == "benchmark":
+        skill_paths = ["benchmark/SKILL.md"]
+    skill_md = next((p for p in skill_paths if os.path.exists(p)), None)
+    if skill_md:
         result["skill_md"] = True
     else:
         result["skill_md"] = False
         result["status"] = "fail"
-        result["error"] = f"{skill_md} not found"
+        result["error"] = f"SKILL.md not found (tried: {skill_paths})"
 
     # 检查 scripts 目录
-    scripts_dir = f"skills/{skill}/scripts"
-    if os.path.isdir(scripts_dir):
+    scripts_paths = [f"skills/{skill}/scripts"]
+    if skill == "benchmark":
+        scripts_paths = ["benchmark/scripts"]
+    scripts_dir = next((p for p in scripts_paths if os.path.isdir(p)), None)
         py_files = [f for f in os.listdir(scripts_dir) if f.endswith(".py")]
         result["scripts"] = py_files
     else:

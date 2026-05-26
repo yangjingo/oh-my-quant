@@ -1,6 +1,6 @@
 # oh-my-quant
 
-量化金融 Agent Skills 合集 — 8 个 Claude Code / Codex 自定义 skills。
+量化金融 Agent Skills 合集 — 7 个 Claude Code / Codex 自定义 skills + 1 个 benchmark 模块。
 
 ## Skills
 
@@ -12,14 +12,24 @@
 | `risk` | 风险管理与组合优化 |
 | `research` | 综合研究入口（编排上述 4 个） |
 | `intel` | 投资大师观点抓取（10 位大师，手动+Cron） |
-| `benchmark` | 策略基准评测（对齐 AI-Trader 范式） |
 | `validate` | 验证 skills & CLI 工具（冒烟 + cross-check） |
+
+## Benchmark 模块
+
+| 组件 | 用途 |
+|------|------|
+| `benchmark/SKILL.md` | 策略评测 skill（对齐 AI-Trader） |
+| `benchmark/scripts/score.py` | 三维评分引擎（收益/风险/稳健性） |
+| `benchmark/scripts/dashboard.py` | 统计看板，聚合评测结果 |
+| `benchmark/data/` | 评测数据（成分股、alpha 清单） |
+| `benchmark/results/` | 评测结果 JSON |
 
 ## 项目结构
 
 ```
 oh-my-quant/
-├── skills/                # 8 个 skills，每个含 SKILL.md + scripts/
+├── skills/                # 7 个 skills，每个含 SKILL.md + scripts/
+├── benchmark/             # 评测 skill + 数据 + 统计看板
 ├── src/whyj_quant/        # CLI 入口 (whyj-quant)
 ├── docs/reference.MD      # 量化资源索引
 ├── CHANGELOG.md
@@ -32,6 +42,7 @@ oh-my-quant/
 uv sync                                   # 安装依赖 + CLI
 whyj-quant run -p "回测平安银行均线策略"    # 自然语言入口
 whyj-quant validate all                    # 验证全部 skills
+whyj-quant dashboard                       # 统计看板
 whyj-quant backtest run --symbol 000001    # 单功能命令
 ```
 

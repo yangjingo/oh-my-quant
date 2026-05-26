@@ -225,20 +225,22 @@ def benchmark_run(symbol: str, strategy_desc: str):
     """运行基准评测"""
     click.echo(f"📏 评测 {symbol} {strategy_desc}")
     try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
         from skills.data.scripts.fetch import fetch_a_stock
-        from skills.benchmark.scripts.score import evaluate
+        from benchmark.scripts.score import evaluate
         import pandas as pd
 
         df = fetch_a_stock(symbol)
         returns = df["close"].pct_change().dropna()
-        bench_ret = returns.copy()  # 简化：自对比
+        bench_ret = returns.copy()
 
         result = evaluate(returns, bench_ret)
         click.secho(f"✓ 综合得分: {result['total_score']}/100 (评级: {result['grade']})", fg="green")
         click.echo(f"  收益: {result['return_score']}/40  风险: {result['risk_score']}/40  稳健性: {result['robustness_score']}/20")
     except ImportError as e:
         click.secho(f"✗ 缺少依赖: {e}", fg="red")
-        _show_skill_md("benchmark")
+        click.echo(f"  路径: benchmark/SKILL.md")
 
 
 # ── research ──
@@ -268,11 +270,16 @@ def validate_all():
     """运行全部冒烟测试"""
     click.echo("🧪 运行全部 skill 结构验证")
     import os
+    BENCHMARK_DIR = Path(__file__).resolve().parents[2] / "benchmark"
     total = 0
     passed = 0
     for name in ["data", "factor", "backtest", "risk", "research", "intel", "benchmark"]:
-        skill_md = SKILLS_DIR / name / "SKILL.md"
-        scripts = SKILLS_DIR / name / "scripts"
+        if name == "benchmark":
+            skill_md = BENCHMARK_DIR / "SKILL.md"
+            scripts = BENCHMARK_DIR / "scripts"
+        else:
+            skill_md = SKILLS_DIR / name / "SKILL.md"
+            scripts = SKILLS_DIR / name / "scripts"
         exists = skill_md.exists()
         has_scripts = scripts.is_dir() and any(scripts.iterdir())
         icon = "✓" if exists else "✗"
@@ -300,6 +307,35 @@ def validate_check_cli():
 
 
 # ── helpers ──
+
+# ── dashboard ──
+
+@cli.command()
+def dashboard():
+    """统计看板 — 聚合 benchmark/results/ 评测结果"""
+    click.echo("📊 统计看板")
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+        from benchmark.scripts.dashboard import collect_results, summary
+
+        df = collect_results()
+        if df.empty:
+            click.secho("暂无评测结果，运行 whyj-quant benchmark run --symbol 000001 添加", fg="yellow")
+            return
+
+        s = summary(df)
+        click.secho(f"评测总数: {s['total_evals']}  平均得分: {s['avg_score']}/100  最高: {s['best_score']} ({s['best_strategy']})", fg="green")
+        click.echo(f"评级分布: S={s['grade_distribution']['S']} A={s['grade_distribution']['A']} B={s['grade_distribution']['B']} C={s['grade_distribution']['C']} D={s['grade_distribution']['D']}")
+        click.echo(f"平均夏普: {s['avg_sharpe']}  平均回撤: {s['avg_max_dd']:.2%}")
+
+        top = df.nlargest(5, "total_score")
+        click.echo("\nTop 5:")
+        for _, r in top.iterrows():
+            click.echo(f"  {r['strategy']:<25} {r['total_score']:>5.0f} ({r['grade']}) sharpe={r['sharpe']:.1f}")
+    except Exception as e:
+        click.secho(f"✗ 看板生成失败: {e}", fg="red")
+
 
 def _show_skill_md(name: str):
     """打印 skill 的 SKILL.md 路径供参考"""
