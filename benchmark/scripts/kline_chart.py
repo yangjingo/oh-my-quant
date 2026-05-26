@@ -91,29 +91,38 @@ def make_kline(df: pd.DataFrame, symbol: str = "000001", name: str = "平安银�
 
     # ── Layout: NewForm engine floor ──
     fig.update_layout(
-        template="plotly_dark",
+        template="none",
         paper_bgcolor=PAPER, plot_bgcolor=BG,
         font=dict(family="SF Mono, Menlo, Monaco, monospace", size=11, color=TEXT),
         title=dict(
-            text=f"<b style='font-family:Inter,sans-serif;font-size:20px;color:{WHITE}'>{symbol}</b>  "
-                 f"<span style='font-size:13px;color:{TEXT}'>{name} &middot; {df.index[0].strftime('%Y-%m-%d')} → {df.index[-1].strftime('%Y-%m-%d')}</span>",
-            x=0, xref="paper",
+            text=f"<b style='font-family:Inter,sans-serif;font-size:18px;color:{WHITE}'>{symbol}</b>  "
+                 f"<span style='font-size:12px;color:{TEXT}'>{name}</span>",
+            x=0.01, xref="paper", y=0.97, yref="paper",
+            pad=dict(b=0),
         ),
-        xaxis=dict(showgrid=True, gridcolor=GRID, gridwidth=1, zeroline=False, showticklabels=False),
+        xaxis=dict(showgrid=True, gridcolor=GRID, gridwidth=1, zeroline=False,
+                    showticklabels=False, rangeslider=dict(visible=False)),
         xaxis2=dict(showgrid=True, gridcolor=GRID, gridwidth=1, zeroline=False,
-                     tickformat="%m/%d", tickfont=dict(size=10, color=TEXT)),
+                     tickformat="%m/%d", tickfont=dict(size=10, color=TEXT),
+                     rangeslider=dict(visible=False)),
         yaxis=dict(showgrid=True, gridcolor=GRID, gridwidth=1, zeroline=False,
-                    tickfont=dict(size=11, color=WHITE), side="right"),
-        yaxis2=dict(showgrid=False, zeroline=False, tickfont=dict(size=9, color=TEXT), showticklabels=False),
-        legend=dict(orientation="h", yanchor="top", y=1.12, xanchor="left", x=0,
-                     font=dict(size=11, color=TEXT), bgcolor="rgba(0,0,0,0)"),
-        margin=dict(l=0, r=60, t=60, b=0),
+                    tickfont=dict(size=11, color=WHITE), side="right",
+                    fixedrange=False),
+        yaxis2=dict(showgrid=False, zeroline=False, tickfont=dict(size=9, color=TEXT),
+                     showticklabels=False),
+        legend=dict(orientation="h", yanchor="top", y=1.02, xanchor="left", x=0.01,
+                     font=dict(size=10, color=TEXT), bgcolor="rgba(18,20,19,0.85)",
+                     bordercolor=GRID, borderwidth=1),
+        margin=dict(l=10, r=60, t=50, b=10),
         height=520,
         hovermode="x unified",
-        hoverlabel=dict(bgcolor=BG, font_size=12, font_family="SF Mono, monospace"),
+        hoverlabel=dict(bgcolor="#1E2220", font_size=12, font_family="SF Mono, monospace",
+                         bordercolor=GRID),
+        dragmode="pan",
     )
 
-    fig.update_xaxes(rangeslider_visible=False)
+    fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
+    fig.update_xaxes(rangeslider_visible=False, row=2, col=1)
     fig.update_yaxes(title_text="", row=1, col=1)
 
     return fig.to_html(full_html=False, include_plotlyjs="cdn", config={
