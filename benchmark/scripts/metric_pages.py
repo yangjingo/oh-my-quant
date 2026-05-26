@@ -192,8 +192,7 @@ def sharpe_page() -> str:
 <li><b>注意</b>: 夏普假设收益正态分布，对肥尾策略（期权卖方等）会高估表现</li>
 </ul>
 </div>
-<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
-<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
+<script>renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})</script>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
     return page, "sharpe_ratio"
@@ -399,7 +398,7 @@ def car_mdd_page() -> str:
 <li><b>策略成熟度</b>: Calmar 持续 > 1 且滚动稳定，表明策略在不同市场环境下回撤控制一致</li>
 </ul>
 </div>
-<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
+<script>renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})</script>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
     return page, "car_mdd"
@@ -450,7 +449,7 @@ def ulcer_page() -> str:
 <li><b>组合监控</b>: 月度跟踪 Ulcer Index 变化，若持续攀升说明策略压力在累积</li>
 </ul>
 </div>
-<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
+<script>renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})</script>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
     return page, "ulcer_index"
@@ -499,8 +498,6 @@ def kline_page() -> str:
 <li><b>数据区间</b>: {df.index[0].strftime('%Y-%m-%d') if hasattr(df.index[0],'strftime') else 'N/A'} → {df.index[-1].strftime('%Y-%m-%d') if hasattr(df.index[-1],'strftime') else 'N/A'}，共 {len(df)} 个交易日</li>
 </ul>
 <script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
-</div>
-<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
     return page, "kline"
@@ -543,6 +540,7 @@ def cr_page() -> str:
 <li><b>时间依赖</b>: CR 与回测时长强相关——5 年 50% 和 1 年 50% 含义完全不同，必须配合 CAGR 看年化</li>
 <li><b>vs 基准</b>: 策略 CR 跑输基准 CR = 策略无效，无论其他指标多好看</li>
 </ul>
+<script>renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})</script>
 </div>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
@@ -585,6 +583,7 @@ def av_page() -> str:
 <li><b>组合必备</b>: 配合 Sharpe 使用——同样 AV 下夏普越高越好，同样夏普下 AV 越低越好</li>
 <li><b>滚动监控</b>: 滚动 AV 骤升 → 市场 regime change，需检查策略是否适应当前环境</li>
 </ul>
+<script>renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})</script>
 </div>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
