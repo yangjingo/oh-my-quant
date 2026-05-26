@@ -32,7 +32,7 @@ oh-my-quant/
 │   ├── results/           #   评测结果 JSON/CSV
 │   └── metrics/           #   HTML 指标页（6 个 metric + K-line + Dashboard）
 ├── skills/                # 8 个 Agent Skills
-    ├── data/              # 数据获取与清洗 + scripts/fetch.py
+    ├── datasource/        # 数据获取 + scripts/akshare.py, yfinance.py, jqdata.py
     ├── factor/            # 因子研究 + scripts/compute.py, analysis.py
     ├── backtest/          # 策略回测 + scripts/metrics.py
     ├── risk/              # 风险管理 + scripts/risk_metrics.py, optimize.py

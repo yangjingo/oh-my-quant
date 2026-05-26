@@ -11,12 +11,21 @@ description: |
 
 ## 工具脚本
 
-优先使用 `scripts/fetch.py`：
-- `fetch_a_stock(symbol, start, end, period, adjust)` — A 股日线
-- `fetch_a_minute(symbol, period)` — A 股分钟线
-- `fetch_index_cons(index_code)` — 指数成分股
-- `fetch_us_stock(ticker, start, end)` — 美股日线
-- `cache_get(symbol, source, fetcher, **kwargs)` — 带缓存的获取
+三个数据源独立脚本：
+
+**`scripts/akshare.py`** — A 股行情:
+- `daily(symbol, start, end)` / `minute(symbol, period)` / `index_cons(code)`
+
+**`scripts/yfinance.py`** — 美股行情:
+- `daily(ticker, start, end)` / `multi(tickers, start, end)`
+
+**`scripts/jqdata.py`** — 聚宽 SDK:
+- `daily(security)` — 日线
+- `valuation(security)` — 市值/PE/PB
+- `financial(security, quarter)` / `financials_multi(security, quarters)` — 财务
+- `index_weights(code, date)` — 指数权重
+- `alpha101(universe)` / `alpha191(universe)` — 因子
+- `futures_info()` / `query_count()` / `logout()`
 
 ## 数据源优先级
 

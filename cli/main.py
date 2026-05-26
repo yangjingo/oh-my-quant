@@ -107,11 +107,12 @@ def data_download(symbol: str, market: str, start: str, end: str, period: str):
     """下载股票历史行情数据"""
     click.echo(f"⬇ 下载 {market} {symbol} {start}-{end} {period}")
     try:
-        from skills.data.scripts.fetch import fetch_a_stock, fetch_us_stock
+        from skills.datasource.scripts.akshare import daily as ak_daily
+        from skills.datasource.scripts.yfinance import daily as yf_daily
         if market.upper() == "A":
-            df = fetch_a_stock(symbol, start=start, end=end, period=period)
+            df = ak_daily(symbol, start=start, end=end, period=period)
         else:
-            df = fetch_us_stock(symbol, start=start.split("01")[0]+"-01-01", end=end.split("12")[0]+"-12-31")
+            df = yf_daily(symbol, start=start.split("01")[0]+"-01-01", end=end.split("12")[0]+"-12-31")
         click.secho(f"✓ 获取 {len(df)} 行数据", fg="green")
         click.echo(df.tail(5).to_string())
     except ImportError as e:
@@ -136,9 +137,9 @@ def factor_analyze(symbol: str, factor_name: str, period: int):
     try:
         from skills.factor.scripts.compute import momentum, reversal, volatility, rsi
         import pandas as pd
-        from skills.data.scripts.fetch import fetch_a_stock
+        from skills.datasource.scripts.akshare import daily as ak_daily
 
-        df = fetch_a_stock(symbol)
+        df = ak_daily(symbol)
         factor_map = {
             "momentum": momentum(df["close"], period),
             "reversal": reversal(df["close"], period),
@@ -169,10 +170,10 @@ def backtest_run(strategy: str, symbol: str, fast: int, slow: int, cash: int):
     click.echo(f"📈 回测 {strategy} {symbol} (参数: {fast}/{slow}, 资金: {cash})")
     try:
         from skills.backtest.scripts.metrics import vectorized_backtest, report
-        from skills.data.scripts.fetch import fetch_a_stock
+        from skills.datasource.scripts.akshare import daily as ak_daily
         import numpy as np
 
-        df = fetch_a_stock(symbol, start="20200101", end="20251231")
+        df = ak_daily(symbol, start="20200101", end="20251231")
         close = df["close"]
 
         # 生成信号: 均线交叉
@@ -203,11 +204,11 @@ def risk_check(symbol: str, benchmark: str):
     """计算风险指标"""
     click.echo(f"⚠ 风险评估 {symbol}")
     try:
-        from skills.data.scripts.fetch import fetch_a_stock
+        from skills.datasource.scripts.akshare import daily as ak_daily
         from skills.risk.scripts.risk_metrics import metrics
         import numpy as np
 
-        df = fetch_a_stock(symbol)
+        df = ak_daily(symbol)
         returns = df["close"].pct_change().dropna()
         risk = metrics(returns)
 
@@ -267,11 +268,11 @@ def benchmark_run(symbol: str, strategy_desc: str):
     try:
         import sys
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-        from skills.data.scripts.fetch import fetch_a_stock
+        from skills.datasource.scripts.akshare import daily as ak_daily
         from benchmark.scripts.score import evaluate
         import pandas as pd
 
-        df = fetch_a_stock(symbol)
+        df = ak_daily(symbol)
         returns = df["close"].pct_change().dropna()
         bench_ret = returns.copy()
 
