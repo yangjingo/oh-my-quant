@@ -1,0 +1,15 @@
+{
+  "strategy": "sma_cross_20_60",
+  "date": "2026-05-20",
+  "symbol": "000001",
+  "total_score": 72.5,
+  "grade": "A",
+  "return_score": 32,
+  "risk_score": 28,
+  "robustness_score": 12.5,
+  "details": {
+    "cagr": 0.12,
+    "sharpe": 1.5,
+    "max_drawdown": -0.18
+  }
+}

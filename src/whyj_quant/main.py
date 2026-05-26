@@ -311,12 +311,24 @@ def validate_check_cli():
 # ── dashboard ──
 
 @cli.command()
-def dashboard():
+@click.option("--html", is_flag=True, help="生成 HTML 看板并打开浏览器")
+def dashboard(html: bool):
     """统计看板 — 聚合 benchmark/results/ 评测结果"""
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+    if html:
+        from benchmark.scripts.dashboard_html import collect, build_html
+        df = collect()
+        out = Path(__file__).resolve().parents[2] / "benchmark/reports/dashboard.html"
+        out.write_text(build_html(df), encoding="utf-8")
+        import webbrowser
+        webbrowser.open(str(out))
+        click.secho(f"✓ 打开看板: {out}", fg="green")
+        return
+
     click.echo("📊 统计看板")
     try:
-        import sys
-        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
         from benchmark.scripts.dashboard import collect_results, summary
 
         df = collect_results()

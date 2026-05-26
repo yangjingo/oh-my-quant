@@ -1,0 +1,15 @@
+{
+  "strategy": "buy_hold",
+  "date": "2026-05-22",
+  "symbol": "000300",
+  "total_score": 35.1,
+  "grade": "C",
+  "return_score": 12,
+  "risk_score": 15,
+  "robustness_score": 8.1,
+  "details": {
+    "cagr": 0.02,
+    "sharpe": 0.3,
+    "max_drawdown": -0.35
+  }
+}

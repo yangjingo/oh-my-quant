@@ -1,0 +1,15 @@
+{
+  "strategy": "low_vol_q1",
+  "date": "2026-05-22",
+  "symbol": "csi300_pool",
+  "total_score": 78.3,
+  "grade": "A",
+  "return_score": 34,
+  "risk_score": 30,
+  "robustness_score": 14.3,
+  "details": {
+    "cagr": 0.15,
+    "sharpe": 1.8,
+    "max_drawdown": -0.12
+  }
+}
