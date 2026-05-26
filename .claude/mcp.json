@@ -6,6 +6,10 @@
       "headers": {
         "X-API-KEY": "${FINANCIAL_DATASETS_KEY}"
       }
+    },
+    "tushare": {
+      "transport": "http",
+      "url": "https://api.tushare.pro/mcp/token=${TUSHARE_TOKEN}"
     }
   }
 }

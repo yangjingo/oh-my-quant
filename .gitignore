@@ -3,3 +3,4 @@ uv.lock
 .venv/
 .env
 agent/.env
+.claude/settings.local.json
