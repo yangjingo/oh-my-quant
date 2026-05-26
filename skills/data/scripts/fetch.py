@@ -2,6 +2,7 @@
 
 import os
 import time
+from pathlib import Path
 import pandas as pd
 
 CACHE_DIR = "data/cache"
@@ -60,11 +61,26 @@ def _normalize(df: pd.DataFrame) -> pd.DataFrame:
 _jqdata_authed = False
 
 
+def _load_dotenv():
+    """从项目根目录 .env 加载环境变量（如未通过 os.environ 设置）"""
+    for p in [Path(__file__).resolve().parents[3] / ".env",
+              Path(__file__).resolve().parents[1] / ".env"]:
+        if p.exists():
+            for line in p.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    if k not in os.environ:
+                        os.environ[k] = v
+            return
+
+
 def _jqdata_auth():
     """JQData 登录认证（自动从 .env 读取 JQDATA_USER / JQDATA_PASS）"""
     global _jqdata_authed
     if _jqdata_authed:
         return
+    _load_dotenv()
     user = os.environ.get("JQDATA_USER", "")
     password = os.environ.get("JQDATA_PASS", "")
     if not user or not password:
