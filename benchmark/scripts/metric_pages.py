@@ -26,13 +26,24 @@ SURFACE = "#1E2220"
 HAIRLINE = "#2C302E"
 DARKEN = "#0a0b0a"
 
-CSS = f"""<style>
+CSS = f"""<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{background:{PAPER};color:{WHITE};font-family:'Inter','Helvetica Neue',Arial,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}}
 .hero{{background:{BG};padding:80px 48px 48px;border-bottom:1px solid {GRID}}}
 .hero h1{{font-size:48px;font-weight:800;letter-spacing:-1.8px;line-height:1.1}}
 .hero .tagline{{font-size:14px;color:{TEXT};margin-top:12px;font-family:'SF Mono',Menlo,monospace}}
-.hero .formula{{margin-top:24px;display:inline-block;background:{SURFACE};border:1px solid {GRID};padding:16px 24px;font-family:'SF Mono',Menlo,monospace;font-size:15px;color:{MINT};border-radius:2px}}
+.hero .formula{{margin-top:24px;display:inline-block;background:{SURFACE};border:1px solid {GRID};padding:20px 28px;font-size:16px;color:{WHITE};border-radius:2px}}
+.katex{{font-size:16px!important}}
+.katex .mathnormal{{color:{WHITE}}}
+.katex .mord{{color:{WHITE}}}
+.katex .mbin{{color:{MINT}}}
+.katex .mrel{{color:{MINT}}}
+.katex .mopen{{color:{TEXT}}}
+.katex .mclose{{color:{TEXT}}}
+.katex .mord.text{{color:{TEXT}}}
 .content{{padding:48px;max-width:900px}}
 .content h2{{font-size:20px;font-weight:700;letter-spacing:-0.5px;margin:40px 0 16px;padding-top:24px;border-top:1px solid {GRID}}}
 .content h2:first-of-type{{border-top:none;padding-top:0;margin-top:0}}
@@ -155,7 +166,7 @@ def sharpe_page() -> str:
     title = "Sharpe Ratio"
     color = MINT
     definition = "衡量每单位风险所获得的超额回报。数值越高，风险调整后的收益越好。"
-    formula = "Sharpe = (R_p − R_f) / σ_p    ·    R_p=策略年化收益  R_f=无风险利率(2%)  σ_p=年化波动率"
+    formula = "$$\\text{Sharpe} = \\frac{R_p - R_f}{\\sigma_p}$$  $R_p$=年化收益 · $R_f$=无风险利率(2%) · $\\sigma_p$=年化波动率"
     use_cases = [
         ("> 2.0: 优秀", "good"), ("1.0~2.0: 良好", "good"), ("0.5~1.0: 一般", "warn"),
         ("< 0.5: 较差", "bad"), ("< 0: 不如无风险", "bad"),
@@ -170,6 +181,8 @@ def sharpe_page() -> str:
 <li><b>注意</b>: 夏普假设收益正态分布，对肥尾策略（期权卖方等）会高估表现</li>
 </ul>
 </div>
+<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
+<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
     return page, "sharpe_ratio"
@@ -205,7 +218,7 @@ def maxdd_page() -> str:
     title = "Max Drawdown"
     color = RED
     definition = "投资组合从峰值到谷底的最大累计损失幅度。衡量最坏情况下的账面亏损。"
-    formula = "MDD = min( (V(t) − max(V(0..t))) / max(V(0..t)) )    ·    V=权益净值"
+    formula = "$$\\text{MDD} = \\min\\!\\left(\\frac{V(t) - \\max_{0..t}V}{\\max_{0..t}V}\\right)$$  $V$=权益净值"
     use_cases = [
         ("< -10%: 极优", "good"), ("-10%~-20%: 良好", "good"), ("-20%~-35%: 一般", "warn"),
         ("-35%~-50%: 差", "bad"), ("> -50%: 灾难", "bad"),
@@ -219,6 +232,7 @@ def maxdd_page() -> str:
 <li><b>回撤区间</b>: {max_dd_start.strftime('%Y-%m-%d') if hasattr(max_dd_start,'strftime') else 'N/A'} → {max_dd_end.strftime('%Y-%m-%d') if hasattr(max_dd_end,'strftime') else 'N/A'}，持续 {int(dd_duration)} 个交易日</li>
 </ul>
 </div>
+<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
     return page, "max_drawdown"
@@ -254,7 +268,7 @@ def winrate_page() -> str:
     title = "Win Rate"
     color = MINT if wr > 0.5 else GOLD
     definition = "盈利交易占总交易次数的比例。必须与盈亏比配合使用才有意义。"
-    formula = "WinRate = N_win / N_total    ·    PnL_Ratio = Avg(Win) / |Avg(Loss)|"
+    formula = "$$\\text{WinRate} = \\frac{N_{\\text{win}}}{N_{\\text{total}}}$$ $$\\text{PnL Ratio} = \\frac{\\overline{\\text{Win}}}{|\\overline{\\text{Loss}}|}$$"
     use_cases = [
         ("高胜率+高盈亏比: 圣杯", "good"), ("高胜率+低盈亏比: 剥头皮", "warn"),
         ("低胜率+高盈亏比: 趋势跟踪", "good"), ("低胜率+低盈亏比: 失败", "bad"),
@@ -268,6 +282,7 @@ def winrate_page() -> str:
 <li><b>组合考量</b>: 胜率影响心理（高频小赢舒适），盈亏比影响收益（低频大赢需要耐心）</li>
 </ul>
 </div>
+<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
     return page, "win_rate"
@@ -301,7 +316,7 @@ def profit_factor_page() -> str:
     title = "Profit Factor"
     color = MINT if pf > 1.5 else GOLD
     definition = "总盈利与总亏损的比值。衡量策略产生盈利的效率，是胜率和盈亏比的综合体现。"
-    formula = "Profit Factor = Σ(Profit_i) / |Σ(Loss_i)|    ·    值 > 1 = 净盈利策略"
+    formula = "$$\\text{PF} = \\frac{\\sum \\text{Profit}_i}{|\\sum \\text{Loss}_i|}$$  值 $>1$ = 净盈利策略"
     use_cases = [
         ("> 2.0: 优秀", "good"), ("1.5~2.0: 良好", "good"), ("1.2~1.5: 一般", "warn"),
         ("1.0~1.2: 勉强", "warn"), ("< 1.0: 亏损", "bad"),
@@ -315,6 +330,7 @@ def profit_factor_page() -> str:
 <li><b>与夏普互补</b>: 夏普对单笔大盈亏敏感，PF 对盈亏次数敏感，两者结合判断更可靠</li>
 </ul>
 </div>
+<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
     return page, "profit_factor"
@@ -357,7 +373,7 @@ def car_mdd_page() -> str:
     title = "CAR/MDD (Calmar)"
     color = MINT if calmar > 1 else GOLD
     definition = "年化收益率与最大回撤的比值。回撤调整后的收益效率指标，越高越好。"
-    formula = "Calmar = CAGR / |MDD|    ·    CAGR=年化复合收益  MDD=最大回撤"
+    formula = "$$\\text{Calmar} = \\frac{\\text{CAGR}}{|\\text{MDD}|}$$  CAGR=年化复合收益 · MDD=最大回撤"
     use_cases = [
         ("> 2.0: 极优", "good"), ("1.0~2.0: 良好", "good"), ("0.5~1.0: 一般", "warn"),
         ("0.2~0.5: 偏差", "warn"), ("< 0.2: 无效", "bad"),
@@ -370,6 +386,7 @@ def car_mdd_page() -> str:
 <li><b>策略成熟度</b>: Calmar 持续 > 1 且滚动稳定，表明策略在不同市场环境下回撤控制一致</li>
 </ul>
 </div>
+<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
     return page, "car_mdd"
@@ -406,7 +423,7 @@ def ulcer_page() -> str:
     title = "Ulcer Index"
     color = RED
     definition = "衡量回撤深度和持续时间的综合压力指标。不仅看最大回撤，还看回撤的持续性和频率。"
-    formula = "Ulcer = √( (1/N) × Σ(R_i²) )    ·    R_i = (V_i − max(V_0..V_i)) / max(V_0..V_i)"
+    formula = "$$\\text{Ulcer} = \\sqrt{\\frac{1}{N}\\sum R_i^2}$$  $R_i = \\frac{V_i - \\max(V_0..V_i)}{\\max(V_0..V_i)}$"
     use_cases = [
         ("< 0.05: 低压力", "good"), ("0.05~0.10: 中等", "good"), ("0.10~0.15: 高压", "warn"),
         ("0.15~0.25: 很高压", "bad"), ("> 0.25: 极端", "bad"),
@@ -420,9 +437,60 @@ def ulcer_page() -> str:
 <li><b>组合监控</b>: 月度跟踪 Ulcer Index 变化，若持续攀升说明策略压力在累积</li>
 </ul>
 </div>
+<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
 </body></html>"""
     return page, "ulcer_index"
+
+
+def kline_page() -> str:
+    """K-line candlestick metric page — reuses chart from kline_chart.py."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from kline_chart import load_or_generate, make_kline
+
+    symbol = "000001"
+    name = "平安银行"
+    df = load_or_generate(symbol)
+    chart_html = make_kline(df, symbol, name)
+
+    # Quick stats from data
+    close = df["close"]
+    chg = (close.iloc[-1] / close.iloc[0] - 1) if len(close) > 1 else 0
+    high = close.max()
+    low = close.min()
+    ma20 = close.rolling(20).mean().iloc[-1] if len(close) >= 20 else close.iloc[-1]
+    trend = "↑ 多头" if close.iloc[-1] > ma20 else "↓ 空头"
+
+    readings = [
+        ("最新价", f"¥{close.iloc[-1]:.2f}", MINT if chg > 0 else RED),
+        ("区间涨跌", f"{chg:.1%}", MINT if chg > 0 else RED),
+        ("区间最高", f"¥{high:.2f}", WHITE),
+        ("区间最低", f"¥{low:.2f}", TEXT),
+    ]
+
+    title = "K-line Candlestick"
+    color = MINT
+    definition = "OHLC 蜡烛图走势，叠加 MA5/MA20/MA60 均线 + 成交量。是最基础的量价可视化，策略信号审查的起点。"
+    formula = f"$$\\text{{MA}}_5={close.rolling(5).mean().iloc[-1]:.2f}\\quad\\text{{MA}}_{{20}}={ma20:.2f}\\quad\\text{{MA}}_{{60}}={close.rolling(60).mean().iloc[-1] if len(close)>=60 else close.iloc[-1]:.2f}$$ 趋势: {trend}"
+    use_cases = [
+        ("价格 > MA60: 长多", "good"), ("MA5 ↑ 穿越 MA20: 金叉", "good"),
+        ("价格 < MA20: 短空", "warn"), ("MA5 ↓ 穿越 MA20: 死叉", "bad"),
+    ]
+
+    page = _page(title, color, definition, formula, use_cases, chart_html, readings)
+    page += f"""<ul>
+<li><b>信号审查</b>: 在回测基础上用 K 线逐笔核对关键交易日的开平仓价格是否合理</li>
+<li><b>均线框架</b>: MA20 > MA60 且价格在 MA20 上方 = 标准多头排列，反之空头</li>
+<li><b>成交量验证</b>: 突破日成交量应显著放大（> 20日均量 1.5x），缩量突破可信度低</li>
+<li><b>数据区间</b>: {df.index[0].strftime('%Y-%m-%d') if hasattr(df.index[0],'strftime') else 'N/A'} → {df.index[-1].strftime('%Y-%m-%d') if hasattr(df.index[-1],'strftime') else 'N/A'}，共 {len(df)} 个交易日</li>
+</ul>
+<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
+</div>
+<script>renderMathInElement(document.body,{{delimiters:[{{left:'$$',right:'$$',display:true}},{{left:'$',right:'$',display:false}}]}})</script>
+<div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
+</body></html>"""
+    return page, "kline"
 
 
 # ── Build all ──
@@ -434,16 +502,20 @@ METRICS = [
     ("profit",   profit_factor_page, "Profit Factor"),
     ("car_mdd",  car_mdd_page,  "CAR/MDD (Calmar)"),
     ("ulcer",    ulcer_page,    "Ulcer Index"),
+    ("kline",    kline_page,    "K-line Candlestick"),
 ]
 
 
 def build_all():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for slug, fn, _name in METRICS:
-        html, _ = fn()
-        out = OUT_DIR / f"{slug}.html"
-        out.write_text(html, encoding="utf-8")
-        print(f"  ✓ {out}")
+        try:
+            html, _ = fn()
+            out = OUT_DIR / f"{slug}.html"
+            out.write_text(html, encoding="utf-8")
+            print(f"  ✓ {out}")
+        except Exception as e:
+            print(f"  ✗ {slug}: {e}")
 
 
 if __name__ == "__main__":

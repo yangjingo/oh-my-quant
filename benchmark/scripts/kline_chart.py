@@ -149,29 +149,10 @@ def make_kline(df: pd.DataFrame, symbol: str = "000001", name: str = "平安银�
     })
 
 
-def kline_html(symbol: str = "000001", name: str = "平安银行") -> str:
-    """Full standalone K-line HTML page in NewForm style."""
+def kline_chart_html(symbol: str = "000001", name: str = "平安银行") -> str:
+    """Return just the chart HTML div (not full page). Metric page wrapper is in metric_pages.py."""
     df = load_or_generate(symbol)
-    chart = make_kline(df, symbol, name)
-
-    return f"""<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>K-line &middot; {symbol}</title>
-<style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#121413;color:#F7F9F6;font-family:'Inter','Helvetica Neue',Arial,sans-serif;padding:0}}
-.header{{padding:32px 40px 0;display:flex;justify-content:space-between;align-items:flex-end}}
-.header h1{{font-size:24px;font-weight:700;letter-spacing:-0.5px}}
-.header .meta{{font-size:12px;color:#8C9490;letter-spacing:0.3px}}
-.chart-wrap{{margin:0}}
-.footer{{border-top:1px solid #2C302E;padding:16px 40px;text-align:center;font-size:11px;color:#8C9490;letter-spacing:0.3px}}
-</style></head><body>
-<div class="header">
-  <h1>K-line &middot; {symbol} <span style="font-weight:400;color:#8C9490">{name}</span></h1>
-  <div class="meta">oh-my-quant &middot; NewForm</div>
-</div>
-<div class="chart-wrap">{chart}</div>
-<div class="footer">Candles: <span style="color:#39E180">↑</span> MA5 &middot; <span style="color:#F0C040">MA20</span> &middot; <span style="color:#E08040">MA60</span> &middot; volume bar</div>
-</body></html>"""
+    return make_kline(df, symbol, name)
 
 
 if __name__ == "__main__":

@@ -1,11 +1,11 @@
 ---
 version: alpha
-name: NewForm
+name: WhyJ Quant
 description: >
-  A stark, high-contrast Web3 brutalist canvas leveraging severe background flips 
-  and tight typography. It pairs a premium soft-cream stage with a pitch-black 
-  technical engine floor, utilizing high-contrast monochrome inline image badges 
-  and sparse, high-voltage neon-mint accents to command attention.
+  A stark, high-contrast brutalist canvas for quantitative finance. Pairs a premium 
+  soft-cream stage with a pitch-black technical engine floor, utilizing high-contrast 
+  monochrome inline image badges and sparse, high-voltage neon-mint accents. 
+  All mathematical formulas MUST be rendered with KaTeX (cdn.jsdelivr.net/npm/katex).
 colors:
   primary: "#121413"
   accent: "#39E180"
@@ -175,3 +175,4 @@ The structured micro-container for displaying parameters or metrics on dark surf
 - **Motion & Easing:** Micro-interactions, transition curves, and timing curves are intentionally un-documented. Agent must default to instantaneous `0ms` hard-state toggles.
 - **Form States:** Input validations (warning/error focus borders) are omitted and default to standard system fallback tokens until alpha v2.
 - **Dark-Mode Toggle:** There is no universal dark-mode ambient switch. The interface is structurally dualistic — light and dark components coexist permanently on the same timeline.
+- **Formula Rendering:** All mathematical formulas MUST use KaTeX (`cdn.jsdelivr.net/npm/katex@0.16.9`). Display mode `$$...$$` for block formulas, inline `$...$` for text-embedded symbols. Auto-render with `renderMathInElement`.
