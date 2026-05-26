@@ -26,6 +26,7 @@ benchmark/
 | CCXT (`ccxt_loader`) | 加密货币 (100+ 交易所) | ✅ 免费 | 安装即用 |
 | Tushare (`tushare`) | A 股行情/财务/另类 | ⚠️ 积分制 | 需注册获取 `TUSHARE_TOKEN` |
 | Tushare-Fund (`tushare_fundamentals`) | A 股财报/估值/ROE | ⚠️ 积分制 | 同上 |
+| JQData (`jqdatasdk`) | A 股/期货/基金/指数/宏观 | ⚠️ 需注册 | `pip install jqdatasdk`，需聚宽账号 |
 | Futu (`futu`) | 港股实时行情 | ⚠️ 需开户 | 需 FutuOpenD 客户端 |
 | OKX (`okx`) | OKX 交易所数据 | ✅ 免费 | 安装即用 |
 

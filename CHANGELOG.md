@@ -3,6 +3,7 @@
 ## [0.1.0] — 2026-05-26
 
 ### Added (续)
+- `JQData` 数据源 — 聚宽官方 SDK，覆盖 A 股行情/财务/指数/期货/基金/宏观，`pip install jqdatasdk`
 - `DESIGN.md` — NewForm brutalist 设计系统（Google Stitch Alpha 规范），YAML 结构化 Token
 - K-line 走势图 — Plotly 交互式蜡烛图（NewForm 引擎黑主题，MA5/MA20/MA60 + 成交量）
 - Benchmark 数据集：沪深 300 成分股 + Vibe-Trading 452 alpha 清单 + INVESTORBENCH

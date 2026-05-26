@@ -1,11 +1,11 @@
 ---
 name: investment-masters
-description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 + 核心投资哲学
+description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍（豆瓣链接）+ 核心投资哲学
 ---
 
 # 全球投资大师索引
 
-涵盖 13 位投资大师的 YouTube 演讲/访谈、必读书籍和核心投资原则。持续更新。
+涵盖 15 位投资大师 + UP 主的 YouTube/B站 演讲/访谈、必读书籍和核心投资原则。持续更新。
 
 ---
 
@@ -17,13 +17,15 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 4. [Cathie Wood — 创新投资女王](#cathie-wood)
 5. [Charlie Munger — 巴菲特的搭档](#charlie-munger)
 6. [Michael Burry — 大空头](#michael-burry)
-7. [Mohnish Pabrai — Dhandho 投资者](#mohnish-pabrai)
-8. [Nassim Nicholas Taleb — 黑天鹅风险分析师](#nassim-taleb)
-9. [Peter Lynch — 十倍股猎手](#peter-lynch)
-10. [Philip Fisher — 成长股之父](#philip-fisher)
-11. [Rakesh Jhunjhunwala — 印度大牛](#rakesh-jhunjhunwala)
-12. [Stanley Druckenmiller — 宏观传奇](#stanley-druckenmiller)
-13. [Warren Buffett — 奥马哈先知](#warren-buffett)
+7. [Ray Dalio — 宏观机器](#ray-dalio)
+8. [Jim Simons — 量化之父](#jim-simons)
+9. [Mohnish Pabrai — Dhandho 投资者](#mohnish-pabrai)
+10. [Nassim Nicholas Taleb — 黑天鹅风险分析师](#nassim-taleb)
+11. [Peter Lynch — 十倍股猎手](#peter-lynch)
+12. [Philip Fisher — 成长股之父](#philip-fisher)
+13. [Rakesh Jhunjhunwala — 印度大牛](#rakesh-jhunjhunwala)
+14. [Stanley Druckenmiller — 宏观传奇](#stanley-druckenmiller)
+15. [Warren Buffett — 奥马哈先知](#warren-buffett)
 
 ---
 
@@ -36,16 +38,16 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 | 标题 | 说明 |
 |------|------|
 | [Damodaran 官方 YouTube 频道](https://www.youtube.com/@AswathDamodaran) | 完整估值课程（Spring 2024/2025），全部免费公开 |
-| [Valuation Spring 2025 课程播放列表](https://www.youtube.com/playlist?list=PLUkh9m2BorqnhoBnlcE1EHWYjUHGOFVqj) | 最新一期估值课程，逐节更新 |
+| [Damodaran 估值课程（Spring 2025）](https://www.youtube.com/results?search_query=damodaran+valuation+spring+2025) | 最新一期估值课程，逐节更新 |
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| *The Little Book of Valuation* | 2011（2024 更新版） | 估值入门经典 |
-| *Narrative and Numbers* | 2017 | 如何将故事转化为估值数字 |
-| *Investment Valuation* | 2002（多次再版） | 估值圣经，MBA 教材级 |
-| *Damodaran on Valuation* | 1994（多次再版） | 实战估值方法论 |
+| *The Little Book of Valuation*（《学会估值，轻松投资》） | 2011（2024 更新版） | [豆瓣 6.6](https://book.douban.com/subject/26675987/) |
+| *Narrative and Numbers* | 2017 | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Narrative+and+Numbers+Damodaran) |
+| *Investment Valuation* | 2002（多次再版） | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Investment+Valuation+Damodaran) |
+| *Damodaran on Valuation* | 1994（多次再版） | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Damodaran+on+Valuation) |
 
 ### 核心投资原则
 
@@ -65,18 +67,17 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 | 标题 | 说明 |
 |------|------|
-| [The Art of Investing: Benjamin Graham and Value Investing](https://www.youtube.com/watch?v=...) | Kanopy/Wondrium 纪录片系列，第 2 集 |
+| [The Art of Investing: Benjamin Graham and Value Investing](https://www.youtube.com/results?search_query=benjamin+graham+value+investing+documentary) | Kanopy/Wondrium 纪录片系列 |
 | [Ben Graham 原始演讲录音（罕见）](https://www.youtube.com/results?search_query=benjamin+graham+lecture) | 1950s 珍贵历史录音 |
 | [The Intelligent Investor 精华解读](https://www.youtube.com/results?search_query=the+intelligent+investor+summary) | 多个频道的经典解读 |
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| *Security Analysis*（与 David Dodd 合著） | 1934 | 价值投资奠基之作，定义"内在价值"与"安全边际" |
-| *The Intelligent Investor* | 1949 | 巴菲特称"迄今为止最好的投资书籍"，引入"市场先生" |
-| *The Memoirs of the Dean of Wall Street* | 1996 | 格雷厄姆自传 |
-| Jerry M. Rosenberg, *Benjamin Graham: The Father of Value Investing* | — | 最佳格雷厄姆传记之一 |
+| *Security Analysis*（与 David Dodd 合著）（《证券分析》） | 1934 | [豆瓣 9.1](https://book.douban.com/subject/24840594/) |
+| *The Intelligent Investor*（《聪明的投资者》） | 1949 | [豆瓣 9.0（注疏版）](https://book.douban.com/subject/26752026/) / [豆瓣 9.2（英文版）](https://book.douban.com/subject/1481164/) |
+| *The Memoirs of the Dean of Wall Street* | 1996 | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Benjamin+Graham+memoirs) |
 
 ### 核心投资原则
 
@@ -96,19 +97,17 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 | 标题 | 时长 | 说明 |
 |------|------|------|
-| [Bill Ackman: Lex Fridman Podcast #428](https://www.youtube.com/watch?v=8URl9iZv0K4) | ~3.5h | 2024 年 3 月，史上最全面的 Ackman 访谈 |
-| [Everything You Need to Know About Finance in Under an Hour](https://www.youtube.com/watch?v=WEDIj9JBsp8) | ~40 min | Big Think，用柠檬水摊讲透金融基础 |
+| [Bill Ackman: Lex Fridman Podcast #428](https://www.youtube.com/results?search_query=bill+ackman+lex+fridman+podcast) | ~3.5h | 2024 年 3 月，史上最全面的 Ackman 访谈 |
+| [Everything You Need to Know About Finance in Under an Hour](https://www.youtube.com/results?search_query=bill+ackman+finance+investing+under+an+hour+big+think) | ~40 min | Big Think，用柠檬水摊讲透金融基础 |
 | [Bill Ackman: 20VC Podcast](https://www.youtube.com/results?search_query=bill+ackman+20vc) | ~67 min | 2023 年 SVB 危机期间实时分析 |
-| [Citadel 闭门访谈](https://www.youtube.com/results?search_query=bill+ackman+citadel+2025) | — | 2025 年，放弃做空原因 + Hertz 投资逻辑 |
-| [Bill Ackman: Grant's Conference 2024](https://www.youtube.com/results?search_query=bill+ackman+grant%27s+conference) | — | 国债 + 利率观点 |
+| [Citadel 闭门访谈 (2025)](https://www.youtube.com/results?search_query=bill+ackman+citadel+2025) | — | 放弃做空原因 + Hertz 投资逻辑 |
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| Christine Richard, *Confidence Game* | 2010 | Ackman 六年做空 MBIA 完整记录 |
-| Barry Frates, *Bill Ackman's Rise in the Investment World* | 2024 | 从 Gotham 到 Pershing Square 全历程 |
-| *The Rise of Bill Ackman*（独立出版） | 2024 | 投资哲学 + 激进运动 + 疫情押注 |
+| Christine Richard, *Confidence Game* | 2010 | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Confidence+Game+Christine+Richard) |
+| Barry Frates, *Bill Ackman's Rise in the Investment World* | 2024 | — |
 
 ### 核心投资原则
 
@@ -128,19 +127,19 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 | 标题 | 时长 | 说明 |
 |------|------|------|
-| [ARK Invest 官方 YouTube 频道](https://www.youtube.com/@ARKInvest) | — | 定期 In The Know（ITK）系列 + 市场更新 |
-| [Big Ideas 2026 Webinar](https://www.youtube.com/watch?v=Ow4kr_AbEXc) | 1h+ | 年度重磅前瞻：比特币/AI/机器人/基因组 |
+| [ARK Invest 官方 YouTube 频道](https://www.youtube.com/@ARKInvest2015) | — | 定期 In The Know（ITK）系列 + 市场更新 |
+| [Big Ideas 2026 Webinar](https://www.youtube.com/results?search_query=ARK+invest+big+ideas+2026) | 1h+ | 年度重磅前瞻：比特币/AI/机器人/基因组 |
 | [Big Ideas 2025](https://www.youtube.com/results?search_query=ARK+big+ideas+2025) | 1h+ | 五大创新平台收敛 |
 | [Invest Like the Best EP.97](https://www.youtube.com/results?search_query=cathie+wood+invest+like+the+best+EP+97) | 1h | 2018 年，ARK 创立故事 + 五大平台早期框架 |
-| [From Vision to Valuation: Disrupting the Future](https://www.youtube.com/watch?v=kSmWzgqgKQk) | 83 min | 2025 年 Bloomberg，多组学/储能/机器人/AI |
-| [Cathie Wood Says Innovation Solves Problems](https://www.youtube.com/watch?v=OjYrv4OyEwU) | 30 min | 2024 Bloomberg Businessweek |
+| [From Vision to Valuation: Disrupting the Future](https://www.youtube.com/results?search_query=cathie+wood+from+vision+to+valuation+bloomberg+podcast) | 83 min | 2025 年 Bloomberg，多组学/储能/机器人/AI |
+| [Cathie Wood Says Innovation Solves Problems](https://www.youtube.com/results?search_query=cathie+wood+innovation+solves+problems+bloomberg+businessweek) | 30 min | 2024 Bloomberg Businessweek |
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| Brooke Sanford, *Cathie Wood's Biography: Ark of Innovation* | 2025 | 80 页，ARK 创立 + 颠覆式创新投资哲学 |
-| *Cathie Wood Biography: From Analyst to Icon* | 2025 | 94 页，从分析师到颠覆式创新旗帜的历程 |
+| Brooke Sanford, *Cathie Wood's Biography: Ark of Innovation* | 2025 | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Cathie+Wood+biography) |
+| *Cathie Wood Biography: From Analyst to Icon* | 2025 | — |
 
 ### 核心投资原则
 
@@ -161,19 +160,19 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 | 标题 | 时长 | 说明 |
 |------|------|------|
-| [1994 年南加州大学演讲](https://www.youtube.com/watch?v=kjRK2A4q1fc) | 90 min | 芒格最经典演讲，"论基本的、普世的智慧" |
+| [1994 年南加州大学演讲](https://www.youtube.com/results?search_query=charlie+munger+1994+USC+elementary+worldly+wisdom) | 90 min | 芒格最经典演讲，"论基本的、普世的智慧" |
 | [Daily Journal 2019 年会](https://www.youtube.com/results?search_query=charlie+munger+daily+journal+2019) | 2h | "教人炒股，犹如引人吸毒！" |
 | [Daily Journal 2020 年会](https://www.youtube.com/results?search_query=charlie+munger+daily+journal+2020) | 2h | 95 岁高龄，关于投资、人生、理性的完整问答 |
-| [2020 Caltech Zoom 访谈](https://www.youtube.com/watch?v=oYE53qX-Lrg) | 53 min | 价值投资、安全边际、避免心理偏误 |
+| [2020 Caltech Zoom 访谈](https://www.youtube.com/results?search_query=charlie+munger+caltech+2020+zoom+interview) | 53 min | 价值投资、安全边际、避免心理偏误 |
 | [查理·芒格投资哲学中文合集（B站）](https://search.bilibili.com/all?keyword=%E6%9F%A5%E7%90%86%E8%8A%92%E6%A0%BC) | — | 8-10 集精选，含选股/估值/分散/心理学 |
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| Peter Kaufman 编, *Poor Charlie's Almanack* | 2005（2023 扩展版） | 芒格毕生智慧的结晶，必读中的必读 |
-| Tren Griffin, *Charlie Munger: The Complete Investor* | 2015 | 芒格投资方法论系统总结 |
-| Janet Lowe, *Damn Right!* | 2000 | 芒格传记，从青年到 Buffett 合伙人 |
+| Peter Kaufman 编, *Poor Charlie's Almanack*（《穷查理宝典》） | 2005（2023 扩展版） | [豆瓣 8.5（中文增订版）](https://book.douban.com/subject/35557542/) / [豆瓣 9.1（英文原版）](https://book.douban.com/subject/4073661/) |
+| Tren Griffin, *Charlie Munger: The Complete Investor* | 2015 | [豆瓣 7.7](https://book.douban.com/subject/26640146/) |
+| Janet Lowe, *Damn Right!* | 2000 | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Damn+Right+Charlie+Munger) |
 
 ### 核心投资原则
 
@@ -195,7 +194,7 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 | 标题 | 说明 |
 |------|------|
-| [The Big Short (2015 电影)](https://www.youtube.com/results?search_query=the+big+short) | Christian Bale 饰演，Burry 本人表示刻画"相当准确" |
+| [The Big Short (2015 电影)](https://www.youtube.com/results?search_query=the+big+short+movie) | Christian Bale 饰演，Burry 本人表示刻画"相当准确" |
 | [New Money: Michael Burry 纪录片](https://www.youtube.com/results?search_query=new+money+michael+burry) | 深度投资哲学 + 13F 持仓分析系列 |
 | [Michael Burry: The Big Short Explained](https://www.youtube.com/results?search_query=michael+burry+big+short+documentary) | 做空次贷逻辑完整拆解 |
 | [60 Minutes 档案片段](https://www.youtube.com/results?search_query=michael+burry+60+minutes) | 极少出镜的罕见采访素材 |
@@ -204,10 +203,10 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| Michael Lewis, *The Big Short: Inside the Doomsday Machine* | 2010 | 2008 金融危机中做空者的经典非虚构 |
-| Gregory Zuckerman, *The Greatest Trade Ever* | 2009 | 另一部聚焦做大空头交易者的畅销书 |
+| Michael Lewis, *The Big Short: Inside the Doomsday Machine*（《大空头》） | 2010 | [豆瓣 8.5](https://book.douban.com/subject/6873948/) |
+| Gregory Zuckerman, *The Greatest Trade Ever* | 2009 | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=The+Greatest+Trade+Ever+Zuckerman) |
 
 ### 核心投资原则
 
@@ -219,7 +218,76 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 ---
 
-## Mohnish Pabrai
+## Ray Dalio
+
+> **宏观机器 | 债务周期 + 全天候组合 + 极度求真透明**
+
+### YouTube 演讲/访谈
+
+| 标题 | 时长 | 说明 |
+|------|------|------|
+| [How the Economic Machine Works (动画版)](https://www.youtube.com/results?search_query=ray+dalio+how+the+economic+machine+works) | 30 min | 用简单动画讲透经济的三大驱动力，数千万播放 |
+| [Principles for Success (动画版)](https://www.youtube.com/results?search_query=ray+dalio+principles+for+success) | 30 min | 人生与工作原则的入门动画 |
+| [Principles by Ray Dalio 官方频道](https://www.youtube.com/@PrinciplesByRayDalio) | — | Dalio 的官方 YouTube 频道，持续更新市场观点 |
+| [All Weather Portfolio 详解](https://www.youtube.com/results?search_query=ray+dalio+all+weather+portfolio) | — | 全天候组合的风险平价思想 |
+| [Larry Summers × Ray Dalio 对谈](https://www.youtube.com/results?search_query=larry+summers+ray+dalio+economic+machine) | — | 两代宏观思想者的碰撞 |
+| [Big Debt Crises 访谈](https://www.youtube.com/results?search_query=ray+dalio+big+debt+crises+debt+cycle) | — | 500 年债务危机史的框架提炼 |
+
+### 必读书籍
+
+| 书名 | 年份 | 豆瓣 |
+|------|------|------|
+| *Principles: Life & Work*（《原则》） | 2017 | [豆瓣 8.3（简体版）](https://book.douban.com/subject/27608239/) / [豆瓣 8.7（增订版）](https://book.douban.com/subject/27608239/) |
+| *Principles for Navigating Big Debt Crises*（《债务危机》） | 2018 | [豆瓣 9.2](https://book.douban.com/subject/27608239/) |
+| *The Changing World Order*（《原则：应对变化中的世界秩序》） | 2021 | [豆瓣 8.3](https://book.douban.com/subject/35349792/) |
+
+### 核心投资原则
+
+1. **经济是一台机器** — 由生产率增长（长期）、短期债务周期（5-8 年）、长期债务周期（50-75 年）三大驱动力决定
+2. **债务是周期的核心驱动** — 当还债成本超过收入增长时，国家只有两条路：违约或印钱贬值
+3. **四大经济季节** — 没有一个资产能在所有季节获胜，关键是根据增长/通胀组合配置
+4. **全天候组合（All Weather / 风险平价）** — 不做方向预测，让每个资产贡献等量风险：股票 30%、长期国债 40%、中债 15%、黄金 7.5%、商品 7.5%
+5. **投资的圣杯** — 找到 15 个以上低相关性的优质收益流
+6. **极度求真、极度透明** — 桥水文化基石，所有观点必须经得起公开辩论
+7. **痛苦 + 反思 = 进步** — 1982 年几乎破产后才建立"原则库"机制
+8. **可信度加权决策** — 按专业能力而非职级赋予决策权重
+9. **结构性看多黄金** — 高债务时代建议黄金配置 10-15%，是唯一无对手方风险、无主权依赖的大类资产
+
+---
+
+## Jim Simons
+
+> **量化之父 | 纯数学模型 + 海量弱信号聚合 + 科学方法战胜市场**
+
+### YouTube 演讲/访谈
+
+| 标题 | 时长 | 说明 |
+|------|------|------|
+| [Numberphile 专访（完整版）](https://www.youtube.com/results?search_query=jim+simons+numberphile+full+interview) | ~1h | 最完整的公开访谈，覆盖数学生涯、密码破译、量化投资起源 |
+| [Numberphile 短片段](https://www.youtube.com/results?search_query=jim+simons+numberphile+short) | — | "I've always been something of a risk taker" |
+| [Gregory Zuckerman:《征服市场的人》作者访谈](https://www.youtube.com/results?search_query=gregory+zuckerman+man+who+solved+the+market+simons) | — | 传记作者深度讲述文艺复兴内幕 |
+| [MIT 讲座: Mathematics, Common Sense & Good Luck (2010)](https://www.youtube.com/results?search_query=jim+simons+MIT+lecture+mathematics+common+sense) | — | 罕见公开演讲，投资讨论从 28 分钟开始 |
+| [Abel Prize Week 访谈 (2022)](https://www.youtube.com/results?search_query=jim+simons+abel+prize+2022+interview) | — | 生前最后一次大型公开对话，五条人生原则 |
+
+> **注：** Simons 是出了名的低调神秘的量化天才，一生极其罕见公开露面。大奖章基金自 2005 年起不再接受外部资金，"预测信号"从未对外披露。
+
+### 必读书籍
+
+| 书名 | 年份 | 豆瓣 |
+|------|------|------|
+| Gregory Zuckerman, *The Man Who Solved the Market*（《征服市场的人》） | 2019 | [豆瓣 7.7（简体版）](https://book.douban.com/subject/35350092/) / [豆瓣 7.9（台版）](https://book.douban.com/subject/35093004/) / [豆瓣 7.9（英文版）](https://book.douban.com/subject/34805703/) |
+
+### 核心投资原则
+
+1. **市场存在可量化的异常** — 有效市场假说不成立，数据中存在数百个微弱的可预测模式
+2. **聚合微小异常 > 寻找单一强信号** — 任何一个异常都不显著，但聚合上百个微弱信号后，预测力极强
+3. **科学方法：假设→测试→保留或扔掉** — 形成假设，用长期历史数据回测，有效则留、无效则弃，不断迭代
+4. **杀死情绪，只信数据** — 没有任何直觉交易，没有任何 hype，系统完全剔除人类情绪
+5. **雇佣科学家，不雇 MBA** — "你可以教会物理学家金融，但教不会金融人物理"，~100 位 PhD：数学家、物理学家、天文学家
+6. **扁平透明协作文化** — 所有代码全员可见，所有员工都是合伙人，激励完全对齐
+7. **理解交易成本与市场冲击** — 大资金必须把"自己的单子会推多贵"也建进模型
+8. **异常会消失，新异常会不断涌现** — 市场动态演进，策略必须持续更新
+9. **五条人生原则**：追求美、只跟最聪明最好的人共事、做原创的事不随大流、不轻言放弃、祈祷好运
 
 > **Dhandho 投资者 | 低成本、低风险、追求翻倍**
 
@@ -227,20 +295,19 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 | 标题 | 时长 | 说明 |
 |------|------|------|
-| [UCI: Few Bets. Big Bets. Infrequent Bets](https://www.youtube.com/watch?v=bLjoL5zhBxA) | 1h+ | 1968-1988 年 Buffett/Munger 五次关键决策深度复盘 |
-| [Boston College: The Quest for 10-100 Baggers](https://www.youtube.com/watch?v=IOoaNYQHaYY) | 2.5h | 第 6 届年会，含完整 Q&A |
-| [Shaan Puri: Turning $1M Into $1B+](https://www.youtube.com/watch?v=XikIr0kedY8) | 2h | 创业起步 + Buffett 午餐 + 克隆策略 |
+| [UCI: Few Bets. Big Bets. Infrequent Bets](https://www.youtube.com/results?search_query=mohnish+pabrai+UCI+few+bets+big+bets) | 1h+ | 1968-1988 年 Buffett/Munger 五次关键决策深度复盘 |
+| [Boston College: The Quest for 10-100 Baggers](https://www.youtube.com/results?search_query=mohnish+pabrai+boston+college+10+baggers) | 2.5h | 第 6 届年会，含完整 Q&A |
+| [Shaan Puri: Turning $1M Into $1B+](https://www.youtube.com/results?search_query=mohnish+pabrai+shaan+puri+1M+to+1B) | 2h | 创业起步 + Buffett 午餐 + 克隆策略 |
 | [Microsoft Guest Lecture (Nov 2024)](https://www.youtube.com/results?search_query=mohnish+pabrai+microsoft) | 48 min | AI 与投资 + 土耳其 Reysas 案例 |
-| [Cambridge Investment Banking Society (Jan 2025)](https://www.youtube.com/results?search_query=mohnish+pabrai+cambridge) | — | 斯多葛哲学 + 投资错误的教训 |
 | [Value Investing with Legends 专访](https://www.youtube.com/results?search_query=mohnish+pabrai+value+investing+legends) | 2h | 生涯全回顾 + Fiat Chrysler 案例 + NICE Holdings |
 | [Chai with Pabrai 官网](https://www.chaiwithpabrai.com) | — | Pabrai 自己的博客，有更多演讲笔记 |
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| *The Dhandho Investor* | 2007 | 低风险高回报价值投资框架，"Heads I win, tails I don't lose much" |
-| *Mosaic: Perspectives on Investing* | — | Buffett 方法论精华要点合集 |
+| *The Dhandho Investor*（《憨夺型投资者》） | 2007 | [豆瓣 8.0（中文版）](https://book.douban.com/subject/27079036/) / [豆瓣 8.0（英文版）](https://book.douban.com/subject/2070550/) |
+| *Mosaic: Perspectives on Investing* | — | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Mosaic+Perspectives+Investing+Mohnish+Pabrai) |
 
 ### 核心投资原则
 
@@ -262,21 +329,21 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 | 标题 | 时长 | 说明 |
 |------|------|------|
-| [Antifragile: Talks at Google (2012)](https://www.youtube.com/watch?v=S3REdLZ8Xis) | ~1h | 入门讲座，反脆弱性核心思想 |
-| [The Black Swan: GBH Forum Network (2011)](https://www.youtube.com/watch?v=3e6UKCJt-g8) | 51 min | 经典黑天鹅思想完整阐述 |
+| [Antifragile: Talks at Google (2012)](https://www.youtube.com/results?search_query=taleb+antifragile+talks+at+google) | ~1h | 入门讲座，反脆弱性核心思想 |
+| [The Black Swan: GBH Forum Network (2011)](https://www.youtube.com/results?search_query=taleb+black+swan+GBH+forum+network) | 51 min | 经典黑天鹅思想完整阐述 |
 | [Building Antifragile Systems (Visa GCC Connect 2025)](https://www.youtube.com/results?search_query=taleb+visa+GCC+connect+2025+antifragile) | — | 西方债务脆弱性、AI 颠覆白领、全球权力转移 |
-| [Taleb vs Sornette 辩论 (ETH Zurich)](https://www.youtube.com/watch?v=vuvbghZuM8U) | — | 两种对立的世界观在风险与可预测性上的碰撞 |
+| [Taleb vs Sornette 辩论 (ETH Zurich)](https://www.youtube.com/results?search_query=taleb+sornette+ETH+zurich+debate+risk) | — | 两种对立的世界观在风险与可预测性上的碰撞 |
 | [Fragility, Robustness, and Antifragility (AUB 2024)](https://www.youtube.com/results?search_query=taleb+AUB+2024+fragility) | — | 最新大型公共演讲 |
 | [NassimTaleb.org 视频合集](https://nassimtaleb.org/category/videos/) | — | 官方视频归档 |
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| *Fooled by Randomness* | 2001 | Incerto 系列第一卷，《财富》杂志"有史以来 75 本最聪明的书" |
-| *The Black Swan* | 2007 | 销售量 300 万册，50 种语言，《星期日泰晤士报》二战后最有影响力的 12 本书 |
-| *Antifragile: Things That Gain from Disorder* | 2012 | 反脆弱性：如何从混乱和波动中受益 |
-| *Skin in the Game* | 2018 | Incerto 系列第五卷，日常生活中的隐藏不对称 |
+| *Fooled by Randomness*（《随机漫步的傻瓜》） | 2001 | [豆瓣 8.1](https://book.douban.com/subject/1077335/) |
+| *The Black Swan*（《黑天鹅》） | 2007 | [豆瓣 7.8（升级版）](https://book.douban.com/subject/6854525/) / [豆瓣 8.0（英文版）](https://book.douban.com/subject/2072159/) |
+| *Antifragile: Things That Gain from Disorder*（《反脆弱》） | 2012 | [豆瓣 8.0](https://book.douban.com/subject/25759111/) |
+| *Skin in the Game*（《非对称风险》） | 2018 | [豆瓣 8.2](https://book.douban.com/subject/33430212/) |
 
 ### 核心投资原则
 
@@ -298,18 +365,18 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 | 标题 | 时长 | 说明 |
 |------|------|------|
-| [1994 年国家新闻俱乐部演讲（经典完整版）](https://www.youtube.com/watch?v=72Pq5zKEi_g) | ~1h | 林奇最著名的公开演讲，直接抛硬币拒绝预测股市 |
-| [Peter Lynch 投资讲座合集](https://www.youtube.com/watch?v=oQP5mVxBTlA) | — | 多个经典片段，散户如何战胜华尔街 |
-| [B站中文完整版（BV1xt421W7cu）](https://www.bilibili.com/video/BV1xt421W7cu/) | — | 1994 年演讲中文字幕版 |
-| [One Up on Wall Street 有声书](https://www.youtube.com/watch?v=Ue7iMBfwkr8) | — | 全书有声版 |
+| [1994 年国家新闻俱乐部演讲（经典完整版）](https://www.youtube.com/results?search_query=peter+lynch+1994+national+press+club) | ~1h | 林奇最著名的公开演讲，直接抛硬币拒绝预测股市 |
+| [Peter Lynch 投资讲座合集](https://www.youtube.com/results?search_query=peter+lynch+lecture+investments+average+investor) | — | 多个经典片段，散户如何战胜华尔街 |
+| [B站中文版](https://search.bilibili.com/all?keyword=peter+lynch+1994) | — | 1994 年演讲中文字幕版 |
+| [One Up on Wall Street 有声书](https://www.youtube.com/results?search_query=peter+lynch+one+up+on+wall+street+audiobook) | — | 全书有声版 |
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| *One Up on Wall Street* | 1989 | 全球销量超 200 万册，23 种语言，散户战胜华尔街经典 |
-| *Beating the Street* | 1993 | 实战篇，复盘 1992 年 Barron's 选股，麦哲伦最赚钱持仓全记录 |
-| *Learn to Earn* | 1995 | 面向青少年和初学者的投资入门 |
+| *One Up on Wall Street*（《彼得·林奇的成功投资》） | 1989 | [豆瓣 9.0（2010 珍藏版）](https://book.douban.com/subject/4827219/) / [豆瓣 8.7（2002 版）](https://book.douban.com/subject/1018101/) |
+| *Beating the Street*（《战胜华尔街》） | 1993 | [豆瓣 8.4](https://book.douban.com/subject/4219080/) |
+| *Learn to Earn*（《彼得·林奇教你理财》） | 1995 | [豆瓣 7.7](https://book.douban.com/subject/4188220/) |
 
 ### 核心投资原则
 
@@ -332,20 +399,20 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 | 标题 | 说明 |
 |------|------|
-| [Common Stocks and Uncommon Profits 书籍解读](https://glasp.co/youtube/p/common-stocks-and-uncommon-profits-book-summary) | The Value Investing Channel 完整梳理 |
+| [Common Stocks and Uncommon Profits 书籍解读](https://www.youtube.com/results?search_query=common+stocks+uncommon+profits+philip+fisher+summary) | The Value Investing Channel 完整梳理 |
 | [The Swedish Investor: Phil Fisher 系列](https://www.youtube.com/results?search_query=swedish+investor+philip+fisher) | Fisher 15 点清单 + Scuttlebutt 方法 |
-| [BookTalk Finance: Fisher's 15 Points Deep Dive](https://www.ivoox.com/en/philip-fisher-s-15-points-audios-mp3_rf_159427971_1.html) | 14 分钟详解 |
+| [Glasp: Common Stocks and Uncommon Profits 书摘](https://glasp.co/youtube/p/common-stocks-and-uncommon-profits-book-summary) | 书籍核心摘要 |
 
 > **注：** Fisher 于 2004 年去世，没有留下太多个人演讲视频。他的影响力主要通过其著作和后世投资者的解读传播。
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| *Common Stocks and Uncommon Profits* | 1958 | 成长股投资奠基之作，Buffett 说他的风格 15% 来自 Fisher |
-| *Paths to Wealth Through Common Stocks* | 1960 | 延伸 Fisher 的成长投资思路 |
-| *Conservative Investors Sleep Well* | 1975 | 防御性成长投资指南 |
-| *Developing an Investment Philosophy* | 1980 | 投资哲学总结 |
+| *Common Stocks and Uncommon Profits*（《怎样选择成长股》） | 1958 | [豆瓣 8.7](https://book.douban.com/subject/2063456/) |
+| *Paths to Wealth Through Common Stocks* | 1960 | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Philip+Fisher+Paths+to+Wealth) |
+| *Conservative Investors Sleep Well* | 1975 | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Philip+Fisher+Conservative+Investors+Sleep+Well) |
+| *Developing an Investment Philosophy* | 1980 | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Philip+Fisher+Developing+an+Investment+Philosophy) |
 
 ### 核心投资原则
 
@@ -375,9 +442,9 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| Mahesh Dutt Sharma, *Rakesh Jhunjhunwala: The Big Bull of Indian Share Market* | 2023 | 196 页，从 ₹5,000 到 ₹31,905 Cr 的历程 |
+| Mahesh Dutt Sharma, *Rakesh Jhunjhunwala: The Big Bull of Indian Share Market* | 2023 | [豆瓣搜索](https://search.douban.com/book/subject_search?search_text=Rakesh+Jhunjhunwala+Big+Bull) |
 
 ### 核心投资原则
 
@@ -399,18 +466,18 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 
 | 标题 | 时长 | 说明 |
 |------|------|------|
-| [Norges Bank Investment Management 专访](https://www.youtube.com/watch?v=-5Weeox0Xus) | 58 min | 2024 年 11 月，史上最全面的 Druckenmiller 公开访谈 |
-| [Morgan Stanley: Hard Lessons 播客](https://www.youtube.com/results?search_query=druckenmiller+morgan+stanley+hard+lessons+2026) | — | 2026 年 1 月，AI 与大重构 + 组合组合策略 |
+| [Norges Bank Investment Management 专访](https://www.youtube.com/results?search_query=druckenmiller+norges+bank+investment+management+tangen) | 58 min | 2024 年 11 月，史上最全面的 Druckenmiller 公开访谈 |
+| [Morgan Stanley: Hard Lessons 播客](https://www.youtube.com/results?search_query=druckenmiller+morgan+stanley+hard+lessons+2026) | — | 2026 年 1 月，AI 与大重构 + 组合策略 |
 | [Invest for Kids 历年演讲](https://www.youtube.com/results?search_query=druckenmiller+invest+for+kids) | — | 年度慈善论坛上的市场观点 |
-| [Druckenmiller 1980s-90s 罕见演讲合集](https://www.youtube.com/results?search_query=druckenmiller+speech+makielski+hall) | — | Duquesne 时代的交易哲学 |
+| [Druckenmiller 1980s-90s 罕见演讲合集](https://www.youtube.com/results?search_query=druckenmiller+speech) | — | Duquesne 时代的交易哲学 |
 
 ### 必读书籍
 
-| 书名 | 年份 | 说明 |
+| 书名 | 年份 | 豆瓣 |
 |------|------|------|
-| Jack Schwager, *The New Market Wizards*（Druckenmiller 章节） | 1992 | 交易风格最全面的采访，"put all your eggs in one basket" |
-| Jack Schwager, *Hedge Fund Market Wizards*（再次收录） | 2012 | 又过了 20 年，再次更新 |
-| Sebastian Mallaby, *More Money Than God*（部分章节） | 2010 | Quantum Fund 时代的辉煌记述 |
+| Jack Schwager, *The New Market Wizards*（Druckenmiller 章节） | 1992 | [豆瓣 8.8](https://book.douban.com/subject/1845910/) |
+| Jack Schwager, *Hedge Fund Market Wizards*（再次收录） | 2012 | [豆瓣 8.2](https://book.douban.com/subject/10754706/) |
+| Sebastian Mallaby, *More Money Than God*（部分章节） | 2010 | [豆瓣 8.5](https://book.douban.com/subject/4829315/) |
 
 ### 核心投资原则
 
@@ -434,20 +501,20 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 |------|------|------|
 | [Berkshire Hathaway 年度股东大会（历年完整版）](https://www.youtube.com/results?search_query=berkshire+hathaway+annual+meeting+full) | 5-7h | 1994-2025 年完整视频，价值投资者大朝圣 |
 | [CNBC: Buffett 2023 股东大会精华](https://www.youtube.com/results?search_query=buffett+cnbc+2023+annual+meeting) | 3.5h | "苹果是我们做过最好的收购" |
-| [1998 Berkshire 股东大会完整版](https://www.youtube.com/watch?v=5Tcqlrz6yKo) | 4h+ | 保险+估值+日本最经典一场 |
-| [2020 完整股东大会](https://www.youtube.com/watch?v=XOxzf_-upS4) | 5h | COVID 期间，"Never bet against America" |
-| [2022 开幕致辞：高通胀时代的投资](https://www.youtube.com/watch?v=4H5OibatT00) | — | 通胀中最好的投资是提升你自己的赚钱能力 |
-| [Davidson College 演讲（最经典之一）](https://www.youtube.com/results?search_query=buffett+davidson+college) | — | 学生时代的坦诚分享 |
+| [1998 Berkshire 股东大会完整版](https://www.youtube.com/results?search_query=berkshire+hathaway+1998+annual+meeting) | 4h+ | 保险+估值+日本最经典一场 |
+| [2020 完整股东大会](https://www.youtube.com/results?search_query=berkshire+hathaway+2020+annual+meeting) | 5h | COVID 期间，"Never bet against America" |
+| [2022 开幕致辞：高通胀时代的投资](https://www.youtube.com/results?search_query=buffett+2022+berkshire+hathaway+annual+meeting) | — | 通胀中最好的投资是提升你自己的赚钱能力 |
+| [Davidson College 演讲](https://www.youtube.com/results?search_query=buffett+davidson+college+speech) | — | 学生时代的坦诚分享 |
 
 ### 必读书籍
 
-| 书名 | 作者 | 年份 | 说明 |
+| 书名 | 作者 | 年份 | 豆瓣 |
 |------|------|------|------|
-| Alice Schroeder, *The Snowball: Warren Buffett and the Business of Life* | Schroeder | 2008 | 唯一授权的全面传记，960 页，巴菲特本人全力配合 |
-| Roger Lowenstein, *Buffett: The Making of an American Capitalist* | Lowenstein | 1995 | 首个完整的 Buffett 传记，更聚焦投资方法论 |
-| Warren Buffett, *Berkshire 致股东信合集* | Buffett 本人 | 1965-2025 | 60 年投资思想的原点，全文在 Berkshire 官网免费阅读 |
-| Carol Loomis, *Tap Dancing to Work* | Loomis | 2012 | Fortune 杂志资深编辑整理的 Buffett 报道合集 |
-| Lawrence Cunningham, *The Essays of Warren Buffett* | Cunningham 编 | 1997（多次更新） | 致股东信按主题精选编排 |
+| *The Snowball: Warren Buffett and the Business of Life*（《滚雪球》） | Alice Schroeder | 2008 | [豆瓣 8.6（英文版）](https://book.douban.com/subject/3092890/) / [豆瓣 8.4（台版）](https://book.douban.com/subject/3364286/) |
+| *Buffett: The Making of an American Capitalist*（《一个美国资本家的成长》） | Roger Lowenstein | 1995 | [豆瓣 8.5](https://book.douban.com/subject/1473185/) |
+| *Berkshire 致股东信合集* | Buffett 本人 | 1965-2025 | [Berkshire 官网免费阅读](https://www.berkshirehathaway.com/letters/letters.html) |
+| *Tap Dancing to Work* | Carol Loomis | 2012 | [豆瓣 7.6](https://book.douban.com/subject/20389000/) |
+| *The Essays of Warren Buffett*（《巴菲特致股东的信》） | Cunningham 编 | 1997（多次更新） | [豆瓣 9.1](https://book.douban.com/subject/25744368/) |
 
 ### 核心投资原则
 
@@ -459,6 +526,22 @@ description: 全球投资大师索引 — YouTube 演讲/访谈 + 书籍/传记 
 6. **永远不要做空美国** — 横跨几十年的主题
 7. **把鸡蛋放在一个篮子里，看好那个篮子** — 集中 + 深度理解
 8. **收入和支出纪律 > 一切投资技巧** — 量入为出、避免债务
+
+---
+
+## 对话/访谈栏目
+
+| 栏目 | 平台 | 说明 |
+|------|------|------|
+| [《对话》全集播放列表](https://www.youtube.com/playlist?list=PLrybf3rp9BTvr_MNKT2mW7sJ6WXuy2WYy) | YouTube / CCTV 财经 | 央视财经频道高端谈话节目，2000 年创刊，上千期，含企业家/政府/学界重量级嘉宾 |
+
+---
+
+## 量化 UP 主 / 创作者
+
+| UP 主 | 平台 | 说明 |
+|------|------|------|
+| [Leon的金融视界](https://space.bilibili.com/86888208) | B站 | 金融/量化投资内容创作者 |
 
 ---
 

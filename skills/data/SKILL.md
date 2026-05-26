@@ -20,9 +20,10 @@ description: |
 
 ## 数据源优先级
 
-**A 股**: AKShare (`pip install akshare`) → Tushare → baostock
+**A 股**: AKShare (`pip install akshare`) → Tushare → JQData → baostock
 **美股行情**: `financial-datasets.get_stock_prices` / `get_stock_price` → yfinance (`pip install yfinance`) → Polygon.io
 **美股财报 / 估值 / 新闻 / 13F**: `financial-datasets` MCP → `llmquant-data` MCP → SEC / Yahoo Finance 直连
+**A 股财务 / 指数 / 期货**: JQData (`pip install jqdatasdk`) — 聚宽官方 SDK，需注册账号，覆盖行情/财务/指数/期货/基金/行业
 **指数成分**: `ak.index_stock_cons(index_code="000300")` — 沪深 300
 
 ## MCP 数据源
