@@ -28,21 +28,33 @@ def load_or_generate(symbol: str = "000001") -> pd.DataFrame:
         if len(df) > 10:
             return df
 
-    # Synthetic fallback — realistic price walk
+    # Try yfinance for real data
+    try:
+        import yfinance as yf
+        ticker_map = {"000001": "000001.SZ", "000300": "510300.SS"}
+        yt = ticker_map.get(symbol, f"{symbol}.SZ")
+        df = yf.download(yt, start="2025-06-01", end="2026-05-26", progress=False)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.droplevel(1)
+        df.columns = [c.lower() for c in df.columns]
+        df.index = pd.to_datetime(df.index)
+        if len(df) > 20:
+            return df
+    except Exception:
+        pass
+
+    # Fallback: synthetic walk
     np.random.seed(42)
     dates = pd.date_range("2026-01-02", "2026-05-26", freq="B")
     n = len(dates)
-    returns = np.random.normal(0.0005, 0.018, n)
-    price = 12.0 * np.exp(np.cumsum(returns))
-    price = np.clip(price, 8, 18)
+    price = 12.0 * np.exp(np.cumsum(np.random.normal(0.0005, 0.018, n)))
     data = []
     for i, d in enumerate(dates):
         o = price[i]
         c = o * (1 + np.random.normal(0, 0.012))
         h = max(o, c) * (1 + abs(np.random.normal(0, 0.008)))
         l = min(o, c) * (1 - abs(np.random.normal(0, 0.008)))
-        v = int(np.random.uniform(5e7, 2e8))
-        data.append({"date": d, "open": o, "high": h, "low": l, "close": c, "volume": v})
+        data.append({"date": d, "open": o, "high": h, "low": l, "close": c, "volume": int(np.random.uniform(5e7, 2e8))})
     return pd.DataFrame(data).set_index("date")
 
 
@@ -110,10 +122,10 @@ def make_kline(df: pd.DataFrame, symbol: str = "000001", name: str = "平安银�
                     fixedrange=False),
         yaxis2=dict(showgrid=False, zeroline=False, tickfont=dict(size=9, color=TEXT),
                      showticklabels=False),
-        legend=dict(orientation="h", yanchor="top", y=1.02, xanchor="left", x=0.01,
+        legend=dict(orientation="v", yanchor="top", y=0.98, xanchor="left", x=1.01,
                      font=dict(size=10, color=TEXT), bgcolor="rgba(18,20,19,0.85)",
                      bordercolor=GRID, borderwidth=1),
-        margin=dict(l=10, r=60, t=50, b=10),
+        margin=dict(l=10, r=140, t=50, b=10),
         height=520,
         hovermode="x unified",
         hoverlabel=dict(bgcolor="#1E2220", font_size=12, font_family="SF Mono, monospace",
