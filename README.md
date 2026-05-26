@@ -37,8 +37,7 @@ oh-my-quant/
 ├── cli/        # CLI 入口 (whyj-quant)
 ├── docs/
 │   ├── DESIGN.md           # NewForm 设计系统 (Google Stitch Alpha 规范)
-│   └── reference.MD        # 量化资源索引
-├── docs/reference.MD      # 量化资源索引
+│   └── reference.md        # 量化资源索引 + API 速查
 ├── CHANGELOG.md
 └── CLAUDE.md              # Agent 项目指令
 ```

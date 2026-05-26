@@ -3,7 +3,7 @@ name: quant-reference
 description: 量化金融资源索引 — MCP servers、Agent Skills、Python 库、AI Trading 平台、数据源、学习资料
 ---
 
-# Quant 资源索引 (reference.MD)
+# Quant 资源索引 (reference.md)
 
 ## MCP Servers
 
@@ -182,6 +182,112 @@ description: 量化金融资源索引 — MCP servers、Agent Skills、Python �
 | 期权(商品+金融) | 所有期权信息、交易和持仓排名、风险指标、行权交收、合约调整、合约资料、每日盘前静态文件、日/周/月历史 |
 | 特色因子 | 聚宽因子库、Alpha191、Alpha101、资金流因子 |
 | 风险模型 | CNE5、CNE6、重点宽基指数风格暴露、因子分位数收益率 |
+
+---
+
+## API Reference
+
+### AKShare (A 股行情)
+
+```python
+import akshare as ak
+
+# 日线
+df = ak.stock_zh_a_hist(symbol="000001", period="daily", start_date="20240101", end_date="20241231", adjust="qfq")
+# 分钟线 (1/5/15/30/60)
+df = ak.stock_zh_a_hist_min_em(symbol="000001", period="60", adjust="qfq")
+# 指数成分
+df = ak.index_stock_cons(symbol="000300")
+# 行业分类
+df = ak.stock_board_industry_name_em()
+# 财务报表
+df = ak.stock_financial_report_sina(stock="000001", symbol="资产负债表")
+# 估值指标
+df = ak.stock_a_lg_indicator(symbol="000001")
+```
+
+### yfinance (美股/全球)
+
+```python
+import yfinance as yf
+
+df = yf.download("AAPL", start="2024-01-01", end="2024-12-31")
+# 多股票
+df = yf.download(["AAPL","MSFT","GOOG"], start="2024-01-01")
+# A 股 (Shenzhen=\.SZ, Shanghai=\.SS)
+df = yf.download("000001.SZ", start="2024-01-01")
+```
+
+### JQData (聚宽 SDK)
+
+```python
+from jqdatasdk import auth, get_price, get_query_count, logout, get_all_securities, get_index_weights, get_valuation, get_fundamentals, query, valuation, income, balance, get_all_alpha_101, get_all_alpha_191
+
+auth('手机号', '密码')
+# 日线/分钟线
+df = get_price('000001.XSHE', start_date='2024-01-01', end_date='2024-12-31', frequency='daily', fields=['open','close','high','low','volume'], fq='pre')
+# 指数权重
+df = get_index_weights('000300.XSHG', date='2024-12-31')
+# 估值
+df = get_valuation('000001.XSHE', start_date='2024-01-01', end_date='2024-12-31')
+# 财务 (单季度)
+q = query(valuation, income, balance).filter(valuation.code=='000001.XSHE', balance.stat_date=='2024q4', income.stat_date=='2024q4')
+df = get_fundamentals(q, stat_date='2024q4')
+# Alpha 因子
+df = get_all_alpha_101(stocks)  # 101 Formulaic Alphas
+df = get_all_alpha_191(stocks)  # GTJA 191
+# 流量查询
+get_query_count()  # {'total': 1000000, 'spare': 996927}
+logout()
+```
+
+### Tushare
+
+```python
+import tushare as ts
+ts.set_token('YOUR_TOKEN')
+pro = ts.pro_api()
+
+df = pro.daily(ts_code='000001.SZ', start_date='20240101', end_date='20241231')
+df = pro.daily_basic(ts_code='000001.SZ', start_date='20240101')  # 每日指标(PE/PB)
+df = pro.income(ts_code='000001.SZ', period='20241231')           # 利润表
+df = pro.balancesheet(ts_code='000001.SZ', period='20241231')     # 资产负债表
+df = pro.index_weight(index_code='000300.SH', start_date='20240101')
+```
+
+### Financial Datasets MCP
+
+```python
+# Claude Code 中直接调用 MCP 工具名，无需 import
+
+# 公司信息
+get_company_facts(ticker="AAPL")                          # → company_name, sector, CIK, exchange
+# 股价
+get_stock_prices(ticker="AAPL", start_date="2024-01-01", end_date="2024-12-31")
+get_stock_price(ticker="AAPL")                            # 最新快照
+# 财报
+get_income_statement(ticker="AAPL", period="annual", limit=4)
+get_balance_sheet(ticker="AAPL", period="quarterly", limit=4)
+get_cash_flow_statement(ticker="AAPL", period="ttm")
+# 估值
+get_financial_metrics_snapshot(ticker="AAPL")             # PE/PB/PS/ROE/市值
+get_financial_metrics(ticker="AAPL", period="annual", limit=4)
+# 机构持仓 (13F)
+get_institutional_holdings(ticker="AAPL", limit=10)
+get_institutional_investors(name="Berkshire")
+# 内部交易
+get_insider_trades(ticker="AAPL", limit=20)
+# SEC 文件
+get_filings(ticker="AAPL", filing_type="10-K", limit=5)
+get_filing_items(ticker="AAPL", filing_type="10-K", year=2024, item=["Item-1","Item-7"])
+# 利率
+get_interest_rates()
+# 新闻
+get_news(ticker="AAPL")
+# 选股筛选
+list_stock_screener_filters()
+screen_stocks(filters=[{"field":"pe_ratio","operator":"lt","value":20},{"field":"sector","operator":"eq","value":"Technology"}])
+```
 
 ---
 

@@ -24,7 +24,7 @@ oh-my-quant/
 ├── CLAUDE.md              # 本文件
 ├── README.md
 ├── CHANGELOG.md
-├── docs/reference.MD      # 量化资源索引
+├── docs/reference.md      # 量化资源索引
 ├── benchmark/             # 评测 skill + 数据 + 结果
 │   ├── SKILL.md           #   策略评测 skill（对齐 AI-Trader）
 │   ├── scripts/           #   score.py, dashboard.py, metric_pages.py, kline_chart.py
@@ -82,7 +82,7 @@ oh-my-quant/
   - 跨 skill 引用是否一致
   - Python 代码是否符合项目规范
 - 审查通过后才能 push
-- **每次 push 前必须更新文档**（README.md、CHANGELOG.md、docs/reference.MD），确保与代码同步
+- **每次 push 前必须更新文档**（README.md、CHANGELOG.md、docs/reference.md），确保与代码同步
 - Commit 按功能拆分，一个 commit 只做一个改动
 
 ## Playwright 浏览器自动化

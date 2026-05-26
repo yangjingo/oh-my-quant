@@ -31,7 +31,7 @@
 - `whyj-quant` — click-based 命令行入口，`whyj-quant run -p "..."` 自然语言路由到对应 skill
 
 **Docs**:
-- `docs/reference.MD` — 量化资源索引：MCP Servers、Agent Skills、Python 库、AI Trading 平台、数据源、学习资料
+- `docs/reference.md` — 量化资源索引：MCP Servers、Agent Skills、Python 库、AI Trading 平台、数据源、学习资料
 - `CHANGELOG.md` — 本文件
 
 ### Design Decisions
