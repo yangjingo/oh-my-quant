@@ -17,10 +17,10 @@ oh-my-quant/
 ├── docs/reference.MD      # 量化资源索引
 ├── benchmark/             # 评测 skill + 数据 + 结果
 │   ├── SKILL.md           #   策略评测 skill（对齐 AI-Trader）
-│   ├── scripts/           #   score.py, dashboard.py
-│   ├── data/              #   评测输入（OHLCV、因子面板）
+│   ├── scripts/           #   score.py, dashboard.py, metric_pages.py, kline_chart.py
+│   ├── data/              #   评测输入（OHLCV、因子面板，alpha 清单）
 │   ├── results/           #   评测结果 JSON/CSV
-│   └── reports/           #   评测报告 Markdown
+│   └── metrics/           #   HTML 指标页（6 个 metric + K-line + Dashboard）
 ├── skills/                # 7 个 Agent Skills
     ├── data/              # 数据获取与清洗 + scripts/fetch.py
     ├── factor/            # 因子研究 + scripts/compute.py, analysis.py

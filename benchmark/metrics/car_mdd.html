@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAR/MDD (Calmar) &middot; oh-my-quant</title><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#121413;color:#F7F9F6;font-family:'Inter','Helvetica Neue',Arial,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+.hero{background:#121413;padding:80px 48px 48px;border-bottom:1px solid #2C302E}
+.hero h1{font-size:48px;font-weight:800;letter-spacing:-1.8px;line-height:1.1}
+.hero .tagline{font-size:14px;color:#8C9490;margin-top:12px;font-family:'SF Mono',Menlo,monospace}
+.hero .formula{margin-top:24px;display:inline-block;background:#1E2220;border:1px solid #2C302E;padding:16px 24px;font-family:'SF Mono',Menlo,monospace;font-size:15px;color:#39E180;border-radius:2px}
+.content{padding:48px;max-width:900px}
+.content h2{font-size:20px;font-weight:700;letter-spacing:-0.5px;margin:40px 0 16px;padding-top:24px;border-top:1px solid #2C302E}
+.content h2:first-of-type{border-top:none;padding-top:0;margin-top:0}
+.content p{font-size:15px;color:#8C9490;margin-bottom:12px}
+.content ul{margin:12px 0 24px 20px;color:#8C9490;font-size:14px}
+.content ul li{margin-bottom:8px}
+.tag{display:inline-block;padding:4px 12px;border-radius:2px;font-size:12px;font-weight:600;letter-spacing:0.3px;margin-right:8px;margin-bottom:8px;border:1px solid #2C302E}
+.tag-good{color:#39E180;border-color:#39E18044;background:rgba(57,225,128,0.08)}
+.tag-warn{color:#F0C040;border-color:#F0C04044;background:rgba(240,192,64,0.08)}
+.tag-bad{color:#E04040;border-color:#E0404044;background:rgba(224,64,64,0.08)}
+.chart-box{margin:32px 0;border:1px solid #2C302E;padding:0;background:#0a0b0a}
+.reading{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:#2C302E;border:1px solid #2C302E;margin:24px 0}
+.reading-card{background:#1E2220;padding:20px}
+.reading-card .label{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#8C9490;margin-bottom:8px}
+.reading-card .value{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.footer{border-top:1px solid #2C302E;padding:20px 48px;text-align:center;font-size:11px;color:#8C9490;letter-spacing:0.3px}
+.back{font-size:12px;color:#8C9490;text-decoration:none;border-bottom:1px solid #2C302E;padding-bottom:2px}
+.back:hover{color:#39E180;border-color:#39E180}
+@media(max-width:768px){.hero{padding:48px 24px}.hero h1{font-size:32px}.content{padding:32px 24px}}
+</style></head><body>
+<div class="hero">
+  <h1 style="color:#F0C040">CAR/MDD (Calmar)</h1>
+  <div class="tagline">年化收益率与最大回撤的比值。回撤调整后的收益效率指标，越高越好。</div>
+  <div class="formula">Calmar = CAGR / |MDD|    ·    CAGR=年化复合收益  MDD=最大回撤</div>
+  <div style="margin-top:20px"><span class="tag tag-good">> 2.0: 极优</span><span class="tag tag-good">1.0~2.0: 良好</span><span class="tag tag-warn">0.5~1.0: 一般</span><span class="tag tag-warn">0.2~0.5: 偏差</span><span class="tag tag-bad">< 0.2: 无效</span></div>
+</div>
+<div class="content">
+  <div class="reading"><div class="reading-card"><div class="label">Calmar Ratio</div><div class="value" style="color:#E04040">0.02</div></div><div class="reading-card"><div class="label">CAGR</div><div class="value" style="color:#39E180">0.6%</div></div><div class="reading-card"><div class="label">Max Drawdown</div><div class="value" style="color:#8C9490">-23.8%</div></div></div>
+  <div class="chart-box"><div>                        <script>window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+        <script charset="utf-8" src="https://cdn.plot.ly/plotly-3.5.0.min.js" integrity="sha256-fHbNLP+GlIXN+efbQec78UkemUz3NJp7UmfGxC1tNxs=" crossorigin="anonymous"></script>                <div id="fc91ebba-4285-40d6-8c55-0892db805422" class="plotly-graph-div" style="height:340px; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("fc91ebba-4285-40d6-8c55-0892db805422")) {                    Plotly.newPlot(                        "fc91ebba-4285-40d6-8c55-0892db805422",                        [],                        {"template":{"data":{"scatter":[{"type":"scatter"}]}},"font":{"family":"SF Mono,Menlo,monospace","size":10,"color":"#8C9490"},"margin":{"l":40,"r":20,"t":40,"b":20},"xaxis":{"tickfont":{"color":"#8C9490","size":9},"showgrid":true,"gridcolor":"#2C302E","gridwidth":1,"zeroline":false},"yaxis":{"tickfont":{"color":"#F7F9F6","size":10},"showgrid":true,"gridcolor":"#2C302E","gridwidth":1,"zeroline":false,"side":"right"},"legend":{"font":{"size":9,"color":"#8C9490"},"orientation":"h","y":1.02,"x":0,"bgcolor":"rgba(0,0,0,0)"},"title":{"font":{"size":11,"color":"#8C9490","family":"SF Mono,Menlo,monospace"},"text":"Calmar Ratio \u00b7 Rolling 1-Year","x":0.01,"y":0.97},"paper_bgcolor":"#121413","plot_bgcolor":"#0a0b0a","height":340},                        {"displayModeBar": false, "displaylogo": false, "responsive": true}                    )                };            </script>        </div></div>
+  <h2>使用场景</h2><ul>
+<li><b>CTA/期货策略</b>: 这类策略夏普通常不高但回撤控制好，Calmar 比夏普更适合评价</li>
+<li><b>回撤敏感型资金</b>: 银行理财、养老金等不能承受大回撤，Calmar 是首要筛选指标</li>
+<li><b>策略成熟度</b>: Calmar 持续 > 1 且滚动稳定，表明策略在不同市场环境下回撤控制一致</li>
+</ul>
+</div>
+<div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
+</body></html>

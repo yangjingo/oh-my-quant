@@ -320,7 +320,7 @@ def dashboard(html: bool):
     if html:
         from benchmark.scripts.dashboard_html import collect, build_html
         df = collect()
-        out = Path(__file__).resolve().parents[2] / "benchmark/reports/dashboard.html"
+        out = Path(__file__).resolve().parents[2] / "benchmark/metrics/dashboard.html"
         out.write_text(build_html(df), encoding="utf-8")
         import webbrowser
         webbrowser.open(str(out))

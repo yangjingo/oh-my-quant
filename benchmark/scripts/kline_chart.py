@@ -12,7 +12,7 @@ from pathlib import Path
 import json
 import numpy as np
 
-OUT_DIR = Path(__file__).resolve().parents[1] / "reports"
+OUT_DIR = Path(__file__).resolve().parents[1] / "metrics"
 
 # ── NewForm palette ──
 BG = "#121413"

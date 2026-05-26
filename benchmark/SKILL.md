@@ -150,3 +150,35 @@ html = build(df)
 - 最高 ROI 改进项
 - 最弱维度
 ```
+
+## Metric 页面调用经验
+
+评测完成后，必须为每个指标生成独立的 metric 页面。每个页面包含定义、公式、使用场景分级、交互图表。
+
+### 生成命令
+
+```bash
+# 一次性生成全部 6 个 metric 页面
+python benchmark/scripts/metric_pages.py
+# → benchmark/metrics/{sharpe,max_dd,win_rate,profit,car_mdd,ulcer}.html
+```
+
+### 指标速查
+
+| Metric | 文件 | 核心公式 | 优秀阈值 | 坏阈值 |
+|--------|------|----------|---------|--------|
+| Sharpe Ratio | `sharpe.html` | (Rp−Rf)/σp | > 2.0 | < 0.5 |
+| Max Drawdown | `max_dd.html` | min((V−peak)/peak) | < -10% | > -35% |
+| Win Rate | `win_rate.html` | Nwin/Ntotal | 看组合 | 单独看无意义 |
+| Profit Factor | `profit.html` | ΣProfit/|ΣLoss| | > 2.0 | < 1.0 |
+| CAR/MDD | `car_mdd.html` | CAGR/|MDD| | > 2.0 | < 0.2 |
+| Ulcer Index | `ulcer.html` | √(mean(R²)) | < 0.05 | > 0.15 |
+
+### 调用原则
+
+1. **不孤立看任一指标**: 单独一个指标会误导——高夏普可能来自短样本，高胜率可能来自小赢大亏
+2. **先看 Calmar + Ulcer**: 回撤控制是生存前提，这两个指标通过才看收益指标
+3. **结合交易次数**: 样本 < 30 笔交易时所有指标统计意义不足，标注置信度
+4. **滚动窗口看稳定性**: 单一数字不可靠——看 60 日/252 日滚动曲线判断指标是否随时间恶化
+5. **与基准横向对比**: 同市场、同期、同品种的被动基准跑一遍，超额才有意义
+6. **每个页面独立可分享**: metric HTML 页面自包含（CDN plotly + 内联 CSS），可直接发送或嵌入 Notion

@@ -166,6 +166,11 @@ def build(df: pd.DataFrame) -> str:
 </div>
 
 <div class="engine">
+  <div class="section-header"><h2>Metric Pages</h2><span class="count">definition + use case + chart</span></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:{C['hairline_dark']};border:1px solid {C['hairline_dark']};margin-bottom:48px">
+    {' '.join(f'<a href="{slug}.html" style="background:{C['surface_card']};padding:16px 20px;text-decoration:none;color:{C['text_dark']};font-size:13px;font-weight:600;display:block">{name}<br><span style="font-size:11px;color:{C['muted_dark']};font-weight:400">{desc}</span></a>' for slug, name, desc in [("sharpe","Sharpe Ratio","风险调整收益"),("max_dd","Max Drawdown","最大回撤"),("win_rate","Win Rate","胜率+盈亏比"),("profit","Profit Factor","盈亏效率"),("car_mdd","CAR/MDD","回撤调整收益"),("ulcer","Ulcer Index","压力指标")])}
+  </div>
+
   <div class="section-header"><h2>Grade Distribution</h2><span class="count">{total} records</span></div>
   <div class="pills">{pills}</div>
 
@@ -187,7 +192,7 @@ def build(df: pd.DataFrame) -> str:
 
 if __name__ == "__main__":
     df = collect()
-    out = Path(__file__).resolve().parents[1] / "reports" / "dashboard.html"
+    out = Path(__file__).resolve().parents[1] / "metrics" / "dashboard.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(build(df), encoding="utf-8")
     print(f"NewForm dashboard → {out}")
