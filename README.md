@@ -1,6 +1,6 @@
 # oh-my-quant
 
-量化金融 Agent Skills 合集 — 7 个 Claude Code / Codex 自定义 skills + 1 个 benchmark 模块。
+量化金融 Agent Skills 合集 — 8 个 Claude Code / Codex 自定义 skills + 1 个 benchmark 模块。
 
 ## Skills
 
@@ -12,6 +12,7 @@
 | `risk` | 风险管理与组合优化 |
 | `research` | 综合研究入口（编排上述 4 个） |
 | `intel` | 投资大师观点抓取（10 位大师，手动+Cron） |
+| `consensus` | 顶级基金 13F 共识持仓分析（Top 20 / 新进 / 退出 / 强度变化） |
 | `validate` | 验证 skills & CLI 工具（冒烟 + cross-check） |
 
 ## Benchmark 模块
@@ -31,9 +32,9 @@
 
 ```
 oh-my-quant/
-├── skills/                # 7 个 skills，每个含 SKILL.md + scripts/
+├── skills/                # 8 个 skills，每个含 SKILL.md + scripts/
 ├── benchmark/             # 评测 skill + 数据 + K 线模板 + 看板
-├── src/whyj_quant/        # CLI 入口 (whyj-quant)
+├── cli/        # CLI 入口 (whyj-quant)
 ├── docs/
 │   ├── DESIGN.md           # NewForm 设计系统 (Google Stitch Alpha 规范)
 │   └── reference.MD        # 量化资源索引
@@ -50,7 +51,16 @@ whyj-quant run -p "回测平安银行均线策略"    # 自然语言入口
 whyj-quant validate all                    # 验证全部 skills
 whyj-quant dashboard                       # 统计看板
 whyj-quant backtest run --symbol 000001    # 单功能命令
+whyj-quant consensus report --quarter 2026Q1  # 机构共识分析入口
 ```
+
+## 数据源
+
+- `data` skill 现支持本地 Python 数据源和结构化 MCP：
+  - A 股：AKShare / Tushare / baostock
+  - 美股价格：yfinance / Financial Datasets MCP
+  - 美股财报、13F、公司信息、新闻：Financial Datasets MCP / LLMQuant Data MCP
+- `Financial Datasets` 聚合 open-source data 与第三方 API，包括 Yahoo Finance、SEC EDGAR，适合结构化财报和机构持仓分析。
 
 ## 参考
 

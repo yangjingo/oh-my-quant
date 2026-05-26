@@ -1,7 +1,7 @@
 [project]
 name = "whyj-quant"
 version = "0.1.0"
-description = "oh-my-quant CLI — 串接 8 个量化 skills 的命令行入口"
+description = "oh-my-quant CLI — 串接 9 个量化 skills 的命令行入口"
 requires-python = ">=3.12"
 dependencies = [
     "click>=8.1",
@@ -23,11 +23,11 @@ extra = [
 ]
 
 [project.scripts]
-whyj-quant = "whyj_quant.main:cli"
+whyj-quant = "cli.main:cli"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/whyj_quant"]
+packages = ["cli"]

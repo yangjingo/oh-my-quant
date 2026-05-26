@@ -1,9 +1,30 @@
-"""whyj-quant CLI — 串接 8 个量化 skills 的命令行入口"""
+"""whyj-quant CLI — 串接 9 个量化 skills 的命令行入口"""
 
 import click
 from pathlib import Path
+import sys
 
-SKILLS_DIR = Path(__file__).resolve().parents[2] / "skills"
+ROOT = Path(__file__).resolve().parents[1]
+SKILLS_DIR = ROOT / "skills"
+CORE_SKILLS = ["data", "factor", "backtest", "risk", "research", "intel", "consensus"]
+
+# Avoid Windows cp1252 write errors for existing Chinese / emoji CLI output.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
+# Load .env at startup
+def _load_env():
+    for p in [ROOT / ".env", ROOT / "agent" / ".env"]:
+        if p.exists():
+            for line in p.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    if k not in __import__("os").environ:
+                        __import__("os").environ[k] = v
+_load_env()
 
 
 @click.group()
@@ -11,7 +32,7 @@ SKILLS_DIR = Path(__file__).resolve().parents[2] / "skills"
 def cli():
     """whyj-quant — oh-my-quant 量化 skills 合集 CLI
 
-    串接 data / factor / backtest / risk / research / intel / benchmark / validate 8 个 skills。
+    串接 data / factor / backtest / risk / research / intel / consensus / benchmark / validate 9 个 skills。
 
     \\b
     示例:
@@ -39,6 +60,7 @@ def run(prompt: str, dry_run: bool):
         "backtest": ["回测", "策略", "backtest", "绩效", "均线", "MACD", "RSI"],
         "risk": ["风险", "VaR", "压力测试", "组合优化", "波动率"],
         "intel": ["巴菲特", "Dalio", "Marks", "大师", "股东信", "13F"],
+        "consensus": ["共识", "共同买", "顶级基金", "机构共识", "抱团", "新进入榜单", "退出榜单"],
         "benchmark": ["评测", "benchmark", "对比", "排名"],
         "research": ["研究", "完整流程", "端到端"],
         "validate": ["验证", "测试", "check"],
@@ -212,6 +234,24 @@ def intel_fetch(master: str):
     _show_skill_md("intel")
 
 
+# ── consensus ──
+
+@cli.group()
+def consensus():
+    """13F 机构共识持仓分析"""
+
+
+@consensus.command("report")
+@click.option("--quarter", default="latest", help="季度标签，例如 2026Q1")
+@click.option("--top-n", default=20, type=int, help="输出榜单数量")
+def consensus_report(quarter: str, top_n: int):
+    """输出机构共识分析说明"""
+    click.echo(f"🤝 机构共识分析 {quarter} Top {top_n}")
+    click.echo("提示: 此功能需 financial-datasets 或 llmquant-data MCP，请在 Claude Code / Codex 中使用 /consensus skill")
+    click.echo("脚本入口: skills/consensus/scripts/consensus.py")
+    _show_skill_md("consensus")
+
+
 # ── benchmark ──
 
 @cli.group()
@@ -226,7 +266,7 @@ def benchmark_run(symbol: str, strategy_desc: str):
     click.echo(f"📏 评测 {symbol} {strategy_desc}")
     try:
         import sys
-        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
         from skills.data.scripts.fetch import fetch_a_stock
         from benchmark.scripts.score import evaluate
         import pandas as pd
@@ -269,11 +309,10 @@ def validate():
 def validate_all():
     """运行全部冒烟测试"""
     click.echo("🧪 运行全部 skill 结构验证")
-    import os
-    BENCHMARK_DIR = Path(__file__).resolve().parents[2] / "benchmark"
+    BENCHMARK_DIR = Path(__file__).resolve().parents[1] / "benchmark"
     total = 0
     passed = 0
-    for name in ["data", "factor", "backtest", "risk", "research", "intel", "benchmark"]:
+    for name in [*CORE_SKILLS, "benchmark"]:
         if name == "benchmark":
             skill_md = BENCHMARK_DIR / "SKILL.md"
             scripts = BENCHMARK_DIR / "scripts"
@@ -315,12 +354,12 @@ def validate_check_cli():
 def dashboard(html: bool):
     """统计看板 — 聚合 benchmark/results/ 评测结果"""
     import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
     if html:
         from benchmark.scripts.dashboard_html import collect, build_html
         df = collect()
-        out = Path(__file__).resolve().parents[2] / "benchmark/metrics/dashboard.html"
+        out = Path(__file__).resolve().parents[1] / "benchmark/metrics/dashboard.html"
         out.write_text(build_html(df), encoding="utf-8")
         import webbrowser
         webbrowser.open(str(out))

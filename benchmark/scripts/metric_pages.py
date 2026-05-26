@@ -116,8 +116,16 @@ def _fig_html(fig: go.Figure) -> str:
 # ── Page builder ──
 
 def _page(title: str, accent_color: str, definition: str, formula: str,
-          use_cases: list[tuple[str, str]], chart_html: str, readings: list[tuple[str, str, str]]) -> str:
+          use_cases: list[tuple[str, str]], chart_html: str, readings: list[tuple[str, str, str]],
+          level: str = "", citation: str = "") -> str:
     """Build a complete metric HTML page."""
+    level_badge = ""
+    if level == "primary":
+        level_badge = f'<span style="display:inline-block;background:rgba(57,225,128,0.12);color:{MINT};border:1px solid {MINT}44;padding:3px 10px;border-radius:2px;font-size:11px;font-weight:600;letter-spacing:0.3px;margin-left:12px;vertical-align:middle">PRIMARY METRIC</span>'
+    elif level == "secondary":
+        level_badge = f'<span style="display:inline-block;background:rgba(140,148,144,0.10);color:{TEXT};border:1px solid {GRID};padding:3px 10px;border-radius:2px;font-size:11px;font-weight:600;letter-spacing:0.3px;margin-left:12px;vertical-align:middle">SECONDARY</span>'
+    cite_html = f'<div style="margin-top:12px;font-size:12px;color:{TEXT};font-family:SF Mono,Menlo,monospace;opacity:0.7">{citation}</div>' if citation else ""
+
     tags = "".join(f'<span class="tag tag-{t}">{label}</span>' for label, t in use_cases)
     cards = "".join(
         f'<div class="reading-card"><div class="label">{label}</div><div class="value" style="color:{color}">{val}</div></div>'
@@ -126,8 +134,9 @@ def _page(title: str, accent_color: str, definition: str, formula: str,
     return f"""<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{title} &middot; oh-my-quant</title>{CSS}</head><body>
 <div class="hero">
-  <h1 style="color:{accent_color}">{title}</h1>
+  <h1 style="color:{accent_color}">{title}{level_badge}</h1>
   <div class="tagline">{definition}</div>
+  {cite_html}
   <div class="formula">{formula}</div>
   <div style="margin-top:20px">{tags}</div>
 </div>
@@ -165,14 +174,16 @@ def sharpe_page() -> str:
 
     title = "Sharpe Ratio"
     color = MINT
-    definition = "衡量每单位风险所获得的超额回报。数值越高，风险调整后的收益越好。"
+    definition = "衡量每单位风险所获得的超额回报。与 CR 同为 primary metric (Sharpe, 1994)。"
     formula = "$$\\text{Sharpe} = \\frac{R_p - R_f}{\\sigma_p}$$  $R_p$=年化收益 · $R_f$=无风险利率(2%) · $\\sigma_p$=年化波动率"
+    citation = "Sharpe, W.F. (1994). The Sharpe Ratio. *Journal of Portfolio Management*."
+    level = "primary"
     use_cases = [
         ("> 2.0: 优秀", "good"), ("1.0~2.0: 良好", "good"), ("0.5~1.0: 一般", "warn"),
         ("< 0.5: 较差", "bad"), ("< 0: 不如无风险", "bad"),
     ]
 
-    page = _page(title, color, definition, formula, use_cases, _fig_html(fig), readings)
+    page = _page(title, color, definition, formula, use_cases, _fig_html(fig), readings, level, citation)
 
     page += """<ul>
 <li><b>策略比较</b>: 不同策略之间用夏普比率横向对比，消除波动率差异</li>
@@ -217,14 +228,16 @@ def maxdd_page() -> str:
 
     title = "Max Drawdown"
     color = RED
-    definition = "投资组合从峰值到谷底的最大累计损失幅度。衡量最坏情况下的账面亏损。"
+    definition = "投资组合从峰值到谷底的最大累计损失幅度。辅助指标，需与 CR/SR 联合判断 (Ang & Chen, 2003)。"
     formula = "$$\\text{MDD} = \\min\\!\\left(\\frac{V(t) - \\max_{0..t}V}{\\max_{0..t}V}\\right)$$  $V$=权益净值"
+    citation = "Ang, A. & Chen, J. (2003). CAPM Over the Long Run: 1926-2001. *Journal of Empirical Finance*."
+    level = "secondary"
     use_cases = [
         ("< -10%: 极优", "good"), ("-10%~-20%: 良好", "good"), ("-20%~-35%: 一般", "warn"),
         ("-35%~-50%: 差", "bad"), ("> -50%: 灾难", "bad"),
     ]
 
-    page = _page(title, color, definition, formula, use_cases, _fig_html(fig), readings)
+    page = _page(title, color, definition, formula, use_cases, _fig_html(fig), readings, level, citation)
     page += f"""<ul>
 <li><b>心理承受</b>: 回撤超过 -25% 时大多数投资者会恐慌赎回，策略设计应以此为红线</li>
 <li><b>恢复计算</b>: -50% 回撤需要 +100% 收益才回本，回撤越深恢复越难</li>
@@ -493,11 +506,98 @@ def kline_page() -> str:
     return page, "kline"
 
 
+def cr_page() -> str:
+    """Cumulative Return (CR) — primary metric."""
+    r = RETURNS
+    cr = float((1 + r).prod() - 1)
+    cagr = float((1 + r.mean()) ** 252 - 1)
+    cum = (1 + r).cumprod()
+
+    fig = _base_fig("Cumulative Return · Equity Curve")
+    fig.add_trace(go.Scatter(x=cum.index, y=cum, mode="lines",
+        line=dict(color=MINT, width=2), name="Equity", fill="tozeroy",
+        fillcolor="rgba(57,225,128,0.08)"))
+    fig.add_hline(y=1.0, line=dict(color=GRID, width=1, dash="dash"),
+                   annotation=dict(text="Initial", font=dict(color=TEXT, size=9)))
+
+    readings = [
+        ("Cumulative Return", f"{cr:.1%}", MINT if cr > 0 else RED),
+        ("CAGR", f"{cagr:.1%}", MINT if cagr > 0 else RED),
+        ("Final × (Initial=1)", f"{cum.iloc[-1]:.2f}", WHITE),
+    ]
+
+    title = "Cumulative Return"
+    color = MINT
+    definition = "衡量长期资本增值总量的首要指标。与 Sharpe Ratio 并列为 primary metric (Hull, 2007)。"
+    formula = "$$\\text{CR} = \\frac{V_T - V_0}{V_0} = \\prod_{t=1}^{T}(1 + r_t) - 1$$  $V_0$=初始权益 · $V_T$=期末权益"
+    citation = "Hull, J.C. (2007). *Risk Management and Financial Institutions*. Pearson."
+    level = "primary"
+    use_cases = [
+        ("CR > 50%: 优秀", "good"), ("20-50%: 良好", "good"), ("0-20%: 一般", "warn"),
+        ("< 0%: 亏损", "bad"),
+    ]
+
+    page = _page(title, color, definition, formula, use_cases, _fig_html(fig), readings, level, citation)
+    page += """<ul>
+<li><b>首要指标</b>: CR 直接回答"赚了多少钱"，是投资者最关心的结果指标</li>
+<li><b>时间依赖</b>: CR 与回测时长强相关——5 年 50% 和 1 年 50% 含义完全不同，必须配合 CAGR 看年化</li>
+<li><b>vs 基准</b>: 策略 CR 跑输基准 CR = 策略无效，无论其他指标多好看</li>
+</ul>
+</div>
+<div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
+</body></html>"""
+    return page, "cumulative_return"
+
+
+def av_page() -> str:
+    """Annualized Volatility (AV) — secondary metric."""
+    r = RETURNS
+    av = float(r.std() * (252 ** 0.5))
+    rolling_vol = r.rolling(60).std() * (252 ** 0.5)
+
+    fig = _base_fig("Annualized Volatility · Rolling 60-day")
+    fig.add_trace(go.Scatter(x=rolling_vol.index, y=rolling_vol, mode="lines",
+        line=dict(color=GOLD, width=2), name="Rolling Vol", fill="tozeroy",
+        fillcolor="rgba(240,192,64,0.08)"))
+    fig.add_hline(y=av, line=dict(color=GOLD, width=1, dash="dash"),
+                   annotation=dict(text=f"AV {av:.1%}", font=dict(color=GOLD, size=9)))
+
+    readings = [
+        ("Annualized Vol", f"{av:.1%}", MINT if av < 0.20 else GOLD if av < 0.35 else RED),
+        ("Daily σ", f"{r.std():.4f}", TEXT),
+        ("Monthly σ", f"{r.std()*(21**0.5):.2%}", TEXT),
+    ]
+
+    title = "Annualized Volatility"
+    color = GOLD
+    definition = "收益率年化标准差，衡量策略的风险总量。辅助指标，需配合 CR/SR 解释 (Cochrane, 1988)。"
+    formula = "$$\\text{AV} = \\sigma_{\\text{daily}} \\times \\sqrt{252}$$  $\\sigma_{\\text{daily}}$=日收益率标准差"
+    citation = "Cochrane, J.H. (1988). How Big Is the Random Walk in GNP? *Journal of Political Economy*."
+    level = "secondary"
+    use_cases = [
+        ("< 15%: 低波动", "good"), ("15-25%: 中等", "good"), ("25-35%: 较高", "warn"),
+        ("35-50%: 高波动", "warn"), ("> 50%: 极高", "bad"),
+    ]
+
+    page = _page(title, color, definition, formula, use_cases, _fig_html(fig), readings, level, citation)
+    page += """<ul>
+<li><b>风险总量</b>: AV 衡量绝对风险——高 AV 不一定不好，关键看 CR 是否匹配</li>
+<li><b>组合必备</b>: 配合 Sharpe 使用——同样 AV 下夏普越高越好，同样夏普下 AV 越低越好</li>
+<li><b>滚动监控</b>: 滚动 AV 骤升 → 市场 regime change，需检查策略是否适应当前环境</li>
+</ul>
+</div>
+<div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow</div>
+</body></html>"""
+    return page, "annualized_volatility"
+
+
 # ── Build all ──
 
 METRICS = [
     ("sharpe",   sharpe_page,   "Sharpe Ratio"),
+    ("cumulative_return", cr_page, "Cumulative Return"),
     ("max_dd",   maxdd_page,    "Max Drawdown"),
+    ("annualized_volatility", av_page, "Annualized Volatility"),
     ("win_rate", winrate_page,  "Win Rate"),
     ("profit",   profit_factor_page, "Profit Factor"),
     ("car_mdd",  car_mdd_page,  "CAR/MDD (Calmar)"),
