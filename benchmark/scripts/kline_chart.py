@@ -1,4 +1,9 @@
-"""NewForm-styled K-line chart generator — plotly interactive candlestick"""
+"""NewForm-styled K-line chart generator — plotly interactive candlestick.
+
+Design tokens from docs/DESIGN.md (NewForm Alpha spec).
+All colors/spacing/typography MUST use the module-level constants below.
+Do NOT hardcode hex values outside these constants.
+"""
 
 import pandas as pd
 import plotly.graph_objects as go

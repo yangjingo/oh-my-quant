@@ -1,4 +1,9 @@
-"""NewForm styled HTML dashboard — brutalist, dual-atmosphere, zero-shadow"""
+"""NewForm styled HTML dashboard — brutalist, dual-atmosphere, zero-shadow.
+
+Design tokens from docs/DESIGN.md (NewForm Alpha spec).
+All colors/spacing/typography MUST use the `C` token dict below.
+Do NOT hardcode hex values outside the C dict.
+"""
 
 import json
 import pandas as pd

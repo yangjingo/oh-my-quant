@@ -44,6 +44,17 @@ oh-my-quant/
 | `benchmark` | benchmark/评测/对比/排名 | 策略评测（对齐 AI-Trader），位于 `benchmark/` 目录 |
 | `validate` | 验证/validate/测试 skill/回归 | 验证 skills+CLI 工具，cross-check 对账 |
 
+## UI 设计系统
+
+**所有涉及 UI 的 skill 和脚本必须遵守 [`docs/DESIGN.md`](docs/DESIGN.md)**（NewForm Alpha 规范）：
+
+- 零阴影（Zero Shadow Policy），深度仅通过 1px 发丝线 + 色块切换表达
+- 双氛围：奶油白 Hero 区（`#F7F9F6`）+ 引擎黑数据区（`#121413`）
+- 单强调色：薄荷绿 `#39E180`，仅用于关键信号/操作端点
+- Inter 字体，Display: 800 重 + -1.8px 紧排；Mono: SF Mono
+- 动画 0ms 硬切换，圆角 ≤ 2px，间距基于 4px 倍数
+- 配色 Token 从 `docs/DESIGN.md` YAML frontmatter 读取，禁止硬编码色值
+
 ## 设计原则
 
 - 每个 skill 是可被 agent 直接执行的操作指令，非教学文档

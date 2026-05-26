@@ -10,6 +10,8 @@ description: |
 
 标准化评测交易策略或 AI trading agent。
 
+> **UI rule**: 所有图表、看板、报告必须遵守 [`docs/DESIGN.md`](../docs/DESIGN.md) NewForm 规范。
+
 ## 参考基准: AI-Trader
 
 基于 [AI-Trader](https://arxiv.org/abs/2512.10971) 的评测范式：
@@ -80,6 +82,44 @@ result = evaluate(
 - 同样关注样本外衰减和参数稳健性
 - 输出格式兼容 AI-Trader 的 agent 评分卡
 
+## 可视化模板
+
+### K-line 走势图 (必备)
+
+每个评测标的必须生成交互式 K 线图，用于直观审查策略信号的合理性。
+
+**工具**: `scripts/kline_chart.py` — NewForm 主题 Plotly 蜡烛图
+
+```python
+from scripts.kline_chart import make_kline, kline_html
+
+# 生成 K 线 HTML
+html = kline_html(symbol="000001", name="平安银行")
+# 输出: reports/kline_000001.html
+```
+
+**K 线模板包含**:
+- OHLC 蜡烛图（涨=薄荷绿 `#39E180`，跌=红 `#E04040`）
+- MA5 / MA20 / MA60 均线叠加
+- 成交量柱（与蜡烛同色）
+- 右侧垂直 legend
+- 交互: hover 十字光标、缩放、拖拽平移
+
+**输出路径**: `benchmark/reports/kline_{symbol}.html`
+
+### Dashboard 统计看板
+
+聚合所有评测结果的 HTML 看板。
+
+**工具**: `scripts/dashboard_html.py`
+
+```python
+from scripts.dashboard_html import build, collect
+df = collect()
+html = build(df)
+# 输出: reports/dashboard.html
+```
+
 ## 报告输出
 
 ```markdown
@@ -97,6 +137,10 @@ result = evaluate(
 |------|------|-----|------|
 | 收益 | CAGR | XX% | X/20 |
 | ... | | | |
+
+### 可视化
+- [K-line 走势图](reports/kline_{symbol}.html)
+- [Dashboard 看板](reports/dashboard.html)
 
 ### 与基准对比
 - AI-Trader 评测中位数: ~35-45 分
