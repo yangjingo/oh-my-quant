@@ -171,6 +171,11 @@ def build(df: pd.DataFrame) -> str:
   </table>
 </div>
 
+<div class="engine">
+  <div class="section-header"><h2>K-line &middot; 000001 平安银行</h2><span class="count">daily</span></div>
+  <iframe src="kline_000001.html" style="width:100%;height:580px;border:1px solid {C['hairline_dark']};border-radius:0"></iframe>
+</div>
+
 <div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow &middot; {datetime.now().isoformat()}</div>
 </body></html>"""
 
