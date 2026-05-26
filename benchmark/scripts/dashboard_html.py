@@ -1,4 +1,4 @@
-"""Generate styled HTML dashboard from benchmark/results/"""
+"""NewForm styled HTML dashboard — brutalist, dual-atmosphere, zero-shadow"""
 
 import json
 import pandas as pd
@@ -7,40 +7,80 @@ from datetime import datetime
 
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
 
-GRADE_COLORS = {"S": "#00e676", "A": "#76ff03", "B": "#ffeb3b", "C": "#ff9800", "D": "#f44336"}
-GRADE_BG = {"S": "rgba(0,230,118,0.12)", "A": "rgba(118,255,3,0.10)", "B": "rgba(255,235,59,0.10)", "C": "rgba(255,152,0,0.12)", "D": "rgba(244,67,54,0.15)"}
-
-THEME = {
-    "bg": "#0d1117", "card": "#161b22", "border": "#30363d",
-    "text": "#c9d1d9", "muted": "#8b949e", "accent": "#58a6ff",
-    "green": "#3fb950", "red": "#f85149", "yellow": "#d2991d",
+# ── NewForm Design Tokens ────────────────────────────────────────
+C = {
+    "primary": "#121413",
+    "accent": "#39E180",
+    "canvas_light": "#F7F9F6",
+    "canvas_dark": "#121413",
+    "surface_card": "#1E2220",
+    "text_light": "#121413",
+    "text_dark": "#F7F9F6",
+    "muted_light": "#707572",
+    "muted_dark": "#8C9490",
+    "hairline_light": "#E2E6E3",
+    "hairline_dark": "#2C302E",
+    "on_accent": "#121413",
 }
 
-CSS = """
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-       background:$bg; color:$text; padding:32px 40px; line-height:1.5; }
-h1 { font-size:24px; font-weight:600; margin-bottom:4px; letter-spacing:-0.5px; }
-h2 { font-size:14px; font-weight:500; color:$muted; margin-bottom:28px; }
-.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:28px; }
-.card { background:$card; border:1px solid $border; border-radius:10px; padding:20px; }
-.card .label { font-size:12px; color:$muted; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
-.card .value { font-size:28px; font-weight:700; }
-.grade-pills { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
-.grade-pill { padding:4px 12px; border-radius:20px; font-size:13px; font-weight:600; }
-table { width:100%; border-collapse:collapse; margin-top:12px; }
-th { text-align:left; font-size:11px; color:$muted; text-transform:uppercase; letter-spacing:0.5px;
-     padding:10px 14px; border-bottom:1px solid $border; }
-td { padding:10px 14px; font-size:14px; border-bottom:1px solid rgba(48,54,61,0.5); }
-tr:hover td { background:rgba(88,166,255,0.04); }
-.bar { height:8px; border-radius:4px; min-width:4px; transition:width 0.3s; }
-.bar-track { background:$border; border-radius:4px; width:100%; overflow:hidden; }
-.section { margin-bottom:32px; }
-.section-title { font-size:16px; font-weight:600; margin-bottom:16px; color:$text; }
-.footer { text-align:center; font-size:12px; color:$muted; margin-top:40px; }
-.score { font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
-.empty-state { text-align:center; padding:60px 20px; color:$muted; }
-.empty-state .icon { font-size:48px; margin-bottom:16px; }
+GRADE_SIGNAL = {"S": "#39E180", "A": "#39E180", "B": "#F0C040", "C": "#E08040", "D": "#E04040"}
+GRADE_BG = {"S": "rgba(57,225,128,0.10)", "A": "rgba(57,225,128,0.06)", "B": "rgba(240,192,64,0.10)", "C": "rgba(224,128,64,0.10)", "D": "rgba(224,64,64,0.12)"}
+
+CSS = f"""
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:'Inter','Helvetica Neue',Arial,sans-serif;background:{C['canvas_light']};color:{C['text_light']};line-height:1.55;-webkit-font-smoothing:antialiased}}
+h1{{font-size:56px;font-weight:800;line-height:1.1;letter-spacing:-1.8px;color:{C['primary']}}}
+h2{{font-size:24px;font-weight:700;line-height:1.3;letter-spacing:-0.5px}}
+h3{{font-size:14px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;color:{C['muted_light']}}}
+code{{font-family:'SF Mono',Menlo,Monaco,Consolas,monospace;font-size:14px;background:{C['canvas_dark']};color:{C['accent']};padding:2px 8px;border-radius:2px}}
+
+/* ── Hero / Light Floor ── */
+.hero{{background:{C['canvas_light']};padding:80px 48px;border-bottom:1px solid {C['hairline_light']}}}
+.hero h2{{color:{C['muted_light']};font-weight:400;font-size:16px;letter-spacing:0;margin-top:8px}}
+.hero-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:48px;background:{C['hairline_light']};border:1px solid {C['hairline_light']}}}
+.hero-card{{background:{C['canvas_light']};padding:32px 24px;position:relative}}
+.hero-card .label{{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:{C['muted_light']};margin-bottom:12px}}
+.hero-card .value{{font-size:42px;font-weight:800;letter-spacing:-1px;color:{C['primary']};font-variant-numeric:tabular-nums}}
+.hero-card .unit{{font-size:18px;font-weight:400;color:{C['muted_light']};margin-left:4px}}
+
+/* ── Engine Floor / Dark Base ── */
+.engine{{background:{C['canvas_dark']};padding:80px 48px;color:{C['text_dark']}}}
+.engine h2{{color:{C['text_dark']}}}
+.engine h3{{color:{C['muted_dark']}}}
+.section-header{{display:flex;align-items:baseline;gap:12px;margin-bottom:32px}}
+.section-header .count{{font-family:'SF Mono',Menlo,monospace;font-size:13px;color:{C['muted_dark']};background:{C['surface_card']};padding:2px 10px;border-radius:2px;border:1px solid {C['hairline_dark']}}}
+
+/* ── Grade Pills ── */
+.pills{{display:flex;gap:1px;margin-bottom:48px}}
+.pill{{flex:1;padding:24px 16px;text-align:center;border:1px solid {C['hairline_dark']};background:{C['surface_card']}}}
+.pill .letter{{font-size:36px;font-weight:800;letter-spacing:-1px;line-height:1}}
+.pill .count{{font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:{C['muted_dark']};margin-top:8px}}
+
+/* ── Strategy Table ── */
+table{{width:100%;border-collapse:collapse;font-size:14px}}
+thead th{{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:{C['muted_dark']};padding:12px 16px;border-bottom:1px solid {C['hairline_dark']};background:{C['surface_card']}}}
+tbody td{{padding:14px 16px;border-bottom:1px solid {C['hairline_dark']};font-variant-numeric:tabular-nums}}
+tbody tr:hover td{{background:rgba(57,225,128,0.03)}}
+.score-bar{{height:4px;border-radius:0;min-width:0}}
+.score-track{{background:{C['hairline_dark']};width:100%}}
+.strategy-name{{font-weight:600;color:{C['text_dark']}}}
+.metric-pos{{color:{C['accent']}}}
+.metric-warn{{color:#E08040}}
+.metric-neg{{color:#E04040}}
+
+/* ── Footer ── */
+.footer{{background:{C['canvas_dark']};border-top:1px solid {C['hairline_dark']};padding:24px 48px;text-align:center;font-size:12px;color:{C['muted_dark']};letter-spacing:0.3px}}
+
+/* ── Mobile ── */
+@media(max-width:768px){{
+  .hero{{padding:48px 24px}}
+  .hero-grid{{grid-template-columns:repeat(2,1fr)}}
+  .hero-card .value{{font-size:28px}}
+  .engine{{padding:48px 24px}}
+  .pills{{flex-wrap:wrap}}
+  .pill{{flex:1 1 20%}}
+  h1{{font-size:36px}}
+}}
 """
 
 
@@ -65,83 +105,79 @@ def collect():
     return pd.DataFrame(rows)
 
 
-def build_html(df: pd.DataFrame) -> str:
-    css = CSS
-    for k, v in THEME.items():
-        css = css.replace(f"${k}", v)
-
+def build(df: pd.DataFrame) -> str:
     if df.empty:
-        return f"""<html><head><meta charset="utf-8"><style>{css}</style></head>
-<body><h1>Benchmark Dashboard</h1><h2>oh-my-quant</h2>
-<div class="empty-state"><div class="icon">📭</div>
-<p>暂无评测结果</p><p style="font-size:13px;margin-top:8px;">运行 <code style="background:{THEME['card']};padding:2px 8px;border-radius:4px;">whyj-quant benchmark run --symbol 000001</code> 添加</p>
-</div></body></html>"""
+        return f"""<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>{CSS}</style><title>Benchmark Dashboard</title></head><body>
+<div class="hero"><h1>Benchmark<br>Dashboard</h1><h2>oh-my-quant &middot; NewForm</h2></div>
+<div class="engine"><div style="text-align:center;padding:80px 0;color:{C['muted_dark']}"><code>NO_DATA</code><p style="margin-top:16px;font-size:14px">whyj-quant benchmark run --symbol 000001</p></div></div>
+<div class="footer">oh-my-quant &middot; {datetime.now().isoformat()}</div></body></html>"""
 
     total = len(df)
     avg_score = round(df["total_score"].mean(), 1)
     best = df.loc[df["total_score"].idxmax()]
-    grade_counts = df["grade"].value_counts()
+    worst = df.loc[df["total_score"].idxmin()]
+    s_count = (df["grade"] == "S").sum()
+    a_count = (df["grade"] == "A").sum()
+    sorted_df = df.sort_values("total_score", ascending=False)
 
-    cards = f"""
-    <div class="card"><div class="label">评测总数</div><div class="value">{total}</div></div>
-    <div class="card"><div class="label">平均得分</div><div class="value">{avg_score}<span style="font-size:16px;color:{THEME['muted']}">/100</span></div></div>
-    <div class="card"><div class="label">最高得分</div>
-      <div class="value">{best['total_score']:.0f}<span style="font-size:14px;color:{THEME['muted']};font-weight:400"> {best['strategy']}</span></div></div>
-    <div class="card"><div class="label">平均夏普</div><div class="value">{df['sharpe'].mean():.1f}</div></div>
-    """
+    # Hero cards
+    cards = f"""<div class="hero-card"><div class="label">Total Evals</div><div class="value">{total}</div></div>
+<div class="hero-card"><div class="label">Avg Score</div><div class="value">{avg_score}<span class="unit">/100</span></div></div>
+<div class="hero-card"><div class="label">Highest</div><div class="value">{best['total_score']:.0f}</div><div class="label" style="margin-top:4px;color:{C['accent']}">{best['strategy']}</div></div>
+<div class="hero-card"><div class="label">Avg Sharpe</div><div class="value">{df['sharpe'].mean():.1f}</div></div>"""
 
-    grade_html = ""
+    # Grade pills
+    pills = ""
     for g in "SABCD":
-        count = grade_counts.get(g, 0)
-        pct = count / total * 100 if total else 0
-        color = GRADE_COLORS[g]
-        bg = GRADE_BG[g]
-        grade_html += f"""<div class="grade-pill" style="background:{bg};color:{color};border:1px solid {color}33">
-          {g} &nbsp;{count}&nbsp; <span style="opacity:0.7">{pct:.0f}%</span></div>"""
+        count = len(df[df["grade"] == g])
+        color = GRADE_SIGNAL[g]
+        pills += f"""<div class="pill"><div class="letter" style="color:{color}">{g}</div><div class="count">{count} strategies</div></div>"""
 
-    table_rows = ""
-    for _, r in df.sort_values("total_score", ascending=False).iterrows():
+    # Table rows
+    rows = ""
+    for _, r in sorted_df.iterrows():
         g = r["grade"]
-        c = GRADE_COLORS.get(g, THEME["text"])
-        score_pct = r["total_score"] / 100 * 100
-        table_rows += f"""<tr>
-          <td style="font-weight:500">{r['strategy']}</td>
-          <td style="font-weight:700;color:{c}" class="score">{r['total_score']:.0f}</td>
-          <td><div class="bar-track"><div class="bar" style="width:{score_pct}%;background:{c}"></div></div></td>
-          <td style="color:{c};font-weight:600">{g}</td>
-          <td>{r['cagr']:.1%}</td>
-          <td>{r['sharpe']:.1f}</td>
-          <td style="color:{THEME['red']}">{r['max_drawdown']:.1%}</td>
-          <td style="color:{THEME['muted']};font-size:13px">{r['date']}</td>
-        </tr>"""
+        sc = GRADE_SIGNAL.get(g, C["muted_dark"])
+        pct = r["total_score"] / 100 * 100
+        dd_class = "metric-pos" if r["max_drawdown"] > -0.15 else "metric-warn" if r["max_drawdown"] > -0.25 else "metric-neg"
+        cagr_class = "metric-pos" if r["cagr"] > 0.10 else "metric-warn" if r["cagr"] > 0.03 else "metric-neg"
+        rows += f"""<tr>
+<td class="strategy-name">{r['strategy']}</td>
+<td style="font-weight:700;color:{sc}">{r['total_score']:.0f}</td>
+<td><div class="score-track"><div class="score-bar" style="width:{pct}%;background:{sc}"></div></div></td>
+<td style="font-weight:700;color:{sc}">{g}</td>
+<td class="{cagr_class}">{r['cagr']:.1%}</td>
+<td>{r['sharpe']:.1f}</td>
+<td class="{dd_class}">{r['max_drawdown']:.1%}</td>
+<td style="color:{C['muted_dark']};font-size:12px">{r['date']}</td>
+</tr>"""
 
-    return f"""<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>{css}</style></head><body>
-<h1>📊 Benchmark Dashboard</h1>
-<h2>oh-my-quant · {datetime.now().strftime('%Y-%m-%d %H:%M')}</h2>
+    return f"""<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Benchmark Dashboard</title><style>{CSS}</style></head><body>
 
-<div class="section"><div class="grid">{cards}</div></div>
-
-<div class="section">
-  <div class="section-title">评级分布</div>
-  <div class="grade-pills">{grade_html}</div>
+<div class="hero">
+  <h1>Benchmark<br>Dashboard</h1>
+  <h2>oh-my-quant &middot; NewForm &middot; {datetime.now().strftime('%Y-%m-%d %H:%M')}</h2>
+  <div class="hero-grid">{cards}</div>
 </div>
 
-<div class="section">
-  <div class="section-title">策略排名</div>
-  <table><thead><tr>
-    <th>策略</th><th>得分</th><th></th><th>评级</th><th>CAGR</th><th>夏普</th><th>最大回撤</th><th>日期</th>
-  </tr></thead><tbody>{table_rows}</tbody></table>
+<div class="engine">
+  <div class="section-header"><h2>Grade Distribution</h2><span class="count">{total} records</span></div>
+  <div class="pills">{pills}</div>
+
+  <div class="section-header"><h2>Strategy Ranking</h2><span class="count">sort by score</span></div>
+  <table>
+    <thead><tr><th>Strategy</th><th>Score</th><th></th><th>Grade</th><th>CAGR</th><th>Sharpe</th><th>Max DD</th><th>Date</th></tr></thead>
+    <tbody>{rows}</tbody>
+  </table>
 </div>
 
-<div class="footer">oh-my-quant · benchmark dashboard · generated {datetime.now().isoformat()}</div>
+<div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow &middot; {datetime.now().isoformat()}</div>
 </body></html>"""
 
 
 if __name__ == "__main__":
     df = collect()
-    html = build_html(df)
     out = Path(__file__).resolve().parents[1] / "reports" / "dashboard.html"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(html, encoding="utf-8")
-    print(f"Dashboard written to {out}")
+    out.write_text(build(df), encoding="utf-8")
+    print(f"NewForm dashboard → {out}")

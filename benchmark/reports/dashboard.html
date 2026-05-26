@@ -1,120 +1,142 @@
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-       background:#0d1117; color:#c9d1d9; padding:32px 40px; line-height:1.5; }
-h1 { font-size:24px; font-weight:600; margin-bottom:4px; letter-spacing:-0.5px; }
-h2 { font-size:14px; font-weight:500; color:#8b949e; margin-bottom:28px; }
-.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:28px; }
-.card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:20px; }
-.card .label { font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
-.card .value { font-size:28px; font-weight:700; }
-.grade-pills { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
-.grade-pill { padding:4px 12px; border-radius:20px; font-size:13px; font-weight:600; }
-table { width:100%; border-collapse:collapse; margin-top:12px; }
-th { text-align:left; font-size:11px; color:#8b949e; text-transform:uppercase; letter-spacing:0.5px;
-     padding:10px 14px; border-bottom:1px solid #30363d; }
-td { padding:10px 14px; font-size:14px; border-bottom:1px solid rgba(48,54,61,0.5); }
-tr:hover td { background:rgba(88,166,255,0.04); }
-.bar { height:8px; border-radius:4px; min-width:4px; transition:width 0.3s; }
-.bar-track { background:#30363d; border-radius:4px; width:100%; overflow:hidden; }
-.section { margin-bottom:32px; }
-.section-title { font-size:16px; font-weight:600; margin-bottom:16px; color:#c9d1d9; }
-.footer { text-align:center; font-size:12px; color:#8b949e; margin-top:40px; }
-.score { font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
-.empty-state { text-align:center; padding:60px 20px; color:#8b949e; }
-.empty-state .icon { font-size:48px; margin-bottom:16px; }
+<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Benchmark Dashboard</title><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter','Helvetica Neue',Arial,sans-serif;background:#F7F9F6;color:#121413;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1{font-size:56px;font-weight:800;line-height:1.1;letter-spacing:-1.8px;color:#121413}
+h2{font-size:24px;font-weight:700;line-height:1.3;letter-spacing:-0.5px}
+h3{font-size:14px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;color:#707572}
+code{font-family:'SF Mono',Menlo,Monaco,Consolas,monospace;font-size:14px;background:#121413;color:#39E180;padding:2px 8px;border-radius:2px}
+
+/* ── Hero / Light Floor ── */
+.hero{background:#F7F9F6;padding:80px 48px;border-bottom:1px solid #E2E6E3}
+.hero h2{color:#707572;font-weight:400;font-size:16px;letter-spacing:0;margin-top:8px}
+.hero-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:48px;background:#E2E6E3;border:1px solid #E2E6E3}
+.hero-card{background:#F7F9F6;padding:32px 24px;position:relative}
+.hero-card .label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#707572;margin-bottom:12px}
+.hero-card .value{font-size:42px;font-weight:800;letter-spacing:-1px;color:#121413;font-variant-numeric:tabular-nums}
+.hero-card .unit{font-size:18px;font-weight:400;color:#707572;margin-left:4px}
+
+/* ── Engine Floor / Dark Base ── */
+.engine{background:#121413;padding:80px 48px;color:#F7F9F6}
+.engine h2{color:#F7F9F6}
+.engine h3{color:#8C9490}
+.section-header{display:flex;align-items:baseline;gap:12px;margin-bottom:32px}
+.section-header .count{font-family:'SF Mono',Menlo,monospace;font-size:13px;color:#8C9490;background:#1E2220;padding:2px 10px;border-radius:2px;border:1px solid #2C302E}
+
+/* ── Grade Pills ── */
+.pills{display:flex;gap:1px;margin-bottom:48px}
+.pill{flex:1;padding:24px 16px;text-align:center;border:1px solid #2C302E;background:#1E2220}
+.pill .letter{font-size:36px;font-weight:800;letter-spacing:-1px;line-height:1}
+.pill .count{font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:#8C9490;margin-top:8px}
+
+/* ── Strategy Table ── */
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#8C9490;padding:12px 16px;border-bottom:1px solid #2C302E;background:#1E2220}
+tbody td{padding:14px 16px;border-bottom:1px solid #2C302E;font-variant-numeric:tabular-nums}
+tbody tr:hover td{background:rgba(57,225,128,0.03)}
+.score-bar{height:4px;border-radius:0;min-width:0}
+.score-track{background:#2C302E;width:100%}
+.strategy-name{font-weight:600;color:#F7F9F6}
+.metric-pos{color:#39E180}
+.metric-warn{color:#E08040}
+.metric-neg{color:#E04040}
+
+/* ── Footer ── */
+.footer{background:#121413;border-top:1px solid #2C302E;padding:24px 48px;text-align:center;font-size:12px;color:#8C9490;letter-spacing:0.3px}
+
+/* ── Mobile ── */
+@media(max-width:768px){
+  .hero{padding:48px 24px}
+  .hero-grid{grid-template-columns:repeat(2,1fr)}
+  .hero-card .value{font-size:28px}
+  .engine{padding:48px 24px}
+  .pills{flex-wrap:wrap}
+  .pill{flex:1 1 20%}
+  h1{font-size:36px}
+}
 </style></head><body>
-<h1>📊 Benchmark Dashboard</h1>
-<h2>oh-my-quant · 2026-05-26 09:09</h2>
 
-<div class="section"><div class="grid">
-    <div class="card"><div class="label">评测总数</div><div class="value">7</div></div>
-    <div class="card"><div class="label">平均得分</div><div class="value">62.9<span style="font-size:16px;color:#8b949e">/100</span></div></div>
-    <div class="card"><div class="label">最高得分</div>
-      <div class="value">85<span style="font-size:14px;color:#8b949e;font-weight:400"> gtja191_001</span></div></div>
-    <div class="card"><div class="label">平均夏普</div><div class="value">1.2</div></div>
-    </div></div>
-
-<div class="section">
-  <div class="section-title">评级分布</div>
-  <div class="grade-pills"><div class="grade-pill" style="background:rgba(0,230,118,0.12);color:#00e676;border:1px solid #00e67633">
-          S &nbsp;1&nbsp; <span style="opacity:0.7">14%</span></div><div class="grade-pill" style="background:rgba(118,255,3,0.10);color:#76ff03;border:1px solid #76ff0333">
-          A &nbsp;3&nbsp; <span style="opacity:0.7">43%</span></div><div class="grade-pill" style="background:rgba(255,235,59,0.10);color:#ffeb3b;border:1px solid #ffeb3b33">
-          B &nbsp;2&nbsp; <span style="opacity:0.7">29%</span></div><div class="grade-pill" style="background:rgba(255,152,0,0.12);color:#ff9800;border:1px solid #ff980033">
-          C &nbsp;1&nbsp; <span style="opacity:0.7">14%</span></div><div class="grade-pill" style="background:rgba(244,67,54,0.15);color:#f44336;border:1px solid #f4433633">
-          D &nbsp;0&nbsp; <span style="opacity:0.7">0%</span></div></div>
+<div class="hero">
+  <h1>Benchmark<br>Dashboard</h1>
+  <h2>oh-my-quant &middot; NewForm &middot; 2026-05-26 09:13</h2>
+  <div class="hero-grid"><div class="hero-card"><div class="label">Total Evals</div><div class="value">7</div></div>
+<div class="hero-card"><div class="label">Avg Score</div><div class="value">62.9<span class="unit">/100</span></div></div>
+<div class="hero-card"><div class="label">Highest</div><div class="value">85</div><div class="label" style="margin-top:4px;color:#39E180">gtja191_001</div></div>
+<div class="hero-card"><div class="label">Avg Sharpe</div><div class="value">1.2</div></div></div>
 </div>
 
-<div class="section">
-  <div class="section-title">策略排名</div>
-  <table><thead><tr>
-    <th>策略</th><th>得分</th><th></th><th>评级</th><th>CAGR</th><th>夏普</th><th>最大回撤</th><th>日期</th>
-  </tr></thead><tbody><tr>
-          <td style="font-weight:500">gtja191_001</td>
-          <td style="font-weight:700;color:#00e676" class="score">85</td>
-          <td><div class="bar-track"><div class="bar" style="width:85.2%;background:#00e676"></div></div></td>
-          <td style="color:#00e676;font-weight:600">S</td>
-          <td>22.0%</td>
-          <td>2.3</td>
-          <td style="color:#f85149">-8.0%</td>
-          <td style="color:#8b949e;font-size:13px">2026-05-25</td>
-        </tr><tr>
-          <td style="font-weight:500">low_vol_q1</td>
-          <td style="font-weight:700;color:#76ff03" class="score">78</td>
-          <td><div class="bar-track"><div class="bar" style="width:78.3%;background:#76ff03"></div></div></td>
-          <td style="color:#76ff03;font-weight:600">A</td>
-          <td>15.0%</td>
-          <td>1.8</td>
-          <td style="color:#f85149">-12.0%</td>
-          <td style="color:#8b949e;font-size:13px">2026-05-22</td>
-        </tr><tr>
-          <td style="font-weight:500">sma_cross_20_60</td>
-          <td style="font-weight:700;color:#76ff03" class="score">72</td>
-          <td><div class="bar-track"><div class="bar" style="width:72.5%;background:#76ff03"></div></div></td>
-          <td style="color:#76ff03;font-weight:600">A</td>
-          <td>12.0%</td>
-          <td>1.5</td>
-          <td style="color:#f85149">-18.0%</td>
-          <td style="color:#8b949e;font-size:13px">2026-05-20</td>
-        </tr><tr>
-          <td style="font-weight:500">macd_12_26</td>
-          <td style="font-weight:700;color:#76ff03" class="score">65</td>
-          <td><div class="bar-track"><div class="bar" style="width:65.0%;background:#76ff03"></div></div></td>
-          <td style="color:#76ff03;font-weight:600">A</td>
-          <td>10.0%</td>
-          <td>1.3</td>
-          <td style="color:#f85149">-20.0%</td>
-          <td style="color:#8b949e;font-size:13px">2026-05-20</td>
-        </tr><tr>
-          <td style="font-weight:500">momentum_20d</td>
-          <td style="font-weight:700;color:#ffeb3b" class="score">56</td>
-          <td><div class="bar-track"><div class="bar" style="width:55.8%;background:#ffeb3b"></div></div></td>
-          <td style="color:#ffeb3b;font-weight:600">B</td>
-          <td>7.0%</td>
-          <td>0.9</td>
-          <td style="color:#f85149">-22.0%</td>
-          <td style="color:#8b949e;font-size:13px">2026-05-21</td>
-        </tr><tr>
-          <td style="font-weight:500">rsi_14_reversal</td>
-          <td style="font-weight:700;color:#ffeb3b" class="score">48</td>
-          <td><div class="bar-track"><div class="bar" style="width:48.2%;background:#ffeb3b"></div></div></td>
-          <td style="color:#ffeb3b;font-weight:600">B</td>
-          <td>4.0%</td>
-          <td>0.6</td>
-          <td style="color:#f85149">-28.0%</td>
-          <td style="color:#8b949e;font-size:13px">2026-05-21</td>
-        </tr><tr>
-          <td style="font-weight:500">buy_hold</td>
-          <td style="font-weight:700;color:#ff9800" class="score">35</td>
-          <td><div class="bar-track"><div class="bar" style="width:35.1%;background:#ff9800"></div></div></td>
-          <td style="color:#ff9800;font-weight:600">C</td>
-          <td>2.0%</td>
-          <td>0.3</td>
-          <td style="color:#f85149">-35.0%</td>
-          <td style="color:#8b949e;font-size:13px">2026-05-22</td>
-        </tr></tbody></table>
+<div class="engine">
+  <div class="section-header"><h2>Grade Distribution</h2><span class="count">7 records</span></div>
+  <div class="pills"><div class="pill"><div class="letter" style="color:#39E180">S</div><div class="count">1 strategies</div></div><div class="pill"><div class="letter" style="color:#39E180">A</div><div class="count">3 strategies</div></div><div class="pill"><div class="letter" style="color:#F0C040">B</div><div class="count">2 strategies</div></div><div class="pill"><div class="letter" style="color:#E08040">C</div><div class="count">1 strategies</div></div><div class="pill"><div class="letter" style="color:#E04040">D</div><div class="count">0 strategies</div></div></div>
+
+  <div class="section-header"><h2>Strategy Ranking</h2><span class="count">sort by score</span></div>
+  <table>
+    <thead><tr><th>Strategy</th><th>Score</th><th></th><th>Grade</th><th>CAGR</th><th>Sharpe</th><th>Max DD</th><th>Date</th></tr></thead>
+    <tbody><tr>
+<td class="strategy-name">gtja191_001</td>
+<td style="font-weight:700;color:#39E180">85</td>
+<td><div class="score-track"><div class="score-bar" style="width:85.2%;background:#39E180"></div></div></td>
+<td style="font-weight:700;color:#39E180">S</td>
+<td class="metric-pos">22.0%</td>
+<td>2.3</td>
+<td class="metric-pos">-8.0%</td>
+<td style="color:#8C9490;font-size:12px">2026-05-25</td>
+</tr><tr>
+<td class="strategy-name">low_vol_q1</td>
+<td style="font-weight:700;color:#39E180">78</td>
+<td><div class="score-track"><div class="score-bar" style="width:78.3%;background:#39E180"></div></div></td>
+<td style="font-weight:700;color:#39E180">A</td>
+<td class="metric-pos">15.0%</td>
+<td>1.8</td>
+<td class="metric-pos">-12.0%</td>
+<td style="color:#8C9490;font-size:12px">2026-05-22</td>
+</tr><tr>
+<td class="strategy-name">sma_cross_20_60</td>
+<td style="font-weight:700;color:#39E180">72</td>
+<td><div class="score-track"><div class="score-bar" style="width:72.5%;background:#39E180"></div></div></td>
+<td style="font-weight:700;color:#39E180">A</td>
+<td class="metric-pos">12.0%</td>
+<td>1.5</td>
+<td class="metric-warn">-18.0%</td>
+<td style="color:#8C9490;font-size:12px">2026-05-20</td>
+</tr><tr>
+<td class="strategy-name">macd_12_26</td>
+<td style="font-weight:700;color:#39E180">65</td>
+<td><div class="score-track"><div class="score-bar" style="width:65.0%;background:#39E180"></div></div></td>
+<td style="font-weight:700;color:#39E180">A</td>
+<td class="metric-warn">10.0%</td>
+<td>1.3</td>
+<td class="metric-warn">-20.0%</td>
+<td style="color:#8C9490;font-size:12px">2026-05-20</td>
+</tr><tr>
+<td class="strategy-name">momentum_20d</td>
+<td style="font-weight:700;color:#F0C040">56</td>
+<td><div class="score-track"><div class="score-bar" style="width:55.8%;background:#F0C040"></div></div></td>
+<td style="font-weight:700;color:#F0C040">B</td>
+<td class="metric-warn">7.0%</td>
+<td>0.9</td>
+<td class="metric-warn">-22.0%</td>
+<td style="color:#8C9490;font-size:12px">2026-05-21</td>
+</tr><tr>
+<td class="strategy-name">rsi_14_reversal</td>
+<td style="font-weight:700;color:#F0C040">48</td>
+<td><div class="score-track"><div class="score-bar" style="width:48.2%;background:#F0C040"></div></div></td>
+<td style="font-weight:700;color:#F0C040">B</td>
+<td class="metric-warn">4.0%</td>
+<td>0.6</td>
+<td class="metric-neg">-28.0%</td>
+<td style="color:#8C9490;font-size:12px">2026-05-21</td>
+</tr><tr>
+<td class="strategy-name">buy_hold</td>
+<td style="font-weight:700;color:#E08040">35</td>
+<td><div class="score-track"><div class="score-bar" style="width:35.1%;background:#E08040"></div></div></td>
+<td style="font-weight:700;color:#E08040">C</td>
+<td class="metric-neg">2.0%</td>
+<td>0.3</td>
+<td class="metric-neg">-35.0%</td>
+<td style="color:#8C9490;font-size:12px">2026-05-22</td>
+</tr></tbody>
+  </table>
 </div>
 
-<div class="footer">oh-my-quant · benchmark dashboard · generated 2026-05-26T09:09:05.058413</div>
+<div class="footer">oh-my-quant &middot; NewForm alpha &middot; zero-shadow &middot; 2026-05-26T09:13:43.245337</div>
 </body></html>
