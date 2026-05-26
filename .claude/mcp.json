@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "financial-datasets": {
+      "transport": "http",
+      "url": "https://mcp.financialdatasets.ai/",
+      "headers": {
+        "X-API-KEY": "${FINANCIAL_DATASETS_KEY}"
+      }
+    }
+  }
+}

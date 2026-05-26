@@ -84,3 +84,30 @@ oh-my-quant/
 - 审查通过后才能 push
 - **每次 push 前必须更新文档**（README.md、CHANGELOG.md、docs/reference.MD），确保与代码同步
 - Commit 按功能拆分，一个 commit 只做一个改动
+
+## Playwright 浏览器自动化
+
+本项目使用 Playwright 进行 Web 数据采集和看板验证：
+
+```bash
+# 安装
+pip install playwright
+playwright install chromium
+
+# 常见用法
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto("http://localhost:8899")  # 看板地址
+    page.screenshot(path="benchmark/reports/screenshot.png")
+    browser.close()
+```
+
+**使用场景**:
+- 抓取无 API 的金融网站（投资大师访谈、SEC 文件等）→ `intel` skill
+- 自动截图 benchmark 看板 → `benchmark` skill
+- 验证 metric HTML 页面渲染是否正确
+- 登录需要 Cookie 的数据源（如券商后台）
+- 自动化 Alpha 因子来源的论文检索
