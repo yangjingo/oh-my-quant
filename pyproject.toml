@@ -11,6 +11,7 @@ dependencies = [
     "akshare>=1.18.63",
     "plotly>=6.7.0",
     "yfinance>=1.4.0",
+    "jqdatasdk>=1.9.8",
 ]
 
 [project.optional-dependencies]
