@@ -10,6 +10,13 @@
     "tushare": {
       "transport": "http",
       "url": "https://api.tushare.pro/mcp/token=${TUSHARE_TOKEN}"
+    },
+    "llmquant-data": {
+      "command": "npx",
+      "args": ["-y", "@llmquant/data-mcp"],
+      "env": {
+        "LLMQUANT_API_KEY": "${LLMQUANT_API_KEY}"
+      }
     }
   }
 }
