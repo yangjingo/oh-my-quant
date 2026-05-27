@@ -1,10 +1,10 @@
 """Benchmark Dashboard — 统计看板，聚合 benchmark/results/ 下的评测结果"""
 
 import json
-import os
-import pandas as pd
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
 
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
 

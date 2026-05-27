@@ -1,26 +1,14 @@
 [project]
 name = "whyj-quant"
-version = "0.1.0"
-description = "oh-my-quant CLI — 串接 9 个量化 skills 的命令行入口"
+version = "0.2.0"
+description = "Minimal quant CLI for data, factor, backtest, risk, and benchmark workflows"
 requires-python = ">=3.12"
 dependencies = [
     "click>=8.1",
-    "rich>=13.0",
     "pandas>=2.0",
     "numpy>=1.26",
     "akshare>=1.18.63",
-    "plotly>=6.7.0",
     "yfinance>=1.4.0",
-    "jqdatasdk>=1.9.8",
-]
-
-[project.optional-dependencies]
-extra = [
-    "akshare>=1.14",
-    "yfinance>=0.2",
-    "backtrader>=1.9",
-    "scipy>=1.12",
-    "matplotlib>=3.7",
 ]
 
 [project.scripts]
@@ -30,5 +18,14 @@ whyj-quant = "cli.main:cli"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+include = [
+    "ROADMAP.md",
+    "README.md",
+    "benchmark/**",
+    "cli/**",
+    "skills/**",
+]
+
 [tool.hatch.build.targets.wheel]
-packages = ["cli"]
+packages = ["benchmark", "cli", "skills"]

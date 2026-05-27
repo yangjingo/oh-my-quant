@@ -1,69 +1,53 @@
 # oh-my-quant
 
-量化金融 Agent Skills 合集 — 8 个 Claude Code / Codex 自定义 skills + 1 个 benchmark 模块。
+一个收缩后的量化工具仓库：保留可执行的核心能力，去掉展示型设计层、占位式 CLI 和未接入 CLI 的 skill 文档。
 
-## Skills
+## 保留内容
 
-| Skill | 用途 |
-|-------|------|
-| `data` | 数据获取与清洗（AKShare/yfinance） |
-| `factor` | 因子研究与 IC 分析 |
-| `backtest` | 策略回测与绩效报告 |
-| `risk` | 风险管理与组合优化 |
-| `research` | 综合研究入口（编排上述 4 个） |
-| `intel` | 投资大师观点抓取（10 位大师，手动+Cron） |
-| `consensus` | 顶级基金 13F 共识持仓分析（Top 20 / 新进 / 退出 / 强度变化） |
-| `validate` | 验证 skills & CLI 工具（冒烟 + cross-check） |
+- `skills/datasource/scripts`：A 股 `AKShare`、美股 `yfinance` 数据获取
+- `skills/factor/scripts`：基础因子计算
+- `skills/backtest/scripts`：向量化均线回测与绩效统计
+- `skills/risk/scripts`：风险指标与组合优化
+- `benchmark/scripts`：策略评分与结果汇总
+- `cli/main.py`：最小命令行入口
 
-## Benchmark 模块
+## CLI
 
-| 组件 | 用途 |
-|------|------|
-| `benchmark/SKILL.md` | 策略评测 skill（对齐 AI-Trader） |
-| `benchmark/scripts/score.py` | 三维评分引擎（收益/风险/稳健性） |
-| `benchmark/scripts/dashboard.py` | 统计看板，聚合评测结果 |
-| `benchmark/scripts/kline_chart.py` | K 线走势图模板（NewForm 主题） |
-| `benchmark/data/` | 评测数据（成分股、alpha 清单） |
-| `benchmark/results/` | 评测结果 JSON |
-| `benchmark/reports/` | 可视化报告（HTML Dashboard + K-line） |
-| `docs/DESIGN.md` | NewForm 设计系统（所有 UI 强制遵守） |
+```bash
+uv sync
+whyj-quant data download --symbol 000001
+whyj-quant factor analyze --symbol 000001 --factor-name momentum
+whyj-quant backtest run --symbol 000001 --fast 20 --slow 60
+whyj-quant risk check --symbol 000001
+whyj-quant benchmark run --symbol 000001 --benchmark-symbol 510300.SS
+whyj-quant benchmark dashboard
+whyj-quant validate all
+```
 
 ## 项目结构
 
-```
+```text
 oh-my-quant/
-├── skills/                # 8 个 skills，每个含 SKILL.md + scripts/
-├── benchmark/             # 评测 skill + 数据 + K 线模板 + 看板
-├── cli/        # CLI 入口 (whyj-quant)
-├── docs/
-│   ├── DESIGN.md           # NewForm 设计系统 (Google Stitch Alpha 规范)
-│   └── reference.md        # 量化资源索引 + API 速查
-├── CHANGELOG.md
-└── CLAUDE.md              # Agent 项目指令
+├── ROADMAP.md
+├── cli/
+├── benchmark/
+│   ├── data/
+│   ├── results/
+│   └── scripts/
+├── skills/
+│   ├── datasource/
+│   ├── factor/
+│   ├── backtest/
+│   ├── risk/
+│   └── validate/
+├── docs/reference.md
+└── pyproject.toml
 ```
 
-## 使用
+## 说明
 
-```bash
-uv sync                                   # 安装依赖 + CLI
-whyj-quant run -p "回测平安银行均线策略"    # 自然语言入口
-whyj-quant validate all                    # 验证全部 skills
-whyj-quant dashboard                       # 统计看板
-whyj-quant backtest run --symbol 000001    # 单功能命令
-whyj-quant consensus report --quarter 2026Q1  # 机构共识分析入口
-```
-
-## 数据源
-
-- `data` skill 现支持本地 Python 数据源和结构化 MCP：
-  - A 股：AKShare / Tushare / baostock
-  - 美股价格：yfinance / Financial Datasets MCP
-  - 美股财报、13F、公司信息、新闻：Financial Datasets MCP / LLMQuant Data MCP
-- `Financial Datasets` 聚合 open-source data 与第三方 API，包括 Yahoo Finance、SEC EDGAR，适合结构化财报和机构持仓分析。
-
-## 参考
-
-- [AI-Trader](https://arxiv.org/abs/2512.10971) — Agent trading 实时评测基准
-- [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) — 自然语言量化研究 CLI（452 alpha zoo）
-- [awesome-trading-agents](https://github.com/LLMQuant/awesome-trading-agents)
-- [nof1.ai](https://nof1.ai/) — AI 自主交易
+- `benchmark run` 现在直接对均线交叉策略评分，并把结果写入 `benchmark/results/`
+- 数据源现只保留 `akshare` 和 `yfinance` 两条运行路径
+- 仓库已删除 HTML 看板、K 线展示页和独立设计系统文档
+- 未接入 CLI 的 `research`、`intel`、`consensus` 代码和 skill 文档已移除
+- 后续可能恢复的方向只保留在 `ROADMAP.md`

@@ -87,7 +87,7 @@ def vectorized_backtest(signals: pd.Series, prices: pd.Series,
     df["cost"] = df["trade"].abs() * df["price"] * commission
     df["cost"] += df["trade"].clip(upper=0).abs() * df["price"] * stamp_duty
 
-    df["equity"] = initial_cash
+    df["equity"] = float(initial_cash)
     for i in range(1, len(df)):
         prev_eq = df["equity"].iloc[i - 1]
         pos = df["position"].iloc[i - 1]

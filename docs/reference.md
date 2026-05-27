@@ -239,7 +239,7 @@ df = yf.download("000001.SZ", start="2024-01-01")
 
 ### JQData (聚宽 SDK)
 
-本项目的统一封装：`from skills.datasource.scripts.jqdata import daily, valuation, financial, financials_multi, index_weights, alpha101, alpha191, futures_info, query_count, logout`
+当前项目已不再内置 JQData 封装；以下内容仅作为外部参考。
 
 | 函数 | 说明 |
 |------|------|
