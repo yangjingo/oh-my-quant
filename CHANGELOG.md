@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- 恢复原始 `docs/DESIGN.md`，作为未来 UI 规范资产保留，不再视为运行时代码依赖
+
 ## [0.2.0] - 2026-05-27
 
 ### Changed
@@ -30,7 +36,6 @@
 - `benchmark/scripts/kline_chart.py`
 - `benchmark/scripts/metric_pages.py`
 - `benchmark/metrics/` 下所有生成好的 HTML 文件
-- `docs/DESIGN.md` 及其相关设计约束
 
 ### Added
 

@@ -43,5 +43,5 @@ whyj-quant benchmark dashboard
 ## 保留原则
 
 - 不生成 HTML 页面
-- 不维护独立设计系统
+- 当前 benchmark 运行时不依赖独立设计系统，但 `docs/DESIGN.md` 保留为未来 UI 规范
 - 所有结果以 JSON 和终端文本为准

@@ -48,6 +48,6 @@ oh-my-quant/
 
 - `benchmark run` 现在直接对均线交叉策略评分，并把结果写入 `benchmark/results/`
 - 数据源现只保留 `akshare` 和 `yfinance` 两条运行路径
-- 仓库已删除 HTML 看板、K 线展示页和独立设计系统文档
+- 仓库已删除 HTML 看板和 K 线展示页；`docs/DESIGN.md` 作为未来 UI 规范资产保留
 - 未接入 CLI 的 `research`、`intel`、`consensus` 代码和 skill 文档已移除
 - 后续可能恢复的方向只保留在 `ROADMAP.md`

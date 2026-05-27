@@ -36,7 +36,7 @@ oh-my-quant/
 
 ## 约定
 
-- 不再维护 HTML 看板和设计系统
+- 不再维护 HTML 看板；`docs/DESIGN.md` 保留为未来 UI 规范文档
 - CLI 只能暴露已实现并能运行的命令
 - 未接入 CLI 的 skill 文档不再保留
 - 非 CLI 方向只允许保留在 `ROADMAP.md`
