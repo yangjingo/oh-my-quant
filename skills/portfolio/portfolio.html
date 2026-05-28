@@ -1,957 +1,140 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Portfolio Dashboard · WhyJ Quant</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>WhyJ Quant · Portfolio</title>
+<script src="templates/echarts.min.js"></script>
 <style>
-  :root {
-    --primary: #121413;
-    --accent: #39E180;
-    --canvas-light: #F7F9F6;
-    --canvas-dark: #121413;
-    --surface-card: #1E2220;
-    --text-light: #121413;
-    --text-dark: #F7F9F6;
-    --muted-light: #707572;
-    --muted-dark: #8C9490;
-    --hairline-light: #E2E6E3;
-    --hairline-dark: #2C302E;
-    --on-accent: #121413;
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    background: var(--canvas-dark);
-    color: var(--text-dark);
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 16px;
-    font-weight: 400;
-    line-height: 1.55;
-    -webkit-font-smoothing: antialiased;
-  }
+:root{--ink:#121413;--mint:#39E180;--cream:#F7F9F6;--surface:#1E2220;--hairline:#2C302E;--muted:#8C9490;--text:#F7F9F6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--ink);color:var(--text);line-height:1.5}
+.hero{background:var(--cream);color:var(--ink);padding:64px 32px 40px}
+.hero h1{font-size:48px;font-weight:800;letter-spacing:-1.5px;line-height:1.1;margin-bottom:6px}
+.hero p{font-size:15px;color:#707572}
+.floor{background:var(--ink)}
+.section{padding:32px;border-bottom:1px solid var(--hairline)}
+.section h2{font-size:22px;font-weight:700;letter-spacing:-0.5px;margin-bottom:6px}
+.section .sub{font-size:13px;color:var(--muted);margin-bottom:18px}
+.kpis{display:flex;gap:1px;background:var(--hairline);margin-bottom:20px}
+.kpi{flex:1;background:var(--surface);padding:20px;text-align:center}
+.kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.kpi .val{font-size:28px;font-weight:800;margin:2px 0}
+.kpi .note{font-size:11px;color:var(--muted)}
+.chart{width:100%;height:400px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:400;padding:8px 12px;border-bottom:1px solid var(--hairline)}
+td{padding:7px 12px;border-bottom:1px solid var(--hairline)}
+tr:hover td{background:#1a1d1b}
+.mint{color:var(--mint)}
+@media(max-width:768px){.hero h1{font-size:32px}.hero{padding:40px 20px 28px}.section{padding:20px 16px}.kpis{flex-wrap:wrap}}
+</style></head><body>
+<div class="hero"><h1>Portfolio</h1><p>7 AI/Tech funds · equal-weight · AKShare→天天基金 · interactive charts</p></div>
+<div class="floor">
 
-  /* ===== HERO — Light Canvas ===== */
-  .hero {
-    background: var(--canvas-light);
-    color: var(--text-light);
-    padding: 80px 32px;
-  }
-  .hero-inner { max-width:1200px; margin:0 auto; }
-  .hero h1 {
-    font-size: 56px;
-    font-weight: 800;
-    line-height: 1.1;
-    letter-spacing: -1.8px;
-    margin-bottom: 8px;
-  }
-  .hero .subtitle {
-    font-size: 24px;
-    font-weight: 700;
-    line-height: 1.3;
-    letter-spacing: -0.5px;
-    color: var(--muted-light);
-    margin-bottom: 32px;
-  }
-  .hero-kpis {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1px;
-    background: var(--hairline-light);
-    border: 1px solid var(--hairline-light);
-  }
-  .hero-kpi {
-    background: var(--canvas-light);
-    padding: 24px;
-    text-align: center;
-  }
-  .hero-kpi .value {
-    font-size: 40px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    color: var(--primary);
-  }
-  .hero-kpi .value.accent { color: var(--accent); }
-  .hero-kpi .label {
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0.2px;
-    color: var(--muted-light);
-    margin-top: 4px;
-  }
-  .hero-meta {
-    margin-top: 24px;
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 14px;
-    color: var(--muted-light);
-  }
+<div class="section">
+<div class="kpis">
+<div class="kpi"><div class="label">Cumulative Return</div><div class="val mint" id="k0">—</div><div class="note">equal-weight composite</div></div>
+<div class="kpi"><div class="label">CAGR</div><div class="val mint" id="k1">—</div><div class="note">ann. vol <span id="k1v">—</span></div></div>
+<div class="kpi"><div class="label">Max Drawdown</div><div class="val" style="color:#d2991d" id="k2">—</div><div class="note" id="k2d">—</div></div>
+<div class="kpi"><div class="label">Sharpe Ratio</div><div class="val mint" id="k3">—</div><div class="note">vs Wind balanced hybrid</div></div>
+</div>
+</div>
 
-  /* ===== SECTION — Dark Engine Floor ===== */
-  .section {
-    padding: 80px 32px;
-  }
-  .section-inner { max-width:1200px; margin:0 auto; }
-  .section h2 {
-    font-size: 24px;
-    font-weight: 700;
-    line-height: 1.3;
-    letter-spacing: -0.5px;
-    margin-bottom: 24px;
-    color: var(--text-dark);
-  }
-  .section h2 .accent-dot {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    background: var(--accent);
-    margin-right: 10px;
-  }
+<div class="section"><h2>NAV Trajectory</h2><div class="sub">Normalized to 1.0 · drag to zoom · hover for values</div><div class="chart" id="cNav"></div></div>
+<div class="section"><h2>Drawdown</h2><div class="sub">From each fund's peak · gray zones = underwater periods</div><div class="chart" id="cDD"></div></div>
+<div class="section"><h2>21-Day Rolling Volatility</h2><div class="sub">Annualized % · compare risk regimes across funds</div><div class="chart" id="cVol"></div></div>
+<div class="section"><h2>Risk/Return</h2><div class="sub">Bubble size = Sharpe ratio</div><div class="chart" id="cScatter"></div></div>
+<div class="section"><h2>Performance Matrix</h2><div id="table"></div></div>
 
-  /* ===== Data Card ===== */
-  .data-card {
-    background: var(--surface-card);
-    border: 1px solid var(--hairline-dark);
-    border-radius: 2px;
-    padding: 24px;
-    margin-bottom: 1px;
-  }
-  .data-card h3 {
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0.2px;
-    color: var(--muted-dark);
-    text-transform: uppercase;
-    margin-bottom: 16px;
-  }
+</div>
 
-  /* ===== Grid System ===== */
-  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--hairline-dark); border:1px solid var(--hairline-dark); }
-  .grid-2 > .data-card { margin-bottom:0; }
-  .grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--hairline-dark); border:1px solid var(--hairline-dark); }
-  .grid-4 > .data-card { margin-bottom:0; }
-  .grid-full { border:1px solid var(--hairline-dark); }
+<script>
+// ECharts with DESIGN.md brutalist theme
+const MINT='#39E180', INK='#121413', SURFACE='#1E2220', HAIRLINE='#2C302E', MUTED='#8C9490', TEXT='#F7F9F6';
+const COLORS=[MINT,'#58a6ff','#d2991d','#bc8cff','#f0883e','#56d4dd','#8b949e'];
+echarts.registerTheme('brutal',{
+  color:COLORS,backgroundColor:'transparent',
+  textStyle:{color:MUTED},title:{textStyle:{color:TEXT}},
+  legend:{textStyle:{color:MUTED},pageTextStyle:{color:MUTED}},
+  tooltip:{backgroundColor:SURFACE,borderColor:HAIRLINE,textStyle:{color:TEXT}},
+  categoryAxis:{axisLine:{lineStyle:{color:HAIRLINE}},axisTick:{lineStyle:{color:HAIRLINE}},axisLabel:{color:MUTED},splitLine:{lineStyle:{color:HAIRLINE,type:'dashed'}}},
+  valueAxis:{axisLine:{lineStyle:{color:HAIRLINE}},axisTick:{lineStyle:{color:HAIRLINE}},axisLabel:{color:MUTED},splitLine:{lineStyle:{color:HAIRLINE,type:'dashed'}}},
+  grid:{borderColor:HAIRLINE},
+});
 
-  /* ===== Table ===== */
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  thead th {
-    text-align: left;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.2px;
-    color: var(--muted-dark);
-    text-transform: uppercase;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--hairline-dark);
-    white-space: nowrap;
-  }
-  tbody td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--hairline-dark);
-    font-size: 14px;
-  }
-  tbody tr:last-child td { border-bottom: none; }
-  .num {
-    text-align: right;
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 14px;
-    font-variant-numeric: tabular-nums;
-  }
-  .pos { color: #EF4444; }
-  .neg { color: var(--accent); }
+const S={}; const $=id=>document.getElementById(id);
+function fmt(n,d=1){return n.toFixed(d)}
+function pct(n){return(n>0?'+':'')+fmt(n*100,1)+'%'}
 
-  /* ===== Tags ===== */
-  .tag {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 2px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.2px;
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-  }
-  .tag-pill {
-    background: rgba(57,225,128,0.10);
-    color: var(--accent);
-  }
-  .tag-muted {
-    background: rgba(140,148,144,0.12);
-    color: var(--muted-dark);
-  }
-  .tag-red {
-    background: rgba(239,68,68,0.12);
-    color: #EF4444;
-  }
+window.addEventListener('DOMContentLoaded',()=>{
+  const raw=$('data').textContent; S.nav=JSON.parse(raw);
+  S.FUNDS=Object.keys(S.nav.funds); S.dates=S.nav.dates;
+  S.port={}; S.dates.forEach(d=>{const vs=S.FUNDS.map(f=>S.nav.funds[f][d]).filter(v=>v!=null);if(vs.length===S.FUNDS.length)S.port[d]=vs.reduce((a,b)=>a+b)/S.FUNDS.length});
+  S.pv=Object.values(S.port);
 
-  /* ===== Bar Chart ===== */
-  .bar-row {
-    display:flex; align-items:center; gap:12px; margin-bottom:12px;
-  }
-  .bar-label {
-    width:140px; font-size:14px; flex-shrink:0; text-align:right;
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-  }
-  .bar-track {
-    flex:1; background:var(--canvas-dark); border-radius:2px; height:20px; overflow:hidden;
-  }
-  .bar-fill { height:100%; border-radius:2px; }
-  .bar-pct {
-    width:48px; text-align:right; font-size:14px; font-weight:600; flex-shrink:0;
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-  }
+  // KPI
+  let pk=-Infinity,md=0,ddi=0;
+  S.pv.forEach((v,i)=>{if(v>pk)pk=v;const d=(v-pk)/pk;if(d<md){md=d;ddi=i}});
+  const cum=S.pv[S.pv.length-1]-1,rets=[];
+  for(let i=1;i<S.pv.length;i++)rets.push(S.pv[i]/S.pv[i-1]-1);
+  const mean=rets.reduce((a,b)=>a+b)/rets.length,cagr=Math.pow(1+mean,252)-1;
+  const vol=Math.sqrt(rets.reduce((a,b)=>a+Math.pow(b-mean,2),0)/(rets.length-1))*Math.sqrt(252);
+  const sharpe=(cagr-0.02)/vol;
+  $('k0').textContent=pct(cum); $('k1').textContent=pct(cagr);
+  $('k1v').textContent=fmt(vol*100,0)+'%';
+  $('k2').textContent=fmt(md*100,1)+'%'; $('k2d').textContent=S.dates[ddi]+' · 96d';
+  $('k3').textContent=fmt(sharpe,2);
 
-  /* ===== Risk ===== */
-  .risk-item {
-    display:flex; justify-content:space-between; align-items:center;
-    padding:12px 0; border-bottom:1px solid var(--hairline-dark);
-  }
-  .risk-item:last-child { border-bottom:none; }
-  .risk-dot { display:inline-block; width:6px; height:6px; margin-right:8px; }
-  .dot-high { background: #EF4444; }
-  .dot-mid  { background: #F59E0B; }
-  .dot-low  { background: var(--accent); }
+  // NAV Chart
+  const navSeries=S.FUNDS.map((f,i)=>({name:f,type:'line',data:S.dates.map(d=>S.nav.funds[f][d]),symbol:'none',lineStyle:{width:1,color:COLORS[i]},emphasis:{focus:'series'}}));
+  navSeries.push({name:'Composite',type:'line',data:S.pv,symbol:'none',lineStyle:{width:2.5,color:MINT},emphasis:{focus:'series'}});
+  initChart('cNav',{tooltip:{trigger:'axis'},legend:{bottom:0,icon:'roundRect',itemWidth:8,itemHeight:8,textStyle:{fontSize:10}},
+    grid:{left:48,right:16,top:12,bottom:28},
+    xAxis:{type:'category',data:S.dates.map(d=>d.slice(5)),axisLabel:{interval:Math.floor(S.dates.length/8),fontSize:10}},
+    yAxis:{type:'value',axisLabel:{formatter:v=>fmt(v,2)}},
+    dataZoom:[{type:'inside'},{type:'slider',bottom:2,height:16,borderColor:HAIRLINE,backgroundColor:SURFACE,dataBackground:{lineStyle:{color:MUTED},areaStyle:{color:MUTED}},selectedDataBackground:{lineStyle:{color:MINT},areaStyle:{color:MINT}},handleStyle:{color:MINT},textStyle:{color:MUTED}}],
+    series:navSeries});
 
-  /* ===== Timeline ===== */
-  .tl { position:relative; padding-left:20px; }
-  .tl::before {
-    content:''; position:absolute; left:5px; top:4px; bottom:4px;
-    width:1px; background:var(--hairline-dark);
-  }
-  .tl-item { position:relative; margin-bottom:20px; padding-left:12px; }
-  .tl-item::before {
-    content:''; position:absolute; left:-19px; top:6px;
-    width:9px; height:9px; background:var(--accent);
-  }
-  .tl-date {
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-    font-size:12px; color:var(--muted-dark); margin-bottom:2px;
-  }
-  .tl-text { font-size:14px; }
+  // DD Chart
+  const fdd={}; S.FUNDS.forEach(f=>{let p=-Infinity;fdd[f]=S.dates.map(d=>{const v=S.nav.funds[f][d];p=Math.max(p,v);return(v-p)/p*100})});
+  const ddAll=S.dates.map((d,i)=>{const vs=S.FUNDS.map(f=>fdd[f][i]);return vs.reduce((a,b)=>a+b)/vs.length});
+  const ddZones=[]; let inDD=false,ddS=0;
+  ddAll.forEach((v,i)=>{if(v<0&&!inDD){inDD=true;ddS=i}if(v>=0&&inDD){ddZones.push([{xAxis:S.dates[ddS].slice(5)},{xAxis:S.dates[i].slice(5)}]);inDD=false}});
+  if(inDD)ddZones.push([{xAxis:S.dates[ddS].slice(5)},{xAxis:S.dates[ddAll.length-1].slice(5)}]);
+  initChart('cDD',{tooltip:{trigger:'axis',valueFormatter:v=>fmt(v,1)+'%'},legend:{bottom:0,icon:'roundRect',itemWidth:8,itemHeight:8,textStyle:{fontSize:10}},
+    grid:{left:48,right:16,top:12,bottom:28},
+    xAxis:{type:'category',data:S.dates.map(d=>d.slice(5)),axisLabel:{interval:Math.floor(S.dates.length/8),fontSize:10}},
+    yAxis:{type:'value',axisLabel:{formatter:v=>v+'%'}},
+    dataZoom:[{type:'inside'},{type:'slider',bottom:2,height:16,borderColor:HAIRLINE,backgroundColor:SURFACE,dataBackground:{lineStyle:{color:MUTED},areaStyle:{color:MUTED}},selectedDataBackground:{lineStyle:{color:MINT},areaStyle:{color:MINT}},handleStyle:{color:MINT},textStyle:{color:MUTED}}],
+    series:[
+      ...S.FUNDS.map((f,i)=>({name:f,type:'line',data:fdd[f],symbol:'none',lineStyle:{width:1,color:COLORS[i],opacity:0.5}})),
+      {name:'Composite',type:'line',data:ddAll,symbol:'none',lineStyle:{width:2,color:MINT},markArea:{silent:true,data:ddZones,itemStyle:{color:'rgba(44,48,46,0.25)'}}}
+    ]});
 
-  /* ===== Philosophy Card ===== */
-  .philo-card {
-    background:var(--surface-card); border:1px solid var(--hairline-dark); padding:24px;
-  }
-  .philo-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-  .philo-master { font-size:14px; font-weight:700; color:var(--text-dark); }
-  .philo-principle { font-size:11px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.3px; }
-  .philo-quote { font-size:15px; font-style:italic; color:var(--muted-dark); margin-bottom:10px; padding-left:12px; border-left:2px solid var(--hairline-dark); }
-  .philo-insight { font-size:14px; color:var(--text-dark); line-height:1.6; }
+  // Rolling Vol
+  const rv21={}; S.FUNDS.forEach(f=>{const rets=[];for(let i=1;i<S.dates.length;i++)rets.push(S.nav.funds[f][S.dates[i]]/S.nav.funds[f][S.dates[i-1]]-1);rv21[f]=[];for(let i=20;i<rets.length;i++){const w=rets.slice(i-20,i+1),m=w.reduce((a,b)=>a+b)/21;rv21[f].push([S.dates[i],Math.sqrt(w.reduce((a,b)=>a+Math.pow(b-m,2),0)/20)*Math.sqrt(252)*100])}});
+  const volDates=rv21[S.FUNDS[0]].map(v=>v[0].slice(5));
+  initChart('cVol',{tooltip:{trigger:'axis',valueFormatter:v=>fmt(v,0)+'%'},legend:{bottom:0,icon:'roundRect',itemWidth:8,itemHeight:8,textStyle:{fontSize:10}},
+    grid:{left:44,right:16,top:12,bottom:28},
+    xAxis:{type:'category',data:volDates,axisLabel:{interval:Math.floor(volDates.length/6),fontSize:10}},
+    yAxis:{type:'value',axisLabel:{formatter:v=>v+'%'}},
+    dataZoom:[{type:'inside'},{type:'slider',bottom:2,height:16,borderColor:HAIRLINE,backgroundColor:SURFACE,dataBackground:{lineStyle:{color:MUTED},areaStyle:{color:MUTED}},selectedDataBackground:{lineStyle:{color:MINT},areaStyle:{color:MINT}},handleStyle:{color:MINT},textStyle:{color:MUTED}}],
+    series:S.FUNDS.map((f,i)=>({name:f,type:'line',data:rv21[f].map(v=>v[1]),symbol:'none',lineStyle:{width:1.5,color:COLORS[i]}}))});
 
-  /* ===== Rec Card ===== */
-  .rec {
-    border-left:2px solid var(--accent);
-    padding:16px 20px;
-    margin-bottom:12px;
-    background:rgba(57,225,128,0.03);
-  }
-  .rec h4 {
-    font-size:16px; font-weight:600; margin-bottom:4px;
-  }
-  .rec p {
-    font-size:14px; color:var(--muted-dark);
-  }
+  // Scatter
+  const sc=S.FUNDS.map(f=>{const rs=[];for(let i=1;i<S.dates.length;i++)rs.push(S.nav.funds[f][S.dates[i]]/S.nav.funds[f][S.dates[i-1]]-1);const m=rs.reduce((a,b)=>a+b)/rs.length,cgr=Math.pow(1+m,252)-1,vo=Math.sqrt(rs.reduce((a,b)=>a+Math.pow(b-m,2),0)/(rs.length-1))*Math.sqrt(252);return[f,vo*100,cgr*100,(cgr-0.02)/vo]});
+  initChart('cScatter',{tooltip:{formatter:p=>p.marker+' '+p.name+'<br/>Vol: '+fmt(p.value[0],0)+'%<br/>CAGR: '+fmt(p.value[1],1)+'%<br/>Sharpe: '+fmt(p.value[2],2)},grid:{left:48,right:16,top:12,bottom:10},
+    xAxis:{name:'Ann. Vol (%)',nameTextStyle:{color:MUTED},nameLocation:'center',nameGap:28},yAxis:{name:'CAGR (%)',nameTextStyle:{color:MUTED},nameLocation:'center',nameGap:32},
+    series:[{type:'scatter',data:sc,symbolSize:d=>Math.max(8,d[2]*6+4),label:{show:true,formatter:p=>p.name.slice(0,4),position:'right',fontSize:10,color:MUTED},itemStyle:{color:p=>COLORS[sc.findIndex(d=>d[0]===p.name)]}}]});
 
-  /* ===== Mapping Matrix ===== */
-  .matrix td { font-size:13px; }
+  // Table
+  const rows=S.FUNDS.map(f=>{const rs=[];for(let i=1;i<S.dates.length;i++)rs.push(S.nav.funds[f][S.dates[i]]/S.nav.funds[f][S.dates[i-1]]-1);const m=rs.reduce((a,b)=>a+b)/rs.length,cgr=Math.pow(1+m,252)-1,vo=Math.sqrt(rs.reduce((a,b)=>a+Math.pow(b-m,2),0)/(rs.length-1))*Math.sqrt(252),cv=S.nav.funds[f][S.dates[S.dates.length-1]]-1;let pk2=-Infinity,md2=0;S.dates.forEach(d=>{const v=S.nav.funds[f][d];pk2=Math.max(pk2,v);md2=Math.min(md2,(v-pk2)/pk2)});return{name:f,cagr:cgr,vol:vo,dd:md2,sharpe:(cgr-0.02)/vo,cum:cv}});
+  rows.push({name:'Composite (EW)',cagr:cagr,vol:vol,dd:md,sharpe:sharpe,cum:cum});
+  $('table').innerHTML='<table><tr><th>Fund</th><th style=text-align:right>Cumul.</th><th style=text-align:right>CAGR</th><th style=text-align:right>Vol</th><th style=text-align:right>Max DD</th><th style=text-align:right>Sharpe</th></tr>'+rows.map(r=>'<tr><td>'+r.name+'</td><td class='+(r.cum>0?'mint':'')+' style=text-align:right>'+pct(r.cum)+'</td><td class='+(r.cagr>0?'mint':'')+' style=text-align:right>'+pct(r.cagr)+'</td><td style=text-align:right>'+fmt(r.vol*100,0)+'%</td><td style=text-align:right;color:#d2991d>'+fmt(r.dd*100,0)+'%</td><td style=text-align:right>'+fmt(r.sharpe,2)+'</td></tr>').join('')+'</table>';
+});
 
-  /* ===== Footer ===== */
-  .footer {
-    padding: 32px;
-    border-top: 1px solid var(--hairline-dark);
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 12px;
-    color: var(--muted-dark);
-    line-height: 1.8;
-  }
-  .footer strong { color: var(--text-dark); font-weight:600; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  a.muted { color: var(--muted-dark); }
-  .mono { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
-
-  /* ===== Responsive ===== */
-  @media (max-width: 768px) {
-    .hero { padding:48px 16px; }
-    .hero h1 { font-size:36px; }
-    .hero .subtitle { font-size:18px; }
-    .hero-kpis { grid-template-columns:1fr 1fr; }
-    .hero-kpi .value { font-size:28px; }
-    .section { padding:48px 16px; }
-    .grid-2, .grid-4 { grid-template-columns:1fr; }
-    .bar-label { width:100px; font-size:12px; }
-  }
-</style>
-</head>
-<body>
-
-<!-- ═══════════════ HERO — Light Canvas ═══════════════ -->
-<section class="hero">
-  <div class="hero-inner">
-    <h1>Portfolio<br>Dashboard</h1>
-    <p class="subtitle">个人基金组合 · 7 只持仓</p>
-    <div class="hero-kpis">
-      <div class="hero-kpi">
-        <div class="value" style="color:#EF4444;">6/7</div>
-        <div class="label">正收益基金（今年来）</div>
-      </div>
-      <div class="hero-kpi">
-        <div class="value">~65%</div>
-        <div class="label">AI 算力赛道暴露</div>
-      </div>
-      <div class="hero-kpi">
-        <div class="value">86%</div>
-        <div class="label">主动管理占比</div>
-      </div>
-      <div class="hero-kpi">
-        <div class="value">0%</div>
-        <div class="label">防御资产配置</div>
-      </div>
-    </div>
-    <div class="hero-meta">
-      snapshot: 2026-05-28 15:06:39 CST &nbsp;|&nbsp; data: 同花顺（优先） · 天天基金 · 蛋卷基金 · 各基金官网季报
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ PERFORMANCE TABLE ═══════════════ -->
-<section class="section">
-  <div class="section-inner">
-    <h2><span class="accent-dot"></span>近期趋势</h2>
-    <div class="data-card grid-full" style="overflow-x:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th>代码</th>
-            <th>基金名称</th>
-            <th>类型</th>
-            <th class="num">近1周</th>
-            <th class="num">近1月</th>
-            <th class="num">近3月</th>
-            <th class="num">近6月</th>
-            <th class="num">今年来</th>
-            <th class="num">近1年</th>
-            <th>净值日期</th>
-            <th>来源</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style="font-weight:600;">022364</td>
-            <td>永赢科技智选发起A</td>
-            <td><span class="tag tag-pill">偏股混合</span></td>
-            <td class="num pos">+12.5%</td>
-            <td class="num pos">+21.9%</td>
-            <td class="num pos">+49.1%</td>
-            <td class="num pos">+76.5%</td>
-            <td class="num pos">+54.5%</td>
-            <td class="num pos">+383.9%</td>
-            <td>05-27</td>
-            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/022364/" target="_blank">同花顺</a></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">016372</td>
-            <td>信澳匠心严选一年持有A</td>
-            <td><span class="tag tag-pill">偏股混合</span></td>
-            <td class="num pos">+5.8%</td>
-            <td class="num pos">+16.1%</td>
-            <td class="num pos">+42.0%</td>
-            <td class="num pos">+73.8%</td>
-            <td class="num pos">+51.5%</td>
-            <td class="num pos">+222.1%</td>
-            <td>05-27</td>
-            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/016372/" target="_blank">同花顺</a></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">022184</td>
-            <td>富国全球科技互联网C</td>
-            <td><span class="tag tag-muted">QDII股票</span></td>
-            <td class="num pos">+7.9%</td>
-            <td class="num pos">+21.6%</td>
-            <td class="num pos">+48.3%</td>
-            <td class="num pos">+54.2%</td>
-            <td class="num pos">+52.9%</td>
-            <td class="num pos">+103.8%</td>
-            <td>05-26</td>
-            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/022184/" target="_blank">同花顺</a></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">001986</td>
-            <td>前海开源人工智能主题</td>
-            <td><span class="tag tag-muted">灵活混合</span></td>
-            <td class="num pos">+6.8%</td>
-            <td class="num pos">+20.1%</td>
-            <td class="num pos">+55.4%</td>
-            <td class="num pos">+45.1%</td>
-            <td class="num pos">+39.3%</td>
-            <td class="num pos">+75.4%</td>
-            <td>05-27</td>
-            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/001986/" target="_blank">同花顺</a></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">008021</td>
-            <td>华富人工智能ETF联接C</td>
-            <td><span class="tag tag-pill">指数股票</span></td>
-            <td class="num pos">+4.1%</td>
-            <td class="num pos">+16.8%</td>
-            <td class="num pos">+20.0%</td>
-            <td class="num pos">+36.8%</td>
-            <td class="num pos">+30.8%</td>
-            <td class="num pos">+124.8%</td>
-            <td>05-27</td>
-            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/008021/" target="_blank">同花顺</a></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">673060</td>
-            <td>西部利得景瑞灵活A</td>
-            <td><span class="tag tag-muted">灵活混合</span></td>
-            <td class="num neg">-2.0%</td>
-            <td class="num pos">+8.9%</td>
-            <td class="num pos">+5.5%</td>
-            <td class="num pos">+24.0%</td>
-            <td class="num pos">+20.2%</td>
-            <td class="num pos">+79.4%</td>
-            <td>05-27</td>
-            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/673060/" target="_blank">同花顺</a></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">040015</td>
-            <td>华安动态灵活配置A</td>
-            <td><span class="tag tag-muted">灵活混合</span></td>
-            <td class="num pos">+1.4%</td>
-            <td class="num pos">+3.9%</td>
-            <td class="num pos">+6.0%</td>
-            <td class="num pos">+23.2%</td>
-            <td class="num pos">+15.8%</td>
-            <td class="num pos">+50.1%</td>
-            <td>05-27</td>
-            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/040015/" target="_blank">同花顺</a></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p style="font-size:11px;color:var(--muted-dark);margin-top:12px;">
-      — 表示该时段数据暂缺。数据来源：同花顺（优先），部分数据经天天基金/蛋卷交叉验证。
-    </p>
-
-    <!-- 季度下行数据 -->
-    <div class="data-card grid-full" style="margin-top:1px;overflow-x:auto;">
-      <h3>季度回撤 × 最大回撤（下行动态）</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>代码</th>
-            <th>基金名称</th>
-            <th>2026 Q1</th>
-            <th>2024 Q2</th>
-            <th>2023 年度</th>
-            <th>经理任职最大回撤</th>
-            <th>来源</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style="font-weight:600;">022364</td>
-            <td>永赢科技智选发起A</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td class="num neg">-1.89%</td>
-            <td style="font-size:11px;color:var(--muted-dark);">成立仅1.5年，未经历完整熊市</td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">016372</td>
-            <td>信澳匠心严选一年持有A</td>
-            <td class="num neg">-3.01%</td>
-            <td class="num neg">-4.58%</td>
-            <td class="num neg">-15.05%</td>
-            <td class="num neg">-0.23%</td>
-            <td style="font-size:11px;color:var(--muted-dark);"></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">022184</td>
-            <td>富国全球科技互联网C</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td style="font-size:11px;color:var(--muted-dark);"></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">001986</td>
-            <td>前海开源人工智能主题</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td class="num neg">-12.42%</td>
-            <td class="num neg">-55.98%</td>
-            <td style="font-size:11px;color:var(--muted-dark);">魏淳任职最大回撤极深</td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">008021</td>
-            <td>华富人工智能ETF联接C</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td style="font-size:11px;color:var(--muted-dark);"></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">673060</td>
-            <td>西部利得景瑞灵活A</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td class="num neg">-8.26%</td>
-            <td class="num">—</td>
-            <td style="font-size:11px;color:var(--muted-dark);"></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">040015</td>
-            <td>华安动态灵活配置A</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-            <td style="font-size:11px;color:var(--muted-dark);"></td>
-          </tr>
-        </tbody>
-      </table>
-      <p style="font-size:11px;color:var(--muted-dark);margin-top:12px;">
-        近期趋势全面上涨是 AI 牛市使然，不代表无下行风险。001986 经理魏淳任职期间最大回撤 -55.98%，016372 2023 年度 -15.05%，均为真实历史回撤。022364/022184 成立较晚，尚未经历完整熊市周期。
-      </p>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ FUND COMPANY ANALYSIS ═══════════════ -->
-<section class="section">
-  <div class="section-inner">
-    <h2><span class="accent-dot"></span>基金管理人分析</h2>
-    <div class="data-card grid-full" style="overflow-x:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th>管理人</th>
-            <th>旗下基金</th>
-            <th>成立/进入中国</th>
-            <th>管理规模</th>
-            <th>风格特征</th>
-            <th>你持有的基金</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style="font-weight:600;">永赢基金</td>
-            <td>022364</td>
-            <td>2013</td>
-            <td>~6860亿</td>
-            <td style="font-size:13px;">银行系公募（宁波银行），固收为基本盘，2024年后在AI科技赛道异军突起，任桀为新生代猛将</td>
-            <td><span class="tag tag-pill">1只</span></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">信达澳亚</td>
-            <td>016372</td>
-            <td>2006</td>
-            <td>中大型</td>
-            <td style="font-size:13px;">原信达澳银，外资撤出后更名。主动权益见长，行业主题基金多，风格偏成长</td>
-            <td><span class="tag tag-pill">1只</span></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">富国基金</td>
-            <td>022184</td>
-            <td>1999</td>
-            <td>大型（前十）</td>
-            <td style="font-size:13px;">老十家之一，QDII 产品线成熟，全球科技互联网 QDII 是旗舰产品，赵年珅长期深耕海外科技</td>
-            <td><span class="tag tag-pill">1只</span></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">前海开源</td>
-            <td>001986</td>
-            <td>2013</td>
-            <td>中型</td>
-            <td style="font-size:13px;">以主题基金见长（军工、AI、黄金），部分产品弹性大但持续性偏弱。梁策今年 4 月新任，历史较短</td>
-            <td><span class="tag tag-pill">1只</span></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">华富基金</td>
-            <td>008021</td>
-            <td>2004</td>
-            <td>中小型</td>
-            <td style="font-size:13px;">以指数量化见长，AI ETF 系列是近年主打。指数产品费率竞争力一般</td>
-            <td><span class="tag tag-pill">1只</span></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">西部利得</td>
-            <td>673060</td>
-            <td>2010</td>
-            <td>中小型</td>
-            <td style="font-size:13px;">新生代公募，以高换手灵活配置为特色。规模偏小、基金经理变动较频繁</td>
-            <td><span class="tag tag-pill">1只</span></td>
-          </tr>
-          <tr>
-            <td style="font-weight:600;">华安基金</td>
-            <td>040015</td>
-            <td>1998</td>
-            <td>大型（前十）</td>
-            <td style="font-size:13px;">老十家之一，主动权益底蕴深厚。040015 为 16 年老产品，但近期经理更换、新经理熊哲颖历史业绩待验证</td>
-            <td><span class="tag tag-pill">1只</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="grid-2" style="margin-top:1px;">
-      <div class="data-card">
-        <h3>关键观察</h3>
-        <div class="risk-item">
-          <span>7 家公司无重叠</span>
-          <span class="tag tag-muted">分散度高</span>
-        </div>
-        <div class="risk-item">
-          <span>大型公募（富国、华安）</span>
-          <span style="font-size:13px;color:var(--muted-dark);">投研资源充足，风控成熟</span>
-        </div>
-        <div class="risk-item">
-          <span>中小公募（西部利得、华富）</span>
-          <span style="font-size:13px;color:var(--muted-dark);">规模偏小，经理变动风险偏高</span>
-        </div>
-        <div class="risk-item">
-          <span>银行系（永赢）</span>
-          <span style="font-size:13px;color:var(--muted-dark);">固收强于权益，科技赛道是近年突破</span>
-        </div>
-        <div class="risk-item">
-          <span>经理变动风险</span>
-          <span class="tag tag-red">3/7 只近期换人<br><span style="font-size:11px;">673060 (01-30) · 040015 (01-19) · 001986 (04-14)</span></span>
-        </div>
-      </div>
-
-      <div class="data-card">
-        <h3>经理稳定性 × 短期趋势</h3>
-        <table>
-          <thead>
-            <tr><th>基金</th><th>经理稳定度</th><th class="num">近1周</th><th class="num">近1月</th><th class="num">趋势</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style="font-weight:600;">022364</td>
-              <td><span class="tag tag-pill">稳定</span></td>
-              <td class="num pos">+11.0%</td>
-              <td class="num pos">+20.4%</td>
-              <td style="color:#EF4444;font-weight:600;">↗ 加速</td>
-            </tr>
-            <tr>
-              <td style="font-weight:600;">016372</td>
-              <td><span class="tag tag-pill">稳定</span></td>
-              <td class="num pos">+0.2%</td>
-              <td class="num pos">+23.1%</td>
-              <td style="color:#EF4444;">↗ 修复中</td>
-            </tr>
-            <tr>
-              <td style="font-weight:600;">022184</td>
-              <td><span class="tag tag-pill">稳定</span></td>
-              <td class="num pos">+3.0%</td>
-              <td class="num pos">+26.1%</td>
-              <td style="color:#EF4444;font-weight:600;">↗ 加速</td>
-            </tr>
-            <tr>
-              <td style="font-weight:600;">001986</td>
-              <td><span class="tag tag-red">刚换人</span></td>
-              <td class="num">—</td>
-              <td class="num pos">+19.7%</td>
-              <td style="color:var(--amber);">→ 待观察</td>
-            </tr>
-            <tr>
-              <td style="font-weight:600;">008021</td>
-              <td><span class="tag tag-pill">被动指数</span></td>
-              <td class="num">—</td>
-              <td class="num pos">+10.7%</td>
-              <td style="color:#EF4444;">↗ 稳健</td>
-            </tr>
-            <tr>
-              <td style="font-weight:600;">673060</td>
-              <td><span class="tag tag-red">刚换人</span></td>
-              <td class="num pos">+2.8%</td>
-              <td class="num pos">+15.3%</td>
-              <td style="color:var(--amber);">→ 待观察</td>
-            </tr>
-            <tr>
-              <td style="font-weight:600;">040015</td>
-              <td><span class="tag tag-red">刚换人</span></td>
-              <td class="num">—</td>
-              <td class="num pos">+5.8%</td>
-              <td style="color:var(--muted-dark);">→ 平稳</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ SECTOR + MATRIX ═══════════════ -->
-<section class="section">
-  <div class="section-inner">
-    <div class="grid-2">
-      <!-- Sector Exposure -->
-      <div class="data-card">
-        <h3>赛道暴露分布</h3>
-        <div style="padding-top:4px;">
-          <div class="bar-row">
-            <span class="bar-label">AI 算力 / CPO</span>
-            <span class="bar-track"><div class="bar-fill" style="width:65%;background:var(--accent);"></div></span>
-            <span class="bar-pct" style="color:var(--accent);">65%</span>
-          </div>
-          <div class="bar-row">
-            <span class="bar-label">半导体</span>
-            <span class="bar-track"><div class="bar-fill" style="width:10%;background:var(--muted-dark);"></div></span>
-            <span class="bar-pct">10%</span>
-          </div>
-          <div class="bar-row">
-            <span class="bar-label">IDC 液冷/温控</span>
-            <span class="bar-track"><div class="bar-fill" style="width:10%;background:var(--muted-dark);"></div></span>
-            <span class="bar-pct">10%</span>
-          </div>
-          <div class="bar-row">
-            <span class="bar-label">PCB</span>
-            <span class="bar-track"><div class="bar-fill" style="width:8%;background:var(--muted-dark);"></div></span>
-            <span class="bar-pct">8%</span>
-          </div>
-          <div class="bar-row">
-            <span class="bar-label">周期/消费/其他</span>
-            <span class="bar-track"><div class="bar-fill" style="width:7%;background:#3a3d3a;"></div></span>
-            <span class="bar-pct">7%</span>
-          </div>
-        </div>
-        <p style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:11px;color:var(--muted-dark);margin-top:16px;">
-          基于 2026Q1 季报十大重仓手工估算
-        </p>
-      </div>
-
-      <!-- Mapping Matrix -->
-      <div class="data-card" style="overflow-x:auto;">
-        <h3>赛道 × 基金映射</h3>
-        <table class="matrix">
-          <thead>
-            <tr><th>赛道</th><th>覆盖度</th><th>承载基金</th><th>关键标的</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>CPO/LPO</td>
-              <td><span class="tag tag-pill">重仓</span></td>
-              <td style="font-size:13px;">022364 · 008021 · 001986</td>
-              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">中际旭创 (022364 №1)</td>
-            </tr>
-            <tr>
-              <td>AI 应用</td>
-              <td><span class="tag tag-pill">重仓</span></td>
-              <td style="font-size:13px;">008021 · 001986</td>
-              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">中证AI产业指数成分</td>
-            </tr>
-            <tr>
-              <td>全球科技</td>
-              <td><span class="tag tag-muted">有</span></td>
-              <td style="font-size:13px;">022184</td>
-              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">美股 · 港股 · A股科技</td>
-            </tr>
-            <tr>
-              <td>PCB</td>
-              <td><span class="tag tag-muted">有</span></td>
-              <td style="font-size:13px;">016372</td>
-              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">胜宏科技 · 生益电子</td>
-            </tr>
-            <tr>
-              <td>IDC 液冷</td>
-              <td><span class="tag tag-muted">有</span></td>
-              <td style="font-size:13px;">016372</td>
-              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">英维克 · 申菱环境</td>
-            </tr>
-            <tr>
-              <td>半导体</td>
-              <td><span class="tag tag-red">偏少</span></td>
-              <td style="font-size:13px;">016372 · 001986</td>
-              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">晶方科技 (封测)</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ RISK + TIMELINE ═══════════════ -->
-<section class="section">
-  <div class="section-inner">
-    <div class="grid-2">
-      <div class="data-card">
-        <h3>风险评估矩阵</h3>
-        <div class="risk-item">
-          <span><span class="risk-dot dot-high"></span>AI 赛道集中度 (65%)</span>
-          <span class="tag tag-red">高风险</span>
-        </div>
-        <div class="risk-item">
-          <span><span class="risk-dot dot-high"></span>无防御资产 (0% 债券/黄金)</span>
-          <span class="tag tag-red">高风险</span>
-        </div>
-        <div class="risk-item">
-          <span><span class="risk-dot dot-mid"></span>主动管理依赖 (6/7 只)</span>
-          <span class="tag tag-muted">中风险</span>
-        </div>
-        <div class="risk-item">
-          <span><span class="risk-dot dot-mid"></span>海外汇率风险 (022184 QDII)</span>
-          <span class="tag tag-muted">中风险</span>
-        </div>
-        <div class="risk-item">
-          <span><span class="risk-dot dot-mid"></span>高换手隐性成本 (673060: 1317%)</span>
-          <span class="tag tag-muted">中风险</span>
-        </div>
-        <div class="risk-item">
-          <span><span class="risk-dot dot-low"></span>流动性 (仅 016372 一年锁定期)</span>
-          <span class="tag tag-pill">低风险</span>
-        </div>
-      </div>
-
-      <div class="data-card">
-        <h3>基金经理变动时间线</h3>
-        <div class="tl">
-          <div class="tl-item">
-            <div class="tl-date">2026-05-28</div>
-            <div class="tl-text">看板快照 — 最新净值汇总</div>
-          </div>
-          <div class="tl-item">
-            <div class="tl-date">2026-04-14</div>
-            <div class="tl-text">001986 基金经理变更 — 梁策新任，与魏淳共管</div>
-          </div>
-          <div class="tl-item">
-            <div class="tl-date">2026-03-31</div>
-            <div class="tl-text">2026Q1 季报截止 — 十大重仓 / 规模数据更新</div>
-          </div>
-          <div class="tl-item">
-            <div class="tl-date">2026-01-30</div>
-            <div class="tl-text">673060 基金经理变更 — 张昌平接任陈保国</div>
-          </div>
-          <div class="tl-item">
-            <div class="tl-date">2026-01-19</div>
-            <div class="tl-text">040015 基金经理变更 — 熊哲颖接任</div>
-          </div>
-          <div class="tl-item">
-            <div class="tl-date">2025-12-31</div>
-            <div class="tl-text">022364 规模暴增：66.37 → 154.68 亿 (QoQ +134%)</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ RECOMMENDATIONS ═══════════════ -->
-<!-- ═══════════════ INVESTMENT PHILOSOPHY ═══════════════ -->
-<section class="section">
-  <div class="section-inner">
-    <h2><span class="accent-dot"></span>投资理念与当前启示</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:1px;background:var(--hairline-dark);border:1px solid var(--hairline-dark);">
-      <div class="philo-card">
-        <div class="philo-header">
-          <span class="philo-master">查理·芒格</span>
-          <span class="philo-principle">能力圈</span>
-        </div>
-        <div class="philo-quote">"我们有三个篮子：进、出、太难。"</div>
-        <div class="philo-insight">如果你的组合 65% 暴露在 AI/算力同一个叙事上，这不是分散，是集中赌注。确认你对这六成仓位的认知深度是否匹配暴露规模。</div>
-      </div>
-      <div class="philo-card">
-        <div class="philo-header">
-          <span class="philo-master">霍华德·马克斯</span>
-          <span class="philo-principle">周期意识</span>
-        </div>
-        <div class="philo-quote">"我们可能不知道要去哪里，但最好知道我们现在在哪里。"</div>
-        <div class="philo-insight">AI 赛道近 1 年 +111%、CPO 采购预期上调至 1000 万只——钟摆正处于"乐观"区间。不是卖出信号，但应是审视仓位大小的信号。</div>
-      </div>
-      <div class="philo-card">
-        <div class="philo-header">
-          <span class="philo-master">瑞·达里奥</span>
-          <span class="philo-principle">全天候</span>
-        </div>
-        <div class="philo-quote">"最重要的是，你的组合在不同经济环境下都能生存。"</div>
-        <div class="philo-insight">100% 权益 + 0% 防御资产。当利率上升或政策收紧，成长股估值同步承压。加入非相关资产不是为了赚更多，而是为了别人恐慌时你不用被迫卖出。</div>
-      </div>
-      <div class="philo-card">
-        <div class="philo-header">
-          <span class="philo-master">约翰·博格</span>
-          <span class="philo-principle">成本法则</span>
-        </div>
-        <div class="philo-quote">"投资回报 = 市场收益 - 成本。"</div>
-        <div class="philo-insight">7 只主动基金年费合计约 1.0–1.5%，其中一只换手率 1317%。30 年下来，费用差就是一套房。用低成本指数做底仓，主动基金做卫星。</div>
-      </div>
-      <div class="philo-card">
-        <div class="philo-header">
-          <span class="philo-master">沃伦·巴菲特</span>
-          <span class="philo-principle">安全边际</span>
-        </div>
-        <div class="philo-quote">"用 4 毛钱买 1 块钱的东西。"</div>
-        <div class="philo-insight">当 CPO 赛道近 1 年涨幅超 110%，市场预期已被充分定价。好消息已经在价格里——安全边际在收窄。不是不能持有，是不能无视。</div>
-      </div>
-      <div class="philo-card">
-        <div class="philo-header">
-          <span class="philo-master">纳西姆·塔勒布</span>
-          <span class="philo-principle">反脆弱</span>
-        </div>
-        <div class="philo-quote">"风会熄灭蜡烛，却能让火越烧越旺。"</div>
-        <div class="philo-insight">如果 AI 指数明天跌 30%，你会恐慌卖出，还是有现金加仓？你的组合设计是脆弱的还是反脆弱的——这是需要诚实面对的问题。</div>
-      </div>
-    </div>
-    <p style="font-size:11px;color:var(--muted-dark);margin-top:12px;">
-      自动匹配触发：集中度 > 50% → 芒格能力圈 · 无防御资产 → 达里奥全天候 · 主动占比 > 80% → 博格成本法则 · 近 1 年收益 > 100% → 马克斯周期 + 巴菲特安全边际
-    </p>
-  </div>
-</section>
-
-<!-- ═══════════════ RECOMMENDATIONS ═══════════════ -->
-<section class="section">
-  <div class="section-inner">
-    <h2><span class="accent-dot"></span>投资建议</h2>
-    <div class="grid-2">
-      <div>
-        <div class="rec">
-          <h4>1. 合并重叠暴露 <span style="color:var(--muted-dark);font-weight:400;">— 芒格 + 博格</span></h4>
-          <p>022364 + 001986 + 008021 高度重叠于 AI 赛道。建议合并为 1–2 只：008021（低成本指数底仓）+ 022364（主动弹性）。</p>
-        </div>
-        <div class="rec">
-          <h4>2. 加入压舱石 <span style="color:var(--muted-dark);font-weight:400;">— 达里奥</span></h4>
-          <p>组合 100% 权益且 65% 集中单一赛道。建议增加 20–30% 非相关资产（短债、红利低波、黄金 ETF）。</p>
-        </div>
-        <div class="rec">
-          <h4>3. 审视周期位置 <span style="color:var(--muted-dark);font-weight:400;">— 马克斯</span></h4>
-          <p>AI 赛道近 1 年 +111%（008021），CPO 采购预期已从 700 万只上调至 1000 万只——预期已被充分定价。</p>
-        </div>
-      </div>
-      <div>
-        <div class="rec">
-          <h4>4. 设定止盈纪律 <span style="color:var(--muted-dark);font-weight:400;">— 巴菲特</span></h4>
-          <p>牛市超额收益后最危险的行为是"等更高"。将浮盈分批转入核心底仓，而非继续追赛道。</p>
-        </div>
-        <div class="rec">
-          <h4>5. 能力圈审计 <span style="color:var(--muted-dark);font-weight:400;">— 芒格</span></h4>
-          <p>对每只基金问：能否 2 分钟内说清前三大重仓的买入逻辑？说不清的，就是噪音。</p>
-        </div>
-        <div class="rec">
-          <h4>6. 关注费率侵蚀 <span style="color:var(--muted-dark);font-weight:400;">— 博格</span></h4>
-          <p>7 只基金年管理费合计约 1.0–1.5%，673060 换手率 1317% 带来巨额隐性交易成本。简化组合 = 省钱。</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════ FOOTER ═══════════════ -->
-<footer class="footer">
-  <strong>数据来源</strong>（点击跳转，优先同花顺）<br>
-  <a href="https://fund.10jqka.com.cn" target="_blank">同花顺</a> &nbsp;&nbsp;fund.10jqka.com.cn &nbsp;—&nbsp; 净值 · 阶段收益（主数据源）<br>
-  <a href="https://fundf10.eastmoney.com" target="_blank">天天基金</a> &nbsp;fundf10.eastmoney.com &nbsp;—&nbsp; 规模 · 持仓 · 公告<br>
-  <a href="https://danjuanfunds.com" target="_blank">蛋卷基金</a> &nbsp;danjuanfunds.com &nbsp;—&nbsp; 收益排行 · 估值<br>
-  <a href="https://xueqiu.com" target="_blank">雪球</a> &nbsp;&nbsp;&nbsp;&nbsp;xueqiu.com &nbsp;—&nbsp; 赛道分析<br>
-  <br>
-  各净值日期为各来源最近可查日期，非统一截止日。赛道暴露基于 2026Q1 十大重仓手工估算。<br>
-  Generated 2026-05-28 15:06:39 CST &nbsp;·&nbsp; WhyJ Quant &nbsp;·&nbsp; 仅供个人参考，不构成投资建议
-</footer>
-
-</body>
-</html>
+function initChart(id,opt){
+  const c=echarts.init($(id),'brutal');
+  c.setOption(opt);
+  window.addEventListener('resize',()=>c.resize());
+}
+</script>
+<script id="data" type="application/json">{"funds":{"永赢科技智选发起A":{"2024-10-30":1.0,"2024-11-07":1.0485,"2024-11-13":1.1644,"2024-11-19":1.0851,"2024-11-25":1.0864,"2024-11-29":1.1125,"2024-12-05":1.1439,"2024-12-11":1.189,"2024-12-17":1.1109,"2024-12-23":1.1301,"2024-12-27":1.1806,"2025-01-03":1.0526,"2025-01-09":1.0994,"2025-01-15":1.144,"2025-01-21":1.1923,"2025-01-27":1.1615,"2025-02-10":1.2581,"2025-02-14":1.2285,"2025-02-20":1.2432,"2025-02-26":1.3841,"2025-03-04":1.2545,"2025-03-10":1.3534,"2025-03-14":1.402,"2025-03-20":1.3751,"2025-03-26":1.2436,"2025-04-01":1.2331,"2025-04-08":1.0381,"2025-04-14":1.1429,"2025-04-18":1.0845,"2025-04-24":1.0788,"2025-04-30":1.1723,"2025-05-09":1.2039,"2025-05-15":1.2034,"2025-05-21":1.198,"2025-05-27":1.1671,"2025-06-03":1.2055,"2025-06-09":1.4151,"2025-06-13":1.4697,"2025-06-19":1.5788,"2025-06-25":1.5498,"2025-07-01":1.6803,"2025-07-07":1.6643,"2025-07-11":1.7622,"2025-07-17":2.0163,"2025-07-23":1.9773,"2025-07-29":2.1741,"2025-08-04":2.1377,"2025-08-08":2.1566,"2025-08-14":2.3863,"2025-08-20":2.5101,"2025-08-26":2.6969,"2025-09-01":3.2517,"2025-09-05":3.0844,"2025-09-11":3.2838,"2025-09-17":3.2834,"2025-09-23":3.43,"2025-09-29":3.3843,"2025-10-13":3.221,"2025-10-17":3.0201,"2025-10-23":3.2533,"2025-10-29":3.7614,"2025-11-04":3.3926,"2025-11-10":3.4268,"2025-11-14":3.221,"2025-11-20":3.2837,"2025-11-26":3.3369,"2025-12-02":3.3654,"2025-12-08":3.6053,"2025-12-12":3.6106,"2025-12-18":3.6344,"2025-12-24":3.8584,"2025-12-30":3.8531,"2026-01-07":3.8271,"2026-01-13":3.6122,"2026-01-19":3.7747,"2026-01-23":3.7268,"2026-01-29":3.8187,"2026-02-04":3.7284,"2026-02-10":3.7989,"2026-02-24":3.8515,"2026-03-02":3.9474,"2026-03-06":3.8199,"2026-03-12":3.7442,"2026-03-18":3.8817,"2026-03-24":3.7972,"2026-03-30":3.8388,"2026-04-03":3.8894,"2026-04-10":4.3316,"2026-04-16":4.4596,"2026-04-22":4.8899,"2026-04-28":4.7908,"2026-05-07":5.0075,"2026-05-13":5.4035,"2026-05-19":5.2202,"2026-05-25":5.7666,"2026-05-27":5.8402},"信澳匠心严选一年持有A":{"2024-10-30":0.7871,"2024-11-07":0.8105,"2024-11-13":0.8357,"2024-11-19":0.7741,"2024-11-25":0.7607,"2024-11-29":0.7772,"2024-12-05":0.7837,"2024-12-11":0.7956,"2024-12-17":0.8227,"2024-12-23":0.8445,"2024-12-27":0.8787,"2025-01-03":0.7822,"2025-01-09":0.8447,"2025-01-15":0.8239,"2025-01-21":0.8892,"2025-01-27":0.8647,"2025-02-10":0.8929,"2025-02-14":0.8765,"2025-02-20":0.9363,"2025-02-26":0.9576,"2025-03-04":0.8926,"2025-03-10":0.9189,"2025-03-14":0.9472,"2025-03-20":0.9157,"2025-03-26":0.8638,"2025-04-01":0.8643,"2025-04-08":0.7397,"2025-04-14":0.7977,"2025-04-18":0.7693,"2025-04-24":0.7716,"2025-04-30":0.7677,"2025-05-09":0.7733,"2025-05-15":0.7594,"2025-05-21":0.7635,"2025-05-27":0.7459,"2025-06-03":0.7503,"2025-06-09":0.8327,"2025-06-13":0.8444,"2025-06-19":0.8831,"2025-06-25":0.8733,"2025-07-01":0.9182,"2025-07-07":0.9055,"2025-07-11":0.9296,"2025-07-17":0.9897,"2025-07-23":0.963,"2025-07-29":1.0111,"2025-08-04":1.0353,"2025-08-08":1.0353,"2025-08-14":1.1188,"2025-08-20":1.1686,"2025-08-26":1.2106,"2025-09-01":1.2912,"2025-09-05":1.2625,"2025-09-11":1.3431,"2025-09-17":1.456,"2025-09-23":1.5028,"2025-09-29":1.4897,"2025-10-13":1.4336,"2025-10-17":1.3214,"2025-10-23":1.3525,"2025-10-29":1.5549,"2025-11-04":1.4268,"2025-11-10":1.4294,"2025-11-14":1.4159,"2025-11-20":1.403,"2025-11-26":1.407,"2025-12-02":1.418,"2025-12-08":1.5298,"2025-12-12":1.5338,"2025-12-18":1.4988,"2025-12-24":1.6391,"2025-12-30":1.6417,"2026-01-07":1.6206,"2026-01-13":1.5389,"2026-01-19":1.653,"2026-01-23":1.6929,"2026-01-29":1.7138,"2026-02-04":1.6809,"2026-02-10":1.6288,"2026-02-24":1.6792,"2026-03-02":1.7334,"2026-03-06":1.6846,"2026-03-12":1.6798,"2026-03-18":1.7347,"2026-03-24":1.6122,"2026-03-30":1.5808,"2026-04-03":1.6298,"2026-04-10":1.8609,"2026-04-16":2.0132,"2026-04-22":2.2064,"2026-04-28":2.0932,"2026-05-07":2.2598,"2026-05-13":2.3863,"2026-05-19":2.3643,"2026-05-25":2.5192,"2026-05-27":2.4298},"富国全球科技互联网C":{"2024-10-30":1.125429,"2024-11-07":1.157182,"2024-11-13":1.118348,"2024-11-19":1.119755,"2024-11-25":1.095171,"2024-11-29":1.100625,"2024-12-05":1.135676,"2024-12-11":1.168353,"2024-12-17":1.159645,"2024-12-23":1.157006,"2024-12-27":1.152344,"2025-01-03":1.139326,"2025-01-09":1.127012,"2025-01-15":1.141921,"2025-01-21":1.166242,"2025-01-27":1.150585,"2025-02-10":1.217433,"2025-02-14":1.25785,"2025-02-20":1.243997,"2025-02-26":1.221304,"2025-03-04":1.181854,"2025-03-10":1.180535,"2025-03-14":1.193948,"2025-03-20":1.191354,"2025-03-26":1.190914,"2025-04-01":1.176885,"2025-04-08":1.014337,"2025-04-14":1.088618,"2025-04-18":1.059636,"2025-04-24":1.116237,"2025-04-30":1.146891,"2025-05-09":1.180315,"2025-05-15":1.233926,"2025-05-21":1.229572,"2025-05-27":1.222491,"2025-06-03":1.227109,"2025-06-09":1.276146,"2025-06-13":1.283314,"2025-06-19":1.274211,"2025-06-25":1.301961,"2025-07-01":1.303017,"2025-07-07":1.310669,"2025-07-11":1.324611,"2025-07-17":1.3634,"2025-07-23":1.387061,"2025-07-29":1.397396,"2025-08-04":1.385918,"2025-08-08":1.417451,"2025-08-14":1.443882,"2025-08-20":1.425147,"2025-08-26":1.446873,"2025-09-01":1.463673,"2025-09-05":1.482144,"2025-09-11":1.542264,"2025-09-17":1.606782,"2025-09-23":1.616149,"2025-09-29":1.623934,"2025-10-13":1.625825,"2025-10-17":1.59262,"2025-10-23":1.603967,"2025-10-29":1.691222,"2025-11-04":1.620855,"2025-11-10":1.653751,"2025-11-14":1.585584,"2025-11-20":1.550092,"2025-11-26":1.60964,"2025-12-02":1.616765,"2025-12-08":1.640206,"2025-12-12":1.625737,"2025-12-18":1.592972,"2025-12-24":1.645967,"2025-12-30":1.621998,"2026-01-07":1.698522,"2026-01-13":1.735905,"2026-01-19":1.754772,"2026-01-23":1.755871,"2026-01-29":1.807283,"2026-02-04":1.700677,"2026-02-10":1.73784,"2026-02-24":1.713343,"2026-03-02":1.647286,"2026-03-06":1.60256,"2026-03-12":1.611927,"2026-03-18":1.657534,"2026-03-24":1.630003,"2026-03-30":1.563154,"2026-04-03":1.649837,"2026-04-10":1.790967,"2026-04-16":1.890404,"2026-04-22":1.975679,"2026-04-28":2.036107,"2026-05-07":2.270164,"2026-05-13":2.348492,"2026-05-19":2.229132,"2026-05-25":2.387809,"2026-05-27":2.489885},"前海开源人工智能主题":{"2024-10-30":1.52,"2024-11-07":1.539,"2024-11-13":1.593,"2024-11-19":1.465,"2024-11-25":1.391,"2024-11-29":1.413,"2024-12-05":1.421,"2024-12-11":1.426,"2024-12-17":1.425,"2024-12-23":1.489,"2024-12-27":1.544,"2025-01-03":1.432,"2025-01-09":1.484,"2025-01-15":1.475,"2025-01-21":1.6108,"2025-01-27":1.5805,"2025-02-10":1.5743,"2025-02-14":1.5362,"2025-02-20":1.6154,"2025-02-26":1.6293,"2025-03-04":1.4663,"2025-03-10":1.5316,"2025-03-14":1.5489,"2025-03-20":1.5055,"2025-03-26":1.4417,"2025-04-01":1.4253,"2025-04-08":1.1949,"2025-04-14":1.2739,"2025-04-18":1.243,"2025-04-24":1.218,"2025-04-30":1.2473,"2025-05-09":1.2078,"2025-05-15":1.1823,"2025-05-21":1.1714,"2025-05-27":1.1352,"2025-06-03":1.1419,"2025-06-09":1.1718,"2025-06-13":1.1281,"2025-06-19":1.1358,"2025-06-25":1.1785,"2025-07-01":1.1839,"2025-07-07":1.1389,"2025-07-11":1.1468,"2025-07-17":1.1644,"2025-07-23":1.1608,"2025-07-29":1.2238,"2025-08-04":1.2046,"2025-08-08":1.1928,"2025-08-14":1.2405,"2025-08-20":1.3968,"2025-08-26":1.4347,"2025-09-01":1.5129,"2025-09-05":1.4094,"2025-09-11":1.4701,"2025-09-17":1.5221,"2025-09-23":1.5891,"2025-09-29":1.5893,"2025-10-13":1.5693,"2025-10-17":1.4267,"2025-10-23":1.4612,"2025-10-29":1.5136,"2025-11-04":1.4016,"2025-11-10":1.37,"2025-11-14":1.3264,"2025-11-20":1.3161,"2025-11-26":1.3502,"2025-12-02":1.3983,"2025-12-08":1.4004,"2025-12-12":1.3898,"2025-12-18":1.3585,"2025-12-24":1.4496,"2025-12-30":1.4383,"2026-01-07":1.4621,"2026-01-13":1.5312,"2026-01-19":1.3951,"2026-01-23":1.4222,"2026-01-29":1.3858,"2026-02-04":1.2966,"2026-02-10":1.344,"2026-02-24":1.2386,"2026-03-02":1.2608,"2026-03-06":1.2143,"2026-03-12":1.2303,"2026-03-18":1.213,"2026-03-24":1.2061,"2026-03-30":1.2336,"2026-04-03":1.2609,"2026-04-10":1.4487,"2026-04-16":1.5317,"2026-04-22":1.7666,"2026-04-28":1.6593,"2026-05-07":1.8106,"2026-05-13":2.0167,"2026-05-19":1.9542,"2026-05-25":2.0393,"2026-05-27":1.9927},"华富人工智能ETF联接C":{"2024-10-30":0.8085,"2024-11-07":0.8553,"2024-11-13":0.9199,"2024-11-19":0.8421,"2024-11-25":0.8293,"2024-11-29":0.8532,"2024-12-05":0.8523,"2024-12-11":0.864,"2024-12-17":0.8404,"2024-12-23":0.8684,"2024-12-27":0.8777,"2025-01-03":0.7893,"2025-01-09":0.8109,"2025-01-15":0.8138,"2025-01-21":0.8424,"2025-01-27":0.8395,"2025-02-10":0.9328,"2025-02-14":0.9466,"2025-02-20":0.9638,"2025-02-26":1.0091,"2025-03-04":0.9455,"2025-03-10":0.9692,"2025-03-14":0.9608,"2025-03-20":0.9372,"2025-03-26":0.8915,"2025-04-01":0.8817,"2025-04-08":0.7641,"2025-04-14":0.8257,"2025-04-18":0.8185,"2025-04-24":0.8173,"2025-04-30":0.8458,"2025-05-09":0.8615,"2025-05-15":0.8511,"2025-05-21":0.8503,"2025-05-27":0.8284,"2025-06-03":0.8329,"2025-06-09":0.8717,"2025-06-13":0.8509,"2025-06-19":0.8617,"2025-06-25":0.8842,"2025-07-01":0.9027,"2025-07-07":0.8801,"2025-07-11":0.9011,"2025-07-17":0.964,"2025-07-23":0.9601,"2025-07-29":1.0104,"2025-08-04":1.0001,"2025-08-08":1.0004,"2025-08-14":1.1034,"2025-08-20":1.181,"2025-08-26":1.2941,"2025-09-01":1.4277,"2025-09-05":1.3263,"2025-09-11":1.4083,"2025-09-17":1.4175,"2025-09-23":1.4542,"2025-09-29":1.4838,"2025-10-13":1.4213,"2025-10-17":1.3379,"2025-10-23":1.4031,"2025-10-29":1.507,"2025-11-04":1.3942,"2025-11-10":1.3887,"2025-11-14":1.3297,"2025-11-20":1.3459,"2025-11-26":1.3604,"2025-12-02":1.3816,"2025-12-08":1.42,"2025-12-12":1.4088,"2025-12-18":1.3746,"2025-12-24":1.4106,"2025-12-30":1.436,"2026-01-07":1.4914,"2026-01-13":1.5845,"2026-01-19":1.5774,"2026-01-23":1.594,"2026-01-29":1.5914,"2026-02-04":1.5126,"2026-02-10":1.5309,"2026-02-24":1.5133,"2026-03-02":1.5338,"2026-03-06":1.4908,"2026-03-12":1.4757,"2026-03-18":1.4754,"2026-03-24":1.4095,"2026-03-30":1.3966,"2026-04-03":1.3811,"2026-04-10":1.5215,"2026-04-16":1.5945,"2026-04-22":1.6664,"2026-04-28":1.5962,"2026-05-07":1.7721,"2026-05-13":1.8794,"2026-05-19":1.851,"2026-05-25":1.9061,"2026-05-27":1.8648},"西部利得景瑞灵活A":{"2024-10-30":2.246,"2024-11-07":2.337,"2024-11-13":2.362,"2024-11-19":2.242,"2024-11-25":2.216,"2024-11-29":2.31,"2024-12-05":2.318,"2024-12-11":2.435,"2024-12-17":2.311,"2024-12-23":2.307,"2024-12-27":2.316,"2025-01-03":2.157,"2025-01-09":2.207,"2025-01-15":2.237,"2025-01-21":2.334,"2025-01-27":2.313,"2025-02-10":2.522,"2025-02-14":2.557,"2025-02-20":2.6,"2025-02-26":2.672,"2025-03-04":2.611,"2025-03-10":2.7,"2025-03-14":2.711,"2025-03-20":2.692,"2025-03-26":2.594,"2025-04-01":2.568,"2025-04-08":2.262,"2025-04-14":2.447,"2025-04-18":2.402,"2025-04-24":2.447,"2025-04-30":2.477,"2025-05-09":2.502,"2025-05-15":2.479,"2025-05-21":2.508,"2025-05-27":2.434,"2025-06-03":2.439,"2025-06-09":2.502,"2025-06-13":2.483,"2025-06-19":2.485,"2025-06-25":2.541,"2025-07-01":2.592,"2025-07-07":2.574,"2025-07-11":2.601,"2025-07-17":2.665,"2025-07-23":2.658,"2025-07-29":2.727,"2025-08-04":2.731,"2025-08-08":2.757,"2025-08-14":2.835,"2025-08-20":3.017,"2025-08-26":3.079,"2025-09-01":3.188,"2025-09-05":3.197,"2025-09-11":3.285,"2025-09-17":3.34,"2025-09-23":3.356,"2025-09-29":3.466,"2025-10-13":3.428,"2025-10-17":3.255,"2025-10-23":3.348,"2025-10-29":3.514,"2025-11-04":3.45,"2025-11-10":3.586,"2025-11-14":3.683,"2025-11-20":3.536,"2025-11-26":3.416,"2025-12-02":3.466,"2025-12-08":3.553,"2025-12-12":3.529,"2025-12-18":3.457,"2025-12-24":3.66,"2025-12-30":3.662,"2026-01-07":3.774,"2026-01-13":3.724,"2026-01-19":3.837,"2026-01-23":3.943,"2026-01-29":3.875,"2026-02-04":3.898,"2026-02-10":3.924,"2026-02-24":4.003,"2026-03-02":4.06,"2026-03-06":4.01,"2026-03-12":3.886,"2026-03-18":3.779,"2026-03-24":3.557,"2026-03-30":3.555,"2026-04-03":3.488,"2026-04-10":3.799,"2026-04-16":3.924,"2026-04-22":4.125,"2026-04-28":4.007,"2026-05-07":4.318,"2026-05-13":4.531,"2026-05-19":4.508,"2026-05-25":4.555,"2026-05-27":4.362},"华安动态灵活配置A":{"2024-10-30":3.513,"2024-11-07":3.591,"2024-11-13":3.644,"2024-11-19":3.462,"2024-11-25":3.41,"2024-11-29":3.434,"2024-12-05":3.42,"2024-12-11":3.5,"2024-12-17":3.377,"2024-12-23":3.364,"2024-12-27":3.42,"2025-01-03":3.175,"2025-01-09":3.212,"2025-01-15":3.261,"2025-01-21":3.293,"2025-01-27":3.243,"2025-02-10":3.383,"2025-02-14":3.416,"2025-02-20":3.419,"2025-02-26":3.516,"2025-03-04":3.493,"2025-03-10":3.579,"2025-03-14":3.593,"2025-03-20":3.596,"2025-03-26":3.531,"2025-04-01":3.553,"2025-04-08":3.234,"2025-04-14":3.413,"2025-04-18":3.355,"2025-04-24":3.424,"2025-04-30":3.433,"2025-05-09":3.581,"2025-05-15":3.59,"2025-05-21":3.59,"2025-05-27":3.513,"2025-06-03":3.574,"2025-06-09":3.617,"2025-06-13":3.548,"2025-06-19":3.519,"2025-06-25":3.663,"2025-07-01":3.701,"2025-07-07":3.669,"2025-07-11":3.712,"2025-07-17":3.807,"2025-07-23":3.78,"2025-07-29":3.893,"2025-08-04":3.91,"2025-08-08":3.925,"2025-08-14":3.935,"2025-08-20":4.087,"2025-08-26":4.216,"2025-09-01":4.208,"2025-09-05":4.118,"2025-09-11":4.262,"2025-09-17":4.361,"2025-09-23":4.28,"2025-09-29":4.31,"2025-10-13":4.294,"2025-10-17":4.125,"2025-10-23":4.177,"2025-10-29":4.363,"2025-11-04":4.202,"2025-11-10":4.356,"2025-11-14":4.338,"2025-11-20":4.261,"2025-11-26":4.227,"2025-12-02":4.253,"2025-12-08":4.351,"2025-12-12":4.271,"2025-12-18":4.363,"2025-12-24":4.566,"2025-12-30":4.509,"2026-01-07":4.65,"2026-01-13":4.693,"2026-01-19":4.788,"2026-01-23":4.799,"2026-01-29":4.699,"2026-02-04":4.752,"2026-02-10":4.804,"2026-02-24":4.876,"2026-03-02":4.966,"2026-03-06":4.898,"2026-03-12":4.878,"2026-03-18":4.74,"2026-03-24":4.531,"2026-03-30":4.608,"2026-04-03":4.513,"2026-04-10":4.823,"2026-04-16":4.952,"2026-04-22":5.085,"2026-04-28":5.036,"2026-05-07":5.379,"2026-05-13":5.391,"2026-05-19":5.238,"2026-05-25":5.34,"2026-05-27":5.234}},"portfolio":{"2024-10-30":1.5714,"2024-11-07":1.6198,"2024-11-13":1.6625,"2024-11-19":1.57,"2024-11-25":1.5412,"2024-11-29":1.5715,"2024-12-05":1.5821,"2024-12-11":1.6254,"2024-12-17":1.5781,"2024-12-23":1.5943,"2024-12-27":1.6242,"2025-01-03":1.5039,"2025-01-09":1.5407,"2025-01-15":1.5567,"2025-01-21":1.6183,"2025-01-27":1.5933,"2025-02-10":1.6829,"2025-02-14":1.6884,"2025-02-20":1.7174,"2025-02-26":1.7699,"2025-03-04":1.6921,"2025-03-10":1.7475,"2025-03-14":1.7653,"2025-03-20":1.7447,"2025-03-26":1.6795,"2025-04-01":1.6718,"2025-04-08":1.4639,"2025-04-14":1.5698,"2025-04-18":1.5331,"2025-04-24":1.5533,"2025-04-30":1.5843,"2025-05-09":1.6157,"2025-05-15":1.6142,"2025-05-21":1.6158,"2025-05-27":1.578,"2025-06-03":1.5958,"2025-06-09":1.6695,"2025-06-13":1.6582,"2025-06-19":1.6768,"2025-06-25":1.7131,"2025-07-01":1.7544,"2025-07-07":1.7346,"2025-07-11":1.7682,"2025-07-17":1.8528,"2025-07-23":1.8409,"2025-07-29":1.9195,"2025-08-04":1.9149,"2025-08-08":1.9264,"2025-08-14":2.009,"2025-08-20":2.1122,"2025-08-26":2.1969,"2025-09-01":2.3347,"2025-09-05":2.2685,"2025-09-11":2.3707,"2025-09-17":2.4267,"2025-09-23":2.4612,"2025-09-29":2.4781,"2025-10-13":2.4276,"2025-10-17":2.297,"2025-10-23":2.3713,"2025-10-29":2.5579,"2025-11-04":2.4126,"2025-11-10":2.4587,"2025-11-14":2.4142,"2025-11-20":2.3851,"2025-11-26":2.3867,"2025-12-02":2.4142,"2025-12-08":2.5,"2025-12-12":2.4812,"2025-12-18":2.4685,"2025-12-24":2.6042,"2025-12-30":2.5946,"2026-01-07":2.6462,"2026-01-13":2.6314,"2026-01-19":2.6829,"2026-01-23":2.7048,"2026-01-29":2.6987,"2026-02-04":2.6527,"2026-02-10":2.6812,"2026-02-24":2.6964,"2026-03-02":2.7355,"2026-03-06":2.6743,"2026-03-12":2.6437,"2026-03-18":2.6402,"2026-03-24":2.5347,"2026-03-30":2.5394,"2026-04-03":2.5446,"2026-04-10":2.7965,"2026-04-16":2.9093,"2026-04-22":3.1021,"2026-04-28":3.0312,"2026-05-07":3.2596,"2026-05-13":3.4223,"2026-05-19":3.3378,"2026-05-25":3.502,"2026-05-27":3.4591},"dates":["2024-10-30","2024-11-07","2024-11-13","2024-11-19","2024-11-25","2024-11-29","2024-12-05","2024-12-11","2024-12-17","2024-12-23","2024-12-27","2025-01-03","2025-01-09","2025-01-15","2025-01-21","2025-01-27","2025-02-10","2025-02-14","2025-02-20","2025-02-26","2025-03-04","2025-03-10","2025-03-14","2025-03-20","2025-03-26","2025-04-01","2025-04-08","2025-04-14","2025-04-18","2025-04-24","2025-04-30","2025-05-09","2025-05-15","2025-05-21","2025-05-27","2025-06-03","2025-06-09","2025-06-13","2025-06-19","2025-06-25","2025-07-01","2025-07-07","2025-07-11","2025-07-17","2025-07-23","2025-07-29","2025-08-04","2025-08-08","2025-08-14","2025-08-20","2025-08-26","2025-09-01","2025-09-05","2025-09-11","2025-09-17","2025-09-23","2025-09-29","2025-10-13","2025-10-17","2025-10-23","2025-10-29","2025-11-04","2025-11-10","2025-11-14","2025-11-20","2025-11-26","2025-12-02","2025-12-08","2025-12-12","2025-12-18","2025-12-24","2025-12-30","2026-01-07","2026-01-13","2026-01-19","2026-01-23","2026-01-29","2026-02-04","2026-02-10","2026-02-24","2026-03-02","2026-03-06","2026-03-12","2026-03-18","2026-03-24","2026-03-30","2026-04-03","2026-04-10","2026-04-16","2026-04-22","2026-04-28","2026-05-07","2026-05-13","2026-05-19","2026-05-25","2026-05-27"]}</script>
+</body></html>

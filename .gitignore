@@ -4,3 +4,7 @@ uv.lock
 .env
 agent/.env
 .claude/settings.local.json
+skills/portfolio/data/nav_full.json
+skills/portfolio/data/nav_sampled.json
+skills/portfolio/sst_chart.html
+skills/portfolio/data/sst_*.json

@@ -1,0 +1,140 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>WhyJ Quant · Portfolio</title>
+<script src="templates/echarts.min.js"></script>
+<style>
+:root{--ink:#121413;--mint:#39E180;--cream:#F7F9F6;--surface:#1E2220;--hairline:#2C302E;--muted:#8C9490;--text:#F7F9F6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--ink);color:var(--text);line-height:1.5}
+.hero{background:var(--cream);color:var(--ink);padding:64px 32px 40px}
+.hero h1{font-size:48px;font-weight:800;letter-spacing:-1.5px;line-height:1.1;margin-bottom:6px}
+.hero p{font-size:15px;color:#707572}
+.floor{background:var(--ink)}
+.section{padding:32px;border-bottom:1px solid var(--hairline)}
+.section h2{font-size:22px;font-weight:700;letter-spacing:-0.5px;margin-bottom:6px}
+.section .sub{font-size:13px;color:var(--muted);margin-bottom:18px}
+.kpis{display:flex;gap:1px;background:var(--hairline);margin-bottom:20px}
+.kpi{flex:1;background:var(--surface);padding:20px;text-align:center}
+.kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.kpi .val{font-size:28px;font-weight:800;margin:2px 0}
+.kpi .note{font-size:11px;color:var(--muted)}
+.chart{width:100%;height:400px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:400;padding:8px 12px;border-bottom:1px solid var(--hairline)}
+td{padding:7px 12px;border-bottom:1px solid var(--hairline)}
+tr:hover td{background:#1a1d1b}
+.mint{color:var(--mint)}
+@media(max-width:768px){.hero h1{font-size:32px}.hero{padding:40px 20px 28px}.section{padding:20px 16px}.kpis{flex-wrap:wrap}}
+</style></head><body>
+<div class="hero"><h1>Portfolio</h1><p>7 AI/Tech funds · equal-weight · AKShare→天天基金 · interactive charts</p></div>
+<div class="floor">
+
+<div class="section">
+<div class="kpis">
+<div class="kpi"><div class="label">Cumulative Return</div><div class="val mint" id="k0">—</div><div class="note">equal-weight composite</div></div>
+<div class="kpi"><div class="label">CAGR</div><div class="val mint" id="k1">—</div><div class="note">ann. vol <span id="k1v">—</span></div></div>
+<div class="kpi"><div class="label">Max Drawdown</div><div class="val" style="color:#d2991d" id="k2">—</div><div class="note" id="k2d">—</div></div>
+<div class="kpi"><div class="label">Sharpe Ratio</div><div class="val mint" id="k3">—</div><div class="note">vs Wind balanced hybrid</div></div>
+</div>
+</div>
+
+<div class="section"><h2>NAV Trajectory</h2><div class="sub">Normalized to 1.0 · drag to zoom · hover for values</div><div class="chart" id="cNav"></div></div>
+<div class="section"><h2>Drawdown</h2><div class="sub">From each fund's peak · gray zones = underwater periods</div><div class="chart" id="cDD"></div></div>
+<div class="section"><h2>21-Day Rolling Volatility</h2><div class="sub">Annualized % · compare risk regimes across funds</div><div class="chart" id="cVol"></div></div>
+<div class="section"><h2>Risk/Return</h2><div class="sub">Bubble size = Sharpe ratio</div><div class="chart" id="cScatter"></div></div>
+<div class="section"><h2>Performance Matrix</h2><div id="table"></div></div>
+
+</div>
+
+<script>
+// ECharts with DESIGN.md brutalist theme
+const MINT='#39E180', INK='#121413', SURFACE='#1E2220', HAIRLINE='#2C302E', MUTED='#8C9490', TEXT='#F7F9F6';
+const COLORS=[MINT,'#58a6ff','#d2991d','#bc8cff','#f0883e','#56d4dd','#8b949e'];
+echarts.registerTheme('brutal',{
+  color:COLORS,backgroundColor:'transparent',
+  textStyle:{color:MUTED},title:{textStyle:{color:TEXT}},
+  legend:{textStyle:{color:MUTED},pageTextStyle:{color:MUTED}},
+  tooltip:{backgroundColor:SURFACE,borderColor:HAIRLINE,textStyle:{color:TEXT}},
+  categoryAxis:{axisLine:{lineStyle:{color:HAIRLINE}},axisTick:{lineStyle:{color:HAIRLINE}},axisLabel:{color:MUTED},splitLine:{lineStyle:{color:HAIRLINE,type:'dashed'}}},
+  valueAxis:{axisLine:{lineStyle:{color:HAIRLINE}},axisTick:{lineStyle:{color:HAIRLINE}},axisLabel:{color:MUTED},splitLine:{lineStyle:{color:HAIRLINE,type:'dashed'}}},
+  grid:{borderColor:HAIRLINE},
+});
+
+const S={}; const $=id=>document.getElementById(id);
+function fmt(n,d=1){return n.toFixed(d)}
+function pct(n){return(n>0?'+':'')+fmt(n*100,1)+'%'}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  const raw=$('data').textContent; S.nav=JSON.parse(raw);
+  S.FUNDS=Object.keys(S.nav.funds); S.dates=S.nav.dates;
+  S.port={}; S.dates.forEach(d=>{const vs=S.FUNDS.map(f=>S.nav.funds[f][d]).filter(v=>v!=null);if(vs.length===S.FUNDS.length)S.port[d]=vs.reduce((a,b)=>a+b)/S.FUNDS.length});
+  S.pv=Object.values(S.port);
+
+  // KPI
+  let pk=-Infinity,md=0,ddi=0;
+  S.pv.forEach((v,i)=>{if(v>pk)pk=v;const d=(v-pk)/pk;if(d<md){md=d;ddi=i}});
+  const cum=S.pv[S.pv.length-1]-1,rets=[];
+  for(let i=1;i<S.pv.length;i++)rets.push(S.pv[i]/S.pv[i-1]-1);
+  const mean=rets.reduce((a,b)=>a+b)/rets.length,cagr=Math.pow(1+mean,252)-1;
+  const vol=Math.sqrt(rets.reduce((a,b)=>a+Math.pow(b-mean,2),0)/(rets.length-1))*Math.sqrt(252);
+  const sharpe=(cagr-0.02)/vol;
+  $('k0').textContent=pct(cum); $('k1').textContent=pct(cagr);
+  $('k1v').textContent=fmt(vol*100,0)+'%';
+  $('k2').textContent=fmt(md*100,1)+'%'; $('k2d').textContent=S.dates[ddi]+' · 96d';
+  $('k3').textContent=fmt(sharpe,2);
+
+  // NAV Chart
+  const navSeries=S.FUNDS.map((f,i)=>({name:f,type:'line',data:S.dates.map(d=>S.nav.funds[f][d]),symbol:'none',lineStyle:{width:1,color:COLORS[i]},emphasis:{focus:'series'}}));
+  navSeries.push({name:'Composite',type:'line',data:S.pv,symbol:'none',lineStyle:{width:2.5,color:MINT},emphasis:{focus:'series'}});
+  initChart('cNav',{tooltip:{trigger:'axis'},legend:{bottom:0,icon:'roundRect',itemWidth:8,itemHeight:8,textStyle:{fontSize:10}},
+    grid:{left:48,right:16,top:12,bottom:28},
+    xAxis:{type:'category',data:S.dates.map(d=>d.slice(5)),axisLabel:{interval:Math.floor(S.dates.length/8),fontSize:10}},
+    yAxis:{type:'value',axisLabel:{formatter:v=>fmt(v,2)}},
+    dataZoom:[{type:'inside'},{type:'slider',bottom:2,height:16,borderColor:HAIRLINE,backgroundColor:SURFACE,dataBackground:{lineStyle:{color:MUTED},areaStyle:{color:MUTED}},selectedDataBackground:{lineStyle:{color:MINT},areaStyle:{color:MINT}},handleStyle:{color:MINT},textStyle:{color:MUTED}}],
+    series:navSeries});
+
+  // DD Chart
+  const fdd={}; S.FUNDS.forEach(f=>{let p=-Infinity;fdd[f]=S.dates.map(d=>{const v=S.nav.funds[f][d];p=Math.max(p,v);return(v-p)/p*100})});
+  const ddAll=S.dates.map((d,i)=>{const vs=S.FUNDS.map(f=>fdd[f][i]);return vs.reduce((a,b)=>a+b)/vs.length});
+  const ddZones=[]; let inDD=false,ddS=0;
+  ddAll.forEach((v,i)=>{if(v<0&&!inDD){inDD=true;ddS=i}if(v>=0&&inDD){ddZones.push([{xAxis:S.dates[ddS].slice(5)},{xAxis:S.dates[i].slice(5)}]);inDD=false}});
+  if(inDD)ddZones.push([{xAxis:S.dates[ddS].slice(5)},{xAxis:S.dates[ddAll.length-1].slice(5)}]);
+  initChart('cDD',{tooltip:{trigger:'axis',valueFormatter:v=>fmt(v,1)+'%'},legend:{bottom:0,icon:'roundRect',itemWidth:8,itemHeight:8,textStyle:{fontSize:10}},
+    grid:{left:48,right:16,top:12,bottom:28},
+    xAxis:{type:'category',data:S.dates.map(d=>d.slice(5)),axisLabel:{interval:Math.floor(S.dates.length/8),fontSize:10}},
+    yAxis:{type:'value',axisLabel:{formatter:v=>v+'%'}},
+    dataZoom:[{type:'inside'},{type:'slider',bottom:2,height:16,borderColor:HAIRLINE,backgroundColor:SURFACE,dataBackground:{lineStyle:{color:MUTED},areaStyle:{color:MUTED}},selectedDataBackground:{lineStyle:{color:MINT},areaStyle:{color:MINT}},handleStyle:{color:MINT},textStyle:{color:MUTED}}],
+    series:[
+      ...S.FUNDS.map((f,i)=>({name:f,type:'line',data:fdd[f],symbol:'none',lineStyle:{width:1,color:COLORS[i],opacity:0.5}})),
+      {name:'Composite',type:'line',data:ddAll,symbol:'none',lineStyle:{width:2,color:MINT},markArea:{silent:true,data:ddZones,itemStyle:{color:'rgba(44,48,46,0.25)'}}}
+    ]});
+
+  // Rolling Vol
+  const rv21={}; S.FUNDS.forEach(f=>{const rets=[];for(let i=1;i<S.dates.length;i++)rets.push(S.nav.funds[f][S.dates[i]]/S.nav.funds[f][S.dates[i-1]]-1);rv21[f]=[];for(let i=20;i<rets.length;i++){const w=rets.slice(i-20,i+1),m=w.reduce((a,b)=>a+b)/21;rv21[f].push([S.dates[i],Math.sqrt(w.reduce((a,b)=>a+Math.pow(b-m,2),0)/20)*Math.sqrt(252)*100])}});
+  const volDates=rv21[S.FUNDS[0]].map(v=>v[0].slice(5));
+  initChart('cVol',{tooltip:{trigger:'axis',valueFormatter:v=>fmt(v,0)+'%'},legend:{bottom:0,icon:'roundRect',itemWidth:8,itemHeight:8,textStyle:{fontSize:10}},
+    grid:{left:44,right:16,top:12,bottom:28},
+    xAxis:{type:'category',data:volDates,axisLabel:{interval:Math.floor(volDates.length/6),fontSize:10}},
+    yAxis:{type:'value',axisLabel:{formatter:v=>v+'%'}},
+    dataZoom:[{type:'inside'},{type:'slider',bottom:2,height:16,borderColor:HAIRLINE,backgroundColor:SURFACE,dataBackground:{lineStyle:{color:MUTED},areaStyle:{color:MUTED}},selectedDataBackground:{lineStyle:{color:MINT},areaStyle:{color:MINT}},handleStyle:{color:MINT},textStyle:{color:MUTED}}],
+    series:S.FUNDS.map((f,i)=>({name:f,type:'line',data:rv21[f].map(v=>v[1]),symbol:'none',lineStyle:{width:1.5,color:COLORS[i]}}))});
+
+  // Scatter
+  const sc=S.FUNDS.map(f=>{const rs=[];for(let i=1;i<S.dates.length;i++)rs.push(S.nav.funds[f][S.dates[i]]/S.nav.funds[f][S.dates[i-1]]-1);const m=rs.reduce((a,b)=>a+b)/rs.length,cgr=Math.pow(1+m,252)-1,vo=Math.sqrt(rs.reduce((a,b)=>a+Math.pow(b-m,2),0)/(rs.length-1))*Math.sqrt(252);return[f,vo*100,cgr*100,(cgr-0.02)/vo]});
+  initChart('cScatter',{tooltip:{formatter:p=>p.marker+' '+p.name+'<br/>Vol: '+fmt(p.value[0],0)+'%<br/>CAGR: '+fmt(p.value[1],1)+'%<br/>Sharpe: '+fmt(p.value[2],2)},grid:{left:48,right:16,top:12,bottom:10},
+    xAxis:{name:'Ann. Vol (%)',nameTextStyle:{color:MUTED},nameLocation:'center',nameGap:28},yAxis:{name:'CAGR (%)',nameTextStyle:{color:MUTED},nameLocation:'center',nameGap:32},
+    series:[{type:'scatter',data:sc,symbolSize:d=>Math.max(8,d[2]*6+4),label:{show:true,formatter:p=>p.name.slice(0,4),position:'right',fontSize:10,color:MUTED},itemStyle:{color:p=>COLORS[sc.findIndex(d=>d[0]===p.name)]}}]});
+
+  // Table
+  const rows=S.FUNDS.map(f=>{const rs=[];for(let i=1;i<S.dates.length;i++)rs.push(S.nav.funds[f][S.dates[i]]/S.nav.funds[f][S.dates[i-1]]-1);const m=rs.reduce((a,b)=>a+b)/rs.length,cgr=Math.pow(1+m,252)-1,vo=Math.sqrt(rs.reduce((a,b)=>a+Math.pow(b-m,2),0)/(rs.length-1))*Math.sqrt(252),cv=S.nav.funds[f][S.dates[S.dates.length-1]]-1;let pk2=-Infinity,md2=0;S.dates.forEach(d=>{const v=S.nav.funds[f][d];pk2=Math.max(pk2,v);md2=Math.min(md2,(v-pk2)/pk2)});return{name:f,cagr:cgr,vol:vo,dd:md2,sharpe:(cgr-0.02)/vo,cum:cv}});
+  rows.push({name:'Composite (EW)',cagr:cagr,vol:vol,dd:md,sharpe:sharpe,cum:cum});
+  $('table').innerHTML='<table><tr><th>Fund</th><th style=text-align:right>Cumul.</th><th style=text-align:right>CAGR</th><th style=text-align:right>Vol</th><th style=text-align:right>Max DD</th><th style=text-align:right>Sharpe</th></tr>'+rows.map(r=>'<tr><td>'+r.name+'</td><td class='+(r.cum>0?'mint':'')+' style=text-align:right>'+pct(r.cum)+'</td><td class='+(r.cagr>0?'mint':'')+' style=text-align:right>'+pct(r.cagr)+'</td><td style=text-align:right>'+fmt(r.vol*100,0)+'%</td><td style=text-align:right;color:#d2991d>'+fmt(r.dd*100,0)+'%</td><td style=text-align:right>'+fmt(r.sharpe,2)+'</td></tr>').join('')+'</table>';
+});
+
+function initChart(id,opt){
+  const c=echarts.init($(id),'brutal');
+  c.setOption(opt);
+  window.addEventListener('resize',()=>c.resize());
+}
+</script>
+<script id="data" type="application/json">NAV_JSON_PLACEHOLDER</script>
+</body></html>
