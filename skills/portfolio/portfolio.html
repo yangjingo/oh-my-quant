@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Dashboard · WhyJ Quant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #121413;
+    --accent: #39E180;
+    --canvas-light: #F7F9F6;
+    --canvas-dark: #121413;
+    --surface-card: #1E2220;
+    --text-light: #121413;
+    --text-dark: #F7F9F6;
+    --muted-light: #707572;
+    --muted-dark: #8C9490;
+    --hairline-light: #E2E6E3;
+    --hairline-dark: #2C302E;
+    --on-accent: #121413;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--canvas-dark);
+    color: var(--text-dark);
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== HERO — Light Canvas ===== */
+  .hero {
+    background: var(--canvas-light);
+    color: var(--text-light);
+    padding: 80px 32px;
+  }
+  .hero-inner { max-width:1200px; margin:0 auto; }
+  .hero h1 {
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1.8px;
+    margin-bottom: 8px;
+  }
+  .hero .subtitle {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.5px;
+    color: var(--muted-light);
+    margin-bottom: 32px;
+  }
+  .hero-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--hairline-light);
+    border: 1px solid var(--hairline-light);
+  }
+  .hero-kpi {
+    background: var(--canvas-light);
+    padding: 24px;
+    text-align: center;
+  }
+  .hero-kpi .value {
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--primary);
+  }
+  .hero-kpi .value.accent { color: var(--accent); }
+  .hero-kpi .label {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: var(--muted-light);
+    margin-top: 4px;
+  }
+  .hero-meta {
+    margin-top: 24px;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;
+    color: var(--muted-light);
+  }
+
+  /* ===== SECTION — Dark Engine Floor ===== */
+  .section {
+    padding: 80px 32px;
+  }
+  .section-inner { max-width:1200px; margin:0 auto; }
+  .section h2 {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.5px;
+    margin-bottom: 24px;
+    color: var(--text-dark);
+  }
+  .section h2 .accent-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background: var(--accent);
+    margin-right: 10px;
+  }
+
+  /* ===== Data Card ===== */
+  .data-card {
+    background: var(--surface-card);
+    border: 1px solid var(--hairline-dark);
+    border-radius: 2px;
+    padding: 24px;
+    margin-bottom: 1px;
+  }
+  .data-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: var(--muted-dark);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  /* ===== Grid System ===== */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--hairline-dark); border:1px solid var(--hairline-dark); }
+  .grid-2 > .data-card { margin-bottom:0; }
+  .grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--hairline-dark); border:1px solid var(--hairline-dark); }
+  .grid-4 > .data-card { margin-bottom:0; }
+  .grid-full { border:1px solid var(--hairline-dark); }
+
+  /* ===== Table ===== */
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  thead th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: var(--muted-dark);
+    text-transform: uppercase;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--hairline-dark);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--hairline-dark);
+    font-size: 14px;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  .num {
+    text-align: right;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pos { color: #EF4444; }
+  .neg { color: var(--accent); }
+
+  /* ===== Tags ===== */
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  }
+  .tag-pill {
+    background: rgba(57,225,128,0.10);
+    color: var(--accent);
+  }
+  .tag-muted {
+    background: rgba(140,148,144,0.12);
+    color: var(--muted-dark);
+  }
+  .tag-red {
+    background: rgba(239,68,68,0.12);
+    color: #EF4444;
+  }
+
+  /* ===== Bar Chart ===== */
+  .bar-row {
+    display:flex; align-items:center; gap:12px; margin-bottom:12px;
+  }
+  .bar-label {
+    width:140px; font-size:14px; flex-shrink:0; text-align:right;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  }
+  .bar-track {
+    flex:1; background:var(--canvas-dark); border-radius:2px; height:20px; overflow:hidden;
+  }
+  .bar-fill { height:100%; border-radius:2px; }
+  .bar-pct {
+    width:48px; text-align:right; font-size:14px; font-weight:600; flex-shrink:0;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  /* ===== Risk ===== */
+  .risk-item {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 0; border-bottom:1px solid var(--hairline-dark);
+  }
+  .risk-item:last-child { border-bottom:none; }
+  .risk-dot { display:inline-block; width:6px; height:6px; margin-right:8px; }
+  .dot-high { background: #EF4444; }
+  .dot-mid  { background: #F59E0B; }
+  .dot-low  { background: var(--accent); }
+
+  /* ===== Timeline ===== */
+  .tl { position:relative; padding-left:20px; }
+  .tl::before {
+    content:''; position:absolute; left:5px; top:4px; bottom:4px;
+    width:1px; background:var(--hairline-dark);
+  }
+  .tl-item { position:relative; margin-bottom:20px; padding-left:12px; }
+  .tl-item::before {
+    content:''; position:absolute; left:-19px; top:6px;
+    width:9px; height:9px; background:var(--accent);
+  }
+  .tl-date {
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-size:12px; color:var(--muted-dark); margin-bottom:2px;
+  }
+  .tl-text { font-size:14px; }
+
+  /* ===== Philosophy Card ===== */
+  .philo-card {
+    background:var(--surface-card); border:1px solid var(--hairline-dark); padding:24px;
+  }
+  .philo-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .philo-master { font-size:14px; font-weight:700; color:var(--text-dark); }
+  .philo-principle { font-size:11px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.3px; }
+  .philo-quote { font-size:15px; font-style:italic; color:var(--muted-dark); margin-bottom:10px; padding-left:12px; border-left:2px solid var(--hairline-dark); }
+  .philo-insight { font-size:14px; color:var(--text-dark); line-height:1.6; }
+
+  /* ===== Rec Card ===== */
+  .rec {
+    border-left:2px solid var(--accent);
+    padding:16px 20px;
+    margin-bottom:12px;
+    background:rgba(57,225,128,0.03);
+  }
+  .rec h4 {
+    font-size:16px; font-weight:600; margin-bottom:4px;
+  }
+  .rec p {
+    font-size:14px; color:var(--muted-dark);
+  }
+
+  /* ===== Mapping Matrix ===== */
+  .matrix td { font-size:13px; }
+
+  /* ===== Footer ===== */
+  .footer {
+    padding: 32px;
+    border-top: 1px solid var(--hairline-dark);
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 12px;
+    color: var(--muted-dark);
+    line-height: 1.8;
+  }
+  .footer strong { color: var(--text-dark); font-weight:600; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  a.muted { color: var(--muted-dark); }
+  .mono { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 768px) {
+    .hero { padding:48px 16px; }
+    .hero h1 { font-size:36px; }
+    .hero .subtitle { font-size:18px; }
+    .hero-kpis { grid-template-columns:1fr 1fr; }
+    .hero-kpi .value { font-size:28px; }
+    .section { padding:48px 16px; }
+    .grid-2, .grid-4 { grid-template-columns:1fr; }
+    .bar-label { width:100px; font-size:12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ HERO — Light Canvas ═══════════════ -->
+<section class="hero">
+  <div class="hero-inner">
+    <h1>Portfolio<br>Dashboard</h1>
+    <p class="subtitle">个人基金组合 · 7 只持仓</p>
+    <div class="hero-kpis">
+      <div class="hero-kpi">
+        <div class="value" style="color:#EF4444;">6/7</div>
+        <div class="label">正收益基金（今年来）</div>
+      </div>
+      <div class="hero-kpi">
+        <div class="value">~65%</div>
+        <div class="label">AI 算力赛道暴露</div>
+      </div>
+      <div class="hero-kpi">
+        <div class="value">86%</div>
+        <div class="label">主动管理占比</div>
+      </div>
+      <div class="hero-kpi">
+        <div class="value">0%</div>
+        <div class="label">防御资产配置</div>
+      </div>
+    </div>
+    <div class="hero-meta">
+      snapshot: 2026-05-28 15:06:39 CST &nbsp;|&nbsp; data: 同花顺（优先） · 天天基金 · 蛋卷基金 · 各基金官网季报
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ PERFORMANCE TABLE ═══════════════ -->
+<section class="section">
+  <div class="section-inner">
+    <h2><span class="accent-dot"></span>近期趋势</h2>
+    <div class="data-card grid-full" style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>代码</th>
+            <th>基金名称</th>
+            <th>类型</th>
+            <th class="num">近1周</th>
+            <th class="num">近1月</th>
+            <th class="num">近3月</th>
+            <th class="num">近6月</th>
+            <th class="num">今年来</th>
+            <th class="num">近1年</th>
+            <th>净值日期</th>
+            <th>来源</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600;">022364</td>
+            <td>永赢科技智选发起A</td>
+            <td><span class="tag tag-pill">偏股混合</span></td>
+            <td class="num pos">+12.5%</td>
+            <td class="num pos">+21.9%</td>
+            <td class="num pos">+49.1%</td>
+            <td class="num pos">+76.5%</td>
+            <td class="num pos">+54.5%</td>
+            <td class="num pos">+383.9%</td>
+            <td>05-27</td>
+            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/022364/" target="_blank">同花顺</a></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">016372</td>
+            <td>信澳匠心严选一年持有A</td>
+            <td><span class="tag tag-pill">偏股混合</span></td>
+            <td class="num pos">+5.8%</td>
+            <td class="num pos">+16.1%</td>
+            <td class="num pos">+42.0%</td>
+            <td class="num pos">+73.8%</td>
+            <td class="num pos">+51.5%</td>
+            <td class="num pos">+222.1%</td>
+            <td>05-27</td>
+            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/016372/" target="_blank">同花顺</a></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">022184</td>
+            <td>富国全球科技互联网C</td>
+            <td><span class="tag tag-muted">QDII股票</span></td>
+            <td class="num pos">+7.9%</td>
+            <td class="num pos">+21.6%</td>
+            <td class="num pos">+48.3%</td>
+            <td class="num pos">+54.2%</td>
+            <td class="num pos">+52.9%</td>
+            <td class="num pos">+103.8%</td>
+            <td>05-26</td>
+            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/022184/" target="_blank">同花顺</a></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">001986</td>
+            <td>前海开源人工智能主题</td>
+            <td><span class="tag tag-muted">灵活混合</span></td>
+            <td class="num pos">+6.8%</td>
+            <td class="num pos">+20.1%</td>
+            <td class="num pos">+55.4%</td>
+            <td class="num pos">+45.1%</td>
+            <td class="num pos">+39.3%</td>
+            <td class="num pos">+75.4%</td>
+            <td>05-27</td>
+            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/001986/" target="_blank">同花顺</a></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">008021</td>
+            <td>华富人工智能ETF联接C</td>
+            <td><span class="tag tag-pill">指数股票</span></td>
+            <td class="num pos">+4.1%</td>
+            <td class="num pos">+16.8%</td>
+            <td class="num pos">+20.0%</td>
+            <td class="num pos">+36.8%</td>
+            <td class="num pos">+30.8%</td>
+            <td class="num pos">+124.8%</td>
+            <td>05-27</td>
+            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/008021/" target="_blank">同花顺</a></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">673060</td>
+            <td>西部利得景瑞灵活A</td>
+            <td><span class="tag tag-muted">灵活混合</span></td>
+            <td class="num neg">-2.0%</td>
+            <td class="num pos">+8.9%</td>
+            <td class="num pos">+5.5%</td>
+            <td class="num pos">+24.0%</td>
+            <td class="num pos">+20.2%</td>
+            <td class="num pos">+79.4%</td>
+            <td>05-27</td>
+            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/673060/" target="_blank">同花顺</a></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">040015</td>
+            <td>华安动态灵活配置A</td>
+            <td><span class="tag tag-muted">灵活混合</span></td>
+            <td class="num pos">+1.4%</td>
+            <td class="num pos">+3.9%</td>
+            <td class="num pos">+6.0%</td>
+            <td class="num pos">+23.2%</td>
+            <td class="num pos">+15.8%</td>
+            <td class="num pos">+50.1%</td>
+            <td>05-27</td>
+            <td style="font-size:12px;"><a href="https://fund.10jqka.com.cn/pc/040015/" target="_blank">同花顺</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:11px;color:var(--muted-dark);margin-top:12px;">
+      — 表示该时段数据暂缺。数据来源：同花顺（优先），部分数据经天天基金/蛋卷交叉验证。
+    </p>
+
+    <!-- 季度下行数据 -->
+    <div class="data-card grid-full" style="margin-top:1px;overflow-x:auto;">
+      <h3>季度回撤 × 最大回撤（下行动态）</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>代码</th>
+            <th>基金名称</th>
+            <th>2026 Q1</th>
+            <th>2024 Q2</th>
+            <th>2023 年度</th>
+            <th>经理任职最大回撤</th>
+            <th>来源</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600;">022364</td>
+            <td>永赢科技智选发起A</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td class="num neg">-1.89%</td>
+            <td style="font-size:11px;color:var(--muted-dark);">成立仅1.5年，未经历完整熊市</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">016372</td>
+            <td>信澳匠心严选一年持有A</td>
+            <td class="num neg">-3.01%</td>
+            <td class="num neg">-4.58%</td>
+            <td class="num neg">-15.05%</td>
+            <td class="num neg">-0.23%</td>
+            <td style="font-size:11px;color:var(--muted-dark);"></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">022184</td>
+            <td>富国全球科技互联网C</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td style="font-size:11px;color:var(--muted-dark);"></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">001986</td>
+            <td>前海开源人工智能主题</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td class="num neg">-12.42%</td>
+            <td class="num neg">-55.98%</td>
+            <td style="font-size:11px;color:var(--muted-dark);">魏淳任职最大回撤极深</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">008021</td>
+            <td>华富人工智能ETF联接C</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td style="font-size:11px;color:var(--muted-dark);"></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">673060</td>
+            <td>西部利得景瑞灵活A</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td class="num neg">-8.26%</td>
+            <td class="num">—</td>
+            <td style="font-size:11px;color:var(--muted-dark);"></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">040015</td>
+            <td>华安动态灵活配置A</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td style="font-size:11px;color:var(--muted-dark);"></td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size:11px;color:var(--muted-dark);margin-top:12px;">
+        近期趋势全面上涨是 AI 牛市使然，不代表无下行风险。001986 经理魏淳任职期间最大回撤 -55.98%，016372 2023 年度 -15.05%，均为真实历史回撤。022364/022184 成立较晚，尚未经历完整熊市周期。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FUND COMPANY ANALYSIS ═══════════════ -->
+<section class="section">
+  <div class="section-inner">
+    <h2><span class="accent-dot"></span>基金管理人分析</h2>
+    <div class="data-card grid-full" style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>管理人</th>
+            <th>旗下基金</th>
+            <th>成立/进入中国</th>
+            <th>管理规模</th>
+            <th>风格特征</th>
+            <th>你持有的基金</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600;">永赢基金</td>
+            <td>022364</td>
+            <td>2013</td>
+            <td>~6860亿</td>
+            <td style="font-size:13px;">银行系公募（宁波银行），固收为基本盘，2024年后在AI科技赛道异军突起，任桀为新生代猛将</td>
+            <td><span class="tag tag-pill">1只</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">信达澳亚</td>
+            <td>016372</td>
+            <td>2006</td>
+            <td>中大型</td>
+            <td style="font-size:13px;">原信达澳银，外资撤出后更名。主动权益见长，行业主题基金多，风格偏成长</td>
+            <td><span class="tag tag-pill">1只</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">富国基金</td>
+            <td>022184</td>
+            <td>1999</td>
+            <td>大型（前十）</td>
+            <td style="font-size:13px;">老十家之一，QDII 产品线成熟，全球科技互联网 QDII 是旗舰产品，赵年珅长期深耕海外科技</td>
+            <td><span class="tag tag-pill">1只</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">前海开源</td>
+            <td>001986</td>
+            <td>2013</td>
+            <td>中型</td>
+            <td style="font-size:13px;">以主题基金见长（军工、AI、黄金），部分产品弹性大但持续性偏弱。梁策今年 4 月新任，历史较短</td>
+            <td><span class="tag tag-pill">1只</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">华富基金</td>
+            <td>008021</td>
+            <td>2004</td>
+            <td>中小型</td>
+            <td style="font-size:13px;">以指数量化见长，AI ETF 系列是近年主打。指数产品费率竞争力一般</td>
+            <td><span class="tag tag-pill">1只</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">西部利得</td>
+            <td>673060</td>
+            <td>2010</td>
+            <td>中小型</td>
+            <td style="font-size:13px;">新生代公募，以高换手灵活配置为特色。规模偏小、基金经理变动较频繁</td>
+            <td><span class="tag tag-pill">1只</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;">华安基金</td>
+            <td>040015</td>
+            <td>1998</td>
+            <td>大型（前十）</td>
+            <td style="font-size:13px;">老十家之一，主动权益底蕴深厚。040015 为 16 年老产品，但近期经理更换、新经理熊哲颖历史业绩待验证</td>
+            <td><span class="tag tag-pill">1只</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid-2" style="margin-top:1px;">
+      <div class="data-card">
+        <h3>关键观察</h3>
+        <div class="risk-item">
+          <span>7 家公司无重叠</span>
+          <span class="tag tag-muted">分散度高</span>
+        </div>
+        <div class="risk-item">
+          <span>大型公募（富国、华安）</span>
+          <span style="font-size:13px;color:var(--muted-dark);">投研资源充足，风控成熟</span>
+        </div>
+        <div class="risk-item">
+          <span>中小公募（西部利得、华富）</span>
+          <span style="font-size:13px;color:var(--muted-dark);">规模偏小，经理变动风险偏高</span>
+        </div>
+        <div class="risk-item">
+          <span>银行系（永赢）</span>
+          <span style="font-size:13px;color:var(--muted-dark);">固收强于权益，科技赛道是近年突破</span>
+        </div>
+        <div class="risk-item">
+          <span>经理变动风险</span>
+          <span class="tag tag-red">3/7 只近期换人<br><span style="font-size:11px;">673060 (01-30) · 040015 (01-19) · 001986 (04-14)</span></span>
+        </div>
+      </div>
+
+      <div class="data-card">
+        <h3>经理稳定性 × 短期趋势</h3>
+        <table>
+          <thead>
+            <tr><th>基金</th><th>经理稳定度</th><th class="num">近1周</th><th class="num">近1月</th><th class="num">趋势</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight:600;">022364</td>
+              <td><span class="tag tag-pill">稳定</span></td>
+              <td class="num pos">+11.0%</td>
+              <td class="num pos">+20.4%</td>
+              <td style="color:#EF4444;font-weight:600;">↗ 加速</td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;">016372</td>
+              <td><span class="tag tag-pill">稳定</span></td>
+              <td class="num pos">+0.2%</td>
+              <td class="num pos">+23.1%</td>
+              <td style="color:#EF4444;">↗ 修复中</td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;">022184</td>
+              <td><span class="tag tag-pill">稳定</span></td>
+              <td class="num pos">+3.0%</td>
+              <td class="num pos">+26.1%</td>
+              <td style="color:#EF4444;font-weight:600;">↗ 加速</td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;">001986</td>
+              <td><span class="tag tag-red">刚换人</span></td>
+              <td class="num">—</td>
+              <td class="num pos">+19.7%</td>
+              <td style="color:var(--amber);">→ 待观察</td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;">008021</td>
+              <td><span class="tag tag-pill">被动指数</span></td>
+              <td class="num">—</td>
+              <td class="num pos">+10.7%</td>
+              <td style="color:#EF4444;">↗ 稳健</td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;">673060</td>
+              <td><span class="tag tag-red">刚换人</span></td>
+              <td class="num pos">+2.8%</td>
+              <td class="num pos">+15.3%</td>
+              <td style="color:var(--amber);">→ 待观察</td>
+            </tr>
+            <tr>
+              <td style="font-weight:600;">040015</td>
+              <td><span class="tag tag-red">刚换人</span></td>
+              <td class="num">—</td>
+              <td class="num pos">+5.8%</td>
+              <td style="color:var(--muted-dark);">→ 平稳</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SECTOR + MATRIX ═══════════════ -->
+<section class="section">
+  <div class="section-inner">
+    <div class="grid-2">
+      <!-- Sector Exposure -->
+      <div class="data-card">
+        <h3>赛道暴露分布</h3>
+        <div style="padding-top:4px;">
+          <div class="bar-row">
+            <span class="bar-label">AI 算力 / CPO</span>
+            <span class="bar-track"><div class="bar-fill" style="width:65%;background:var(--accent);"></div></span>
+            <span class="bar-pct" style="color:var(--accent);">65%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">半导体</span>
+            <span class="bar-track"><div class="bar-fill" style="width:10%;background:var(--muted-dark);"></div></span>
+            <span class="bar-pct">10%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">IDC 液冷/温控</span>
+            <span class="bar-track"><div class="bar-fill" style="width:10%;background:var(--muted-dark);"></div></span>
+            <span class="bar-pct">10%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">PCB</span>
+            <span class="bar-track"><div class="bar-fill" style="width:8%;background:var(--muted-dark);"></div></span>
+            <span class="bar-pct">8%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">周期/消费/其他</span>
+            <span class="bar-track"><div class="bar-fill" style="width:7%;background:#3a3d3a;"></div></span>
+            <span class="bar-pct">7%</span>
+          </div>
+        </div>
+        <p style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:11px;color:var(--muted-dark);margin-top:16px;">
+          基于 2026Q1 季报十大重仓手工估算
+        </p>
+      </div>
+
+      <!-- Mapping Matrix -->
+      <div class="data-card" style="overflow-x:auto;">
+        <h3>赛道 × 基金映射</h3>
+        <table class="matrix">
+          <thead>
+            <tr><th>赛道</th><th>覆盖度</th><th>承载基金</th><th>关键标的</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>CPO/LPO</td>
+              <td><span class="tag tag-pill">重仓</span></td>
+              <td style="font-size:13px;">022364 · 008021 · 001986</td>
+              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">中际旭创 (022364 №1)</td>
+            </tr>
+            <tr>
+              <td>AI 应用</td>
+              <td><span class="tag tag-pill">重仓</span></td>
+              <td style="font-size:13px;">008021 · 001986</td>
+              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">中证AI产业指数成分</td>
+            </tr>
+            <tr>
+              <td>全球科技</td>
+              <td><span class="tag tag-muted">有</span></td>
+              <td style="font-size:13px;">022184</td>
+              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">美股 · 港股 · A股科技</td>
+            </tr>
+            <tr>
+              <td>PCB</td>
+              <td><span class="tag tag-muted">有</span></td>
+              <td style="font-size:13px;">016372</td>
+              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">胜宏科技 · 生益电子</td>
+            </tr>
+            <tr>
+              <td>IDC 液冷</td>
+              <td><span class="tag tag-muted">有</span></td>
+              <td style="font-size:13px;">016372</td>
+              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">英维克 · 申菱环境</td>
+            </tr>
+            <tr>
+              <td>半导体</td>
+              <td><span class="tag tag-red">偏少</span></td>
+              <td style="font-size:13px;">016372 · 001986</td>
+              <td style="font-family:'Inter','Helvetica Neue',Arial,sans-serif;font-size:12px;">晶方科技 (封测)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ RISK + TIMELINE ═══════════════ -->
+<section class="section">
+  <div class="section-inner">
+    <div class="grid-2">
+      <div class="data-card">
+        <h3>风险评估矩阵</h3>
+        <div class="risk-item">
+          <span><span class="risk-dot dot-high"></span>AI 赛道集中度 (65%)</span>
+          <span class="tag tag-red">高风险</span>
+        </div>
+        <div class="risk-item">
+          <span><span class="risk-dot dot-high"></span>无防御资产 (0% 债券/黄金)</span>
+          <span class="tag tag-red">高风险</span>
+        </div>
+        <div class="risk-item">
+          <span><span class="risk-dot dot-mid"></span>主动管理依赖 (6/7 只)</span>
+          <span class="tag tag-muted">中风险</span>
+        </div>
+        <div class="risk-item">
+          <span><span class="risk-dot dot-mid"></span>海外汇率风险 (022184 QDII)</span>
+          <span class="tag tag-muted">中风险</span>
+        </div>
+        <div class="risk-item">
+          <span><span class="risk-dot dot-mid"></span>高换手隐性成本 (673060: 1317%)</span>
+          <span class="tag tag-muted">中风险</span>
+        </div>
+        <div class="risk-item">
+          <span><span class="risk-dot dot-low"></span>流动性 (仅 016372 一年锁定期)</span>
+          <span class="tag tag-pill">低风险</span>
+        </div>
+      </div>
+
+      <div class="data-card">
+        <h3>基金经理变动时间线</h3>
+        <div class="tl">
+          <div class="tl-item">
+            <div class="tl-date">2026-05-28</div>
+            <div class="tl-text">看板快照 — 最新净值汇总</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-date">2026-04-14</div>
+            <div class="tl-text">001986 基金经理变更 — 梁策新任，与魏淳共管</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-date">2026-03-31</div>
+            <div class="tl-text">2026Q1 季报截止 — 十大重仓 / 规模数据更新</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-date">2026-01-30</div>
+            <div class="tl-text">673060 基金经理变更 — 张昌平接任陈保国</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-date">2026-01-19</div>
+            <div class="tl-text">040015 基金经理变更 — 熊哲颖接任</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-date">2025-12-31</div>
+            <div class="tl-text">022364 规模暴增：66.37 → 154.68 亿 (QoQ +134%)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ RECOMMENDATIONS ═══════════════ -->
+<!-- ═══════════════ INVESTMENT PHILOSOPHY ═══════════════ -->
+<section class="section">
+  <div class="section-inner">
+    <h2><span class="accent-dot"></span>投资理念与当前启示</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:1px;background:var(--hairline-dark);border:1px solid var(--hairline-dark);">
+      <div class="philo-card">
+        <div class="philo-header">
+          <span class="philo-master">查理·芒格</span>
+          <span class="philo-principle">能力圈</span>
+        </div>
+        <div class="philo-quote">"我们有三个篮子：进、出、太难。"</div>
+        <div class="philo-insight">如果你的组合 65% 暴露在 AI/算力同一个叙事上，这不是分散，是集中赌注。确认你对这六成仓位的认知深度是否匹配暴露规模。</div>
+      </div>
+      <div class="philo-card">
+        <div class="philo-header">
+          <span class="philo-master">霍华德·马克斯</span>
+          <span class="philo-principle">周期意识</span>
+        </div>
+        <div class="philo-quote">"我们可能不知道要去哪里，但最好知道我们现在在哪里。"</div>
+        <div class="philo-insight">AI 赛道近 1 年 +111%、CPO 采购预期上调至 1000 万只——钟摆正处于"乐观"区间。不是卖出信号，但应是审视仓位大小的信号。</div>
+      </div>
+      <div class="philo-card">
+        <div class="philo-header">
+          <span class="philo-master">瑞·达里奥</span>
+          <span class="philo-principle">全天候</span>
+        </div>
+        <div class="philo-quote">"最重要的是，你的组合在不同经济环境下都能生存。"</div>
+        <div class="philo-insight">100% 权益 + 0% 防御资产。当利率上升或政策收紧，成长股估值同步承压。加入非相关资产不是为了赚更多，而是为了别人恐慌时你不用被迫卖出。</div>
+      </div>
+      <div class="philo-card">
+        <div class="philo-header">
+          <span class="philo-master">约翰·博格</span>
+          <span class="philo-principle">成本法则</span>
+        </div>
+        <div class="philo-quote">"投资回报 = 市场收益 - 成本。"</div>
+        <div class="philo-insight">7 只主动基金年费合计约 1.0–1.5%，其中一只换手率 1317%。30 年下来，费用差就是一套房。用低成本指数做底仓，主动基金做卫星。</div>
+      </div>
+      <div class="philo-card">
+        <div class="philo-header">
+          <span class="philo-master">沃伦·巴菲特</span>
+          <span class="philo-principle">安全边际</span>
+        </div>
+        <div class="philo-quote">"用 4 毛钱买 1 块钱的东西。"</div>
+        <div class="philo-insight">当 CPO 赛道近 1 年涨幅超 110%，市场预期已被充分定价。好消息已经在价格里——安全边际在收窄。不是不能持有，是不能无视。</div>
+      </div>
+      <div class="philo-card">
+        <div class="philo-header">
+          <span class="philo-master">纳西姆·塔勒布</span>
+          <span class="philo-principle">反脆弱</span>
+        </div>
+        <div class="philo-quote">"风会熄灭蜡烛，却能让火越烧越旺。"</div>
+        <div class="philo-insight">如果 AI 指数明天跌 30%，你会恐慌卖出，还是有现金加仓？你的组合设计是脆弱的还是反脆弱的——这是需要诚实面对的问题。</div>
+      </div>
+    </div>
+    <p style="font-size:11px;color:var(--muted-dark);margin-top:12px;">
+      自动匹配触发：集中度 > 50% → 芒格能力圈 · 无防御资产 → 达里奥全天候 · 主动占比 > 80% → 博格成本法则 · 近 1 年收益 > 100% → 马克斯周期 + 巴菲特安全边际
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════ RECOMMENDATIONS ═══════════════ -->
+<section class="section">
+  <div class="section-inner">
+    <h2><span class="accent-dot"></span>投资建议</h2>
+    <div class="grid-2">
+      <div>
+        <div class="rec">
+          <h4>1. 合并重叠暴露 <span style="color:var(--muted-dark);font-weight:400;">— 芒格 + 博格</span></h4>
+          <p>022364 + 001986 + 008021 高度重叠于 AI 赛道。建议合并为 1–2 只：008021（低成本指数底仓）+ 022364（主动弹性）。</p>
+        </div>
+        <div class="rec">
+          <h4>2. 加入压舱石 <span style="color:var(--muted-dark);font-weight:400;">— 达里奥</span></h4>
+          <p>组合 100% 权益且 65% 集中单一赛道。建议增加 20–30% 非相关资产（短债、红利低波、黄金 ETF）。</p>
+        </div>
+        <div class="rec">
+          <h4>3. 审视周期位置 <span style="color:var(--muted-dark);font-weight:400;">— 马克斯</span></h4>
+          <p>AI 赛道近 1 年 +111%（008021），CPO 采购预期已从 700 万只上调至 1000 万只——预期已被充分定价。</p>
+        </div>
+      </div>
+      <div>
+        <div class="rec">
+          <h4>4. 设定止盈纪律 <span style="color:var(--muted-dark);font-weight:400;">— 巴菲特</span></h4>
+          <p>牛市超额收益后最危险的行为是"等更高"。将浮盈分批转入核心底仓，而非继续追赛道。</p>
+        </div>
+        <div class="rec">
+          <h4>5. 能力圈审计 <span style="color:var(--muted-dark);font-weight:400;">— 芒格</span></h4>
+          <p>对每只基金问：能否 2 分钟内说清前三大重仓的买入逻辑？说不清的，就是噪音。</p>
+        </div>
+        <div class="rec">
+          <h4>6. 关注费率侵蚀 <span style="color:var(--muted-dark);font-weight:400;">— 博格</span></h4>
+          <p>7 只基金年管理费合计约 1.0–1.5%，673060 换手率 1317% 带来巨额隐性交易成本。简化组合 = 省钱。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<footer class="footer">
+  <strong>数据来源</strong>（点击跳转，优先同花顺）<br>
+  <a href="https://fund.10jqka.com.cn" target="_blank">同花顺</a> &nbsp;&nbsp;fund.10jqka.com.cn &nbsp;—&nbsp; 净值 · 阶段收益（主数据源）<br>
+  <a href="https://fundf10.eastmoney.com" target="_blank">天天基金</a> &nbsp;fundf10.eastmoney.com &nbsp;—&nbsp; 规模 · 持仓 · 公告<br>
+  <a href="https://danjuanfunds.com" target="_blank">蛋卷基金</a> &nbsp;danjuanfunds.com &nbsp;—&nbsp; 收益排行 · 估值<br>
+  <a href="https://xueqiu.com" target="_blank">雪球</a> &nbsp;&nbsp;&nbsp;&nbsp;xueqiu.com &nbsp;—&nbsp; 赛道分析<br>
+  <br>
+  各净值日期为各来源最近可查日期，非统一截止日。赛道暴露基于 2026Q1 十大重仓手工估算。<br>
+  Generated 2026-05-28 15:06:39 CST &nbsp;·&nbsp; WhyJ Quant &nbsp;·&nbsp; 仅供个人参考，不构成投资建议
+</footer>
+
+</body>
+</html>
