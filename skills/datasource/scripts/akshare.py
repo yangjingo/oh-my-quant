@@ -107,7 +107,10 @@ def minute(symbol: str, period: str = "60") -> pd.DataFrame:
 
 
 def index_cons(index_code: str) -> pd.DataFrame:
-    """指数成分股。"""
+    """指数成分股。
+
+    index_code: "000300" (沪深300), "000016" (上证50), "399006" (创业板指)
+    """
     import akshare as ak
 
-    return ak.index_stock_cons(index_code=index_code)
+    return ak.index_stock_cons(symbol=index_code)
