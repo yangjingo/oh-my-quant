@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 import click
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = ROOT / "skills"
@@ -41,29 +42,45 @@ def _to_us_date(value: str, default: str) -> str:
     return value
 
 
-def _load_cn_close(symbol: str, start: str, end: str):
+def _load_cn_close(symbol: str, start: str, end: str) -> tuple[pd.Series, str]:
+    """返回 (close_series, source_label)。source_label 记录实际使用的数据源链路。"""
     from skills.datasource.scripts.akshare import daily
 
     df = daily(symbol, start=start, end=end)
     if "close" not in df.columns:
         raise click.ClickException(f"{symbol} 缺少 close 列")
-    return df["close"].dropna()
+
+    source = _detect_cn_source(df) if not df.empty else "fallback: empty"
+    return df["close"].dropna(), source
 
 
-def _load_us_close(symbol: str, start: str, end: str):
+def _detect_cn_source(df: pd.DataFrame) -> str:
+    """根据数据特征反推实际使用的数据源 Tier。"""
+    columns = [c.lower() for c in df.columns]
+    if "振幅" in columns or "amplitude" in [c.lower() for c in df.columns]:
+        return "akshare.stock_zh_a_hist"
+    if "adjusted_close" in [c.lower().replace(" ", "_") for c in df.columns]:
+        return "yfinance (CN mapped)"
+    return "benchmark/data/000001_SZ_daily.csv (local sample)"
+
+
+def _load_us_close(symbol: str, start: str, end: str) -> tuple[pd.Series, str]:
     from skills.datasource.scripts.yfinance import daily
 
     df = daily(symbol, start=_to_us_date(start, "2010-01-01"), end=_to_us_date(end, "2025-12-31"))
     if "close" not in df.columns:
         raise click.ClickException(f"{symbol} 缺少 close 列")
-    return df["close"].dropna()
+    return df["close"].dropna(), "yfinance.download"
 
 
-def _load_benchmark_close(symbol: str, start: str, end: str):
+def _load_benchmark_close(symbol: str, start: str, end: str) -> tuple[pd.Series, str, str]:
+    """返回 (close, source_label, market_label)。"""
     try:
-        return _load_cn_close(symbol, start, end)
+        series, src = _load_cn_close(symbol, start, end)
+        return series, src, "A"
     except click.ClickException:
-        return _load_us_close(symbol, start, end)
+        series, src = _load_us_close(symbol, start, end)
+        return series, src, "US"
 
 
 def _sma_signals(close, fast: int, slow: int):
@@ -112,11 +129,13 @@ def data_download(symbol: str, market: str, start: str, end: str, period: str):
             from skills.datasource.scripts.yfinance import daily
 
             df = daily(symbol, start=_to_us_date(start, "2024-01-01"), end=_to_us_date(end, "2024-12-31"))
+            source = "yfinance.download"
         else:
             from skills.datasource.scripts.akshare import daily
 
             df = daily(symbol, start=start, end=end, period=period)
-        click.secho(f"获取成功: {len(df)} 行", fg="green")
+            source = _detect_cn_source(df) if not df.empty else "unknown"
+        click.secho(f"获取成功: {len(df)} 行 | 数据源: {source}", fg="green")
         click.echo(df.tail(5).to_string())
     except Exception as exc:
         raise click.ClickException(str(exc)) from exc
@@ -140,10 +159,10 @@ def factor():
 def factor_analyze(symbol: str, factor_name: str, period: int):
     """计算单因子统计。"""
     try:
-        from skills.datasource.scripts.akshare import daily
         from skills.factor.scripts.compute import momentum, reversal, rsi, volatility
 
-        close = daily(symbol)["close"]
+        end_date = datetime.now().strftime("%Y%m%d")
+        close, source = _load_cn_close(symbol, "20100101", end_date)
         factors = {
             "momentum": momentum,
             "reversal": reversal,
@@ -151,7 +170,7 @@ def factor_analyze(symbol: str, factor_name: str, period: int):
             "rsi": rsi,
         }
         series = factors[factor_name](close, period).dropna()
-        click.secho("因子统计", fg="green")
+        click.secho(f"因子统计 (数据源: {source})", fg="green")
         click.echo(f"mean={series.mean():.4f}")
         click.echo(f"std={series.std():.4f}")
         click.echo(f"min={series.min():.4f}")
@@ -180,11 +199,11 @@ def backtest_run(symbol: str, fast: int, slow: int, cash: int, start: str, end: 
     try:
         from skills.backtest.scripts.metrics import report, vectorized_backtest
 
-        close = _load_cn_close(symbol, start, end)
+        close, source = _load_cn_close(symbol, start, end)
         signals = _sma_signals(close, fast, slow)
         result = vectorized_backtest(signals, close, initial_cash=cash)
         perf = report(result["returns"].dropna())
-        click.secho("回测完成", fg="green")
+        click.secho(f"回测完成 (数据源: {source})", fg="green")
         for key, value in perf.items():
             click.echo(f"{key}: {value}")
     except Exception as exc:
@@ -205,9 +224,10 @@ def risk_check(symbol: str, start: str, end: str):
     try:
         from skills.risk.scripts.risk_metrics import metrics
 
-        returns = _load_cn_close(symbol, start, end).pct_change().dropna()
+        close, source = _load_cn_close(symbol, start, end)
+        returns = close.pct_change().dropna()
         result = metrics(returns)
-        click.secho("风险指标", fg="green")
+        click.secho(f"风险指标 (数据源: {source})", fg="green")
         for key, value in result.items():
             click.echo(f"{key}: {value}")
     except Exception as exc:
@@ -246,8 +266,8 @@ def benchmark_run(
         from benchmark.scripts.score import evaluate
         from skills.backtest.scripts.metrics import vectorized_backtest
 
-        close = _load_cn_close(symbol, start, end)
-        benchmark_close = _load_benchmark_close(benchmark_symbol, start, end)
+        close, strategy_source = _load_cn_close(symbol, start, end)
+        benchmark_close, bench_source, bench_market = _load_benchmark_close(benchmark_symbol, start, end)
         prices = (
             close.rename("strategy_close")
             .to_frame()
@@ -270,10 +290,18 @@ def benchmark_run(
             "symbol": symbol,
             "benchmark_symbol": benchmark_symbol,
             "window": {"fast": fast, "slow": slow},
+            "source": {
+                "strategy": {"market": "A", "fetcher": strategy_source},
+                "benchmark": {"market": bench_market, "fetcher": bench_source},
+            },
             **result,
         }
         out = _save_result(payload["strategy"], payload)
-        click.secho(f"综合得分: {result['total_score']}/100 ({result['grade']})", fg="green")
+        click.secho(
+            f"综合得分: {result['total_score']}/100 ({result['grade']}) "
+            f"| 策略数据: {strategy_source} | 基准: {bench_source}",
+            fg="green",
+        )
         click.echo(f"结果文件: {out}")
     except Exception as exc:
         raise click.ClickException(str(exc)) from exc
@@ -341,7 +369,7 @@ def validate_all():
     benchmark_ok = (BENCHMARK_DIR / "SKILL.md").exists() and (BENCHMARK_DIR / "scripts").is_dir()
     passed += int(benchmark_ok)
     click.secho(
-        f"[{'OK' if benchmark_ok else 'MISS'}] benchmark  SKILL.md={'OK' if (BENCHMARK_DIR / 'SKILL.md').exists() else 'MISS'} "
+        f"[{'OK' if benchmark_ok else 'MISS'}] benchmark SKILL.md={'OK' if (BENCHMARK_DIR / 'SKILL.md').exists() else 'MISS'} "
         f"scripts={'OK' if (BENCHMARK_DIR / 'scripts').is_dir() else '-'}",
         fg="green" if benchmark_ok else "red",
     )
