@@ -10,10 +10,10 @@
 
 ### Changed
 
-- 将仓库收缩为真实可运行的最小量化闭环：`data`、`factor`、`backtest`、`risk`、`benchmark`、`validate`
+- 将仓库收缩为真实可运行的最小量化闭环：`data`、`factor`、`backtest`、`risk`、`dashboard`、`validate`
 - A 股价格读取改为更稳定的 `yfinance -> AKShare -> 本地样例` 回退链路
-- `benchmark run` 直接对均线交叉策略评分，并写入 `benchmark/results/`
-- 打包配置调整为同时包含 `cli`、`skills`、`benchmark`
+- `dashboard run` 直接对均线交叉策略评分，并写入 `dashboard/results/`
+- 打包配置调整为同时包含 `cli`、`skills`、`dashboard`
 
 ### Fixed
 
@@ -30,12 +30,12 @@
 - `skills/risk/scripts/optimize.py`
 - `skills/validate/scripts/cross_check.py`
 - `skills/datasource/reference/jointquant-api.md`
-- `benchmark/data/alpha_manifest.json`
-- `benchmark/data/csi300_constituents.csv`
-- `benchmark/scripts/dashboard_html.py`
-- `benchmark/scripts/kline_chart.py`
-- `benchmark/scripts/metric_pages.py`
-- `benchmark/metrics/` 下所有生成好的 HTML 文件
+- `dashboard/data/alpha_manifest.json`
+- `dashboard/data/csi300_constituents.csv`
+- `dashboard/scripts/dashboard_html.py`
+- `dashboard/scripts/kline_chart.py`
+- `dashboard/scripts/metric_pages.py`
+- `dashboard/metrics/` 下所有生成好的 HTML 文件
 
 ### Added
 

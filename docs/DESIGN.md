@@ -38,8 +38,8 @@ typography:
     fontWeight: 400
     lineHeight: 1.55
     letterSpacing: "0px"
-  code-mono:
-    fontFamily: "'SF Mono', Menlo, Monaco, Consolas, monospace"
+  label-sm:
+    fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif"
     fontSize: 14px
     fontWeight: 400
     lineHeight: 1.5
@@ -121,12 +121,12 @@ NewForm is a design system that feels unapologetically technical, structured, an
 
 ### Typography
 #### Principles
-Display type must command the canvas with extreme weight (`800`) and ultra-tight negative tracking (`-1.8px`), simulating a physical printing press or high-density newspaper layout. In contrast, body text and mono-code components prioritize strict, un-decorated legibility.
+Display type must command the canvas with extreme weight (`800`) and ultra-tight negative tracking (`-1.8px`), simulating a physical printing press or high-density newspaper layout. In contrast, body text and label components prioritize strict, un-decorated legibility.
 #### Hierarchy Table
 - **Display Large:** `56px / 1.1 / -1.8px tracking / Weight 800` (Used for Hero Headlines).
 - **Heading Medium:** `24px / 1.3 / -0.5px tracking / Weight 700` (Section Titles).
 - **Body Medium:** `16px / 1.55 / 0px tracking / Weight 400` (Technical Prose).
-- **Code Mono:** `14px / 1.5 / 0px tracking / Weight 400` (Raw Code & Console Displays).
+- **Label Small:** `14px / 1.5 / 0px tracking / Weight 400` (Data Tables, Metrics & Numeric Displays).
 
 ### Layout
 The spacing scale is strictly non-linear and built on multiples of 4px. Section blocks enforce a mandatory `{spacing.section}` (80px) vertical buffer to create monumental breathing space between content transitions.

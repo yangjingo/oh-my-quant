@@ -13,7 +13,7 @@ description: 精简后的量化技能仓库，聚焦可执行脚本与最小 CLI
 - 单因子统计
 - 均线回测
 - 风险指标
-- benchmark 评分
+- benchmark 评分看板与策略跑分
 
 ## 结构
 

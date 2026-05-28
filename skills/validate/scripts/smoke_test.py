@@ -1,4 +1,4 @@
-"""Minimal structure checks for local skills and benchmark."""
+"""Minimal structure checks for local skills and dashboard."""
 
 from __future__ import annotations
 
