@@ -37,7 +37,6 @@ start skills/portfolio/portfolio.html
 ```
 skills/portfolio/
 ├── SKILL.md
-├── DESIGN.md
 ├── portfolio.html               # 生成产物：看板页面 (零外部依赖)
 ├── data/                         # 数据层 (JSON)
 │   ├── holdings.json             # 持仓清单
@@ -69,7 +68,7 @@ skills/portfolio/
 
 ## 看板图表
 
-基于 ECharts (本地 `templates/echarts.min.js`，零 CDN 依赖) + `docs/DESIGN.md` brutalist 设计系统：
+基于 ECharts (本地 `templates/echarts.min.js`，零 CDN 依赖) + `DESIGN.md` brutalist 设计系统：
 
 | 图表 | 说明 |
 |------|------|
@@ -81,16 +80,27 @@ skills/portfolio/
 
 ## 看板设计
 
-基于 `docs/DESIGN.md` NewForm brutalist 设计系统：
-- Hero 区：软奶油底 (`#F7F9F6`) + 48px/800wt 标题
-- 数据区：暗色引擎底板 (`#121413`)
-- Cyber Mint (`#39E180`) 仅用于正收益和关键信号
-- 零阴影，全 1px hairline 分隔
-- ECharts 自定义主题注册为 `brutal`
+基于 `DESIGN.md` NewForm brutalist 设计系统，模板 CSS 变量映射：
+
+| CSS 变量 | 色值 | DESIGN.md token | 用途 |
+|----------|------|-----------------|------|
+| `--ink` | `#121413` | primary / canvas-dark | 全局暗底 |
+| `--mint` | `#39E180` | accent | 正收益、关键信号 |
+| `--cream` | `#F7F9F6` | canvas-light | Hero 区亮底 |
+| `--surface` | `#1E2220` | surface-card | 卡片/数据面板 |
+| `--hairline` | `#2C302E` | hairline-dark | 1px 分隔线 |
+| `--muted` | `#8C9490` | muted-dark | 次级文本/标签 |
+| `--text` | `#F7F9F6` | text-dark | 主文本 |
+
+图表多色板（ECharts brutal 主题）：`#39E180` / `#58a6ff` / `#d2991d` / `#bc8cff` / `#f0883e` / `#56d4dd` / `#8b949e`
+
+排版：Hero 标题 48px/800wt，区域标题 22px/700wt，正文 15px/400，KPI 28px/800wt
+
+零阴影，全 1px hairline 分隔，ECharts 自定义主题注册为 `brutal`
 
 ## 投资理念引擎
 
-8 位投资大师理念，根据组合特征自动匹配触发： C:\Users\yangjing\Project\oh-my-quant\docs\funder.md
+8 位投资大师理念，根据组合特征自动匹配触发。知识体系见 `docs/notes.md`。
 
 | 触发条件 | 匹配理念 |
 |----------|---------|
@@ -119,4 +129,5 @@ skills/portfolio/
 - 数据获取: `skills/datasource/SKILL.md`
 - 高级指标: `benchmark/metrics/`
 - 组合预测: `benchmark/metrics/portfolio_predict.py`
-- 设计系统: `docs/DESIGN.md`
+- 设计系统: `DESIGN.md`
+- 投资原则: `docs/notes.md`
