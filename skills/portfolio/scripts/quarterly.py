@@ -116,6 +116,41 @@ def capture_quarter() -> dict:
     return data
 
 
+def write_benchmark(result: dict, strategy: str = None):
+    """按投递协议写入 benchmark/results/。见 benchmark/SKILL.md"""
+    from pathlib import Path
+
+    results_dir = Path(__file__).resolve().parents[3] / "benchmark" / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    quarter_key = result.get("captured_at", datetime.now().strftime("%Y-%m-%d"))[:10]
+    strategy = strategy or f"quarterly_{current_quarter_key()}"
+
+    payload = {
+        "strategy": strategy,
+        "date": quarter_key,
+        "skill": "portfolio",
+        "total_score": 0,
+        "grade": "N/A",
+    }
+
+    details = {}
+    if result.get("avg_return_pct") is not None:
+        details["avg_return_pct"] = result["avg_return_pct"]
+    if result.get("funds"):
+        details["fund_count"] = len(result["funds"])
+        returns = [f["q_return_pct"] for f in result["funds"]]
+        details["best_return_pct"] = max(returns)
+        details["worst_return_pct"] = min(returns)
+    if details:
+        payload["details"] = details
+
+    filename = f"portfolio_{strategy}_{quarter_key}.json"
+    out = results_dir / filename
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return out
+
+
 def review():
     """Print all historical quarters."""
     data = load_quarterly()

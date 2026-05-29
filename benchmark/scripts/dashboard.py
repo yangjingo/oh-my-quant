@@ -1,10 +1,14 @@
 """Benchmark Dashboard — 统计看板，聚合 benchmark/results/ 下的评测结果"""
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
 

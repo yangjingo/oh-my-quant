@@ -69,6 +69,48 @@ def report(returns: pd.Series, benchmark_returns: pd.Series = None) -> dict:
     return r
 
 
+def write_benchmark(result: dict, strategy: str, symbol: str = "", params: dict = None,
+                    source: dict = None, benchmark_symbol: str = "") -> Path:
+    """按投递协议写入 benchmark/results/。见 benchmark/SKILL.md"""
+    from datetime import datetime
+    from pathlib import Path
+    import json
+
+    results_dir = Path(__file__).resolve().parents[3] / "benchmark" / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    payload = {
+        "strategy": strategy,
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "skill": "backtest",
+        "total_score": 0,
+        "grade": "N/A",
+    }
+    if symbol:
+        payload["symbol"] = symbol
+    if benchmark_symbol:
+        payload["benchmark_symbol"] = benchmark_symbol
+    if params:
+        payload["params"] = params
+    if source:
+        payload["source"] = source
+
+    # Merge in details from report()
+    details = {}
+    for k, v in result.items():
+        if isinstance(v, str) and v.endswith("%"):
+            details[k] = float(v.strip("%")) / 100
+        elif isinstance(v, (int, float)):
+            details[k] = v
+    if details:
+        payload["details"] = details
+
+    filename = f"backtest_{strategy}_{payload['date']}.json"
+    out = results_dir / filename
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return out
+
+
 def vectorized_backtest(signals: pd.Series, prices: pd.Series,
                         initial_cash: float = 100000,
                         commission: float = 0.0003,

@@ -125,8 +125,67 @@ whyj-quant benchmark dashboard
     sma_cross_20_60          72 (A)  sharpe=1.5  dd=-18.00% [yfinance.download]
 ```
 
+## 投递协议（Skill → Benchmark）
+
+任何 skill 产出结果时，将 JSON 写入 `benchmark/results/`，dashboard 自动消费。
+
+### 文件命名
+
+```
+{skill}_{strategy}_{date}.json
+```
+
+例：`backtest_sma_20_60_2026-05-29.json`、`risk_000001_2026-05-29.json`、`portfolio_quarterly_2026-Q2.json`
+
+### 必填字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `strategy` | string | 唯一策略名，dashboard 用此字段排名 |
+| `date` | string | `YYYY-MM-DD` |
+| `total_score` | number | 0-100，没有评分时填 0 |
+| `grade` | string | S/A/B/C/D，未评分时填 `N/A` |
+
+### 可选字段（有则更好）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `skill` | string | `backtest` / `factor` / `risk` / `portfolio`，用于按来源分组 |
+| `symbol` | string | 标的代码 |
+| `benchmark_symbol` | string | 基准代码 |
+| `params` | object | 策略参数，如 `{"fast": 20, "slow": 60}` |
+| `source` | object | 数据源追踪，含 `market` 和 `fetcher` |
+| `details` | object | 关键指标，dashboard 会提取 `cagr`、`sharpe`、`max_drawdown` |
+
+### 从 skill 投递
+
+每个 skill 暴露一个 `write_benchmark(result: dict)` 函数，自动补全必填字段并写入 `benchmark/results/`：
+
+```python
+# backtest
+from skills.backtest.scripts.metrics import report, write_benchmark
+r = report(returns, benchmark_returns)
+write_benchmark(r, strategy="sma_cross_20_60", params={"fast": 20, "slow": 60})
+
+# risk
+from skills.risk.scripts.risk_metrics import metrics, write_benchmark
+r = metrics(returns)
+write_benchmark(r, strategy="risk_profile", symbol="000001")
+
+# portfolio
+from skills.portfolio.scripts.quarterly import write_benchmark
+write_benchmark(quarter_data, strategy="quarterly_review")
+```
+
+### 消费
+
+```bash
+whyj-quant benchmark dashboard   # 扫描 results/ 下所有 JSON，汇总排名
+```
+
 ## 保留原则
 
 - 不生成 HTML 页面
-- `docs/DESIGN.md` 保留为未来 UI 规范
+- `DESIGN.md` 保留为未来 UI 规范
 - 所有结果以 JSON 和终端文本为准
+- skill 产出通过投递协议进入 benchmark，不硬编码 CLI 路径
