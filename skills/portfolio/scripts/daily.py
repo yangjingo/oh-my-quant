@@ -1,33 +1,54 @@
 """Daily fund NAV tracker — run every day to accumulate NAV history locally.
 
 Usage:
-    python skills/portfolio/scripts/daily.py              # capture today's NAV
-    python skills/portfolio/scripts/daily.py --review      # print daily log
+    python skills/portfolio/scripts/daily.py              # capture today's NAV (v1)
+    python skills/portfolio/scripts/daily.py --holdings v2-semicon  # 方案A
+    python skills/portfolio/scripts/daily.py --holdings v2-kc50    # 方案B
+    python skills/portfolio/scripts/daily.py --review      # print daily log (v1)
+    python skills/portfolio/scripts/daily.py --review --holdings v2-semicon
     python skills/portfolio/scripts/daily.py --review 022364  # single fund
     python skills/portfolio/scripts/daily.py --review --days 30  # last N days
 """
 
+import hashlib
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent  # skills/portfolio/
-HOLDINGS_FILE = SKILL_DIR / "holdings.json"
-DAILY_FILE = SKILL_DIR / "daily.json"
+DATA_DIR = SKILL_DIR / "data"
+
+HOLDINGS_MAP = {
+    None: ("holdings.json", "daily.json"),
+    "v1": ("holdings.json", "daily.json"),
+    "v2-semicon": ("holdings_v2_semicon.json", "daily_v2_semicon.json"),
+    "v2-kc50": ("holdings_v2_kc50.json", "daily_v2_kc50.json"),
+}
+
+_holdings_file = DATA_DIR / "holdings.json"
+_daily_file = SKILL_DIR / "daily.json"
+
+
+def set_variant(variant: str | None):
+    global _holdings_file, _daily_file
+    hf, df = HOLDINGS_MAP.get(variant, HOLDINGS_MAP[None])
+    _holdings_file = DATA_DIR / hf
+    _daily_file = SKILL_DIR / df
 
 
 def load_holdings() -> list[dict]:
-    return json.loads(HOLDINGS_FILE.read_text(encoding="utf-8"))["funds"]
+    data = json.loads(_holdings_file.read_text(encoding="utf-8"))
+    return [f for f in data["funds"] if not f["code"].startswith("_")]
 
 
 def load_daily() -> dict:
-    if DAILY_FILE.exists():
-        return json.loads(DAILY_FILE.read_text(encoding="utf-8"))
+    if _daily_file.exists():
+        return json.loads(_daily_file.read_text(encoding="utf-8"))
     return {"funds": {}, "dates": []}
 
 
 def save_daily(data: dict):
-    DAILY_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    _daily_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def fetch_nav_today(code: str, today: str) -> tuple[str | None, float | None, float | None]:
@@ -122,15 +143,24 @@ if __name__ == "__main__":
     import argparse
 
     p = argparse.ArgumentParser(description="Daily fund NAV tracker")
+    p.add_argument("--holdings", default=None, choices=[None, "v1", "v2-semicon", "v2-kc50"],
+                   help="Holdings variant (default: v1)")
     p.add_argument("--review", action="store_true", help="Print daily log")
     p.add_argument("--days", type=int, default=14, help="Days to show in review")
     p.add_argument("code", nargs="?", default=None, help="Fund code for single review")
     args = p.parse_args()
 
+    set_variant(args.holdings)
+
     if args.review:
         review(code=args.code, days=args.days)
     else:
-        print(f"Capturing {datetime.now().strftime('%Y-%m-%d')} ...")
+        print(f"Capturing {datetime.now().strftime('%Y-%m-%d')} [{args.holdings or 'v1'}] ...")
+        holdings = load_holdings()
         data = capture_today()
         save_daily(data)
-        print(f"Saved to {DAILY_FILE}")
+        # Print holdings hash for tracking
+        h = hashlib.sha256(
+            json.dumps({'codes': sorted([f['code'] for f in holdings if not f['code'].startswith('_')]), 'version': args.holdings or 'v1'}, sort_keys=True).encode()
+        ).hexdigest()[:12]
+        print(f"Saved to {_daily_file}  (holdings hash: {h})")

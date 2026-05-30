@@ -1,0 +1,123 @@
+{
+  "strategy": "portfolio_decision_v1",
+  "date": "2026-05-30",
+  "skill": "portfolio",
+  "full_hash": "f5373079ada3956aa6ee469628fec7491cbc70897fe67c7f25e3dd80782d5774",
+  "version": "v1",
+  "scenario": "当前持仓（基线）",
+  "principle": "13只科技/制造基金，AI/CPO集中暴露46%，0%防御",
+  "total_score": 0,
+  "grade": "N/A",
+  "params": {
+    "fund_count": 13,
+    "equity_ratio": "100%",
+    "defense_ratio": "0%",
+    "active_passive": "46/46 (8% QDII)"
+  },
+  "source": {
+    "strategy": {
+      "market": "A",
+      "fetcher": "portfolio.holdings"
+    },
+    "benchmark": {
+      "market": "A",
+      "fetcher": "akshare.fund_open_fund_info_em"
+    }
+  },
+  "decision": {
+    "issues": [
+      "中际旭创被4只基金重仓，新易盛4只，东山精密4只",
+      "CPO/光通信暴露~46%，超过能力圈安全上限",
+      "0%防御，达里奥全天候=2/10",
+      "0%现金，塔勒布反脆弱=3/10",
+      "13只太多，林奇两分钟测试至少3-4只不通过"
+    ]
+  },
+  "principles_scores": {
+    "munger": 6,
+    "buffett": 5,
+    "marks": 5,
+    "dalio": 2,
+    "bogle": 7,
+    "lynch": 4,
+    "livermore": 5,
+    "taleb": 3
+  },
+  "details": {
+    "cpo_exposure": "~46%",
+    "dario_score": 2,
+    "taleb_score": 3,
+    "annual_fee_estimated": "~1.1%",
+    "overlap_top3": "中际旭创(4只) 新易盛(4只) 东山精密(4只)"
+  },
+  "funds": [
+    {
+      "code": "022364",
+      "name": "永赢科技智选发起A",
+      "type": "偏股混合"
+    },
+    {
+      "code": "016372",
+      "name": "信澳匠心严选一年持有A",
+      "type": "偏股混合"
+    },
+    {
+      "code": "022184",
+      "name": "富国全球科技互联网C",
+      "type": "QDII股票"
+    },
+    {
+      "code": "001986",
+      "name": "前海开源人工智能主题",
+      "type": "灵活混合"
+    },
+    {
+      "code": "008021",
+      "name": "华富人工智能ETF联接C",
+      "type": "指数股票"
+    },
+    {
+      "code": "673060",
+      "name": "西部利得景瑞灵活A",
+      "type": "灵活混合"
+    },
+    {
+      "code": "040015",
+      "name": "华安动态灵活配置A",
+      "type": "灵活混合"
+    },
+    {
+      "code": "016371",
+      "name": "信澳业绩驱动混合C",
+      "type": "偏股混合"
+    },
+    {
+      "code": "020899",
+      "name": "天弘中证全指通信设备指数发起A",
+      "type": "指数股票"
+    },
+    {
+      "code": "008888",
+      "name": "华夏国证半导体芯片ETF联接C",
+      "type": "指数股票"
+    },
+    {
+      "code": "011613",
+      "name": "华夏科创50ETF联接C",
+      "type": "指数股票"
+    },
+    {
+      "code": "018345",
+      "name": "华夏中证机器人ETF发起式联接C",
+      "type": "指数股票"
+    },
+    {
+      "code": "025318",
+      "name": "光大保德信国证机器人产业指数C",
+      "type": "指数股票"
+    }
+  ],
+  "holdings_hash": "32d1dfb93689",
+  "holdings_file": "holdings.json",
+  "benchmark_hash": "f5373079ada3"
+}
