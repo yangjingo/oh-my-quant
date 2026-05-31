@@ -2,7 +2,7 @@
  * AgentSession — pi Agent + WhyJ Quant tools + Anthropic model.
  */
 import { Agent } from "./core/agent.ts";
-import type { AgentMessage } from "./core/types.ts";
+import type { AgentMessage, StreamFn } from "./core/types.ts";
 import { QUANT_TOOLS } from "../tools/quant-tools.ts";
 import { loadSettings } from "../storage/index.ts";
 import { streamSimple } from "./core/shim/anthropic-stream.ts";
@@ -49,7 +49,7 @@ export function createAgent(): Agent {
       tools: QUANT_TOOLS.slice(),
     },
     convertToLlm,
-    streamFn: streamSimple as Parameters<Agent["prompt"]> extends [] ? never : NonNullable<ConstructorParameters<typeof Agent>[0]>["streamFn"],
+    streamFn: ((model, context, options) => streamSimple(model, context, options)) as StreamFn,
   });
 
   return agent;

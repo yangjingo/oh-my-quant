@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import type { OhQuantSettings } from "../types/config.ts";
 import { DEFAULT_SETTINGS } from "../types/config.ts";
@@ -48,8 +48,6 @@ export function migrateOldConfig(): void {
       if (oldData.preferences) settings.preferences = { ...settings.preferences, ...oldData.preferences };
       if (oldData.mcp) settings.mcp = { ...settings.mcp, ...oldData.mcp };
       saveSettings(settings);
-      // Delete old file
-      const { unlinkSync } = require("node:fs") as typeof import("node:fs");
       try { unlinkSync(old); } catch { /* ok */ }
     } catch { /* skip broken files */ }
   }
