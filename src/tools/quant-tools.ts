@@ -54,8 +54,14 @@ type ShowDashboardArgs = Static<typeof S.ShowDashboard>;
 function ok(text: string, details?: unknown): AgentToolResult<unknown> {
   return { content: [{ type: "text" as const, text }], details: details ?? {} };
 }
-function err(text: string): AgentToolResult<unknown> {
-  return { content: [{ type: "text" as const, text: `✗ ERROR: ${text}` }], details: {} };
+import { ERRORS, formatError, type ErrorCode } from "../types/errors.ts";
+
+function err(code: ErrorCode, detail?: string): AgentToolResult<unknown> {
+  return { content: [{ type: "text" as const, text: formatError(ERRORS[code], detail) }], details: {} };
+}
+
+function errMsg(text: string): AgentToolResult<unknown> {
+  return { content: [{ type: "text" as const, text: `✗ ${text}` }], details: {} };
 }
 
 // ── Tool implementations ──
@@ -94,7 +100,7 @@ export const computeFactorTool: AgentTool<typeof S.ComputeFactor> = {
 
     let bars = await loadBars(args.symbol, "tushare");
     if (bars.length === 0) bars = await loadBars(args.symbol, "llmquant-data");
-    if (bars.length === 0) return err(`No cached data for ${args.symbol}. Call fetch_bars first.`);
+    if (bars.length === 0) return err("DATA_NO_CACHE", args.symbol);
 
     const close = bars.map((b) => b.close);
     const volume = bars.map((b) => b.volume);
@@ -128,8 +134,8 @@ export const runBacktestTool: AgentTool<typeof S.RunBacktest> = {
 
     let bars = await loadBars(args.symbol, "tushare");
     if (bars.length === 0) bars = await loadBars(args.symbol, "llmquant-data");
-    if (bars.length === 0) return err(`No cached data for ${args.symbol}. Call fetch_bars first.`);
-    if (bars.length < args.slow + 10) return err(`Need ${args.slow + 10}+ bars for SMA(${args.fast},${args.slow}), got ${bars.length}.`);
+    if (bars.length === 0) return err("DATA_NO_CACHE", args.symbol);
+    if (bars.length < args.slow + 10) return err("DATA_NOT_ENOUGH", `${args.slow + 10}+ bars for SMA(${args.fast},${args.slow}), got ${bars.length}.`);
 
     const close = bars.map((b) => b.close);
     const signals = smaSignals(close, args.fast, args.slow);
@@ -159,7 +165,7 @@ export const checkRiskTool: AgentTool<typeof S.CheckRisk> = {
 
     let bars = await loadBars(args.symbol, "tushare");
     if (bars.length === 0) bars = await loadBars(args.symbol, "llmquant-data");
-    if (bars.length === 0) return err(`No cached data for ${args.symbol}. Call fetch_bars first.`);
+    if (bars.length === 0) return err("DATA_NO_CACHE", args.symbol);
 
     const close = bars.map((b) => b.close);
     const returns = close.slice(1).map((v, i) => v / close[i] - 1);
@@ -197,8 +203,8 @@ export const scoreBenchmarkTool: AgentTool<typeof S.ScoreBenchmark> = {
       fetchBars(args.symbol, "A"),
       fetchBars(args.benchmark_symbol, "A"),
     ]);
-    if (stratR.bars.length === 0) return err(`Failed to fetch ${args.symbol}`);
-    if (benchR.bars.length === 0) return err(`Failed to fetch ${args.benchmark_symbol}`);
+    if (stratR.bars.length === 0) return err("MCP_TOOL_FAILED", `${args.symbol}`);
+    if (benchR.bars.length === 0) return err("MCP_TOOL_FAILED", `${args.benchmark_symbol}`);
     await saveBars(args.symbol, "tushare", stratR.bars);
 
     // Align dates
