@@ -3,9 +3,37 @@
   "version": "2.0.0",
   "type": "module",
   "description": "WhyJ Quant — Interactive AI-powered quantitative analysis terminal",
+  "keywords": [
+    "quantitative",
+    "finance",
+    "stock",
+    "backtest",
+    "factor",
+    "risk",
+    "cli",
+    "terminal",
+    "ai",
+    "agent"
+  ],
+  "homepage": "https://github.com/yangjing/oh-my-quant",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yangjing/oh-my-quant"
+  },
+  "license": "MIT",
+  "author": "yangjing",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
     "whyj": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.2.0"
   },
   "scripts": {
     "dev": "bun run --watch src/index.ts",
@@ -13,7 +41,8 @@
     "start": "bun run dist/index.js",
     "typecheck": "bun run tsc --noEmit",
     "test": "bun test",
-    "test:watch": "bun test --watch"
+    "test:watch": "bun test --watch",
+    "prepublishOnly": "bun run build && bun run typecheck"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.0",

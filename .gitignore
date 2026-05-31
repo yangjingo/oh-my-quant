@@ -1,9 +1,23 @@
+# Python (deleted)
 __pycache__/
-uv.lock
 .venv/
+uv.lock
+
+# Secrets
 .env
 agent/.env
 .claude/settings.local.json
+
+# Bun / Node
+node_modules/
+.bun-cache/
+dist/
+*.log
+
+# Local data
+.ohquant/
+
+# Portfolio cache
 skills/portfolio/data/nav_full.json
 skills/portfolio/data/nav_sampled.json
 skills/portfolio/sst_chart.html
