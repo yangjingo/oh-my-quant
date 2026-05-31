@@ -2,47 +2,59 @@
 /**
  * WhyJ Quant — Interactive AI-powered quantitative analysis terminal.
  *
- * Usage:
- *   bun run src/index.ts           # Start interactive REPL
- *   whyj                            # After global install
+ *   bun run src/index.ts                Interactive REPL
+ *   bun run src/index.ts -- -c "/help"   One-shot command
  */
+import { loadConfig } from "./storage/index.ts";
+import { parseCommand, executeCommand } from "./commands/registry.ts";
 
-import { render } from "ink";
-import React from "react";
-import { App } from "./app.tsx";
-
-// Load environment variables from project root .env
-const envPaths = [".env", "../.env"];
-for (const p of envPaths) {
+// 1. Load .env files (backward compat)
+for (const p of [".env", "../.env"]) {
   try {
     const content = await Bun.file(p).text();
     for (const line of content.split("\n")) {
-      const trimmed = line.trim();
-      if (trimmed && !trimmed.startsWith("#")) {
-        const eqIdx = trimmed.indexOf("=");
-        if (eqIdx > 0) {
-          const key = trimmed.slice(0, eqIdx).trim();
-          const value = trimmed.slice(eqIdx + 1).trim();
-          if (!process.env[key]) {
-            process.env[key] = value;
-          }
-        }
+      const t = line.trim();
+      if (t && !t.startsWith("#")) {
+        const i = t.indexOf("=");
+        if (i > 0) process.env[t.slice(0, i).trim()] ||= t.slice(i + 1).trim();
       }
     }
-  } catch {
-    // File doesn't exist, skip
-  }
+  } catch { /* ok */ }
 }
 
-const { unmount } = render(React.createElement(App));
+// 2. Merge API keys from .ohquant/config.json into process.env
+try {
+  const cfg = loadConfig();
+  for (const [k, v] of Object.entries(cfg.apiKeys)) {
+    if (v) process.env[k] ||= v;
+  }
+} catch { /* ok */ }
 
-// Handle exit
-process.on("SIGINT", () => {
-  unmount();
-  process.exit(0);
-});
+// 3. One-shot or interactive
+const args = Bun.argv.slice(2);
+const idxC = args.indexOf("-c");
+const idxCmd = args.indexOf("--command");
+const cmdArg = idxC >= 0 ? args[idxC + 1] : idxCmd >= 0 ? args[idxCmd + 1] : null;
 
-process.on("SIGTERM", () => {
-  unmount();
-  process.exit(0);
-});
+if (cmdArg) {
+  await runOneShot(cmdArg);
+} else {
+  const { render } = await import("ink");
+  const React = await import("react");
+  const { App } = await import("./app.tsx");
+  const { unmount } = render(React.createElement(App));
+  process.on("SIGINT", () => { unmount(); process.exit(0); });
+  process.on("SIGTERM", () => { unmount(); process.exit(0); });
+}
+
+async function runOneShot(input: string) {
+  const parsed = parseCommand(input);
+  if (!parsed) {
+    console.log(`Not a slash command: ${input}`);
+    process.exit(1);
+  }
+  const result = await executeCommand(parsed);
+  if (result.success) console.log(result.message);
+  else console.error(`✗ ${result.message}`);
+  process.exit(result.success ? 0 : 1);
+}

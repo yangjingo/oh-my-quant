@@ -120,18 +120,34 @@ async function skillHandler(sub: string, flags: Record<string, string | number |
     if (!skill) return { success: false, message: `Unknown skill: ${name}. Use /skill list` };
     if (!skill.triggerable) return { success: false, message: `${name} cannot be triggered directly (use via AI Agent)` };
 
-    // Route to the tool executor via the quant tools
     try {
       const { QUANT_TOOLS } = await import("../tools/quant-tools.ts");
       const tool = QUANT_TOOLS.find((t) => t.name === name);
       if (!tool) return { success: false, message: `Tool "${name}" not registered.` };
 
-      // Build params from flags
+      // Build params from flags, remapping common flag→param names
       const params: Record<string, unknown> = {};
+      const remap: Record<string, string> = {
+        code: "symbol", c: "symbol", symbol: "symbol",
+        market: "market", m: "market",
+        factor: "factor", f: "factor",
+        period: "period", p: "period",
+        fast: "fast", slow: "slow",
+        cash: "cash",
+        benchmark: "benchmark_symbol", "benchmark-symbol": "benchmark_symbol",
+        label: "label", l: "label",
+        start: "start", end: "end",
+      };
       for (const [k, v] of Object.entries(flags)) {
-        if (k !== "name" && k !== "skill") params[k] = v;
+        if (k === "name" || k === "skill") continue;
+        const mappedKey = remap[k] || k;
+        if (typeof v === "string" && !isNaN(Number(v))) params[mappedKey] = Number(v);
+        else params[mappedKey] = v;
       }
-      const result = await tool.execute(`cli-${Date.now()}`, params, undefined);
+
+      // Use prepareArguments if available, otherwise pass params directly
+      const preparedParams = tool.prepareArguments ? tool.prepareArguments(params) : params;
+      const result = await tool.execute(`cli-${Date.now()}`, preparedParams, undefined);
       const text = result.content.map((c) => ("text" in c ? c.text : "[image]")).join("\n");
       return { success: true, message: text };
     } catch (err) {
@@ -336,9 +352,24 @@ async function configHandler(sub: string, flags: Record<string, string | number 
   if (sub === "show") {
     return { success: true, message: [
       `LLM: anthropic / ${cfg.anthropic.model} / thinking: ${cfg.anthropic.thinkingLevel}`,
-      `Key: ${process.env["ANTHROPIC_API_KEY"] ? "✓" : "✗"}  Tushare: ${process.env["TUSHARE_TOKEN"] ? "✓" : "✗"}  FinData: ${process.env["FINANCIAL_DATASETS_KEY"] ? "✓" : "✗"}  LLMQuant: ${process.env["LLMQUANT_API_KEY"] ? "✓" : "✗"}`,
-      `Config: .ohquant/config.json  |  MCP: .claude/mcp.json  |  Secrets: .env`,
+      `Keys: Anthropic:${cfg.apiKeys.ANTHROPIC_API_KEY ? "✓" : "✗"} Tushare:${cfg.apiKeys.TUSHARE_TOKEN ? "✓" : "✗"} FinData:${cfg.apiKeys.FINANCIAL_DATASETS_KEY ? "✓" : "✗"} LLMQuant:${cfg.apiKeys.LLMQUANT_API_KEY ? "✓" : "✗"}`,
+      `Config: .ohquant/config.json  MCP: .ohquant/mcp.json (fallback .claude/mcp.json)`,
     ].join("\n") };
+  }
+  if (sub === "key") {
+    const key = String(flags.key || flags.k || "");
+    const value = String(flags.value || flags.v || "");
+    const validKeys = ["ANTHROPIC_API_KEY","TUSHARE_TOKEN","FINANCIAL_DATASETS_KEY","LLMQUANT_API_KEY"];
+    if (!key || !validKeys.includes(key)) {
+      return { success: true, message: `Valid keys: ${validKeys.join(", ")}\nUsage: /config key --key ANTHROPIC_API_KEY --value sk-ant-...` };
+    }
+    if (value) {
+      (cfg.apiKeys as Record<string, string>)[key] = value;
+      process.env[key] = value;
+      saveConfig(cfg);
+      return { success: true, message: `Key ${key} → saved` };
+    }
+    return { success: true, message: `${key}: ${cfg.apiKeys[key as keyof typeof cfg.apiKeys] ? "••••configured••••" : "NOT SET"}\nUsage: /config key --key ${key} --value YOUR_KEY` };
   }
   if (sub === "model") {
     const m = String(flags.model || flags.m || "");
@@ -423,8 +454,9 @@ Commands:
   /benchmark         Portfolio benchmark summary
   /benchmark dashboard  Full results ranking
 
-  /config            Setup guide (LLM key + MCP env)
-  /config show       Show current config
+  /config            Setup guide
+  /config show       Show current config + key status
+  /config key --key KEY --value VAL   Set API key
   /config model --model NAME
   /config thinking --level L
 

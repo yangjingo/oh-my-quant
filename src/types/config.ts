@@ -9,11 +9,17 @@ export interface UserPreferences {
   portfolioVariant: string;
 }
 
+export interface ApiKeys {
+  ANTHROPIC_API_KEY?: string;
+  TUSHARE_TOKEN?: string;
+  FINANCIAL_DATASETS_KEY?: string;
+  LLMQUANT_API_KEY?: string;
+}
+
 export interface AnthropicConfig {
   model: string;
   maxTokens: number;
   thinkingLevel: "off" | "minimal" | "low" | "medium" | "high";
-  apiKey?: string;
 }
 
 export interface McpConfig {
@@ -24,6 +30,7 @@ export interface McpConfig {
 export interface OhQuantConfig {
   version: number;
   preferences: UserPreferences;
+  apiKeys: ApiKeys;
   mcp: McpConfig;
   anthropic: AnthropicConfig;
 }
@@ -38,6 +45,7 @@ export const DEFAULT_CONFIG: OhQuantConfig = {
     defaultSlow: 60,
     portfolioVariant: "v1",
   },
+  apiKeys: {},
   mcp: {
     enabled: true,
     autoConnect: true,
