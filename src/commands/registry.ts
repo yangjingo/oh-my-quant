@@ -189,12 +189,67 @@ async function clawHandler(sub: string, flags: Record<string, string | number | 
   }
   const market = String(flags.market || flags.m || "A");
 
+  // Offline fallback: check .ohquant/ cache first
+  let cachedBars: { date: string; close: number; open: number; high: number; low: number; volume: number }[] = [];
+  let cachedName = code;
+  try {
+    const { loadBars, getMeta } = await import("../storage/bars.ts");
+    const meta = await getMeta(code, "tushare");
+    if (meta) {
+      cachedName = meta.name;
+      cachedBars = await loadBars(code, "tushare");
+    }
+  } catch { /* no cache */ }
+
+  // If we have cached bars, show basic snapshot even when MCP is offline
+  if (cachedBars.length > 0) {
+    const last = cachedBars[cachedBars.length - 1];
+    const first = cachedBars[0];
+    const returns = cachedBars.slice(1).map((b, i) => b.close / cachedBars[i].close - 1);
+    const posDays = returns.filter((r) => r > 0).length;
+    const winRate = returns.length > 0 ? (posDays / returns.length * 100).toFixed(0) : "?";
+
+    // Try MCP for richer data, but don't block on it
+    let mcpExtra = "";
+    try {
+      const { callTool } = await import("../data/mcp-client.ts");
+      if (market === "A") {
+        try {
+          const basic = await callTool("tushare", "daily_basic", { ts_code: code, trade_date: "" });
+          const arr = Array.isArray(basic) ? basic : [];
+          if (arr.length > 0) {
+            const s = arr[arr.length - 1] as Record<string, unknown>;
+            mcpExtra = [
+              `PE (TTM):    ${s.pe ?? s.pe_ttm ?? "?"}`,
+              `PB:          ${s.pb ?? "?"}`,
+              `Market Cap:  ${Number(s.total_mv ?? s.circ_mv ?? 0).toLocaleString?.() ?? "?"} CNY`,
+            ].join("\n");
+          }
+        } catch { /* MCP unavailable, offline fallback is fine */ }
+      }
+    } catch { /* MCP client not connected */ }
+
+    return {
+      success: true,
+      message: [
+        `📊 ${cachedName} (${code})`,
+        `─────────────────────────────────`,
+        `Range:       ${first.date} → ${last.date} (${cachedBars.length} days)`,
+        `Latest:      ${last.close.toFixed(2)}  (Open: ${last.open.toFixed(2)}  High: ${last.high.toFixed(2)}  Low: ${last.low.toFixed(2)})`,
+        `Volume:      ${(last.volume / 1e6).toFixed(1)}M`,
+        `Win Rate:    ${winRate}% (${posDays}/${returns.length} up days)`,
+        mcpExtra,
+        ``,
+        mcpExtra ? "" : "💡 MCP offline — showing cached data. Run /mcp connect for live fundamentals.",
+        `To analyze: "compute momentum and RSI for ${code}"`,
+      ].filter(Boolean).join("\n"),
+    };
+  }
+
+  // No cache — try live MCP
   try {
     if (market === "A") {
-      // A-share: use tushare daily_basic + stock_basic
       const { callTool } = await import("../data/mcp-client.ts");
-
-      // Try stock_basic for name
       let name = code;
       try {
         const basic = await callTool("tushare", "stock_basic", { ts_code: code });
@@ -202,9 +257,8 @@ async function clawHandler(sub: string, flags: Record<string, string | number | 
         if (arr.length > 0 && (arr[0] as Record<string, unknown>).name) {
           name = (arr[0] as Record<string, unknown>).name as string;
         }
-      } catch { /* use code as fallback */ }
+      } catch { /* fallback */ }
 
-      // Get latest snapshot via daily_basic
       let snapshot: Record<string, unknown> = {};
       try {
         const basic = await callTool("tushare", "daily_basic", { ts_code: code, trade_date: "" });
@@ -212,57 +266,49 @@ async function clawHandler(sub: string, flags: Record<string, string | number | 
         if (arr.length > 0) snapshot = arr[arr.length - 1] as Record<string, unknown>;
       } catch { /* empty */ }
 
-      const pe = snapshot.pe ?? snapshot.pe_ttm ?? "?";
-      const pb = snapshot.pb ?? "?";
-      const mv = snapshot.total_mv ?? snapshot.circ_mv ?? "?";
-      const sector = snapshot.industry ?? "?";
-      const close = snapshot.close ?? "?";
-
       return {
         success: true,
         message: [
           `📊 ${name} (${code})`,
           `─────────────────────────────────`,
-          `Industry:    ${sector}`,
-          `Close:       ${close}`,
-          `PE (TTM):    ${pe}`,
-          `PB:          ${pb}`,
-          `Market Cap:  ${Number(mv).toLocaleString?.() ?? mv} CNY`,
+          `Industry:    ${snapshot.industry ?? "?"}`,
+          `Close:       ${snapshot.close ?? "?"}`,
+          `PE (TTM):    ${snapshot.pe ?? snapshot.pe_ttm ?? "?"}`,
+          `PB:          ${snapshot.pb ?? "?"}`,
+          `Market Cap:  ${Number(snapshot.total_mv ?? snapshot.circ_mv ?? 0).toLocaleString?.() ?? "?"} CNY`,
           ``,
           `To analyze: "compute momentum and RSI for ${code}"`,
         ].join("\n"),
       };
     }
 
-    // US stocks: try financial-datasets
-    try {
-      const { callTool } = await import("../data/mcp-client.ts");
-      const facts = await callTool("financial-datasets", "get_company_facts", { ticker: code });
-      const metrics = await callTool("financial-datasets", "get_financial_metrics_snapshot", { ticker: code });
-
-      const f = (facts as Record<string, unknown>) || {};
-      const m = (metrics as Record<string, unknown>) || {};
-
-      return {
-        success: true,
-        message: [
-          `📊 ${f.company_name || code} (${code})`,
-          `─────────────────────────────────`,
-          `Sector:      ${f.sector || "?"}  /  ${f.industry || "?"}`,
-          `Market Cap:  $${(Number(m.market_cap) / 1e9).toFixed(1) ?? "?"}B`,
-          `PE Ratio:    ${m.pe_ratio ?? "?"}`,
-          `PB Ratio:    ${m.pb_ratio ?? "?"}`,
-          `Dividend:    ${m.dividend_yield ? (Number(m.dividend_yield) * 100).toFixed(2) + "%" : "?"}`,
-          `Employees:   ${f.employees?.toLocaleString?.() ?? "?"}`,
-          ``,
-          `To analyze: "compute momentum and RSI for ${code}"`,
-        ].join("\n"),
-      };
-    } catch {
-      return { success: false, message: `Could not fetch data for ${code}. Check MCP: /mcp connect\nFor A-shares: /claw --code 000001.SZ --market A` };
-    }
-  } catch (err) {
-    return { success: false, message: `Failed: ${err instanceof Error ? err.message : String(err)}\nEnsure MCP is connected: /mcp connect` };
+    // US stocks
+    const { callTool } = await import("../data/mcp-client.ts");
+    const facts = await callTool("financial-datasets", "get_company_facts", { ticker: code });
+    const metrics = await callTool("financial-datasets", "get_financial_metrics_snapshot", { ticker: code });
+    const f = (facts as Record<string, unknown>) || {};
+    const m = (metrics as Record<string, unknown>) || {};
+    return {
+      success: true,
+      message: [
+        `📊 ${f.company_name || code} (${code})`,
+        `─────────────────────────────────`,
+        `Sector:      ${f.sector || "?"}  /  ${f.industry || "?"}`,
+        `Market Cap:  $${(Number(m.market_cap) / 1e9).toFixed(1) ?? "?"}B`,
+        `PE Ratio:    ${m.pe_ratio ?? "?"}`,
+        `PB Ratio:    ${m.pb_ratio ?? "?"}`,
+        `Dividend:    ${m.dividend_yield ? (Number(m.dividend_yield) * 100).toFixed(2) + "%" : "?"}`,
+        ``,
+        `To analyze: "compute momentum and RSI for ${code}"`,
+      ].join("\n"),
+    };
+  } catch {
+    return { success: false, message: [
+      `No data for ${code}. Options:`,
+      `  1. npm run seed (bundled with sample data)`,
+      `  2. /mcp connect (requires API keys)`,
+      `  3. /config for setup guide`,
+    ].join("\n") };
   }
 }
 
