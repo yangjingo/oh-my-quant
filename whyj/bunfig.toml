@@ -1,0 +1,6 @@
+[install]
+production = false
+frozen-lockfile = false
+
+[install.cache]
+dir = ".bun-cache"
