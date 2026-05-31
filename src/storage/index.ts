@@ -1,47 +1,56 @@
-/**
- * .ohquant/ storage initialization and config management.
- */
-
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { OhQuantConfig } from "../types/config.ts";
-import { DEFAULT_CONFIG } from "../types/config.ts";
+import type { OhQuantSettings } from "../types/config.ts";
+import { DEFAULT_SETTINGS } from "../types/config.ts";
 
 export const OHQUANT_DIR = join(process.cwd(), ".ohquant");
 export const DATA_DIR = join(OHQUANT_DIR, "data");
 export const SESSIONS_DIR = join(OHQUANT_DIR, "sessions");
 export const PORTFOLIO_DIR = join(OHQUANT_DIR, "portfolio");
-export const BENCHMARK_RESULTS_DIR = join(OHQUANT_DIR, "benchmark");
+export const BENCHMARK_DIR = join(OHQUANT_DIR, "benchmark");
 export const CACHE_DIR = join(OHQUANT_DIR, "cache");
 
-const CONFIG_PATH = join(OHQUANT_DIR, "config.json");
+const SETTINGS_PATH = join(OHQUANT_DIR, "settings.json");
 
-/** Ensure all .ohquant/ subdirectories exist */
 export function ensureDirs(): void {
-  for (const dir of [DATA_DIR, SESSIONS_DIR, PORTFOLIO_DIR, BENCHMARK_RESULTS_DIR, CACHE_DIR]) {
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
+  for (const dir of [DATA_DIR, SESSIONS_DIR, PORTFOLIO_DIR, BENCHMARK_DIR, CACHE_DIR]) {
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   }
 }
 
-/** Load user config from .ohquant/config.json, merging with defaults */
-export function loadConfig(): OhQuantConfig {
+export function loadSettings(): OhQuantSettings {
   ensureDirs();
-  if (!existsSync(CONFIG_PATH)) {
-    writeFileSync(CONFIG_PATH, JSON.stringify(DEFAULT_CONFIG, null, 2), "utf-8");
-    return { ...DEFAULT_CONFIG };
+  if (!existsSync(SETTINGS_PATH)) {
+    writeFileSync(SETTINGS_PATH, JSON.stringify(DEFAULT_SETTINGS, null, 2), "utf-8");
+    return { ...DEFAULT_SETTINGS };
   }
   try {
-    const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
-    return { ...DEFAULT_CONFIG, ...raw, preferences: { ...DEFAULT_CONFIG.preferences, ...raw.preferences } };
+    const raw = JSON.parse(readFileSync(SETTINGS_PATH, "utf-8"));
+    return { ...DEFAULT_SETTINGS, ...raw, preferences: { ...DEFAULT_SETTINGS.preferences, ...raw.preferences } };
   } catch {
-    return { ...DEFAULT_CONFIG };
+    return { ...DEFAULT_SETTINGS };
   }
 }
 
-/** Save user config */
-export function saveConfig(config: OhQuantConfig): void {
+export function saveSettings(s: OhQuantSettings): void {
   ensureDirs();
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+  writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), "utf-8");
+}
+
+/** Remove old config.json if present (migrated to settings.json) */
+export function migrateOldConfig(): void {
+  const old = join(OHQUANT_DIR, "config.json");
+  if (existsSync(old)) {
+    try {
+      const oldData = JSON.parse(readFileSync(old, "utf-8"));
+      const settings = loadSettings();
+      if (oldData.anthropic) settings.anthropic = { ...settings.anthropic, ...oldData.anthropic };
+      if (oldData.preferences) settings.preferences = { ...settings.preferences, ...oldData.preferences };
+      if (oldData.mcp) settings.mcp = { ...settings.mcp, ...oldData.mcp };
+      saveSettings(settings);
+      // Delete old file
+      const { unlinkSync } = require("node:fs") as typeof import("node:fs");
+      try { unlinkSync(old); } catch { /* ok */ }
+    } catch { /* skip broken files */ }
+  }
 }

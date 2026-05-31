@@ -7,7 +7,7 @@ import { StatusBar } from "./components/StatusBar.tsx";
 import { Table } from "./components/Table.tsx";
 import type { MessageProps } from "./components/Message.tsx";
 import { parseCommand, executeCommand, type ParsedCommand } from "./commands/registry.ts";
-import { ensureDirs, loadConfig } from "./storage/index.ts";
+import { ensureDirs, loadSettings } from "./storage/index.ts";
 import { connectAll, getConnectedServers } from "./data/mcp-client.ts";
 
 export function App() {
@@ -26,7 +26,7 @@ export function App() {
     void (async () => {
       try {
         ensureDirs();
-        loadConfig();
+        loadSettings();
         const servers = await connectAll();
         setMcpServers(servers.length > 0 ? getConnectedServers() : []);
       } catch {

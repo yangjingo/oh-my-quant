@@ -4,7 +4,7 @@
 import { Agent } from "./core/agent.ts";
 import type { AgentMessage } from "./core/types.ts";
 import { QUANT_TOOLS } from "../tools/quant-tools.ts";
-import { loadConfig } from "../storage/index.ts";
+import { loadSettings } from "../storage/index.ts";
 import { streamSimple } from "./core/shim/anthropic-stream.ts";
 
 const SYSTEM_PROMPT = `You are a quantitative finance analyst in WhyJ Quant terminal.
@@ -27,7 +27,7 @@ const SYSTEM_PROMPT = `You are a quantitative finance analyst in WhyJ Quant term
 7. Keep responses concise`;
 
 export function createAgent(): Agent {
-  const config = loadConfig();
+  const config = loadSettings();
 
   const agent = new Agent({
     sessionId: `whyj-${Date.now()}`,

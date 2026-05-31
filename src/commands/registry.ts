@@ -346,52 +346,39 @@ async function mcpHandler(sub: string): Promise<CommandResult> {
 // ── /config ──
 
 async function configHandler(sub: string, flags: Record<string, string | number | boolean>): Promise<CommandResult> {
-  const { loadConfig, saveConfig } = await import("../storage/index.ts");
-  const cfg = loadConfig();
+  const { loadSettings, saveSettings } = await import("../storage/index.ts");
+  const cfg = loadSettings();
 
   if (sub === "show") {
     return { success: true, message: [
       `LLM: anthropic / ${cfg.anthropic.model} / thinking: ${cfg.anthropic.thinkingLevel}`,
-      `Keys: Anthropic:${cfg.apiKeys.ANTHROPIC_API_KEY ? "✓" : "✗"} Tushare:${cfg.apiKeys.TUSHARE_TOKEN ? "✓" : "✗"} FinData:${cfg.apiKeys.FINANCIAL_DATASETS_KEY ? "✓" : "✗"} LLMQuant:${cfg.apiKeys.LLMQUANT_API_KEY ? "✓" : "✗"}`,
-      `Config: .ohquant/config.json  MCP: .ohquant/mcp.json (fallback .claude/mcp.json)`,
+      `Env: Anthropic:${process.env["ANTHROPIC_API_KEY"] ? "✓" : "✗"} Tushare:${process.env["TUSHARE_TOKEN"] ? "✓" : "✗"} FinData:${process.env["FINANCIAL_DATASETS_KEY"] ? "✓" : "✗"} LLMQuant:${process.env["LLMQUANT_API_KEY"] ? "✓" : "✗"}`,
+      `Settings: .ohquant/settings.json  |  MCP: .claude/mcp.json  |  Keys: .env`,
     ].join("\n") };
-  }
-  if (sub === "key") {
-    const key = String(flags.key || flags.k || "");
-    const value = String(flags.value || flags.v || "");
-    const validKeys = ["ANTHROPIC_API_KEY","TUSHARE_TOKEN","FINANCIAL_DATASETS_KEY","LLMQUANT_API_KEY"];
-    if (!key || !validKeys.includes(key)) {
-      return { success: true, message: `Valid keys: ${validKeys.join(", ")}\nUsage: /config key --key ANTHROPIC_API_KEY --value sk-ant-...` };
-    }
-    if (value) {
-      (cfg.apiKeys as Record<string, string>)[key] = value;
-      process.env[key] = value;
-      saveConfig(cfg);
-      return { success: true, message: `Key ${key} → saved` };
-    }
-    return { success: true, message: `${key}: ${cfg.apiKeys[key as keyof typeof cfg.apiKeys] ? "••••configured••••" : "NOT SET"}\nUsage: /config key --key ${key} --value YOUR_KEY` };
   }
   if (sub === "model") {
     const m = String(flags.model || flags.m || "");
-    if (!m) return { success: true, message: `Model: ${cfg.anthropic.model}\n/claw /config model --model claude-sonnet-4-6` };
-    cfg.anthropic.model = m; saveConfig(cfg);
+    if (!m) return { success: true, message: `Model: ${cfg.anthropic.model}\nUsage: /config model --model claude-sonnet-4-6` };
+    cfg.anthropic.model = m; saveSettings(cfg);
     return { success: true, message: `Model → ${m}` };
   }
   if (sub === "thinking") {
     const l = String(flags.level || flags.l || "");
     const valid = ["off","minimal","low","medium","high"];
     if (!l || !valid.includes(l)) return { success: true, message: `Thinking: ${cfg.anthropic.thinkingLevel}\nLevels: ${valid.join(", ")}` };
-    cfg.anthropic.thinkingLevel = l as typeof cfg.anthropic.thinkingLevel; saveConfig(cfg);
+    cfg.anthropic.thinkingLevel = l as typeof cfg.anthropic.thinkingLevel; saveSettings(cfg);
     return { success: true, message: `Thinking → ${l}` };
   }
   return { success: true, message: [
     `⚙️  Setup Guide`,
     `────────────────`,
     `1. .env file:  ANTHROPIC_API_KEY=sk-ant-...`,
-    `2. .env file:  TUSHARE_TOKEN=...  FINANCIAL_DATASETS_KEY=...`,
+    `2. .env file:  TUSHARE_TOKEN=...  FINANCIAL_DATASETS_KEY=...  LLMQUANT_API_KEY=...`,
     `3. /config show     — check status`,
     `4. /config model --model claude-sonnet-4-6`,
     `5. /mcp connect     — connect data sources`,
+    ``,
+    `Settings: .ohquant/settings.json  Keys: .env`,
   ].join("\n") };
 }
 
@@ -455,8 +442,7 @@ Commands:
   /benchmark dashboard  Full results ranking
 
   /config            Setup guide
-  /config show       Show current config + key status
-  /config key --key KEY --value VAL   Set API key
+  /config show       Show current config + env status
   /config model --model NAME
   /config thinking --level L
 

@@ -5,10 +5,10 @@
  *   bun run src/index.ts                Interactive REPL
  *   bun run src/index.ts -- -c "/help"   One-shot command
  */
-import { loadConfig } from "./storage/index.ts";
+import { migrateOldConfig } from "./storage/index.ts";
 import { parseCommand, executeCommand } from "./commands/registry.ts";
 
-// 1. Load .env files (backward compat)
+// 1. Load .env files
 for (const p of [".env", "../.env"]) {
   try {
     const content = await Bun.file(p).text();
@@ -22,13 +22,8 @@ for (const p of [".env", "../.env"]) {
   } catch { /* ok */ }
 }
 
-// 2. Merge API keys from .ohquant/config.json into process.env
-try {
-  const cfg = loadConfig();
-  for (const [k, v] of Object.entries(cfg.apiKeys)) {
-    if (v) process.env[k] ||= v;
-  }
-} catch { /* ok */ }
+// 2. Migrate old .ohquant/config.json → settings.json
+migrateOldConfig();
 
 // 3. One-shot or interactive
 const args = Bun.argv.slice(2);
