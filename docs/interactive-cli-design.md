@@ -71,21 +71,33 @@ Q > /backtest run --symbol 000001.SZ --fast 20 --slow 60
 
 | 层 | 选型 | 理由 |
 |---|------|------|
-| Runtime | Node.js 22+ (TypeScript) | Ink 生态唯一 runtime |
+| Runtime | **Bun** + TypeScript | 包管理 + 运行时 + 构建，单工具全栈 |
 | Terminal UI | **Ink 5** + React 18 | 声明式终端 UI，组件化 |
 | CLI 框架 | **pastel** 或自建 | Ink 配套框架，处理输入循环 |
 | 命令解析 | 自建 parser + commander | `/` 前缀识别命令；参数解析复用 commander 风格 |
-| 数据存储 | **better-sqlite3** | 本地 SQLite，同步 API，零配置 |
+| 数据存储 | **本地文件** `.ohquant/` | Parquet (日线) + JSON (元信息/配置) |
+| AI Agent | **@anthropic-ai/sdk** | 流式调用 + tool use + system prompt |
 | MCP Client | **@modelcontextprotocol/sdk** | 官方 SDK，连接现有 MCP servers |
-| 数据获取 | 复用现有 Python SDK 或 HTTP API | 可 Phase 2 改为 Node 原生 |
+| 数据获取 | MCP 优先 → Python bridge fallback | 逐步迁移至 Node/TypeScript 原生 |
 | 自动补全 | 自建 (基于命令 schema) | 轻量，不依赖外部 |
 | Markdown 渲染 | ink-markdown 或自建 | 表格、代码块、颜色 |
 
-### 2.1 为什么不用 Python (Textual / Prompt Toolkit)
+### 2.2 包管理与运行时
+
+使用 **Bun** 作为包管理和运行时（替代 npm + Node）：
+
+```bash
+bun init                    # 初始化项目
+bun install                 # 安装依赖（读取 bun.lock）
+bun run --watch src/index.ts  # 开发热重载
+bun build src/index.ts --outdir dist --target bun  # 生产构建
+```
+
+### 2.3 为什么不用 Python (Textual / Prompt Toolkit)
 
 - Ink 组件模型更接近 React，组件复用性强
 - MCP SDK 的 TypeScript 生态更成熟
-- 单二进制分发（pkg / bun build）比 Python 打包简单
+- Bun 单二进制分发比 Python 打包简单
 - 但：**现有 Python 数据处理逻辑保留**，通过子进程调用或逐步迁移
 
 ---
@@ -140,70 +152,47 @@ Q > /backtest run --symbol 000001.SZ --fast 20 --slow 60
 ```
 oh-my-quant/
 ├── cli/                          # (existing) Python CLI — 保留但标记 deprecated
-├── whyj/                         # (new) Node.js interactive CLI
+├── whyj/                         # (new) Bun + TypeScript 项目
 │   ├── package.json
 │   ├── tsconfig.json
+│   ├── bun.lock
+│   ├── bunfig.toml
 │   ├── src/
 │   │   ├── index.ts              # 入口: bootstrap → render Ink app
 │   │   ├── app.tsx               # <App> 根组件
-│   │   ├── components/
-│   │   │   ├── Header.tsx        # 顶部品牌栏
-│   │   │   ├── Conversation.tsx  # 对话历史列表
-│   │   │   ├── Message.tsx       # 单条消息 (user / system / error)
-│   │   │   ├── Input.tsx         # 输入框 + autocomplete
-│   │   │   ├── StatusBar.tsx     # 底部状态栏
-│   │   │   ├── Markdown.tsx      # Markdown 渲染
-│   │   │   ├── Table.tsx         # 表格渲染
-│   │   │   ├── ProgressBar.tsx   # 进度条
-│   │   │   └── Spinner.tsx       # 加载动画
-│   │   ├── commands/
-│   │   │   ├── registry.ts       # 命令注册表
-│   │   │   ├── types.ts          # CommandSpec 类型定义
-│   │   │   ├── data.ts           # /data download | search
-│   │   │   ├── factor.ts         # /factor list | analyze
-│   │   │   ├── backtest.ts       # /backtest run
-│   │   │   ├── risk.ts           # /risk check
-│   │   │   ├── benchmark.ts      # /benchmark run | dashboard
-│   │   │   ├── portfolio.ts      # /portfolio capture | review | dashboard
-│   │   │   ├── config.ts         # /config (MCP settings, etc.)
-│   │   │   ├── help.ts           # /help
-│   │   │   ├── clear.ts          # /clear
-│   │   │   └── exit.ts           # /exit
-│   │   ├── core/
-│   │   │   ├── parser.ts         # 输入解析器 (区分 /command vs NL)
-│   │   │   ├── executor.ts       # 命令执行调度
-│   │   │   ├── context.ts        # SessionContext (记忆 last symbol, period等)
-│   │   │   └── nlp.ts            # 自然语言 → 命令 映射 (Phase 2)
-│   │   ├── services/
-│   │   │   ├── data-service.ts   # 数据获取 + 缓存层
-│   │   │   ├── factor-service.ts # 因子计算
-│   │   │   ├── backtest-service.ts
-│   │   │   ├── risk-service.ts
-│   │   │   ├── benchmark-service.ts
-│   │   │   └── portfolio-service.ts
-│   │   ├── storage/
-│   │   │   ├── db.ts             # SQLite 初始化 + schema
-│   │   │   ├── migrations/       # Schema 迁移
-│   │   │   └── repositories/     # 每种数据的 CRUD
-│   │   ├── mcp/
-│   │   │   ├── client.ts         # MCP Client 封装
-│   │   │   ├── config.ts         # MCP 配置加载 (.claude/mcp.json)
-│   │   │   ├── tool-registry.ts  # MCP tools → 内部接口
-│   │   │   └── adapters/
-│   │   │       ├── tushare.ts
-│   │   │       ├── financial-datasets.ts
-│   │   │       └── llmquant.ts
-│   │   ├── bridge/
-│   │   │   └── python.ts         # child_process 调用现有 Python 脚本
-│   │   └── types/
-│   │       ├── messages.ts       # Message, Command, Result 类型
-│   │       ├── data.ts           # OHLCV, Bar, Symbol 类型
-│   │       └── config.ts         # 配置类型
+│   │   ├── components/           # Ink UI 组件
+│   │   ├── agent/                # AI Agent 子系统（详见 agent-system-spec.md）
+│   │   │   ├── agent.ts          # Agent 类（pi 风格）
+│   │   │   ├── loop.ts           # 核心 agent 循环
+│   │   │   ├── types.ts          # AgentEvent, AgentTool, AgentMessage
+│   │   │   ├── context.ts        # SessionContext + system prompt 构建
+│   │   │   └── session.ts        # Session 持久化
+│   │   ├── tools/                # 工具注册 + 量化工具实现
+│   │   │   ├── registry.ts       # ToolRegistry
+│   │   │   ├── types.ts          # ToolSpec<TSchema>
+│   │   │   ├── data-tools.ts     # fetch_daily_bars, search_symbols
+│   │   │   ├── factor-tools.ts   # compute_factor, list_factors
+│   │   │   ├── backtest-tools.ts # run_backtest
+│   │   │   ├── risk-tools.ts     # check_risk
+│   │   │   ├── benchmark-tools.ts # run_benchmark, show_dashboard
+│   │   │   └── portfolio-tools.ts # capture_portfolio, review_portfolio
+│   │   ├── commands/             # Slash command handlers
+│   │   ├── mcp/                  # MCP Client + Tool adapter
+│   │   ├── storage/              # .ohquant/ 本地文件读写
+│   │   ├── bridge/               # Python 子进程桥接
+│   │   └── types/                # 共享类型
 │   └── test/
+├── .ohquant/                     # (new) 本地数据目录
+│   ├── config.json
+│   ├── data/                     # 市场数据 (Parquet)
+│   ├── sessions/                 # 会话记录 (Markdown)
+│   ├── portfolio/                # 组合数据 (JSON)
+│   └── benchmark/                # 跑分结果 (JSON)
 ├── benchmark/                    # (existing)
 ├── skills/                       # (existing)
 └── docs/
-    └── interactive-cli-design.md # ← 本文档
+    ├── interactive-cli-design.md # ← 本文档（CLI 架构）
+    └── agent-system-spec.md      # ← Agent 系统设计
 ```
 
 ---
@@ -426,102 +415,26 @@ interface ToolRegistry {
 
 ## 7. Local Storage
 
-### 7.1 SQLite Schema
+详见 [`agent-system-spec.md §6`](./agent-system-spec.md#6-数据存储本地文件)。核心决策：
 
-```sql
--- 标的信息
-CREATE TABLE symbols (
-  code       TEXT PRIMARY KEY,   -- e.g. '000001.SZ', 'AAPL'
-  name       TEXT,
-  market     TEXT,               -- 'A', 'US', 'HK'
-  exchange   TEXT,
-  type       TEXT,               -- 'stock', 'etf', 'index', 'fund'
-  list_date  TEXT,
-  delist_date TEXT,
-  updated_at TEXT
-);
+- 数据目录：项目根目录 `.ohquant/`
+- 日线数据：**Parquet** 格式，按 `{source}/{symbol}/daily.parquet` 组织
+- 元信息：每个 symbol 一个 `meta.json`
+- 配置：`.ohquant/config.json`
+- 会话记录：`.ohquant/sessions/{date}/session-{time}.md`
+- 组合/跑分：沿用现有 JSON 格式，目录不变
 
--- 日线 OHLCV
-CREATE TABLE bars_daily (
-  symbol     TEXT NOT NULL,
-  date       TEXT NOT NULL,      -- YYYY-MM-DD
-  open       REAL,
-  high       REAL,
-  low        REAL,
-  close      REAL,
-  volume     REAL,
-  amount     REAL,
-  adj_close  REAL,
-  source     TEXT,               -- 'akshare', 'yfinance', 'mcp-tushare', ...
-  fetched_at TEXT,
-  PRIMARY KEY (symbol, date)
-);
-
--- 因子缓存
-CREATE TABLE factor_cache (
-  symbol     TEXT NOT NULL,
-  factor     TEXT NOT NULL,      -- 'momentum_20', 'volatility_20', ...
-  date       TEXT NOT NULL,
-  value      REAL,
-  computed_at TEXT,
-  PRIMARY KEY (symbol, factor, date)
-);
-
--- 回测记录
-CREATE TABLE backtest_runs (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  symbol     TEXT NOT NULL,
-  strategy   TEXT,               -- 'sma_20_60'
-  params     TEXT,               -- JSON
-  start_date TEXT,
-  end_date   TEXT,
-  result     TEXT,               -- JSON: full backtest output
-  created_at TEXT
-);
-
--- 基金净值
-CREATE TABLE fund_nav (
-  code       TEXT NOT NULL,
-  date       TEXT NOT NULL,
-  nav        REAL,
-  acc_nav    REAL,
-  daily_pct  REAL,
-  fetched_at TEXT,
-  PRIMARY KEY (code, date)
-);
-
--- 配置
-CREATE TABLE config (
-  key        TEXT PRIMARY KEY,
-  value      TEXT
-);
-
--- 命令历史
-CREATE TABLE command_history (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  input      TEXT NOT NULL,
-  timestamp  TEXT NOT NULL
-);
-```
-
-### 7.2 数据生命周期
+### 数据源优先级
 
 ```
-MCP / Python Bridge → 原始数据
-         │
-         ▼
-   normalizeBar() → 统一字段格式
-         │
-         ▼
-   SQLite INSERT OR REPLACE (upsert)
-         │
-         ▼
-   bars_daily 表 (永久缓存)
+请求数据
+  │
+  ├─ 1. .ohquant/data/{source}/{symbol}/daily.parquet（本地缓存）
+  │     → fresh → 直接返回
+  │     → stale → 增量更新
+  ├─ 2. MCP Server
+  └─ 3. Python Bridge（fallback）
 ```
-
-- **TTL 策略**：当日数据每次请求时刷新；历史数据永久缓存
-- 提供 `/data refresh --symbol CODE` 强制更新
-- 数据库文件：`whyj/data/whyj.db`
 
 ---
 
@@ -554,49 +467,15 @@ Q > /factor analyze --factor volatility   // 复用 --symbol 000001.SZ
 
 ## 9. Implementation Phases
 
-### Phase 1: Core Shell (Week 1-2)
+详见 [`agent-system-spec.md §10`](./agent-system-spec.md#10-实施阶段) 获得完整计划。概要：
 
-- [ ] 项目脚手架：package.json, TypeScript, Ink, 基础组件
-- [ ] 输入解析器：`/command subcommand --flag value` 解析
-- [ ] 命令注册表 + 执行调度
-- [ ] `/help`, `/clear`, `/exit`
-- [ ] 消息历史 + ConversationView
-- [ ] Input 组件 + 基础键盘交互（Enter 提交，↑↓ 历史）
-
-### Phase 2: Data Layer (Week 3)
-
-- [ ] SQLite 初始化 + schema 迁移
-- [ ] DataService：symbol 搜索 + bars 缓存查询
-- [ ] Python Bridge：调用现有 akshare/yfinance 脚本
-- [ ] `/data download` + `/data search`
-
-### Phase 3: MCP Integration (Week 4)
-
-- [ ] MCP Client 封装 + 配置加载
-- [ ] Tool Registry + normalize 层
-- [ ] 优先 MCP，fallback Python bridge
-- [ ] StatusBar 显示 MCP 连接状态
-
-### Phase 4: Core Commands (Week 5-6)
-
-- [ ] FactorService + `/factor list | analyze`
-- [ ] BacktestService + `/backtest run`
-- [ ] RiskService + `/risk check`
-- [ ] BenchmarkService + `/benchmark run | dashboard`
-
-### Phase 5: Portfolio & Polish (Week 7-8)
-
-- [ ] PortfolioService + `/portfolio capture | review | dashboard`
-- [ ] SessionContext：省略参数智能复用
-- [ ] 自动补全（Tab completion）
-- [ ] Markdown/Table 渲染优化
-- [ ] 颜色系统对齐 DESIGN.md (NewForm brutalist)
-
-### Phase 6: Natural Language (Future)
-
-- [ ] 中文 symbol 别名表（茅台 → 600519.SH）
-- [ ] 规则引擎 NL→命令映射
-- [ ] 可选 LLM 集成（本地模型或 API）
+| Phase | 内容 | 时间 |
+|-------|------|------|
+| Phase 1 | 项目脚手架（Bun + Ink + Agent 核心） | Week 1 |
+| Phase 2 | 工具 & 数据层（ToolRegistry + MCP + 本地文件） | Week 2-3 |
+| Phase 3 | Agent 集成（多轮对话 + 工具编排 + Session） | Week 4 |
+| Phase 4 | 命令系统（Slash + NL 双路径） | Week 5 |
+| Phase 5 | 打磨 & 发布 | Week 6 |
 
 ---
 
