@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { Box, Text, useApp } from "ink";
 import { Header } from "./components/Header.tsx";
+import { Sidebar } from "./components/Sidebar.tsx";
 import { Conversation } from "./components/Conversation.tsx";
 import { Input } from "./components/Input.tsx";
 import { StatusBar } from "./components/StatusBar.tsx";
@@ -12,7 +13,7 @@ import { connectAll, getConnectedServers } from "./data/mcp-client.ts";
 export function App() {
   const { exit } = useApp();
   const [messages, setMessages] = useState<MessageProps[]>([
-    { role: "system", content: "  Welcome to WhyJ Quant. Type / to see commands, or ask a question.", id: "welcome" },
+    { role: "system", content: "Welcome to WhyJ Quant. Type / for commands, or ask a question.", id: "welcome" },
   ]);
   const [mode, setMode] = useState<string>("loading");
   const [lastSymbol, setLastSymbol] = useState<string | null>(null);
@@ -37,7 +38,6 @@ export function App() {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       role,
       content,
-      timestamp: new Date().toLocaleTimeString(),
     };
     setMessages((prev) => [...prev, msg]);
     return msg;
@@ -63,6 +63,12 @@ export function App() {
         return;
       }
 
+      if (input === "/sidebar") {
+        // built-in toggle — handled via component state in future
+        addMessage("system", "Sidebar tabs: Market · Data · Portfolio");
+        return;
+      }
+
       setMode("running");
       try {
         const parsed = parseCommand(input);
@@ -73,11 +79,11 @@ export function App() {
           } else {
             addMessage("error", result.message);
           }
-          if (parsed.flags["symbol"]) {
-            setLastSymbol(String(parsed.flags["symbol"]));
+          if (parsed.flags["symbol"] || parsed.flags["code"]) {
+            setLastSymbol(String(parsed.flags["symbol"] || parsed.flags["code"]));
           }
         } else {
-          addMessage("system", "Unknown command. Type / to browse commands.");
+          addMessage("system", "Unknown command. Type / to browse commands, or ask a question naturally.");
         }
       } catch (err) {
         addMessage("error", err instanceof Error ? err.message : String(err));
@@ -87,11 +93,27 @@ export function App() {
     [addMessage, exit],
   );
 
+  const sidebarWidth = 26;
+
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Header mcpStatus={mcpServers} />
-      <Conversation messages={messages} />
-      <Input onSubmit={handleSubmit} disabled={mode === "running"} />
+
+      <Box flexDirection="row" flexGrow={1}>
+        {/* Main area */}
+        <Box flexDirection="column" flexGrow={1} marginRight={1}>
+          <Conversation messages={messages} />
+          <Input onSubmit={handleSubmit} disabled={mode === "running"} />
+        </Box>
+
+        {/* Sidebar */}
+        <Sidebar
+          mcpServers={mcpServers}
+          lastSymbol={lastSymbol}
+          width={sidebarWidth}
+        />
+      </Box>
+
       <StatusBar lastSymbol={lastSymbol} mode={mode} />
     </Box>
   );
@@ -106,7 +128,7 @@ const helpText = [
   "  /config    Settings           /config show",
   "  /benchmark  Strategy scores   /benchmark dashboard",
   "  /mcp        Data servers      /mcp connect",
-  "  /help /clear /exit",
+  "  /help  /clear  /exit  /sidebar",
   "",
   "No / prefix → natural language question.",
 ].join("\n");
