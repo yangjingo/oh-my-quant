@@ -10,7 +10,10 @@ export function Header({ mcpStatus }: HeaderProps) {
 
   return (
     <Box justifyContent="space-between" marginBottom={1}>
-      <Text bold>WhyJ</Text>
+      <Box>
+        <Text color="cyan" bold>▊ </Text>
+        <Text bold>WhyJ</Text>
+      </Box>
       {connected ? (
         <Text dimColor>{mcpStatus.length} source{mcpStatus.length > 1 ? "s" : ""}</Text>
       ) : (

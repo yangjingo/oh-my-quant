@@ -46,7 +46,15 @@ export function Input({ onSubmit, disabled }: InputProps) {
         setCursor((c) => (c < suggestions.length - 1 ? c + 1 : 0));
         return;
       }
-      if (key.return || key.tab) {
+      if (key.return) {
+        const chosen = suggestions[cursor % suggestions.length].usage;
+        setHistory((h) => [chosen, ...h].slice(0, 100));
+        onSubmit(chosen);
+        setValue("");
+        setCursor(0);
+        return;
+      }
+      if (key.tab) {
         setValue(suggestions[cursor % suggestions.length].usage);
         setCursor(0);
         return;
