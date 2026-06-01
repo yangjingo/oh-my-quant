@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import { Box, Text, useApp } from "ink";
 import { Header } from "./components/Header.tsx";
 import { Sidebar } from "./components/Sidebar.tsx";
+import { ConfigPanel } from "./components/ConfigPanel.tsx";
 import { Conversation } from "./components/Conversation.tsx";
 import { Input } from "./components/Input.tsx";
 import { StatusBar } from "./components/StatusBar.tsx";
@@ -19,6 +20,7 @@ export function App() {
   const [lastSymbol, setLastSymbol] = useState<string | null>(null);
   const [mcpServers, setMcpServers] = useState<string[]>([]);
   const [mcpStatuses, setMcpStatuses] = useState<McpServerStatus[]>([]);
+  const [configOpen, setConfigOpen] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -57,6 +59,11 @@ export function App() {
 
       if (input === "/clear") {
         setMessages([]);
+        return;
+      }
+
+      if (input === "/config" || input === "/setup") {
+        setConfigOpen(true);
         return;
       }
 
@@ -104,8 +111,14 @@ export function App() {
       <Box flexDirection="row" flexGrow={1}>
         {/* Main area */}
         <Box flexDirection="column" flexGrow={1} marginRight={1}>
-          <Conversation messages={messages} />
-          <Input onSubmit={handleSubmit} disabled={mode === "running"} />
+          {configOpen ? (
+            <ConfigPanel onDone={() => setConfigOpen(false)} />
+          ) : (
+            <>
+              <Conversation messages={messages} />
+              <Input onSubmit={handleSubmit} disabled={mode === "running"} />
+            </>
+          )}
         </Box>
 
         {/* Sidebar */}
