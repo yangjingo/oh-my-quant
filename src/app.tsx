@@ -4,24 +4,20 @@ import { Header } from "./components/Header.tsx";
 import { Conversation } from "./components/Conversation.tsx";
 import { Input } from "./components/Input.tsx";
 import { StatusBar } from "./components/StatusBar.tsx";
-import { Table } from "./components/Table.tsx";
 import type { MessageProps } from "./components/Message.tsx";
-import { parseCommand, executeCommand, type ParsedCommand } from "./commands/registry.ts";
+import { parseCommand, executeCommand } from "./commands/registry.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
 import { connectAll, getConnectedServers } from "./data/mcp-client.ts";
 
 export function App() {
   const { exit } = useApp();
   const [messages, setMessages] = useState<MessageProps[]>([
-    { role: "system", content: "WhyJ Quant · interactive terminal", id: "welcome" },
-    { role: "system", content: "Type /help for commands, or ask a question in natural language.", id: "hint" },
+    { role: "system", content: "  Welcome to WhyJ Quant. Type / to see commands, or ask a question.", id: "welcome" },
   ]);
   const [mode, setMode] = useState<string>("loading");
   const [lastSymbol, setLastSymbol] = useState<string | null>(null);
   const [mcpServers, setMcpServers] = useState<string[]>([]);
-  const [streamingText, setStreamingText] = useState("");
 
-  // Initialize storage and MCP
   useEffect(() => {
     void (async () => {
       try {
@@ -52,7 +48,8 @@ export function App() {
       addMessage("user", input);
 
       if (input === "/exit" || input === "/quit") {
-        exit();
+        addMessage("system", "Goodbye.");
+        setTimeout(() => exit(), 300);
         return;
       }
 
@@ -73,14 +70,6 @@ export function App() {
           const result = await executeCommand(parsed);
           if (result.success) {
             addMessage("system", result.message);
-            if (result.data && result.renderAs === "table") {
-              // Table rendering handled by data
-              const data = result.data as { headers: string[]; rows: string[][] };
-              setMessages((prev) => [
-                ...prev,
-                { id: `table-${Date.now()}`, role: "system", content: "", data },
-              ]);
-            }
           } else {
             addMessage("error", result.message);
           }
@@ -88,71 +77,36 @@ export function App() {
             setLastSymbol(String(parsed.flags["symbol"]));
           }
         } else {
-          addMessage("system", `Unknown command. Type /help for available commands.\nYou said: ${input}`);
+          addMessage("system", "Unknown command. Type / to browse commands.");
         }
       } catch (err) {
         addMessage("error", err instanceof Error ? err.message : String(err));
       }
       setMode("idle");
-      setStreamingText("");
     },
     [addMessage, exit],
   );
 
   return (
-    <Box flexDirection="column" padding={1} minHeight={20}>
+    <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Header mcpStatus={mcpServers} />
       <Conversation messages={messages} />
-      {streamingText ? (
-        <Box marginBottom={1}>
-          <Text>{streamingText}</Text>
-          <Text dimColor>█</Text>
-        </Box>
-      ) : null}
       <Input onSubmit={handleSubmit} disabled={mode === "running"} />
       <StatusBar lastSymbol={lastSymbol} mode={mode} />
     </Box>
   );
 }
 
-const helpText = `
-Available commands:
-
-  /data download    Download OHLCV data
-    --symbol CODE   Stock code (e.g. 000001.SZ, AAPL)
-    --market A|US   Market (default: A)
-    --start DATE    Start date YYYY-MM-DD
-    --end DATE      End date YYYY-MM-DD
-
-  /data search      Search symbols
-    --keyword KW    Search keyword
-
-  /factor list      List available factors
-  /factor analyze   Compute factor
-    --symbol CODE
-    --factor NAME   momentum|reversal|volatility|volume_ratio|rsi|sma_deviation
-    --period N      (default: 20)
-
-  /backtest run     Run SMA crossover backtest
-    --symbol CODE
-    --fast N        Fast SMA period (default: 20)
-    --slow N        Slow SMA period (default: 60)
-    --cash N        Initial cash (default: 100000)
-
-  /risk check       Compute risk metrics
-    --symbol CODE
-
-  /benchmark run    Run strategy scoring
-    --symbol CODE   (uses defaults for other params)
-  /benchmark dashboard  Show all benchmark results
-
-  /portfolio capture    Capture today's NAV
-  /portfolio review     Review recent NAV
-
-  /mcp connect      Connect to MCP servers
-  /mcp status       Show MCP connection status
-
-  /help             Show this help
-  /clear            Clear conversation
-  /exit             Exit
-`;
+const helpText = [
+  "Commands:",
+  "",
+  "  /claw      Stock snapshot     /claw --code 000001.SZ",
+  "  /skill     Trigger skills     /skill trigger --name fetch_bars --code CODE",
+  "  /add       Watchlist          /add stock --code CODE --name NAME",
+  "  /config    Settings           /config show",
+  "  /benchmark  Strategy scores   /benchmark dashboard",
+  "  /mcp        Data servers      /mcp connect",
+  "  /help /clear /exit",
+  "",
+  "No / prefix → natural language question.",
+].join("\n");

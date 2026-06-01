@@ -6,26 +6,39 @@ export interface MessageProps {
   role: "user" | "system" | "error";
   content: string;
   timestamp?: string;
+  data?: { headers: string[]; rows: string[][] };
 }
 
 export function Message({ role, content, timestamp }: MessageProps) {
-  const prefix = role === "user" ? "Q > " : role === "error" ? "✗ " : "  ";
-  const color = role === "user" ? "cyan" : role === "error" ? "red" : "white";
+  if (!content && role === "system") return null;
 
+  if (role === "user") {
+    return (
+      <Box flexDirection="column" marginBottom={1}>
+        <Box>
+          <Text color="cyan" bold>› </Text>
+          <Text>{content}</Text>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (role === "error") {
+    return (
+      <Box marginBottom={1}>
+        <Text color="red">✗ {content}</Text>
+      </Box>
+    );
+  }
+
+  // system / assistant
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Box>
-        <Text color={color} bold>
-          {prefix}
-        </Text>
-        <Text color={color}>{content}</Text>
-      </Box>
-      {timestamp && (
-        <Text dimColor>
-          {"  "}
-          {timestamp}
-        </Text>
-      )}
+      {content.split("\n").map((line, i) => (
+        <Box key={i}>
+          <Text>{line}</Text>
+        </Box>
+      ))}
     </Box>
   );
 }
