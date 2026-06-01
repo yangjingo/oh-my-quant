@@ -127,7 +127,7 @@ const helpText = [
   "  /claw      Stock snapshot     /claw --code 000001.SZ",
   "  /skill     Trigger skills     /skill trigger --name fetch_bars --code CODE",
   "  /add       Watchlist          /add stock --code CODE --name NAME",
-  "  /config    Settings           /config show",
+  "  /config    Settings           /config set KEY VALUE",
   "  /benchmark  Strategy scores   /benchmark dashboard",
   "  /mcp        Data servers      /mcp connect",
   "  /help  /clear  /exit  /sidebar",

@@ -7,6 +7,7 @@ import type { CommandResult } from "../types/messages.ts";
 export interface ParsedCommand {
   command: string; subcommand?: string; raw: string;
   flags: Record<string, string | number | boolean>;
+  _raw: string[];
 }
 
 export function parseCommand(input: string): ParsedCommand | null {
@@ -19,6 +20,7 @@ export function parseCommand(input: string): ParsedCommand | null {
   let flagIdx = 1;
   if (parts.length > 1 && !parts[1].startsWith("--")) { subcommand = parts[1]; flagIdx = 2; }
   const flags: Record<string, string | number | boolean> = {};
+  const positional: string[] = [];
   for (let i = flagIdx; i < parts.length; i++) {
     const part = parts[i];
     if (part.startsWith("--")) {
@@ -27,18 +29,20 @@ export function parseCommand(input: string): ParsedCommand | null {
         i++; const val = parts[i]; const num = Number(val);
         flags[key] = isNaN(num) ? val : num;
       } else flags[key] = true;
+    } else {
+      positional.push(part);
     }
   }
-  return { command, subcommand, raw: trimmed, flags };
+  return { command, subcommand, raw: trimmed, flags, _raw: positional };
 }
 
 export async function executeCommand(cmd: ParsedCommand): Promise<CommandResult> {
-  const { command, subcommand = "", flags } = cmd;
+  const { command, subcommand = "", flags, _raw } = cmd;
   switch (command) {
     case "skill":     return skillHandler(subcommand, flags);
     case "claw":      return clawHandler(subcommand, flags);
     case "add":       return addHandler(subcommand, flags);
-    case "config":    return configHandler(subcommand, flags);
+    case "config":    return configHandler(subcommand, flags, _raw);
     case "benchmark": return benchmarkHandler(subcommand);
     case "mcp":       return mcpHandler(subcommand);
     case "help":      return { success: true, message: HELP_TEXT };
@@ -383,126 +387,69 @@ async function mcpHandler(sub: string): Promise<CommandResult> {
   if (sub === "connect") {
     await connectAll();
     const s = getConnectedServers();
-    return { success: true, message: s.length > 0 ? `Connected: ${s.join(", ")}` : "No servers connected. Set keys: /config setup" };
+    return { success: true, message: s.length > 0 ? `Connected: ${s.join(", ")}` : "No servers connected. Set keys: /config set ANTHROPIC_API_KEY sk-ant-..." };
   }
   const s = getConnectedServers();
-  return { success: true, message: s.length > 0 ? `MCP: ${s.join(", ")}` : "No MCP. Run /config setup then /mcp connect" };
+  return { success: true, message: s.length > 0 ? `MCP: ${s.join(", ")}` : "No MCP. Run /config to see status" };
 }
 
 // ── /config ──
 
-async function configHandler(sub: string, flags: Record<string, string | number | boolean>): Promise<CommandResult> {
+async function configHandler(sub: string, flags: Record<string, string | number | boolean>, positional: string[] = []): Promise<CommandResult> {
   const { loadSettings, saveSettings } = await import("../storage/index.ts");
   const cfg = loadSettings();
+  const keys = cfg.apiKeys || {};
 
-  // /config show — display current status
-  if (sub === "show") {
-    const keys = cfg.apiKeys || {};
-    return { success: true, message: [
-      `WhyJ Quant Config`,
-      `─────────────────`,
-      `Model:    ${cfg.anthropic.model}  |  thinking: ${cfg.anthropic.thinkingLevel}`,
-      `─────────────────`,
-      `Anthropic:     ${keys.ANTHROPIC_API_KEY ? "✓ configured" : "✗ missing"}`,
-      `Tushare:       ${keys.TUSHARE_TOKEN ? "✓ configured" : "✗ missing"}`,
-      `FinancialData: ${keys.FINANCIAL_DATASETS_KEY ? "✓ configured" : "✗ missing"}`,
-      `LLMQuant:      ${keys.LLMQUANT_API_KEY ? "✓ configured" : "✗ missing"}`,
-      `─────────────────`,
-      `Settings: .ohquant/settings.json`,
-      `Setup:    /config setup`,
-    ].join("\n") };
+  // /config — one-page status
+  if (!sub) {
+    const status = [
+      `Model   ${cfg.anthropic.model}  ·  thinking ${cfg.anthropic.thinkingLevel}`,
+      ``,
+      `Anthropic  ${keys.ANTHROPIC_API_KEY ? "✓" : "✗"}`,
+      `Tushare    ${keys.TUSHARE_TOKEN ? "✓" : "✗"}`,
+      `Financial  ${keys.FINANCIAL_DATASETS_KEY ? "✓" : "✗"}`,
+      `LLMQuant   ${keys.LLMQUANT_API_KEY ? "✓" : "✗"}`,
+      ``,
+      `/config set ANTHROPIC_API_KEY sk-ant-...`,
+      `/config model claude-sonnet-4-6`,
+    ].join("\n");
+    return { success: true, message: status };
   }
 
-  // /config setup — interactive wizard
-  if (sub === "setup") {
-    return { success: true, message: [
-      `⚙️  Setup Wizard`,
-      `──────────────────────────────`,
-      ``,
-      `Set API keys one at a time:`,
-      ``,
-      `  /config key --name ANTHROPIC_API_KEY --value sk-ant-...`,
-      `  /config key --name TUSHARE_TOKEN --value your_token`,
-      `  /config key --name FINANCIAL_DATASETS_KEY --value your_key`,
-      `  /config key --name LLMQUANT_API_KEY --value your_key`,
-      ``,
-      `Or set them all at once:`,
-      `  /config keys --anthropic sk-ant-... --tushare TOKEN --financial KEY --llmquant KEY`,
-      ``,
-      `Check status: /config show`,
-      `Connect data:  /mcp connect`,
-    ].join("\n") };
-  }
-
-  // /config key --name KEY_NAME --value KEY_VALUE
-  if (sub === "key") {
-    const name = String(flags.name || "");
-    const value = String(flags.value || "");
-    if (!name || !value) {
-      return { success: false, message: "Usage: /config key --name ANTHROPIC_API_KEY --value sk-ant-..." };
-    }
+  // /config set KEY VALUE
+  if (sub === "set") {
     const validKeys = ["ANTHROPIC_API_KEY", "TUSHARE_TOKEN", "FINANCIAL_DATASETS_KEY", "LLMQUANT_API_KEY"];
-    if (!validKeys.includes(name)) {
-      return { success: false, message: `Unknown key: ${name}. Valid: ${validKeys.join(", ")}` };
+    const key = positional[0] || "";
+    const value = positional.slice(1).join(" ") || "";
+    if (!key || !validKeys.includes(key)) {
+      return { success: false, message: `Usage: /config set KEY VALUE\nValid: ${validKeys.join(", ")}` };
     }
-    (cfg.apiKeys as Record<string, string | undefined>)[name] = value;
+    if (!value) return { success: false, message: `Value required for ${key}` };
+    (cfg.apiKeys as Record<string, string | undefined>)[key] = value;
     saveSettings(cfg);
-    process.env[name] = value;
-    return { success: true, message: `✓ ${name} configured.\nRun /mcp connect to apply.` };
+    process.env[key] = value;
+    return { success: true, message: `${key} ✓` };
   }
 
-  // /config keys --anthropic ... --tushare ... --financial ... --llmquant ...
-  if (sub === "keys") {
-    const keys = cfg.apiKeys as Record<string, string | undefined>;
-    const map: Record<string, string> = {
-      ANTHROPIC_API_KEY: String(flags.anthropic || flags.a || ""),
-      TUSHARE_TOKEN: String(flags.tushare || flags.t || ""),
-      FINANCIAL_DATASETS_KEY: String(flags.financial || flags.f || ""),
-      LLMQUANT_API_KEY: String(flags.llmquant || flags.l || ""),
-    };
-    let set = 0;
-    for (const [k, v] of Object.entries(map)) {
-      if (v) {
-        keys[k] = v;
-        process.env[k] = v;
-        set++;
-      }
-    }
-    if (set === 0) {
-      return { success: false, message: "Usage: /config keys --anthropic KEY --tushare TOKEN --financial KEY --llmquant KEY" };
-    }
-    saveSettings(cfg);
-    return { success: true, message: `✓ ${set} keys configured.\nRun /mcp connect to apply.` };
-  }
-
-  // /config model --model NAME
+  // /config model NAME
   if (sub === "model") {
-    const m = String(flags.model || flags.m || "");
-    if (!m) return { success: true, message: `Model: ${cfg.anthropic.model}\nUsage: /config model --model claude-sonnet-4-6` };
+    const m = positional[0] || String(flags.model || flags.m || "").trim();
+    if (!m) return { success: true, message: `Model: ${cfg.anthropic.model}` };
     cfg.anthropic.model = m; saveSettings(cfg);
     return { success: true, message: `Model → ${m}` };
   }
 
-  // /config thinking --level L
+  // /config thinking LEVEL
   if (sub === "thinking") {
-    const l = String(flags.level || flags.l || "");
-    const valid = ["off","minimal","low","medium","high"];
-    if (!l || !valid.includes(l)) return { success: true, message: `Thinking: ${cfg.anthropic.thinkingLevel}\nLevels: ${valid.join(", ")}` };
-    cfg.anthropic.thinkingLevel = l as typeof cfg.anthropic.thinkingLevel; saveSettings(cfg);
+    const l = positional[0] || String(flags.level || flags.l || "").trim();
+    const valid = ["off", "minimal", "low", "medium", "high"];
+    if (!l || !valid.includes(l)) return { success: true, message: `Thinking: ${cfg.anthropic.thinkingLevel}  (${valid.join(", ")})` };
+    cfg.anthropic.thinkingLevel = l as typeof cfg.anthropic.thinkingLevel;
+    saveSettings(cfg);
     return { success: true, message: `Thinking → ${l}` };
   }
 
-  // default: show status + quick help
-  return { success: true, message: [
-    `WhyJ Quant · /config`,
-    `─────────────────────`,
-    `/config show        Check API key status`,
-    `/config setup       Guided setup wizard`,
-    `/config key         Set one API key`,
-    `/config keys        Set all API keys at once`,
-    `/config model       Switch LLM model`,
-    `/config thinking    Adjust reasoning depth`,
-  ].join("\n") };
+  return { success: false, message: `/config | /config set | /config model | /config thinking` };
 }
 
 // ── /benchmark ──

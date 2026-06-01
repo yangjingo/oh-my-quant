@@ -12,7 +12,7 @@ const COMMANDS: { name: string; desc: string; usage: string }[] = [
   { name: "/claw",      desc: "Stock snapshot",                         usage: "/claw --code CODE [--market A|US]" },
   { name: "/skill",     desc: "List or trigger skills",                 usage: "/skill list" },
   { name: "/add",       desc: "Manage watchlist",                       usage: "/add stock --code CODE --name NAME" },
-  { name: "/config",    desc: "Config: show /setup /key /keys /model",  usage: "/config show" },
+  { name: "/config",   desc: "Show or set config",                    usage: "/config" },
   { name: "/benchmark", desc: "Strategy scoring dashboard",             usage: "/benchmark dashboard" },
   { name: "/mcp",       desc: "Connect to data servers",                usage: "/mcp connect" },
   { name: "/help",      desc: "Show all commands",                      usage: "/help" },
