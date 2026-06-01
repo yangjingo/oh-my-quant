@@ -5,27 +5,17 @@
  *   bun run src/index.ts                Interactive REPL
  *   bun run src/index.ts -- -c "/help"   One-shot command
  */
-import { migrateOldConfig } from "./storage/index.ts";
+import { migrateOldConfig, loadSettings } from "./storage/index.ts";
 import { parseCommand, executeCommand } from "./commands/registry.ts";
-import { readFileSync, existsSync } from "node:fs";
 
-// 1. Load .env files
-for (const p of [".env", "../.env"]) {
-  try {
-    if (!existsSync(p)) continue;
-    const content = readFileSync(p, "utf-8");
-    for (const line of content.split("\n")) {
-      const t = line.trim();
-      if (t && !t.startsWith("#")) {
-        const i = t.indexOf("=");
-        if (i > 0) process.env[t.slice(0, i).trim()] ||= t.slice(i + 1).trim();
-      }
-    }
-  } catch { /* ok */ }
-}
-
-// 2. Migrate old .ohquant/config.json → settings.json
+// 1. Migrate old config, then load settings
 migrateOldConfig();
+const settings = loadSettings();
+
+// 2. Inject API keys from settings into process.env (so MCP client can find them)
+for (const [key, value] of Object.entries(settings.apiKeys)) {
+  if (value && !process.env[key]) process.env[key] = value;
+}
 
 // 3. One-shot or interactive
 const args = process.argv.slice(2);
@@ -34,7 +24,9 @@ const idxCmd = args.indexOf("--command");
 const cmdArg = idxC >= 0 ? args[idxC + 1] : idxCmd >= 0 ? args[idxCmd + 1] : null;
 
 if (cmdArg) {
-  await runOneShot(cmdArg);
+  // Fix MSYS2 path mangling: "/config" → "C:/.../git/.../config"
+  const fixed = cmdArg.replace(/^[A-Z]:\/[^ ]+\/(\w+)/, "/$1");
+  await runOneShot(fixed);
 } else {
   const { render } = await import("ink");
   const React = await import("react");

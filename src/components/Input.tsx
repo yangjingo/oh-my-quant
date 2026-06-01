@@ -9,15 +9,15 @@ interface InputProps {
 }
 
 const COMMANDS: { name: string; desc: string; usage: string }[] = [
-  { name: "/claw",     desc: "Stock snapshot",                          usage: "/claw --code CODE [--market A|US]" },
-  { name: "/skill",    desc: "List or trigger skills",                  usage: "/skill trigger --name NAME --code CODE" },
-  { name: "/add",      desc: "Manage watchlist",                        usage: "/add stock --code CODE --name NAME" },
-  { name: "/config",   desc: "Configure API keys and model",            usage: "/config show" },
-  { name: "/benchmark",desc: "Strategy scoring dashboard",              usage: "/benchmark dashboard" },
-  { name: "/mcp",      desc: "Connect to data servers",                 usage: "/mcp connect" },
-  { name: "/help",     desc: "Show all commands",                       usage: "/help" },
-  { name: "/clear",    desc: "Clear conversation",                      usage: "/clear" },
-  { name: "/exit",     desc: "Exit WhyJ Quant",                          usage: "/exit" },
+  { name: "/claw",      desc: "Stock snapshot",                         usage: "/claw --code CODE [--market A|US]" },
+  { name: "/skill",     desc: "List or trigger skills",                 usage: "/skill list" },
+  { name: "/add",       desc: "Manage watchlist",                       usage: "/add stock --code CODE --name NAME" },
+  { name: "/config",    desc: "Config: show /setup /key /keys /model",  usage: "/config show" },
+  { name: "/benchmark", desc: "Strategy scoring dashboard",             usage: "/benchmark dashboard" },
+  { name: "/mcp",       desc: "Connect to data servers",                usage: "/mcp connect" },
+  { name: "/help",      desc: "Show all commands",                      usage: "/help" },
+  { name: "/clear",     desc: "Clear conversation",                     usage: "/clear" },
+  { name: "/exit",      desc: "Exit WhyJ Quant",                        usage: "/exit" },
 ];
 
 export function Input({ onSubmit, disabled }: InputProps) {

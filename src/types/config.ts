@@ -20,11 +20,19 @@ export interface McpConfig {
   autoConnect: boolean;
 }
 
+export interface ApiKeys {
+  ANTHROPIC_API_KEY?: string;
+  TUSHARE_TOKEN?: string;
+  FINANCIAL_DATASETS_KEY?: string;
+  LLMQUANT_API_KEY?: string;
+}
+
 export interface OhQuantSettings {
   version: number;
   preferences: UserPreferences;
   mcp: McpConfig;
   anthropic: AnthropicConfig;
+  apiKeys: ApiKeys;
 }
 
 export const DEFAULT_SETTINGS: OhQuantSettings = {
@@ -46,4 +54,5 @@ export const DEFAULT_SETTINGS: OhQuantSettings = {
     maxTokens: 4096,
     thinkingLevel: "off",
   },
+  apiKeys: {},
 };

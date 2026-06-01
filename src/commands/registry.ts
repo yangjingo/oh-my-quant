@@ -383,10 +383,10 @@ async function mcpHandler(sub: string): Promise<CommandResult> {
   if (sub === "connect") {
     await connectAll();
     const s = getConnectedServers();
-    return { success: true, message: s.length > 0 ? `Connected: ${s.join(", ")}` : "No servers connected (check .env)" };
+    return { success: true, message: s.length > 0 ? `Connected: ${s.join(", ")}` : "No servers connected. Set keys: /config setup" };
   }
   const s = getConnectedServers();
-  return { success: true, message: s.length > 0 ? `MCP: ${s.join(", ")}` : "No MCP. Run /mcp connect" };
+  return { success: true, message: s.length > 0 ? `MCP: ${s.join(", ")}` : "No MCP. Run /config setup then /mcp connect" };
 }
 
 // ── /config ──
@@ -395,19 +395,95 @@ async function configHandler(sub: string, flags: Record<string, string | number 
   const { loadSettings, saveSettings } = await import("../storage/index.ts");
   const cfg = loadSettings();
 
+  // /config show — display current status
   if (sub === "show") {
+    const keys = cfg.apiKeys || {};
     return { success: true, message: [
-      `LLM: anthropic / ${cfg.anthropic.model} / thinking: ${cfg.anthropic.thinkingLevel}`,
-      `Env: Anthropic:${process.env["ANTHROPIC_API_KEY"] ? "✓" : "✗"} Tushare:${process.env["TUSHARE_TOKEN"] ? "✓" : "✗"} FinData:${process.env["FINANCIAL_DATASETS_KEY"] ? "✓" : "✗"} LLMQuant:${process.env["LLMQUANT_API_KEY"] ? "✓" : "✗"}`,
-      `Settings: .ohquant/settings.json  |  MCP: .claude/mcp.json  |  Keys: .env`,
+      `WhyJ Quant Config`,
+      `─────────────────`,
+      `Model:    ${cfg.anthropic.model}  |  thinking: ${cfg.anthropic.thinkingLevel}`,
+      `─────────────────`,
+      `Anthropic:     ${keys.ANTHROPIC_API_KEY ? "✓ configured" : "✗ missing"}`,
+      `Tushare:       ${keys.TUSHARE_TOKEN ? "✓ configured" : "✗ missing"}`,
+      `FinancialData: ${keys.FINANCIAL_DATASETS_KEY ? "✓ configured" : "✗ missing"}`,
+      `LLMQuant:      ${keys.LLMQUANT_API_KEY ? "✓ configured" : "✗ missing"}`,
+      `─────────────────`,
+      `Settings: .ohquant/settings.json`,
+      `Setup:    /config setup`,
     ].join("\n") };
   }
+
+  // /config setup — interactive wizard
+  if (sub === "setup") {
+    return { success: true, message: [
+      `⚙️  Setup Wizard`,
+      `──────────────────────────────`,
+      ``,
+      `Set API keys one at a time:`,
+      ``,
+      `  /config key --name ANTHROPIC_API_KEY --value sk-ant-...`,
+      `  /config key --name TUSHARE_TOKEN --value your_token`,
+      `  /config key --name FINANCIAL_DATASETS_KEY --value your_key`,
+      `  /config key --name LLMQUANT_API_KEY --value your_key`,
+      ``,
+      `Or set them all at once:`,
+      `  /config keys --anthropic sk-ant-... --tushare TOKEN --financial KEY --llmquant KEY`,
+      ``,
+      `Check status: /config show`,
+      `Connect data:  /mcp connect`,
+    ].join("\n") };
+  }
+
+  // /config key --name KEY_NAME --value KEY_VALUE
+  if (sub === "key") {
+    const name = String(flags.name || "");
+    const value = String(flags.value || "");
+    if (!name || !value) {
+      return { success: false, message: "Usage: /config key --name ANTHROPIC_API_KEY --value sk-ant-..." };
+    }
+    const validKeys = ["ANTHROPIC_API_KEY", "TUSHARE_TOKEN", "FINANCIAL_DATASETS_KEY", "LLMQUANT_API_KEY"];
+    if (!validKeys.includes(name)) {
+      return { success: false, message: `Unknown key: ${name}. Valid: ${validKeys.join(", ")}` };
+    }
+    (cfg.apiKeys as Record<string, string | undefined>)[name] = value;
+    saveSettings(cfg);
+    process.env[name] = value;
+    return { success: true, message: `✓ ${name} configured.\nRun /mcp connect to apply.` };
+  }
+
+  // /config keys --anthropic ... --tushare ... --financial ... --llmquant ...
+  if (sub === "keys") {
+    const keys = cfg.apiKeys as Record<string, string | undefined>;
+    const map: Record<string, string> = {
+      ANTHROPIC_API_KEY: String(flags.anthropic || flags.a || ""),
+      TUSHARE_TOKEN: String(flags.tushare || flags.t || ""),
+      FINANCIAL_DATASETS_KEY: String(flags.financial || flags.f || ""),
+      LLMQUANT_API_KEY: String(flags.llmquant || flags.l || ""),
+    };
+    let set = 0;
+    for (const [k, v] of Object.entries(map)) {
+      if (v) {
+        keys[k] = v;
+        process.env[k] = v;
+        set++;
+      }
+    }
+    if (set === 0) {
+      return { success: false, message: "Usage: /config keys --anthropic KEY --tushare TOKEN --financial KEY --llmquant KEY" };
+    }
+    saveSettings(cfg);
+    return { success: true, message: `✓ ${set} keys configured.\nRun /mcp connect to apply.` };
+  }
+
+  // /config model --model NAME
   if (sub === "model") {
     const m = String(flags.model || flags.m || "");
     if (!m) return { success: true, message: `Model: ${cfg.anthropic.model}\nUsage: /config model --model claude-sonnet-4-6` };
     cfg.anthropic.model = m; saveSettings(cfg);
     return { success: true, message: `Model → ${m}` };
   }
+
+  // /config thinking --level L
   if (sub === "thinking") {
     const l = String(flags.level || flags.l || "");
     const valid = ["off","minimal","low","medium","high"];
@@ -415,16 +491,17 @@ async function configHandler(sub: string, flags: Record<string, string | number 
     cfg.anthropic.thinkingLevel = l as typeof cfg.anthropic.thinkingLevel; saveSettings(cfg);
     return { success: true, message: `Thinking → ${l}` };
   }
+
+  // default: show status + quick help
   return { success: true, message: [
-    `⚙️  Setup Guide`,
-    `────────────────`,
-    `1. .env file:  ANTHROPIC_API_KEY=sk-ant-...`,
-    `2. .env file:  TUSHARE_TOKEN=...  FINANCIAL_DATASETS_KEY=...  LLMQUANT_API_KEY=...`,
-    `3. /config show     — check status`,
-    `4. /config model --model claude-sonnet-4-6`,
-    `5. /mcp connect     — connect data sources`,
-    ``,
-    `Settings: .ohquant/settings.json  Keys: .env`,
+    `WhyJ Quant · /config`,
+    `─────────────────────`,
+    `/config show        Check API key status`,
+    `/config setup       Guided setup wizard`,
+    `/config key         Set one API key`,
+    `/config keys        Set all API keys at once`,
+    `/config model       Switch LLM model`,
+    `/config thinking    Adjust reasoning depth`,
   ].join("\n") };
 }
 
