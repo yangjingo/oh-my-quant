@@ -1,6 +1,6 @@
 {
-  "name": "@yangjingo/whyj-quant",
-  "version": "0.1.0",
+  "name": "whyj-quant",
+  "version": "2.0.3",
   "type": "module",
   "description": "WhyJ Quant — Interactive AI-powered quantitative analysis terminal",
   "keywords": [
