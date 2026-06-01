@@ -11,7 +11,7 @@ export function Header({ mcpStatus }: HeaderProps) {
   return (
     <Box justifyContent="space-between" marginBottom={1}>
       <Box>
-        <Text color="cyan" bold>▊ </Text>
+        <Text color="yellow" bold>▊ </Text>
         <Text bold>WhyJ</Text>
       </Box>
       {connected ? (

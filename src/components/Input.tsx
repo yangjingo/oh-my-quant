@@ -113,10 +113,10 @@ export function Input({ onSubmit, disabled }: InputProps) {
         <Box flexDirection="column" marginBottom={1}>
           {suggestions.map((s, i) => (
             <Box key={s.name}>
-              <Text color={i === cursor ? "cyan" : undefined}>
+              <Text color={i === cursor ? "yellow" : undefined}>
                 {i === cursor ? "❯ " : "  "}
               </Text>
-              <Text bold color={i === cursor ? "cyan" : undefined}>
+              <Text bold color={i === cursor ? "yellow" : undefined}>
                 {s.name}
               </Text>
               <Text dimColor>  {s.desc}</Text>
@@ -125,7 +125,7 @@ export function Input({ onSubmit, disabled }: InputProps) {
         </Box>
       )}
       <Box>
-        <Text color="cyan" bold>› </Text>
+        <Text color="yellow" bold>› </Text>
         <Text>{value}</Text>
         <Text dimColor>│</Text>
       </Box>

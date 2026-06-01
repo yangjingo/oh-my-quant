@@ -139,7 +139,7 @@ export function ConfigPanel({ onDone }: ConfigPanelProps) {
             </Text>
             <Text dimColor>  </Text>
             {editing && active ? (
-              <Text color="cyan">[{editValue || "_"}█]</Text>
+              <Text color="yellow">[{editValue || "_"}█]</Text>
             ) : (
               <Text color={color}>[{val}]</Text>
             )}
@@ -153,7 +153,7 @@ export function ConfigPanel({ onDone }: ConfigPanelProps) {
       {editing && (
         <Box marginTop={1}>
           <Text dimColor>{fields[cursor].label}: </Text>
-          <Text color="cyan">{editValue}█</Text>
+          <Text color="yellow">{editValue}█</Text>
         </Box>
       )}
     </Box>

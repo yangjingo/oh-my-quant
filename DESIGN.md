@@ -1,178 +1,292 @@
 ---
+
 version: alpha
-name: WhyJ Quant
-description: >
-  A stark, high-contrast brutalist canvas for quantitative finance. Pairs a premium
-  soft-cream stage with a pitch-black technical engine floor, utilizing high-contrast
-  monochrome inline image badges and sparse, high-voltage neon-mint accents.
-  All mathematical formulas MUST be rendered with KaTeX (cdn.jsdelivr.net/npm/katex).
+name: WhyJ-Quant-Design-System
+description: An AI-native quantitative research terminal built around a single premium gold accent. Deep-black canvases, geometric sans-serif typography, generous whitespace, and signal-first information architecture create a terminal experience that feels closer to Claude Code, Linear, and Bloomberg than traditional retail trading software. The interface removes decorative finance tropes and focuses on clarity, conviction, and research workflows.
+
 colors:
-  primary: "#121413"
-  accent: "#39E180"
-  canvas-light: "#F7F9F6"
-  canvas-dark: "#121413"
-  surface-card: "#1E2220"
-  text-light: "#121413"
-  text-dark: "#F7F9F6"
-  muted-light: "#707572"
-  muted-dark: "#8C9490"
-  hairline-light: "#E2E6E3"
-  hairline-dark: "#2C302E"
-  on-accent: "#121413"
+primary: "#D4AF37"
+primary-focus: "#E2BE4D"
+primary-on-dark: "#F0D77A"
+ink: "#F5F5F5"
+body: "#F5F5F5"
+body-on-dark: "#F5F5F5"
+body-muted: "#A6A6A6"
+divider-soft: "#1A1A1A"
+hairline: "#242424"
+canvas: "#0B0B0C"
+surface: "#111111"
+surface-elevated: "#171717"
+surface-terminal: "#000000"
+on-primary: "#0B0B0C"
+on-dark: "#F5F5F5"
+
 typography:
-  display-lg:
-    fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif"
-    fontSize: 56px
-    fontWeight: 800
-    lineHeight: 1.1
-    letterSpacing: "-1.8px"
-  heading-md:
-    fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif"
-    fontSize: 24px
-    fontWeight: 700
-    lineHeight: 1.3
-    letterSpacing: "-0.5px"
-  body-md:
-    fontFamily: "'Inter', sans-serif"
-    fontSize: 16px
-    fontWeight: 400
-    lineHeight: 1.55
-    letterSpacing: "0px"
-  label-sm:
-    fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif"
-    fontSize: 14px
-    fontWeight: 400
-    lineHeight: 1.5
-    letterSpacing: "0px"
-  button:
-    fontFamily: "'Inter', sans-serif"
-    fontSize: 14px
-    fontWeight: 600
-    lineHeight: 1
-    letterSpacing: "0.2px"
+hero-display:
+fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
+fontSize: 56px
+fontWeight: 700
+lineHeight: 1.05
+letterSpacing: -1.2px
+
+display-lg:
+fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
+fontSize: 40px
+fontWeight: 700
+lineHeight: 1.1
+letterSpacing: -0.8px
+
+display-md:
+fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
+fontSize: 32px
+fontWeight: 700
+lineHeight: 1.15
+letterSpacing: -0.6px
+
+lead:
+fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
+fontSize: 24px
+fontWeight: 400
+lineHeight: 1.4
+letterSpacing: 0px
+
+tagline:
+fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
+fontSize: 18px
+fontWeight: 500
+lineHeight: 1.4
+letterSpacing: 0px
+
+body-strong:
+fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
+fontSize: 16px
+fontWeight: 600
+lineHeight: 1.5
+letterSpacing: 0px
+
+body:
+fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
+fontSize: 16px
+fontWeight: 400
+lineHeight: 1.6
+letterSpacing: 0px
+
+caption:
+fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
+fontSize: 13px
+fontWeight: 400
+lineHeight: 1.4
+letterSpacing: 0px
+
+caption-strong:
+fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
+fontSize: 13px
+fontWeight: 600
+lineHeight: 1.4
+letterSpacing: 0px
+
+button:
+fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
+fontSize: 14px
+fontWeight: 500
+lineHeight: 1
+letterSpacing: 0px
+
+nav-link:
+fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
+fontSize: 13px
+fontWeight: 500
+lineHeight: 1
+letterSpacing: 0px
+
 rounded:
-  none: "0px"
-  sm: "2px"
-  md: "4px"
-  lg: "8px"
-  pill: "9999px"
+none: 0px
+xs: 4px
+sm: 8px
+md: 12px
+lg: 16px
+pill: 9999px
+full: 9999px
+
 spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "12px"
-  base: "16px"
-  lg: "24px"
-  xl: "32px"
-  section: "80px"
+xxs: 4px
+xs: 8px
+sm: 12px
+md: 16px
+lg: 24px
+xl: 32px
+xxl: 48px
+section: 80px
+
 components:
-  hero-section:
-    backgroundColor: "{colors.canvas-light}"
-    textColor: "{colors.text-light}"
-    padding: "{spacing.section} {spacing.xl}"
-  content-section-dark:
-    backgroundColor: "{colors.canvas-dark}"
-    textColor: "{colors.text-dark}"
-    padding: "{spacing.section} {spacing.xl}"
-  button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.canvas-light}"
-    typography: "{typography.button}"
-    rounded: "{rounded.sm}"
-    padding: "12px 20px"
-  button-accent:
-    backgroundColor: "{colors.accent}"
-    textColor: "{colors.on-accent}"
-    typography: "{typography.button}"
-    rounded: "{rounded.sm}"
-    padding: "12px 20px"
-  data-card:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.text-dark}"
-    rounded: "{rounded.sm}"
-    padding: "{spacing.lg}"
-    border: "1px solid {colors.hairline-dark}"
----
+button-primary:
+backgroundColor: "{colors.primary}"
+textColor: "{colors.on-primary}"
+typography: "{typography.button}"
+rounded: "{rounded.pill}"
+padding: 10px 18px
 
-## 6. Overview
+button-secondary:
+backgroundColor: transparent
+textColor: "{colors.primary}"
+typography: "{typography.button}"
+rounded: "{rounded.pill}"
+padding: 10px 18px
 
-NewForm is a design system that feels unapologetically technical, structured, and institutional. It rejects consumer-friendly "softness" (such as heavy drop shadows or plush border radii) in favor of severe editorial layouts and high contrast. The system functions across a dual-atmosphere paradigm: a premium, pristine light floor for hero presentations, which flips instantly into a deep, monolithic dark floor for technical documentation, logs, and interactive code terminals.
+terminal-panel:
+backgroundColor: "{colors.surface-terminal}"
+textColor: "{colors.body}"
+rounded: "{rounded.none}"
 
-**Key Characteristics:**
-- **Asymmetrical Dualism:** Split layouts that transition immediately from pure cream `{colors.canvas-light}` to pitch-black `{colors.canvas-dark}`.
-- **Graphic Interruption:** Inline monochrome images or data ticker boxes embedded directly into headers to rupture standard text flows.
-- **Micro-Dosed High Voltage:** Pure neon mint `{colors.accent}` is the single signal token. It is used strictly for operational statuses, active states, or critical interactive endpoints.
-- **Zero Shadow Policy:** Depth is created exclusively via 1px geometric hairlines and absolute color block changes.
+card:
+backgroundColor: "{colors.surface}"
+textColor: "{colors.body}"
+rounded: "{rounded.lg}"
+padding: 24px
 
----
+card-elevated:
+backgroundColor: "{colors.surface-elevated}"
+textColor: "{colors.body}"
+rounded: "{rounded.lg}"
+padding: 24px
 
-## 7. System Prose
+navigation:
+backgroundColor: "{colors.canvas}"
+textColor: "{colors.body}"
+typography: "{typography.nav-link}"
+height: 48px
 
-### Colors
-#### Brand & Accent
-- **Primary Block** (`{colors.primary}` — #121413): The solid, anchoring ink color for light surfaces and the background for standard primary buttons.
-- **Cyber Mint** (`{colors.accent}` — #39E180): The high-voltage warning/action color. Represents live network states, success signals, and premier transactional actions.
-#### Surface
-- **Soft Cream Canvas** (`{colors.canvas-light}` — #F7F9F6): The editorial surface for high-level positioning, marketing hero containers, and introduction layouts.
-- **Engine Floor** (`{colors.canvas-dark}` — #121413): The dense, dark workspace background where protocol details, charts, and code snippets live.
-- **Surface Card** (`{colors.surface-card}` — #1E2220): A slightly lifted charcoal plate nested exclusively inside dark engine floors.
-#### Hairlines & Typography
-- **Hairlines** (`{colors.hairline-light}`, `{colors.hairline-dark}`): Used for 1px structural grid layout dividers.
-- **Typography** (`{colors.text-light}`, `{colors.text-dark}`): High-contrast layout inks. Muted states map to precise secondary grays to ensure accessible text density ratios.
+portfolio-widget:
+backgroundColor: "{colors.surface}"
+textColor: "{colors.body}"
+rounded: "{rounded.md}"
+padding: 20px
 
-### Typography
-#### Principles
-Display type must command the canvas with extreme weight (`800`) and ultra-tight negative tracking (`-1.8px`), simulating a physical printing press or high-density newspaper layout. In contrast, body text and label components prioritize strict, un-decorated legibility.
-#### Hierarchy Table
-- **Display Large:** `56px / 1.1 / -1.8px tracking / Weight 800` (Used for Hero Headlines).
-- **Heading Medium:** `24px / 1.3 / -0.5px tracking / Weight 700` (Section Titles).
-- **Body Medium:** `16px / 1.55 / 0px tracking / Weight 400` (Technical Prose).
-- **Label Small:** `14px / 1.5 / 0px tracking / Weight 400` (Data Tables, Metrics & Numeric Displays).
+command-input:
+backgroundColor: "{colors.surface-terminal}"
+textColor: "{colors.body}"
+rounded: "{rounded.none}"
+height: 44px
 
-### Layout
-The spacing scale is strictly non-linear and built on multiples of 4px. Section blocks enforce a mandatory `{spacing.section}` (80px) vertical buffer to create monumental breathing space between content transitions.
-Grid systems do not use offset gaps; grids are composed of touching panels bounded by 1px solid `{colors.hairline-light}` or `{colors.hairline-dark}` borders.
+footer:
+backgroundColor: "{colors.canvas}"
+textColor: "{colors.body-muted}"
+typography: "{typography.caption}"
+padding: 48px
+-------------
 
-### Elevation
-This system recognizes zero drop shadows. All interface elements exist on flat, absolute dimensional layers defined by background color contrast:
-- **Tier 1 (Light Base):** `{colors.canvas-light}` holding dark text elements.
-- **Tier 2 (Dark Base):** `{colors.canvas-dark}` holding glowing accent elements.
-- **Tier 3 (Elevated Panel):** `{colors.surface-card}` nested inside Tier 2, bounded by a 1px `{colors.hairline-dark}` outline.
+## Overview
 
----
+WhyJ Quant is a research-first quantitative operating system.
 
-## 8. Components
+The interface should feel like:
 
-**`hero-section`**
-The top entry container of any page surface. Enforces a light theme canvas background `{colors.canvas-light}` with `{colors.text-light}` content. Leverages `{spacing.section}` vertical padding to establish a premium, spacious initial impression.
+* Claude Code
+* Linear
+* Warp
+* Ghostty
+* Bloomberg Terminal
 
-**`content-section-dark`**
-The dense technical layout floor. Switches immediately to `{colors.canvas-dark}` background and `{colors.text-dark}` typography. Any code block, data grid, or protocol diagram must reside within this container wrapper.
+The interface should NOT feel like:
 
-**`button-primary`**
-The heavy geometric utility action. Flat background `{colors.primary}`, text `{colors.canvas-light}`, typography `{typography.button}`. Corner radius is restricted to sharp `{rounded.sm}` (2px). No hover transition or easing effects allowed - state changes must toggle instantly.
+* Robinhood
+* Binance
+* Traditional brokers
+* Retail trading apps
 
-**`button-accent`**
-The premier system call-to-action reserved for conversions. Utilizes the high-voltage `{colors.accent}` background, `{colors.on-accent}` text, and `{typography.button}`.
+The design language is defined by:
 
-**`data-card`**
-The structured micro-container for displaying parameters or metrics on dark surfaces. Formed with `{colors.surface-card}` background, bounded by a 1px `{colors.hairline-dark}` border, using a tight sharp profile `{rounded.sm}` (2px), and padded with `{spacing.lg}` (24px).
+* One premium gold accent color
+* Deep black surfaces
+* Geometric sans-serif typography
+* Large whitespace
+* Low visual noise
+* High information density
 
----
+## Logo Principles
 
-## 9. Operational Guardrails
+The logo combines:
 
-### Responsive Behavior
-| Breakpoint | Window Width | UI Transformation Blueprint |
-|---|---|---|
-| **Mobile** | `< 768px` | Sections collapse to single-column blocks. `{typography.display-lg}` scales down drastically from `56px` to `36px` to prevent text wrapping clipping. `{spacing.section}` reduces to `48px`. |
-| **Desktop** | `≥ 768px` | Standard multi-column layout with 1px hairline dividers. Full scale typography rules apply without truncation. |
+* Feather
+* Alpha
+* Signal
+* Upward Conviction
 
-### Touch Targets
-- All primary and accent action touch targets must occupy a minimum interactive footprint of `44px × 44px` via implicit element padding.
-- Inline text links maintain a standard font size footprint but must provide an underline indicator on desktop hover.
+The logo mark should work in:
 
-### Known Gaps
-- **Motion & Easing:** Micro-interactions, transition curves, and timing curves are intentionally un-documented. Agent must default to instantaneous `0ms` hard-state toggles.
-- **Form States:** Input validations (warning/error focus borders) are omitted and default to standard system fallback tokens until alpha v2.
-- **Dark-Mode Toggle:** There is no universal dark-mode ambient switch. The interface is structurally dualistic - light and dark components coexist permanently on the same timeline.
-- **Formula Rendering:** All mathematical formulas MUST use KaTeX (`cdn.jsdelivr.net/npm/katex@0.16.9`). Display mode `$$...$$` for block formulas, inline `$...$` for text-embedded symbols. Auto-render with `renderMathInElement`.
+* 16×16 favicon
+* CLI terminal
+* SVG
+* GitHub avatar
+* PPT title page
+
+Wordmark:
+
+WhyJ Quant
+
+Font:
+
+Geist Sans
+
+Weight:
+
+600
+
+Tracking:
+
+-0.02em
+
+Color:
+
+#F5F5F5
+
+Accent:
+
+#D4AF37
+
+Background:
+
+#0B0B0C
+
+## Brand Rules
+
+Only one accent color exists:
+
+{colors.primary}
+
+Never introduce:
+
+* Green
+* Red
+* Blue
+* Purple
+
+as brand colors.
+
+Market movement colors are data visualization concerns and not brand identity.
+
+## Layout Principles
+
+Left aligned.
+
+Whitespace first.
+
+Content over decoration.
+
+Signal over chrome.
+
+Research over excitement.
+
+## Product Motto
+
+Research.
+Backtest.
+Invest.
+
+Alternative:
+
+Think in Signals.
+
+Alternative:
+
+Research Before Conviction.
