@@ -1,6 +1,6 @@
 {
-  "name": "whyj-quant",
-  "version": "2.0.2",
+  "name": "@yangjingo/whyj-quant",
+  "version": "0.1.0",
   "type": "module",
   "description": "WhyJ Quant — Interactive AI-powered quantitative analysis terminal",
   "keywords": [
@@ -31,12 +31,9 @@
     "README.md",
     "LICENSE"
   ],
-  "engines": {
-    "bun": ">=1.2.0"
-  },
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "build": "bun build src/index.ts --outdir dist --target node",
     "start": "bun run dist/index.js",
     "typecheck": "bun run tsc --noEmit",
     "test": "bun test",

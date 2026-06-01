@@ -2,6 +2,7 @@
  * AKShare bridge — calls Python akshare via subprocess.
  * AKShare is free, no API key needed. Preferred over MCP for A-share data.
  */
+import { spawn } from "node:child_process";
 import type { Bar } from "../types/data.ts";
 
 const AKSCRIPT = `
@@ -55,20 +56,9 @@ export async function fetchFromAKShare(
   const startDate = start?.replace(/-/g, "") || "20200101";
   const endDate = end?.replace(/-/g, "") || "20251231";
 
-  const proc = Bun.spawn(["python", "-c", AKSCRIPT, symbol, startDate, endDate], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const { stdout, stderr } = await runPython(AKSCRIPT, symbol, startDate, endDate);
 
-  const output = await new Response(proc.stdout).text();
-  const stderr = await new Response(proc.stderr).text();
-  await proc.exited;
-
-  if (proc.exitCode !== 0) {
-    throw new Error(`AKShare failed (exit ${proc.exitCode}): ${stderr || output}`);
-  }
-
-  const parsed = JSON.parse(output);
+  const parsed = JSON.parse(stdout);
   if (!Array.isArray(parsed)) {
     throw new Error(`AKShare error: ${(parsed as { error: string }).error}`);
   }
@@ -84,4 +74,26 @@ export async function fetchFromAKShare(
     volume: Number(r.volume || 0),
     amount: Number(r.amount || 0),
   }));
+}
+
+function runPython(
+  ...args: string[]
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("python", ["-c", ...args], {
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 30_000,
+    });
+
+    let stdout = "";
+    let stderr = "";
+    proc.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
+    proc.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
+
+    proc.on("close", (code) => {
+      if (code === 0) resolve({ stdout, stderr });
+      else reject(new Error(`AKShare failed (exit ${code}): ${stderr || stdout}`));
+    });
+    proc.on("error", (err) => reject(err));
+  });
 }

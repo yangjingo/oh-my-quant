@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 /**
  * WhyJ Quant — Interactive AI-powered quantitative analysis terminal.
  *
@@ -7,11 +7,13 @@
  */
 import { migrateOldConfig } from "./storage/index.ts";
 import { parseCommand, executeCommand } from "./commands/registry.ts";
+import { readFileSync, existsSync } from "node:fs";
 
 // 1. Load .env files
 for (const p of [".env", "../.env"]) {
   try {
-    const content = await Bun.file(p).text();
+    if (!existsSync(p)) continue;
+    const content = readFileSync(p, "utf-8");
     for (const line of content.split("\n")) {
       const t = line.trim();
       if (t && !t.startsWith("#")) {
@@ -26,7 +28,7 @@ for (const p of [".env", "../.env"]) {
 migrateOldConfig();
 
 // 3. One-shot or interactive
-const args = Bun.argv.slice(2);
+const args = process.argv.slice(2);
 const idxC = args.indexOf("-c");
 const idxCmd = args.indexOf("--command");
 const cmdArg = idxC >= 0 ? args[idxC + 1] : idxCmd >= 0 ? args[idxCmd + 1] : null;
