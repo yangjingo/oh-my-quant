@@ -6,6 +6,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -79,6 +80,27 @@ function resolveEnvVars(
   return resolved;
 }
 
+/** Connection error with diagnostics */
+export class McpConnectError extends Error {
+  constructor(
+    message: string,
+    public server: string,
+    public reason: "auth" | "network" | "timeout" | "unknown",
+  ) {
+    super(message);
+    this.name = "McpConnectError";
+  }
+}
+
+export interface McpServerStatus {
+  name: string;
+  connected: boolean;
+  tools: number;
+  error?: string;
+}
+
+const serverStatus = new Map<string, McpServerStatus>();
+
 /** Connect to all configured MCP servers and discover tools */
 export async function connectAll(): Promise<McpTool[]> {
   const configs = loadMcpConfig();
@@ -87,20 +109,26 @@ export async function connectAll(): Promise<McpTool[]> {
   for (const [name, cfg] of Object.entries(configs)) {
     try {
       let transport;
-      if (cfg.command) {
+      if (cfg.transport === "stdio" || cfg.command) {
         transport = new StdioClientTransport({
-          command: cfg.command,
+          command: cfg.command || "npx",
           args: cfg.args || [],
           env: cfg.env,
         });
-      } else if (cfg.url) {
+      } else if (cfg.transport === "sse") {
+        if (!cfg.url) throw new McpConnectError("Missing URL for SSE transport", name, "network");
         transport = new SSEClientTransport(new URL(cfg.url));
+      } else if (cfg.transport === "http" && cfg.url) {
+        transport = new StreamableHTTPClientTransport(new URL(cfg.url), {
+          requestInit: cfg.headers ? { headers: cfg.headers as Record<string, string> } : undefined,
+        });
       } else {
-        continue; // skip unconfigured
+        serverStatus.set(name, { name, connected: false, tools: 0, error: `unsupported transport: ${cfg.transport}` });
+        continue;
       }
 
       const client = new Client(
-        { name: `whyj-quant-${name}`, version: "2.0.0" },
+        { name: `whyj-quant-${name}`, version: "2.0.5" },
         { capabilities: {} },
       );
 
@@ -115,10 +143,13 @@ export async function connectAll(): Promise<McpTool[]> {
       }));
 
       connectedServers.set(name, { name, client, tools });
+      serverStatus.set(name, { name, connected: true, tools: tools.length });
       allTools.push(...tools);
-    } catch {
-      // Server connection failed — skip gracefully
-      console.error(`[mcp] Failed to connect to "${name}"`);
+    } catch (err) {
+      const reason = classifyError(err);
+      const msg = err instanceof Error ? err.message : String(err);
+      serverStatus.set(name, { name, connected: false, tools: 0, error: msg });
+      console.error(`[mcp] ${name}: ${reason} — ${msg}`);
     }
   }
 
@@ -140,6 +171,19 @@ export async function callTool(
 /** Get all connected server names */
 export function getConnectedServers(): string[] {
   return Array.from(connectedServers.keys());
+}
+
+/** Get detailed server status for sidebar display */
+export function getServerStatus(): McpServerStatus[] {
+  return Array.from(serverStatus.values());
+}
+
+function classifyError(err: unknown): McpConnectError["reason"] {
+  const msg = err instanceof Error ? err.message.toLowerCase() : "";
+  if (msg.includes("401") || msg.includes("403") || msg.includes("unauthorized")) return "auth";
+  if (msg.includes("econnrefused") || msg.includes("enotfound") || msg.includes("fetch")) return "network";
+  if (msg.includes("timeout") || msg.includes("abort")) return "timeout";
+  return "unknown";
 }
 
 /** Get tools for a specific server */

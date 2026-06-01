@@ -8,7 +8,7 @@ import { StatusBar } from "./components/StatusBar.tsx";
 import type { MessageProps } from "./components/Message.tsx";
 import { parseCommand, executeCommand } from "./commands/registry.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
-import { connectAll, getConnectedServers } from "./data/mcp-client.ts";
+import { connectAll, getConnectedServers, getServerStatus, type McpServerStatus } from "./data/mcp-client.ts";
 
 export function App() {
   const { exit } = useApp();
@@ -18,6 +18,7 @@ export function App() {
   const [mode, setMode] = useState<string>("loading");
   const [lastSymbol, setLastSymbol] = useState<string | null>(null);
   const [mcpServers, setMcpServers] = useState<string[]>([]);
+  const [mcpStatuses, setMcpStatuses] = useState<McpServerStatus[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -26,6 +27,7 @@ export function App() {
         loadSettings();
         const servers = await connectAll();
         setMcpServers(servers.length > 0 ? getConnectedServers() : []);
+        setMcpStatuses(getServerStatus());
       } catch {
         setMcpServers([]);
       }
@@ -108,7 +110,7 @@ export function App() {
 
         {/* Sidebar */}
         <Sidebar
-          mcpServers={mcpServers}
+          mcpStatuses={mcpStatuses}
           lastSymbol={lastSymbol}
           width={sidebarWidth}
         />
