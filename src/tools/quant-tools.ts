@@ -5,6 +5,7 @@
 import { Type } from "typebox";
 import type { Static } from "typebox";
 import type { AgentTool, AgentToolResult } from "../agent/core/types.ts";
+import { ERRORS, formatError, type ErrorCode } from "../types/errors.ts";
 
 // ── Schemas ──
 
@@ -54,14 +55,8 @@ type ShowDashboardArgs = Static<typeof S.ShowDashboard>;
 function ok(text: string, details?: unknown): AgentToolResult<unknown> {
   return { content: [{ type: "text" as const, text }], details: details ?? {} };
 }
-import { ERRORS, formatError, type ErrorCode } from "../types/errors.ts";
-
 function err(code: ErrorCode, detail?: string): AgentToolResult<unknown> {
   return { content: [{ type: "text" as const, text: formatError(ERRORS[code], detail) }], details: {} };
-}
-
-function errMsg(text: string): AgentToolResult<unknown> {
-  return { content: [{ type: "text" as const, text: `✗ ${text}` }], details: {} };
 }
 
 // ── Tool implementations ──

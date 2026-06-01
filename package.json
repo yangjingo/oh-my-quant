@@ -23,7 +23,6 @@
   "license": "MIT",
   "author": "yangjing",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "bin": {
     "whyj": "dist/index.js"
   },

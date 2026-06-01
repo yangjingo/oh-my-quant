@@ -7,35 +7,47 @@ import { callTool, type McpTool } from "./mcp-client.ts";
 import { loadBars, saveBars, isCacheFresh } from "../storage/bars.ts";
 import type { Bar, Market, SymbolInfo } from "../types/data.ts";
 
-/** Fetch daily bars — cache-first, MCP fallback */
+/** Fetch daily bars — cache-first, AKShare (free) → MCP (needs keys) */
 export async function fetchBars(
   symbol: string,
   market: Market,
   start?: string,
   end?: string,
 ): Promise<{ bars: Bar[]; source: string }> {
-  // Determine source
-  const source = market === "A" ? "tushare" : "llmquant-data";
+  const primarySource = market === "A" ? "akshare" : "llmquant-data";
 
   // Check cache
-  const fresh = await isCacheFresh(symbol, source);
+  const fresh = await isCacheFresh(symbol, primarySource);
   if (fresh) {
-    const cached = await loadBars(symbol, source);
+    const cached = await loadBars(symbol, primarySource);
     const filtered = filterByDate(cached, start, end);
-    if (filtered.length > 0) return { bars: filtered, source };
+    if (filtered.length > 0) return { bars: filtered, source: primarySource };
   }
 
-  // Fetch via MCP
+  // A-share: AKShare first (free, no token), MCP fallback
   let bars: Bar[] = [];
-  try {
-    if (market === "A") {
-      bars = await fetchFromTushare(symbol, start, end);
-    } else {
-      bars = await fetchFromLlmQuant(symbol, start, end);
+  let source = primarySource;
+
+  if (market === "A") {
+    try {
+      const { fetchFromAKShare } = await import("../bridge/akshare.ts");
+      bars = await fetchFromAKShare(symbol, start, end);
+      source = "akshare";
+    } catch {
+      // AKShare failed — try tushare MCP
+      try {
+        bars = await fetchFromTushare(symbol, start, end);
+        source = "tushare";
+      } catch {
+        bars = await loadBars(symbol, "akshare");
+      }
     }
-  } catch {
-    // Use cached data as fallback
-    bars = await loadBars(symbol, source);
+  } else {
+    try {
+      bars = await fetchFromLlmQuant(symbol, start, end);
+    } catch {
+      bars = await loadBars(symbol, source);
+    }
   }
 
   if (bars.length > 0) {

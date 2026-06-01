@@ -1,0 +1,34 @@
+# Python (deleted)
+__pycache__/
+.venv/
+uv.lock
+
+# Secrets
+.env
+agent/.env
+.claude/settings.local.json
+
+# Bun / Node
+node_modules/
+.bun-cache/
+*.log
+
+# Local data
+.ohquant/
+
+# Portfolio cache
+skills/portfolio/data/nav_full.json
+skills/portfolio/data/nav_sampled.json
+skills/portfolio/sst_chart.html
+skills/portfolio/data/sst_*.json
+
+# Dev files
+.claude/
+docs/
+test/
+tests/
+ROADMAP.md
+DESIGN.md
+CLAUDE.md
+CONTRIBUTING.md
+CHANGELOG.md
