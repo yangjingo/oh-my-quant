@@ -400,56 +400,71 @@ async function configHandler(sub: string, flags: Record<string, string | number 
   const cfg = loadSettings();
   const keys = cfg.apiKeys || {};
 
-  // /config — one-page status
-  if (!sub) {
-    const status = [
-      `Model   ${cfg.anthropic.model}  ·  thinking ${cfg.anthropic.thinkingLevel}`,
-      ``,
-      `Anthropic  ${keys.ANTHROPIC_API_KEY ? "✓" : "✗"}`,
-      `Tushare    ${keys.TUSHARE_TOKEN ? "✓" : "✗"}`,
-      `Financial  ${keys.FINANCIAL_DATASETS_KEY ? "✓" : "✗"}`,
-      `LLMQuant   ${keys.LLMQUANT_API_KEY ? "✓" : "✗"}`,
-      ``,
-      `/config set ANTHROPIC_API_KEY sk-ant-...`,
-      `/config model claude-sonnet-4-6`,
-    ].join("\n");
-    return { success: true, message: status };
-  }
+  // Map short aliases to full key names
+  const aliasMap: Record<string, string> = {
+    anthropic: "ANTHROPIC_API_KEY",
+    tushare: "TUSHARE_TOKEN",
+    financial: "FINANCIAL_DATASETS_KEY",
+    llmquant: "LLMQUANT_API_KEY",
+  };
 
-  // /config set KEY VALUE
-  if (sub === "set") {
-    const validKeys = ["ANTHROPIC_API_KEY", "TUSHARE_TOKEN", "FINANCIAL_DATASETS_KEY", "LLMQUANT_API_KEY"];
-    const key = positional[0] || "";
-    const value = positional.slice(1).join(" ") || "";
-    if (!key || !validKeys.includes(key)) {
-      return { success: false, message: `Usage: /config set KEY VALUE\nValid: ${validKeys.join(", ")}` };
-    }
-    if (!value) return { success: false, message: `Value required for ${key}` };
+  // /config anthropic sk-ant-xxx
+  if (aliasMap[sub]) {
+    const value = positional.join(" ") || "";
+    if (!value) return { success: false, message: `/config ${sub} <value>` };
+    const key = aliasMap[sub];
     (cfg.apiKeys as Record<string, string | undefined>)[key] = value;
     saveSettings(cfg);
     process.env[key] = value;
-    return { success: true, message: `${key} ✓` };
+    return { success: true, message: `${key} configured ✓` };
   }
 
   // /config model NAME
   if (sub === "model") {
-    const m = positional[0] || String(flags.model || flags.m || "").trim();
-    if (!m) return { success: true, message: `Model: ${cfg.anthropic.model}` };
+    const m = positional[0] || "claude-sonnet-4-6";
     cfg.anthropic.model = m; saveSettings(cfg);
-    return { success: true, message: `Model → ${m}` };
+    return { success: true, message: `model → ${m}` };
   }
 
   // /config thinking LEVEL
   if (sub === "thinking") {
-    const l = positional[0] || String(flags.level || flags.l || "").trim();
+    const l = positional[0] || "off";
     const valid = ["off", "minimal", "low", "medium", "high"];
-    if (!l || !valid.includes(l)) return { success: true, message: `Thinking: ${cfg.anthropic.thinkingLevel}  (${valid.join(", ")})` };
+    if (!valid.includes(l)) return { success: false, message: `thinking: ${valid.join(" | ")}` };
     cfg.anthropic.thinkingLevel = l as typeof cfg.anthropic.thinkingLevel;
     saveSettings(cfg);
-    return { success: true, message: `Thinking → ${l}` };
+    return { success: true, message: `thinking → ${l}` };
   }
 
-  return { success: false, message: `/config | /config set | /config model | /config thinking` };
+  // /config — status display
+  if (sub) return { success: false, message: `/config | /config anthropic|tushare|financial|llmquant <key> | /config model|thinking <val>` };
+
+  const icon = (k: string) => (keys as Record<string, string | undefined>)[k] ? "✓" : "○";
+  return { success: true, message: [
+    `Configure your WhyJ Quant setup.`,
+    `────────────────────────────────────────────`,
+    ``,
+    `  1. Anthropic API key          [${icon("ANTHROPIC_API_KEY")}]`,
+    `     /config anthropic sk-ant-...`,
+    ``,
+    `  2. Tushare token              [${icon("TUSHARE_TOKEN")}]`,
+    `     /config tushare TOKEN`,
+    ``,
+    `  3. Financial Datasets key     [${icon("FINANCIAL_DATASETS_KEY")}]`,
+    `     /config financial KEY`,
+    ``,
+    `  4. LLMQuant key               [${icon("LLMQUANT_API_KEY")}]`,
+    `     /config llmquant KEY`,
+    ``,
+    `  5. Model                      [${cfg.anthropic.model}]`,
+    `     /config model claude-sonnet-4-6`,
+    ``,
+    `  6. Thinking depth             [${cfg.anthropic.thinkingLevel}]`,
+    `     /config thinking medium`,
+    ``,
+    `────────────────────────────────────────────`,
+    `Type a number or command to configure.`,
+  ].join("\n") };
 }
 
 // ── /benchmark ──
