@@ -148,8 +148,7 @@ export async function connectAll(): Promise<McpTool[]> {
     } catch (err) {
       const reason = classifyError(err);
       const msg = err instanceof Error ? err.message : String(err);
-      serverStatus.set(name, { name, connected: false, tools: 0, error: msg });
-      console.error(`[mcp] ${name}: ${reason} — ${msg}`);
+      serverStatus.set(name, { name, connected: false, tools: 0, error: reason });
     }
   }
 

@@ -3,7 +3,6 @@ import { Box, Text } from "ink";
 import { useInput } from "ink";
 
 interface InputProps {
-  prompt?: string;
   onSubmit: (value: string) => void;
   disabled?: boolean;
 }
@@ -12,7 +11,7 @@ const COMMANDS: { name: string; desc: string; usage: string }[] = [
   { name: "/claw",      desc: "Stock snapshot",                         usage: "/claw --code CODE [--market A|US]" },
   { name: "/skill",     desc: "List or trigger skills",                 usage: "/skill list" },
   { name: "/add",       desc: "Manage watchlist",                       usage: "/add stock --code CODE --name NAME" },
-  { name: "/config",   desc: "Show or set config",                    usage: "/config" },
+  { name: "/config",    desc: "Interactive settings",                   usage: "/config" },
   { name: "/benchmark", desc: "Strategy scoring dashboard",             usage: "/benchmark dashboard" },
   { name: "/mcp",       desc: "Connect to data servers",                usage: "/mcp connect" },
   { name: "/help",      desc: "Show all commands",                      usage: "/help" },
@@ -24,7 +23,7 @@ export function Input({ onSubmit, disabled }: InputProps) {
   const [value, setValue] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
-  const [suggestionIdx, setSuggestionIdx] = useState(0);
+  const [cursor, setCursor] = useState(0);
 
   const suggestions = useMemo(() => {
     if (!value || value.startsWith(" ") || !value.startsWith("/")) return [];
@@ -32,17 +31,50 @@ export function Input({ onSubmit, disabled }: InputProps) {
     return COMMANDS.filter((c) => c.name.toLowerCase().startsWith(lower));
   }, [value]);
 
+  const hasSuggestions = suggestions.length > 0;
+
   useInput((input, key) => {
     if (disabled) return;
 
-    // Tab: cycle through suggestions or auto-complete
-    if (key.tab && suggestions.length > 0) {
-      const idx = suggestionIdx % suggestions.length;
-      setValue(suggestions[idx].usage);
-      setSuggestionIdx((prev) => prev + 1);
-      return;
+    // With suggestions visible: ↑↓ navigates suggestions, ↵/tab selects
+    if (hasSuggestions) {
+      if (key.upArrow) {
+        setCursor((c) => (c > 0 ? c - 1 : suggestions.length - 1));
+        return;
+      }
+      if (key.downArrow) {
+        setCursor((c) => (c < suggestions.length - 1 ? c + 1 : 0));
+        return;
+      }
+      if (key.return || key.tab) {
+        setValue(suggestions[cursor % suggestions.length].usage);
+        setCursor(0);
+        return;
+      }
+      if (key.escape) {
+        setValue("");
+        setCursor(0);
+        return;
+      }
     }
 
+    // No suggestions: ↑↓ navigates history
+    if (!hasSuggestions) {
+      if (key.upArrow) {
+        const idx = Math.min(historyIdx + 1, history.length - 1);
+        setHistoryIdx(idx);
+        if (history[idx]) setValue(history[idx]);
+        return;
+      }
+      if (key.downArrow) {
+        const idx = Math.max(historyIdx - 1, -1);
+        setHistoryIdx(idx);
+        setValue(idx >= 0 ? history[idx] : "");
+        return;
+      }
+    }
+
+    // Submit
     if (key.return) {
       const trimmed = value.trim();
       if (trimmed) {
@@ -50,43 +82,33 @@ export function Input({ onSubmit, disabled }: InputProps) {
         onSubmit(trimmed);
         setValue("");
         setHistoryIdx(-1);
-        setSuggestionIdx(0);
+        setCursor(0);
       }
-    } else if (key.upArrow) {
-      const newIdx = Math.min(historyIdx + 1, history.length - 1);
-      setHistoryIdx(newIdx);
-      if (history[newIdx]) setValue(history[newIdx]);
-    } else if (key.downArrow) {
-      const newIdx = Math.max(historyIdx - 1, -1);
-      setHistoryIdx(newIdx);
-      setValue(newIdx >= 0 ? history[newIdx] : "");
-    } else if (key.backspace || key.delete) {
+      return;
+    }
+
+    if (key.backspace || key.delete) {
       setValue((v) => v.slice(0, -1));
-      setSuggestionIdx(0);
+      setCursor(0);
     } else if (key.escape) {
       setValue("");
-      setSuggestionIdx(0);
+      setCursor(0);
     } else if (input.length > 0 && !key.ctrl) {
       setValue((v) => v + input);
-      setSuggestionIdx(0);
+      setCursor(0);
     }
   });
 
   return (
     <Box flexDirection="column">
-      {suggestions.length > 0 && (
+      {hasSuggestions && (
         <Box flexDirection="column" marginBottom={1}>
-          <Box>
-            <Text dimColor>  suggestions:</Text>
-          </Box>
           {suggestions.map((s, i) => (
             <Box key={s.name}>
-              {i === suggestionIdx % suggestions.length ? (
-                <Text color="cyan">  › </Text>
-              ) : (
-                <Text dimColor>    </Text>
-              )}
-              <Text bold color={i === suggestionIdx % suggestions.length ? "cyan" : undefined}>
+              <Text color={i === cursor ? "cyan" : undefined}>
+                {i === cursor ? "❯ " : "  "}
+              </Text>
+              <Text bold color={i === cursor ? "cyan" : undefined}>
                 {s.name}
               </Text>
               <Text dimColor>  {s.desc}</Text>
@@ -95,9 +117,7 @@ export function Input({ onSubmit, disabled }: InputProps) {
         </Box>
       )}
       <Box>
-        <Text color="cyan" bold>
-          Q ›{" "}
-        </Text>
+        <Text color="cyan" bold>› </Text>
         <Text>{value}</Text>
         <Text dimColor>│</Text>
       </Box>

@@ -22,58 +22,63 @@ interface StockSnapshot {
   price: number;
   change: number;
   changePct: number;
-  vol: number;
 }
 
-export function Sidebar({ mcpStatuses, lastSymbol, width = 24 }: SidebarProps) {
+export function Sidebar({ mcpStatuses, lastSymbol, width = 28 }: SidebarProps) {
   const watchlist = getWatchlist();
   const snapshots = getSnapshots(watchlist);
 
+  const dataServers = mcpStatuses.filter(
+    (s) => !["web-search-prime", "web-reader"].includes(s.name)
+  );
+
   return (
     <Box flexDirection="column" width={width} borderStyle="single" borderColor="gray" paddingX={1}>
-      {/* Portfolio section */}
-      <Box marginBottom={1}>
-        <Text bold>Portfolio</Text>
-        <Text dimColor>  {watchlist.length} stk</Text>
-      </Box>
+      {/* Portfolio */}
+      <Text bold>Portfolio</Text>
 
       {snapshots.length > 0 ? (
-        <Box flexDirection="column" marginBottom={1}>
+        <Box flexDirection="column" marginY={1}>
           {snapshots.map((s) => (
             <StockRow key={s.code} stock={s} />
           ))}
         </Box>
       ) : (
-        <Box flexDirection="column" marginBottom={1}>
-          <Text dimColor>empty</Text>
+        <Box marginY={1}>
           <Text dimColor>/add stock --code CODE</Text>
         </Box>
       )}
 
-      {/* MCP / API status */}
-      <Box marginTop={1} marginBottom={1}>
-        <Text bold>API</Text>
+      {/* Divider */}
+      <Text dimColor>──────────────────────</Text>
+
+      {/* API */}
+      <Box marginTop={1}>
+        <Text bold>Data</Text>
       </Box>
-      {mcpStatuses.length > 0 ? (
-        <Box flexDirection="column">
-          {mcpStatuses.map((s) => (
+
+      {dataServers.length > 0 ? (
+        <Box flexDirection="column" marginY={1}>
+          {dataServers.map((s) => (
             <Box key={s.name}>
               <Text color={s.connected ? "green" : "red"}>
-                {s.connected ? "✓" : "✗"}
+                {s.connected ? "●" : "○"}
               </Text>
-              <Text dimColor> {s.name}</Text>
-              {s.connected && <Text dimColor> ({s.tools}t)</Text>}
+              <Text> {s.name}</Text>
+              {s.connected && <Text dimColor> {s.tools}t</Text>}
             </Box>
           ))}
         </Box>
       ) : (
-        <Text dimColor>/mcp connect</Text>
+        <Box marginY={1}>
+          <Text dimColor>/mcp connect</Text>
+        </Box>
       )}
 
+      {/* Active symbol */}
       {lastSymbol && (
         <Box marginTop={1}>
-          <Text dimColor>active: </Text>
-          <Text>{lastSymbol}</Text>
+          <Text dimColor>{lastSymbol}</Text>
         </Box>
       )}
     </Box>
@@ -81,24 +86,24 @@ export function Sidebar({ mcpStatuses, lastSymbol, width = 24 }: SidebarProps) {
 }
 
 function StockRow({ stock }: { stock: StockSnapshot }) {
-  const up = stock.change >= 0;
-  const color = up ? "red" : "green";
-  const arrow = up ? "↑" : "↓";
+  const isUp = stock.change > 0;
+  const isDown = stock.change < 0;
+  const color = isUp ? "red" : isDown ? "green" : undefined;
+  const arrow = isUp ? "↑" : isDown ? "↓" : "─";
+  const hasData = stock.price > 0;
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
+    <Box marginBottom={1} flexDirection="column">
+      <Text dimColor>{stock.code.split(".")[0]}</Text>
       <Box>
-        <Text dimColor>{stock.code.split(".")[0]}</Text>
-      </Box>
-      <Box justifyContent="space-between">
-        <Box>
-          <Text bold>{stock.price.toFixed(2)}</Text>
-        </Box>
-        <Box>
+        <Text bold>{hasData ? stock.price.toFixed(2) : "--.--"}</Text>
+        {hasData ? (
           <Text color={color}>
-            {arrow} {Math.abs(stock.change).toFixed(2)} ({Math.abs(stock.changePct).toFixed(2)}%)
+            {" "}{arrow}{Math.abs(stock.change).toFixed(2)} {Math.abs(stock.changePct).toFixed(2)}%
           </Text>
-        </Box>
+        ) : (
+          <Text dimColor> no data</Text>
+        )}
       </Box>
     </Box>
   );
@@ -121,7 +126,7 @@ function getSnapshots(watchlist: { code: string; name: string }[]): StockSnapsho
   return watchlist.map((s) => {
     const bars = loadCachedBars(s.code);
     if (bars.length < 2) {
-      return { code: s.code, name: s.name, price: 0, change: 0, changePct: 0, vol: 0 };
+      return { code: s.code, name: s.name, price: 0, change: 0, changePct: 0 };
     }
     const latest = bars[bars.length - 1];
     const prev = bars[bars.length - 2];
@@ -133,28 +138,19 @@ function getSnapshots(watchlist: { code: string; name: string }[]): StockSnapsho
       price: +latest.close.toFixed(2),
       change: +change.toFixed(2),
       changePct: +changePct.toFixed(2),
-      vol: latest.volume,
     };
   });
 }
 
-interface Bar {
-  date: string;
-  close: number;
-  volume: number;
-}
+interface Bar { date: string; close: number; volume: number; }
 
 function loadCachedBars(symbol: string): Bar[] {
   try {
     const sources = ["tushare", "akshare", "llmquant-data"];
     for (const src of sources) {
       const path = join(process.cwd(), ".ohquant", "data", src, symbol, "daily.json");
-      if (existsSync(path)) {
-        return JSON.parse(readFileSync(path, "utf-8"));
-      }
+      if (existsSync(path)) return JSON.parse(readFileSync(path, "utf-8"));
     }
-  } catch {
-    // ignore
-  }
+  } catch { /* ignore */ }
   return [];
 }

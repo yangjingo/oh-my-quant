@@ -14,11 +14,9 @@ export function Message({ role, content, timestamp }: MessageProps) {
 
   if (role === "user") {
     return (
-      <Box flexDirection="column" marginBottom={1}>
-        <Box>
-          <Text color="cyan" bold>› </Text>
-          <Text>{content}</Text>
-        </Box>
+      <Box marginBottom={1}>
+        <Text color="cyan" bold>› </Text>
+        <Text>{content}</Text>
       </Box>
     );
   }

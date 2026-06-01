@@ -7,18 +7,13 @@ interface StatusBarProps {
 }
 
 export function StatusBar({ lastSymbol, mode = "idle" }: StatusBarProps) {
-  const modeLabel = mode === "running" ? "…" : mode === "error" ? "✗" : "✓";
-  const modeColor = mode === "running" ? "yellow" : mode === "error" ? "red" : "green";
+  const marker = mode === "running" ? "…" : mode === "error" ? "✗" : "●";
+  const color = mode === "running" ? "yellow" : mode === "error" ? "red" : "green";
 
   return (
     <Box justifyContent="space-between" marginTop={1}>
-      <Text dimColor>
-        {lastSymbol || "—"}
-      </Text>
-      <Box>
-        <Text color={modeColor}>{modeLabel}</Text>
-        <Text dimColor>  /help · ctrl+c:quit</Text>
-      </Box>
+      <Text dimColor>{lastSymbol || "—"}</Text>
+      <Text color={color}>{marker}</Text>
     </Box>
   );
 }
