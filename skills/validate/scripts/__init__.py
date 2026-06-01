@@ -1,1 +1,0 @@
-"""Validate script helpers."""
