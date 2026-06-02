@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
+import { GOLD } from "../tui/tokens.ts";
 
 interface MarkdownProps {
   content: string;
@@ -57,7 +58,7 @@ export function Markdown({ content }: MarkdownProps) {
     }
     if (line.startsWith("## ")) {
       elements.push(
-        <Text key={i} bold color="cyan">
+        <Text key={i} bold color={GOLD}>
           {line.slice(3)}
         </Text>,
       );
@@ -65,7 +66,7 @@ export function Markdown({ content }: MarkdownProps) {
     }
     if (line.startsWith("# ")) {
       elements.push(
-        <Text key={i} bold color="cyan">
+        <Text key={i} bold color={GOLD}>
           {line.slice(2)}
         </Text>,
       );
@@ -76,7 +77,7 @@ export function Markdown({ content }: MarkdownProps) {
     if (line.match(/^[-*]\s/)) {
       elements.push(
         <Text key={i} dimColor>
-          {"  • "}
+          {"  - "}
           {renderInline(line.slice(2))}
         </Text>,
       );

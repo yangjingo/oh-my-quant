@@ -9,16 +9,15 @@ import { StatusBar } from "./components/StatusBar.tsx";
 import type { MessageProps } from "./components/Message.tsx";
 import { parseCommand, executeCommand } from "./commands/registry.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
-import { connectAll, getConnectedServers, getServerStatus, type McpServerStatus } from "./data/mcp-client.ts";
+import { connectAll, getServerStatus, type McpServerStatus } from "./data/mcp-client.ts";
 
 export function App() {
   const { exit } = useApp();
   const [messages, setMessages] = useState<MessageProps[]>([
-    { role: "system", content: "Welcome to WhyJ Quant. Type / for commands, or ask a question.", id: "welcome" },
+    { role: "system", content: "Type / for commands, or ask a question naturally.", id: "welcome" },
   ]);
   const [mode, setMode] = useState<string>("loading");
   const [lastSymbol, setLastSymbol] = useState<string | null>(null);
-  const [mcpServers, setMcpServers] = useState<string[]>([]);
   const [mcpStatuses, setMcpStatuses] = useState<McpServerStatus[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
 
@@ -27,11 +26,10 @@ export function App() {
       try {
         ensureDirs();
         loadSettings();
-        const servers = await connectAll();
-        setMcpServers(servers.length > 0 ? getConnectedServers() : []);
+        await connectAll();
         setMcpStatuses(getServerStatus());
       } catch {
-        setMcpServers([]);
+        setMcpStatuses([]);
       }
       setMode("idle");
     })();
@@ -102,15 +100,12 @@ export function App() {
     [addMessage, exit],
   );
 
-  const sidebarWidth = 26;
-
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <Header mcpStatus={mcpServers} />
-
       <Box flexDirection="row" flexGrow={1}>
-        {/* Main area */}
-        <Box flexDirection="column" flexGrow={1} marginRight={1}>
+        {/* Main column — fills available width */}
+        <Box flexDirection="column" flexGrow={1} marginRight={2}>
+          <Header />
           {configOpen ? (
             <ConfigPanel onDone={() => setConfigOpen(false)} />
           ) : (
@@ -121,15 +116,11 @@ export function App() {
           )}
         </Box>
 
-        {/* Sidebar */}
-        <Sidebar
-          mcpStatuses={mcpStatuses}
-          lastSymbol={lastSymbol}
-          width={sidebarWidth}
-        />
+        {/* Portfolio sidebar — fixed width, right edge */}
+        <Sidebar mcpStatuses={mcpStatuses} />
       </Box>
 
-      <StatusBar lastSymbol={lastSymbol} mode={mode} />
+      <StatusBar />
     </Box>
   );
 }

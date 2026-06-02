@@ -1,19 +1,12 @@
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useStdout } from "ink";
 
-interface StatusBarProps {
-  lastSymbol?: string | null;
-  mode?: string;
-}
-
-export function StatusBar({ lastSymbol, mode = "idle" }: StatusBarProps) {
-  const marker = mode === "running" ? "…" : mode === "error" ? "✗" : "●";
-  const color = mode === "running" ? "yellow" : mode === "error" ? "red" : "green";
-
+export function StatusBar() {
+  const { stdout } = useStdout();
+  const w = (stdout?.columns ?? 80) - 2;
   return (
-    <Box justifyContent="space-between" marginTop={1}>
-      <Text dimColor>{lastSymbol || "—"}</Text>
-      <Text color={color}>{marker}</Text>
+    <Box marginTop={1}>
+      <Text dimColor>{"-".repeat(Math.max(1, w))}</Text>
     </Box>
   );
 }

@@ -64,12 +64,12 @@ interface SkillEntry {
 }
 
 const BUILTIN_SKILLS: SkillEntry[] = [
-  { name: "fetch_bars", label: "📥 Download", description: "Download OHLCV price data for any symbol", category: "data", triggerable: true },
-  { name: "compute_factor", label: "📊 Factor", description: "Compute momentum, reversal, volatility, RSI, SMA deviation", category: "factor", triggerable: true },
-  { name: "run_backtest", label: "📈 Backtest", description: "SMA crossover backtest with full metrics", category: "backtest", triggerable: true },
-  { name: "check_risk", label: "⚠️ Risk", description: "VaR, CVaR, max drawdown, Sharpe, skewness, kurtosis", category: "risk", triggerable: true },
-  { name: "score_benchmark", label: "🏆 Score", description: "3-dimension strategy evaluation (100-point scale)", category: "benchmark", triggerable: true },
-  { name: "show_dashboard", label: "📋 Dashboard", description: "Aggregated benchmark results viewer", category: "benchmark", triggerable: true },
+  { name: "fetch_bars", label: "Fetch Data", description: "Download OHLCV price data for any symbol", category: "data", triggerable: true },
+  { name: "compute_factor", label: "Factor", description: "Compute momentum, reversal, volatility, RSI, SMA deviation", category: "factor", triggerable: true },
+  { name: "run_backtest", label: "Backtest", description: "SMA crossover backtest with full metrics", category: "backtest", triggerable: true },
+  { name: "check_risk", label: "Risk", description: "VaR, CVaR, max drawdown, Sharpe, skewness, kurtosis", category: "risk", triggerable: true },
+  { name: "score_benchmark", label: "Score", description: "3-dimension strategy evaluation (100-point scale)", category: "benchmark", triggerable: true },
+  { name: "show_dashboard", label: "Dashboard", description: "Aggregated benchmark results viewer", category: "benchmark", triggerable: true },
 ];
 
 async function skillHandler(sub: string, flags: Record<string, string | number | boolean>): Promise<CommandResult> {
@@ -89,7 +89,7 @@ async function skillHandler(sub: string, flags: Record<string, string | number |
       byCat[s.category].push(s);
     }
 
-    const lines: string[] = ["📦 Available Skills", "──────────────────"];
+    const lines: string[] = ["Available Skills", "──────────────────"];
     for (const [cat, skills] of Object.entries(byCat)) {
       lines.push(`\n${cat}:`);
       for (const s of skills) {
@@ -236,7 +236,7 @@ async function clawHandler(sub: string, flags: Record<string, string | number | 
     return {
       success: true,
       message: [
-        `📊 ${cachedName} (${code})`,
+        `${cachedName} (${code})`,
         `─────────────────────────────────`,
         `Range:       ${first.date} → ${last.date} (${cachedBars.length} days)`,
         `Latest:      ${last.close.toFixed(2)}  (Open: ${last.open.toFixed(2)}  High: ${last.high.toFixed(2)}  Low: ${last.low.toFixed(2)})`,
@@ -273,7 +273,7 @@ async function clawHandler(sub: string, flags: Record<string, string | number | 
       return {
         success: true,
         message: [
-          `📊 ${name} (${code})`,
+          `${name} (${code})`,
           `─────────────────────────────────`,
           `Industry:    ${snapshot.industry ?? "?"}`,
           `Close:       ${snapshot.close ?? "?"}`,
@@ -295,7 +295,7 @@ async function clawHandler(sub: string, flags: Record<string, string | number | 
     return {
       success: true,
       message: [
-        `📊 ${f.company_name || code} (${code})`,
+        `${f.company_name || code} (${code})`,
         `─────────────────────────────────`,
         `Sector:      ${f.sector || "?"}  /  ${f.industry || "?"}`,
         `Market Cap:  $${(Number(m.market_cap) / 1e9).toFixed(1) ?? "?"}B`,
@@ -337,7 +337,7 @@ async function addHandler(sub: string, flags: Record<string, string | number | b
     const lines = watchlist.stocks.map((s, i) =>
       `  ${i + 1}. ${s.code.padEnd(14)} ${s.name.padEnd(16)} ${s.market}  (${s.added})`
     );
-    return { success: true, message: [`📋 Watchlist (${watchlist.stocks.length})`, ...lines].join("\n") };
+    return { success: true, message: [`Watchlist (${watchlist.stocks.length})`, ...lines].join("\n") };
   }
 
   if (sub === "remove") {
@@ -488,7 +488,7 @@ async function benchmarkHandler(sub: string): Promise<CommandResult> {
     const sorted = [...rows].sort((a, b) => b.totalScore - a.totalScore).slice(0, 10);
 
     return { success: true, message: [
-      `📋 Dashboard · ${s.totalEvals} runs  Avg: ${s.avgScore}  Best: ${s.bestStrategy} (${s.bestScore})`,
+      `Dashboard · ${s.totalEvals} runs  Avg: ${s.avgScore}  Best: ${s.bestStrategy} (${s.bestScore})`,
       ...sorted.map((r) => `  ${r.grade.padEnd(2)} ${r.strategy.padEnd(28)} score=${String(r.totalScore).padEnd(5)} sharpe=${r.sharpe}  dd=${(r.maxDrawdown * 100).toFixed(1)}%`),
     ].join("\n") };
   }

@@ -29,7 +29,7 @@ export function Table({ headers, rows }: TableProps) {
         ))}
       </Box>
       {/* Separator */}
-      <Text dimColor>{"─".repeat(widths.reduce((a, b) => a + b, 0))}</Text>
+      <Text dimColor>{"-".repeat(widths.reduce((a, b) => a + b, 0))}</Text>
       {/* Rows */}
       {rows.map((row, ri) => (
         <Box key={ri}>

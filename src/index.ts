@@ -7,6 +7,9 @@
  */
 import { migrateOldConfig, loadSettings } from "./storage/index.ts";
 import { parseCommand, executeCommand } from "./commands/registry.ts";
+import { printBanner } from "./tui/banner.ts";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 // 1. Migrate old config, then load settings
 migrateOldConfig();
@@ -28,6 +31,14 @@ if (cmdArg) {
   const fixed = cmdArg.replace(/^[A-Z]:\/[^ ]+\/(\w+)/, "/$1");
   await runOneShot(fixed);
 } else {
+  // 3a. Print launch banner (visible before Ink alternate screen, reappears on exit)
+  let version = "2.0.0";
+  try {
+    const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf-8"));
+    version = pkg.version;
+  } catch { /* fallback to default */ }
+  printBanner({ version });
+
   const { render } = await import("ink");
   const React = await import("react");
   const { App } = await import("./app.tsx");

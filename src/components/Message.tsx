@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
+import { GOLD } from "../tui/tokens.ts";
 
 export interface MessageProps {
   id?: string;
@@ -15,7 +16,7 @@ export function Message({ role, content, timestamp }: MessageProps) {
   if (role === "user") {
     return (
       <Box marginBottom={1}>
-        <Text color="yellow" bold>› </Text>
+        <Text color={GOLD} bold>{"> "}</Text>
         <Text>{content}</Text>
       </Box>
     );
@@ -24,7 +25,7 @@ export function Message({ role, content, timestamp }: MessageProps) {
   if (role === "error") {
     return (
       <Box marginBottom={1}>
-        <Text color="red">✗ {content}</Text>
+        <Text color="red">ERR {content}</Text>
       </Box>
     );
   }

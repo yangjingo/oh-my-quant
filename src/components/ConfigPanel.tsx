@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Box, Text } from "ink";
 import { useInput } from "ink";
 import { loadSettings, saveSettings } from "../storage/index.ts";
+import { GOLD, GOLD_HIGHLIGHT } from "../tui/tokens.ts";
 
 interface ConfigPanelProps {
   onDone: () => void;
@@ -109,7 +110,7 @@ export function ConfigPanel({ onDone }: ConfigPanelProps) {
   });
 
   const status = (f: Field) => {
-    if (f.isSecret) return f.get() !== "not set" ? "✓" : "✗";
+    if (f.isSecret) return f.get() !== "not set" ? "set" : "none";
     return f.get();
   };
 
@@ -123,7 +124,7 @@ export function ConfigPanel({ onDone }: ConfigPanelProps) {
   return (
     <Box flexDirection="column" paddingY={1}>
       <Box marginBottom={1}>
-        <Text bold>WhyJ Setup</Text>
+        <Text bold>WhyJ Quant</Text>
         <Text dimColor>  ↑↓  ↵ select/edit  esc back</Text>
       </Box>
 
@@ -134,12 +135,12 @@ export function ConfigPanel({ onDone }: ConfigPanelProps) {
 
         return (
           <Box key={f.key} marginBottom={1}>
-            <Text color={active ? "cyan" : undefined}>
-              {active ? "❯ " : "  "}{f.label}
+            <Text color={active ? GOLD : undefined}>
+              {active ? "> " : "  "}{f.label}
             </Text>
             <Text dimColor>  </Text>
             {editing && active ? (
-              <Text color="yellow">[{editValue || "_"}█]</Text>
+              <Text color={GOLD_HIGHLIGHT}>[{editValue || "_"}|]</Text>
             ) : (
               <Text color={color}>[{val}]</Text>
             )}
@@ -153,7 +154,7 @@ export function ConfigPanel({ onDone }: ConfigPanelProps) {
       {editing && (
         <Box marginTop={1}>
           <Text dimColor>{fields[cursor].label}: </Text>
-          <Text color="yellow">{editValue}█</Text>
+          <Text color={GOLD_HIGHLIGHT}>{editValue}|</Text>
         </Box>
       )}
     </Box>

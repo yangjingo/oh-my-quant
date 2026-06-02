@@ -64,7 +64,7 @@ function err(code: ErrorCode, detail?: string): AgentToolResult<unknown> {
 export const fetchBarsTool: AgentTool<typeof S.FetchBars> = {
   name: "fetch_bars",
   description: "Download daily OHLCV stock price data. Call this before any analysis. Supports A-share, US, HK markets.",
-  label: "📥 Data",
+  label: "Data",
   parameters: S.FetchBars,
   executionMode: "sequential",
 
@@ -85,7 +85,7 @@ export const fetchBarsTool: AgentTool<typeof S.FetchBars> = {
 export const computeFactorTool: AgentTool<typeof S.ComputeFactor> = {
   name: "compute_factor",
   description: "Compute technical factor: momentum, reversal, volatility, volume_ratio, rsi, sma_deviation. Requires bars data cached first (call fetch_bars).",
-  label: "📊 Factor",
+  label: "Factor",
   parameters: S.ComputeFactor,
   executionMode: "sequential",
 
@@ -119,7 +119,7 @@ export const computeFactorTool: AgentTool<typeof S.ComputeFactor> = {
 export const runBacktestTool: AgentTool<typeof S.RunBacktest> = {
   name: "run_backtest",
   description: "Run SMA crossover backtest. Returns: total return, CAGR, Sharpe, max drawdown, win rate. Requires bars data cached first.",
-  label: "📈 Backtest",
+  label: "Backtest",
   parameters: S.RunBacktest,
   executionMode: "sequential",
 
@@ -150,7 +150,7 @@ export const runBacktestTool: AgentTool<typeof S.RunBacktest> = {
 export const checkRiskTool: AgentTool<typeof S.CheckRisk> = {
   name: "check_risk",
   description: "Compute risk metrics: annual vol, VaR(95/99), CVaR(95/99), max drawdown, skewness, kurtosis.",
-  label: "⚠️ Risk",
+  label: "Risk",
   parameters: S.CheckRisk,
   executionMode: "sequential",
 
@@ -181,7 +181,7 @@ export const checkRiskTool: AgentTool<typeof S.CheckRisk> = {
 export const scoreBenchmarkTool: AgentTool<typeof S.ScoreBenchmark> = {
   name: "score_benchmark",
   description: "Run 3-dimension strategy evaluation (Return 40 + Risk 40 + Robustness 20 = 100). Saves result to .ohquant/benchmark/results/.",
-  label: "🏆 Score",
+  label: "Score",
   parameters: S.ScoreBenchmark,
   executionMode: "sequential",
 
@@ -245,7 +245,7 @@ export const scoreBenchmarkTool: AgentTool<typeof S.ScoreBenchmark> = {
     }, null, 2), "utf-8");
 
     return ok([
-      `🏆 Benchmark — ${name}`,
+      `Benchmark — ${name}`,
       `─────────────────────────────────────`,
       `Grade: ${score.grade}  |  Score: ${score.totalScore}/100`,
       `Return: ${score.returnScore}/40 | Risk: ${score.riskScore}/40 | Robust: ${score.robustnessScore}/20`,
@@ -259,7 +259,7 @@ export const scoreBenchmarkTool: AgentTool<typeof S.ScoreBenchmark> = {
 export const showDashboardTool: AgentTool<typeof S.ShowDashboard> = {
   name: "show_dashboard",
   description: "Show benchmark results dashboard from .ohquant/benchmark/results/",
-  label: "📋 Dashboard",
+  label: "Dashboard",
   parameters: S.ShowDashboard,
   executionMode: "sequential",
 
@@ -281,7 +281,7 @@ export const showDashboardTool: AgentTool<typeof S.ShowDashboard> = {
     const sorted = [...rows].sort((a, b) => b.totalScore - a.totalScore).slice(0, 10);
 
     return ok([
-      `📋 Dashboard — ${s.totalEvals} evaluations`,
+      `Dashboard — ${s.totalEvals} evaluations`,
       `Avg: ${s.avgScore}  Median: ${s.medianScore}  Best: ${s.bestStrategy} (${s.bestScore})`,
       `Grades: ${Object.entries(s.gradeDistribution).map(([g, n]) => `${g}:${n}`).join("  ")}`,
       ``,
