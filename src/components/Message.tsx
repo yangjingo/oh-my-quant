@@ -25,7 +25,8 @@ export function Message({ role, content, timestamp }: MessageProps) {
   if (role === "error") {
     return (
       <Box marginBottom={1}>
-        <Text color="red">ERR {content}</Text>
+        <Text color={GOLD}>ERR </Text>
+        <Text>{content}</Text>
       </Box>
     );
   }

@@ -1,6 +1,5 @@
-import React, { useState, useCallback, useEffect } from "react";
-import { Box, Text, useApp } from "ink";
-import { Header } from "./components/Header.tsx";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import { Box, useApp } from "ink";
 import { Sidebar } from "./components/Sidebar.tsx";
 import { ConfigPanel } from "./components/ConfigPanel.tsx";
 import { Conversation } from "./components/Conversation.tsx";
@@ -10,16 +9,18 @@ import type { MessageProps } from "./components/Message.tsx";
 import { parseCommand, executeCommand } from "./commands/registry.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
 import { connectAll, getServerStatus, type McpServerStatus } from "./data/mcp-client.ts";
+import { createAgent } from "./agent/session.ts";
+import type { Agent } from "./agent/core/agent.ts";
 
 export function App() {
   const { exit } = useApp();
-  const [messages, setMessages] = useState<MessageProps[]>([
-    { role: "system", content: "Type / for commands, or ask a question naturally.", id: "welcome" },
-  ]);
+  const [messages, setMessages] = useState<MessageProps[]>([]);
   const [mode, setMode] = useState<string>("loading");
   const [lastSymbol, setLastSymbol] = useState<string | null>(null);
   const [mcpStatuses, setMcpStatuses] = useState<McpServerStatus[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
+  const agentRef = useRef<Agent | null>(null);
+  const streamingIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -31,6 +32,76 @@ export function App() {
       } catch {
         setMcpStatuses([]);
       }
+
+      // Init agent
+      try {
+        const agent = createAgent();
+        agentRef.current = agent;
+
+        // Subscribe to agent events → update TUI messages
+        agent.subscribe(async (event) => {
+          switch (event.type) {
+            case "message_start": {
+              const m = event.message;
+              if (m.role === "assistant" && m.content?.length > 0) {
+                const id = `agent-${Date.now()}`;
+                streamingIdRef.current = id;
+                setMessages((prev) => [...prev, { id, role: "system", content: "..." }]);
+              }
+              break;
+            }
+            case "message_update": {
+              const m = event.message;
+              if (m.role === "assistant" && streamingIdRef.current) {
+                const text = m.content
+                  .filter((c: unknown) => (c as { type: string }).type === "text")
+                  .map((c: unknown) => (c as { text: string }).text)
+                  .join("");
+                setMessages((prev) => prev.map((msg) =>
+                  msg.id === streamingIdRef.current ? { ...msg, content: text || "..." } : msg
+                ));
+              }
+              break;
+            }
+            case "message_end": {
+              const m = event.message;
+              if (m.role === "assistant" && streamingIdRef.current) {
+                const text = m.content
+                  .filter((c: unknown) => (c as { type: string }).type === "text")
+                  .map((c: unknown) => (c as { text: string }).text)
+                  .join("");
+                setMessages((prev) => prev.map((msg) =>
+                  msg.id === streamingIdRef.current ? { ...msg, content: text || "(empty)" } : msg
+                ));
+                streamingIdRef.current = null;
+              }
+              break;
+            }
+            case "tool_execution_start":
+              setMode("running");
+              setMessages((prev) => [...prev, {
+                id: `tool-${event.toolCallId}`,
+                role: "system",
+                content: `Running ${event.toolName}...`,
+              }]);
+              break;
+            case "tool_execution_end":
+              if (!event.isError) break;
+              setMessages((prev) => [...prev, {
+                id: `tool-err-${event.toolCallId}`,
+                role: "error",
+                content: String(event.result?.content?.[0]?.text || "Tool error"),
+              }]);
+              break;
+            case "agent_end":
+              setMode("idle");
+              break;
+          }
+        });
+      } catch {
+        // Agent not available (no API key) — natural language disabled
+      }
+
       setMode("idle");
     })();
   }, []);
@@ -57,6 +128,7 @@ export function App() {
 
       if (input === "/clear") {
         setMessages([]);
+        agentRef.current?.reset();
         return;
       }
 
@@ -70,16 +142,11 @@ export function App() {
         return;
       }
 
-      if (input === "/sidebar") {
-        // built-in toggle — handled via component state in future
-        addMessage("system", "Sidebar tabs: Market · Data · Portfolio");
-        return;
-      }
-
       setMode("running");
       try {
         const parsed = parseCommand(input);
         if (parsed) {
+          // Slash command — direct execution
           const result = await executeCommand(parsed);
           if (result.success) {
             addMessage("system", result.message);
@@ -89,13 +156,23 @@ export function App() {
           if (parsed.flags["symbol"] || parsed.flags["code"]) {
             setLastSymbol(String(parsed.flags["symbol"] || parsed.flags["code"]));
           }
+          setMode("idle");
+        } else if (agentRef.current) {
+          // Natural language — AI Agent
+          try {
+            await agentRef.current.prompt(input);
+          } catch (err) {
+            addMessage("error", `Agent: ${err instanceof Error ? err.message : String(err)}`);
+            setMode("idle");
+          }
         } else {
-          addMessage("system", "Unknown command. Type / to browse commands, or ask a question naturally.");
+          addMessage("system", "Set Anthropic API key in /config to enable AI analysis.");
+          setMode("idle");
         }
       } catch (err) {
         addMessage("error", err instanceof Error ? err.message : String(err));
+        setMode("idle");
       }
-      setMode("idle");
     },
     [addMessage, exit],
   );
@@ -103,9 +180,7 @@ export function App() {
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Box flexDirection="row" flexGrow={1}>
-        {/* Main column — fills available width */}
         <Box flexDirection="column" flexGrow={1} marginRight={2}>
-          <Header />
           {configOpen ? (
             <ConfigPanel onDone={() => setConfigOpen(false)} />
           ) : (
@@ -116,7 +191,6 @@ export function App() {
           )}
         </Box>
 
-        {/* Portfolio sidebar — fixed width, right edge */}
         <Sidebar mcpStatuses={mcpStatuses} />
       </Box>
 
@@ -131,10 +205,11 @@ const helpText = [
   "  /claw      Stock snapshot     /claw --code 000001.SZ",
   "  /skill     Trigger skills     /skill trigger --name fetch_bars --code CODE",
   "  /add       Watchlist          /add stock --code CODE --name NAME",
-  "  /config    Settings           /config set KEY VALUE",
-  "  /benchmark  Strategy scores   /benchmark dashboard",
-  "  /mcp        Data servers      /mcp connect",
-  "  /help  /clear  /exit  /sidebar",
+  "  /portfolio Config portfolio   /portfolio add --code CODE",
+  "  /config    Settings           /config",
+  "  /benchmark Strategy scores    /benchmark dashboard",
+  "  /mcp       Data servers       /mcp connect",
+  "  /help  /clear  /exit",
   "",
-  "No / prefix → natural language question.",
+  "No / prefix → AI analysis.",
 ].join("\n");

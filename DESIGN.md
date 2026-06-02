@@ -173,53 +173,7 @@ backgroundColor: "{colors.canvas}"
 textColor: "{colors.body-muted}"
 typography: "{typography.caption}"
 padding: 48px
--------------
-
-## Overview
-
-WhyJ Quant is a research-first quantitative operating system.
-
-The interface should feel like:
-
-* Claude Code
-* Linear
-* Warp
-* Ghostty
-* Bloomberg Terminal
-
-The interface should NOT feel like:
-
-* Robinhood
-* Binance
-* Traditional brokers
-* Retail trading apps
-
-The design language is defined by:
-
-* One premium gold accent color
-* Deep black surfaces
-* Geometric sans-serif typography
-* Large whitespace
-* Low visual noise
-* High information density
-
-## Logo Principles
-
-The logo combines:
-
-* Feather
-* Alpha
-* Signal
-* Upward Conviction
-
-The logo mark should work in:
-
-* 16×16 favicon
-* CLI terminal
-* SVG
-* GitHub avatar
-* PPT title page
-
+-
 Wordmark:
 
 WhyJ Quant

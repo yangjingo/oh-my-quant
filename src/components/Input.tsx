@@ -10,16 +10,42 @@ interface InputProps {
   disabled?: boolean;
 }
 
-const COMMANDS: { name: string; desc: string; usage: string }[] = [
-  { name: "/claw",      desc: "Stock snapshot",                         usage: "/claw --code CODE [--market A|US]" },
-  { name: "/skill",     desc: "List or trigger skills",                 usage: "/skill list" },
-  { name: "/add",       desc: "Manage watchlist",                       usage: "/add stock --code CODE --name NAME" },
-  { name: "/config",    desc: "Interactive settings",                   usage: "/config" },
-  { name: "/benchmark", desc: "Strategy scoring dashboard",             usage: "/benchmark dashboard" },
-  { name: "/mcp",       desc: "Connect to data servers",                usage: "/mcp connect" },
-  { name: "/help",      desc: "Show all commands",                      usage: "/help" },
-  { name: "/clear",     desc: "Clear conversation",                     usage: "/clear" },
-  { name: "/exit",      desc: "Exit WhyJ Quant",                        usage: "/exit" },
+interface SubCmd {
+  name: string; desc: string; usage: string;
+}
+
+interface CmdDef {
+  name: string; desc: string; subs?: SubCmd[];
+}
+
+const CMDS: CmdDef[] = [
+  { name: "/claw", desc: "Stock snapshot", subs: [] },
+  { name: "/skill", desc: "List or trigger skills", subs: [
+    { name: "list", desc: "List available skills", usage: "/skill list" },
+    { name: "info", desc: "Show skill details", usage: "/skill info --name NAME" },
+    { name: "trigger", desc: "Execute skill directly", usage: "/skill trigger --name NAME --code CODE" },
+  ]},
+  { name: "/add", desc: "Manage watchlist", subs: [
+    { name: "stock", desc: "Add stock to watchlist", usage: "/add stock --code CODE --name NAME" },
+    { name: "list", desc: "Show watchlist", usage: "/add list" },
+    { name: "remove", desc: "Remove from watchlist", usage: "/add remove --code CODE" },
+  ]},
+  { name: "/portfolio", desc: "Configure portfolio panel", subs: [
+    { name: "source", desc: "Switch data source", usage: "/portfolio source --name NAME" },
+    { name: "add", desc: "Add to panel display", usage: "/portfolio add --code CODE" },
+    { name: "remove", desc: "Remove from display", usage: "/portfolio remove --code CODE" },
+  ]},
+  { name: "/config", desc: "Interactive settings", subs: [] },
+  { name: "/benchmark", desc: "Strategy scoring dashboard", subs: [
+    { name: "dashboard", desc: "Full results ranking", usage: "/benchmark dashboard" },
+  ]},
+  { name: "/mcp", desc: "Connect to data servers", subs: [
+    { name: "connect", desc: "Connect to all servers", usage: "/mcp connect" },
+    { name: "status", desc: "Show connection status", usage: "/mcp status" },
+  ]},
+  { name: "/help", desc: "Show all commands", subs: [] },
+  { name: "/clear", desc: "Clear conversation", subs: [] },
+  { name: "/exit", desc: "Exit WhyJ Quant", subs: [] },
 ];
 
 interface CodeEntry { code: string; name: string; }
@@ -30,9 +56,7 @@ function getWatchlist(): CodeEntry[] {
     if (!existsSync(path)) return [];
     const raw = JSON.parse(readFileSync(path, "utf-8"));
     return raw.stocks || [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 interface Suggestion { label: string; fill: string; }
@@ -59,12 +83,38 @@ export function Input({ onSubmit, disabled }: InputProps) {
         .map((c) => ({ label: `${c.code.split(".")[0]}  ${c.name}`, fill: prefix + c.code }));
     }
 
-    // Command autocomplete: starts with /
+    // Name autocomplete: after --name flag
+    const nameMatch = value.match(/^(.+--name\s+)(\S*)$/i);
+    if (nameMatch) {
+      const prefix = nameMatch[1];
+      const partial = nameMatch[2].toLowerCase();
+      if (!partial) return [];
+      return watchlist
+        .filter((c) => c.name.includes(partial))
+        .map((c) => ({ label: c.name, fill: prefix + c.name }));
+    }
+
     if (!value.startsWith("/")) return [];
+
+    // Level 2: subcommand suggestions (e.g. "/portfolio " → source/add/remove)
+    const spaceIdx = value.indexOf(" ");
+    if (spaceIdx > 0) {
+      const cmdName = value.slice(0, spaceIdx).toLowerCase();
+      const partial = value.slice(spaceIdx + 1).toLowerCase();
+      const cmd = CMDS.find((c) => c.name.toLowerCase() === cmdName);
+      if (cmd?.subs?.length) {
+        return cmd.subs
+          .filter((s) => !partial || s.name.startsWith(partial))
+          .map((s) => ({ label: `${s.name}  ${s.desc}`, fill: s.usage }));
+      }
+      return [];
+    }
+
+    // Level 1: command suggestions (e.g. "/por" → /portfolio)
     const lower = value.toLowerCase();
-    return COMMANDS
+    return CMDS
       .filter((c) => c.name.toLowerCase().startsWith(lower))
-      .map((c) => ({ label: `${c.name}  ${c.desc}`, fill: c.usage }));
+      .map((c) => ({ label: `${c.name}  ${c.desc}`, fill: c.subs?.length ? `${c.name} ` : c.name }));
   }, [value, watchlist]);
 
   const hasSuggestions = suggestions.length > 0;
@@ -161,7 +211,7 @@ export function Input({ onSubmit, disabled }: InputProps) {
         {value ? (
           <Text>{value}</Text>
         ) : (
-          <Text dimColor>Analyze 贵州茅台</Text>
+          <Text dimColor>ask a research question or type /</Text>
         )}
         <Text dimColor>|</Text>
       </Box>

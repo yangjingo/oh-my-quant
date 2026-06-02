@@ -1,11 +1,13 @@
 /**
  * WhyJ Quant — CLI welcome banner (compact)
- * Single-line logo + tagline + hint. Gold accent on dark terminals.
+ * Single-line wordmark + motto. Gold accent on dark terminals.
  */
 type RGB = [number, number, number];
 
-const GOLD: RGB = [0xfa, 0xcc, 0x15];
-const CREAM: RGB = [0xff, 0xf3, 0xc4];
+const GOLD: RGB = [0xd4, 0xaf, 0x37];
+const GOLD_ON_DARK: RGB = [0xf0, 0xd7, 0x7a];
+const INK: RGB = [0xf5, 0xf5, 0xf5];
+const MUTED: RGB = [0xa6, 0xa6, 0xa6];
 const RESET = "\x1b[0m";
 
 const supportsColor =
@@ -16,7 +18,7 @@ const supportsColor =
 const fg = (r: number, g: number, b: number) =>
   supportsColor ? `\x1b[38;2;${r};${g};${b}m` : "";
 const reset = () => (supportsColor ? RESET : "");
-const dim = (s: string) => (supportsColor ? "\x1b[2m" + s + RESET : s);
+const muted = (s: string) => fg(...MUTED) + s + reset();
 
 const lerp = (a: number, b: number, t: number) => Math.round(a + (b - a) * t);
 const mix = (a: RGB, b: RGB, t: number): RGB => [
@@ -31,7 +33,10 @@ function gradient(line: string, from: RGB, to: RGB): string {
   const n = Math.max(chars.length - 1, 1);
   let out = "";
   chars.forEach((ch, i) => {
-    if (ch === " ") return void (out += ch);
+    if (ch === " ") {
+      out += ch;
+      return;
+    }
     const [r, g, b] = mix(from, to, i / n);
     out += fg(r, g, b) + ch;
   });
@@ -50,30 +55,23 @@ export function buildBanner(opts: BannerOptions = {}): string {
   } = opts;
 
   const lead = "  ";
-  const chartBot = "▁▃▅▇██";
-
-  // Logo line: bar chart + WhyJ Quant
-  const logo = lead +
-    gradient(chartBot, GOLD, CREAM) + "  " +
-    fg(...CREAM) + "WhyJ " + fg(...GOLD) + "Quant" + reset();
+  const trend = "▁▃▅▇█";
+  const textIndent = " ".repeat([...trend].length + 2);
+  const logo =
+    lead +
+    gradient(trend, GOLD, GOLD_ON_DARK) + "  " +
+    fg(...INK) + "WhyJ Quant" + reset();
 
   const tagline =
     lead +
-    dim("Quantitative intelligence, sharpened to a quill's point.") +
-    dim("  ·  v" + version);
-
-  const hint =
-    lead +
-    fg(...GOLD) + ">" + reset() +
-    dim(" type ") + fg(...CREAM) + "/" + reset() +
-    dim(" for commands, or just ask a question.");
+    textIndent +
+    muted("Research. Backtest. Invest.") +
+    muted("  v" + version);
 
   return [
     ...Array(Math.max(0, marginTop)).fill(""),
     logo,
     tagline,
-    "",
-    hint,
     "",
   ].join("\n");
 }

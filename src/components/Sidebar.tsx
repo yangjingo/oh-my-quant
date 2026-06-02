@@ -1,8 +1,9 @@
 import React from "react";
 import { Box, Text } from "ink";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { GOLD } from "../tui/tokens.ts";
+import { holdingsFileForVariant, readLocalPortfolioVariant } from "../tui/local-state.ts";
+import { DIVIDER_CHAR, GOLD, SECTION_ACCENT, SIDEBAR_WIDTH } from "../tui/tokens.ts";
 
 interface McpStatus {
   name: string;
@@ -15,64 +16,50 @@ interface SidebarProps {
   mcpStatuses: McpStatus[];
 }
 
-interface Snapshot {
+interface PortfolioItem {
   code: string;
   name: string;
-  price: number;
-  changePct: number;
+  source?: string;
+  latest?: {
+    date: string;
+    close: number;
+    changePct: number;
+  };
 }
 
 export function Sidebar({ mcpStatuses }: SidebarProps) {
-  const holdings = getHoldings();
-  const snapshots = getSnapshots(holdings);
-  const updated = getLastUpdated();
-  const dataServers = mcpStatuses.filter(
-    (s) => !["web-search-prime", "web-reader"].includes(s.name)
-  );
+  const portfolio = getPortfolioItems();
+  void mcpStatuses;
+  const localSources = getLocalDataSources();
+  const priced = portfolio.filter((item) => item.latest).length;
 
   return (
-    <Box flexDirection="column" width={28} paddingLeft={1}>
-
+    <Box flexDirection="column" width={SIDEBAR_WIDTH} paddingLeft={1} marginTop={1}>
       {/* Portfolio */}
-      <SectionHeader title="Portfolio" hint={snapshots.length > 0 ? `${snapshots.length} held` : ""} />
+      <SectionHeader title="Portfolio" hint={portfolio.length > 0 ? `${priced}/${portfolio.length} priced` : ""} />
       <Divider />
-      {holdings.length > 0 ? (
-        <Box flexDirection="column" marginBottom={1}>
-          {snapshots.map((s, i) => (
-            <HoldingRow key={s.code} stock={s} last={i === snapshots.length - 1} />
+      {portfolio.length > 0 ? (
+        <Box flexDirection="column" marginBottom={0}>
+          {portfolio.map((item) => (
+            <PortfolioRow key={item.code} item={item} />
           ))}
         </Box>
       ) : (
-        <Box marginBottom={1}>
-          <Text dimColor>  no holdings</Text>
+        <Box marginBottom={0}>
+          <Text dimColor>  no .ohquant data</Text>
         </Box>
       )}
 
       {/* Data */}
       <SectionHeader title="Data" hint="" />
       <Divider />
-      {dataServers.length > 0 ? (
-        <Box flexDirection="column" marginBottom={1}>
-          {dataServers.map((s) => (
-            <Box key={s.name}>
-              <Text>  </Text>
-              <Text color={s.connected ? "green" : "red"}>
-                {s.connected ? "on " : "--"}
-              </Text>
-              <Text dimColor>{s.name}</Text>
-            </Box>
-          ))}
+      {localSources.length > 0 ? (
+        <Box marginBottom={0}>
+          <Text dimColor>  {localSources.join("  ")}</Text>
         </Box>
       ) : (
-        <Box marginBottom={1}>
-          <Text dimColor>  /mcp connect</Text>
-        </Box>
-      )}
-
-      {/* Updated timestamp */}
-      {updated && (
-        <Box>
-          <Text dimColor>  {updated}</Text>
+        <Box marginBottom={0}>
+          <Text dimColor>  no local data</Text>
         </Box>
       )}
     </Box>
@@ -84,7 +71,7 @@ export function Sidebar({ mcpStatuses }: SidebarProps) {
 function SectionHeader({ title, hint }: { title: string; hint: string }) {
   return (
     <Box>
-      <Text color={GOLD}>▎ </Text>
+      <Text color={GOLD}>{SECTION_ACCENT}</Text>
       <Text bold>{title}</Text>
       {hint ? <Text dimColor>  {hint}</Text> : null}
     </Box>
@@ -94,39 +81,43 @@ function SectionHeader({ title, hint }: { title: string; hint: string }) {
 function Divider() {
   return (
     <Box>
-      <Text dimColor>{"  "}{"-".repeat(24)}</Text>
+      <Text dimColor>{"  "}{DIVIDER_CHAR.repeat(SIDEBAR_WIDTH - 2)}</Text>
     </Box>
   );
 }
 
-function HoldingRow({ stock, last }: { stock: Snapshot; last: boolean }) {
-  const isUp = stock.changePct > 0;
-  const isDown = stock.changePct < 0;
-  const color = isUp ? "red" : isDown ? "green" : undefined;
-  const sign = isUp ? "+" : isDown ? "-" : " ";
-  const hasData = stock.price > 0;
-  const pct = hasData ? `${sign}${Math.abs(stock.changePct).toFixed(2)}%` : "--";
-  const price = hasData ? stock.price.toFixed(2) : "--.--";
+function PortfolioRow({ item }: { item: PortfolioItem }) {
+  const code = item.code.split(".")[0];
+  const name = truncate(item.name || item.code, 4);
+  const price = item.latest ? formatPrice(item.latest.close) : "--";
+  const change = item.latest ? formatChange(item.latest.changePct) : "--";
+  const changeColor = item.latest
+    ? item.latest.changePct > 0
+      ? "red"
+      : item.latest.changePct < 0
+        ? "green"
+        : undefined
+    : undefined;
 
   return (
-    <Box flexDirection="column" marginBottom={last ? 0 : 1}>
-      {/* Row 1: code + name */}
-      <Box>
+    <Box>
+      <Box width={17} flexShrink={0}>
         <Text>  </Text>
-        <Text dimColor>{stock.code.split(".")[0]}</Text>
+        <Text dimColor>{code}</Text>
         <Text> </Text>
-        <Text>{stock.name}</Text>
+        <Text>{name}</Text>
       </Box>
-      {/* Row 2: right-aligned price + pct */}
-      <Box>
-        <Text>  </Text>
+      <Box width={1} flexShrink={0}>
+        <Text> </Text>
+      </Box>
+      <Box width={7} justifyContent="flex-end" flexShrink={0}>
         <Text>{price}</Text>
-        <Text>  </Text>
-        {hasData ? (
-          <Text color={color}>{pct}</Text>
-        ) : (
-          <Text dimColor>{pct}</Text>
-        )}
+      </Box>
+      <Box width={1} flexShrink={0}>
+        <Text> </Text>
+      </Box>
+      <Box width={7} justifyContent="flex-end" flexShrink={0}>
+        <Text color={changeColor}>{change}</Text>
       </Box>
     </Box>
   );
@@ -134,65 +125,181 @@ function HoldingRow({ stock, last }: { stock: Snapshot; last: boolean }) {
 
 // ── data ──
 
-interface Holding { code: string; name: string; }
+interface SymbolEntry { code: string; name: string; }
+interface DataMeta {
+  symbol?: string;
+  name?: string;
+  source?: string;
+}
+interface Bar {
+  date: string;
+  close: number;
+}
 
-function getHoldings(): Holding[] {
+function getPortfolioItems(): PortfolioItem[] {
+  const symbols = getPortfolioSymbols();
+  return symbols.map((symbol) => {
+    const loaded = loadSymbolData(symbol.code);
+    const name = loaded.meta?.name || symbol.name || symbol.code;
+    const latest = getLatestSnapshot(loaded.bars);
+    return {
+      code: symbol.code,
+      name,
+      source: loaded.source,
+      latest,
+    };
+  });
+}
+
+function getPortfolioSymbols(): SymbolEntry[] {
+  const activeVariant = readLocalPortfolioVariant();
+  const configPath = join(process.cwd(), ".ohquant", "portfolio", "config.json");
+  let displayCodes: string[] = [];
+  if (existsSync(configPath)) {
+    try { const cfg = JSON.parse(readFileSync(configPath, "utf-8")); displayCodes = cfg.display || []; } catch { /* ignore */ }
+  }
+
+  const portfolioHoldings = loadPortfolioHoldings(activeVariant);
+  const watchlist = loadWatchlist();
+  const localData = getSymbolsWithLocalData();
+
+  if (displayCodes.length > 0) {
+    return displayCodes
+      .map((code) => findSymbol(code, localData, portfolioHoldings, watchlist) || { code, name: code });
+  }
+
+  if (localData.length > 0) return localData;
+  if (portfolioHoldings.length > 0) return portfolioHoldings;
+  return watchlist;
+}
+
+function loadPortfolioHoldings(variant: string): SymbolEntry[] {
   try {
-    const hp = join(process.cwd(), ".ohquant", "portfolio", "holdings.json");
+    const hp = join(process.cwd(), ".ohquant", "portfolio", holdingsFileForVariant(variant));
     if (existsSync(hp)) {
       const data = JSON.parse(readFileSync(hp, "utf-8"));
-      if (data.funds?.length > 0) return data.funds.map((f: Holding) => ({ code: f.code, name: f.name }));
+      if (data.funds?.length > 0) {
+        return data.funds.map((f: SymbolEntry) => ({ code: f.code, name: f.name }));
+      }
     }
-  } catch { /* fall through */ }
+  } catch { /* ignore */ }
+  return [];
+}
+
+function loadWatchlist(): SymbolEntry[] {
   try {
     const wp = join(process.cwd(), ".ohquant", "watchlist.json");
     if (existsSync(wp)) {
       const data = JSON.parse(readFileSync(wp, "utf-8"));
-      if (data.stocks?.length > 0) return data.stocks;
-    }
-  } catch { /* fall through */ }
-  return [];
-}
-
-function getSnapshots(holdings: Holding[]): Snapshot[] {
-  return holdings.map((h) => {
-    const bars = loadBars(h.code);
-    if (bars.length < 2) return { code: h.code, name: h.name, price: 0, changePct: 0 };
-    const latest = bars[bars.length - 1];
-    const prev = bars[bars.length - 2];
-    const chg = prev.close !== 0 ? ((latest.close - prev.close) / prev.close) * 100 : 0;
-    return { code: h.code, name: h.name, price: +latest.close.toFixed(2), changePct: +chg.toFixed(2) };
-  });
-}
-
-function getLastUpdated(): string | null {
-  try {
-    let latest = 0;
-    const hp = join(process.cwd(), ".ohquant", "portfolio", "holdings.json");
-    if (existsSync(hp)) { const m = statSync(hp).mtimeMs; if (m > latest) latest = m; }
-    const sources = ["tushare", "akshare", "llmquant-data"];
-    for (const src of sources) {
-      const dir = join(process.cwd(), ".ohquant", "data", src);
-      if (!existsSync(dir)) continue;
-      for (const h of getHoldings()) {
-        const f = join(dir, h.code, "daily.json");
-        if (existsSync(f)) { const m = statSync(f).mtimeMs; if (m > latest) latest = m; }
+      if (data.stocks?.length > 0) {
+        return data.stocks.map((s: SymbolEntry) => ({ code: s.code, name: s.name }));
       }
-    }
-    if (latest === 0) return null;
-    const d = new Date(latest);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  } catch { return null; }
-}
-
-function loadBars(symbol: string): { date: string; close: number }[] {
-  try {
-    const sources = ["tushare", "akshare", "llmquant-data"];
-    for (const src of sources) {
-      const path = join(process.cwd(), ".ohquant", "data", src, symbol, "daily.json");
-      if (existsSync(path)) return JSON.parse(readFileSync(path, "utf-8"));
     }
   } catch { /* ignore */ }
   return [];
+}
+
+function findSymbol(code: string, ...groups: SymbolEntry[][]): SymbolEntry | null {
+  for (const group of groups) {
+    const found = group.find((item) => item.code === code);
+    if (found) return found;
+  }
+  return null;
+}
+
+function loadSymbolData(symbol: string): { bars: Bar[]; meta: DataMeta | null; source?: string } {
+  try {
+    const sources = ["tushare", "akshare", "llmquant-data"];
+    for (const src of sources) {
+      const dir = join(process.cwd(), ".ohquant", "data", src, symbol);
+      const dailyPath = join(dir, "daily.json");
+      if (!existsSync(dailyPath)) continue;
+      const metaPath = join(dir, "meta.json");
+      const meta = existsSync(metaPath)
+        ? JSON.parse(readFileSync(metaPath, "utf-8"))
+        : null;
+      return {
+        bars: JSON.parse(readFileSync(dailyPath, "utf-8")),
+        meta,
+        source: meta?.source || src,
+      };
+    }
+  } catch { /* ignore */ }
+  return { bars: [], meta: null };
+}
+
+function getLatestSnapshot(bars: Bar[]): PortfolioItem["latest"] | undefined {
+  if (bars.length < 1) return undefined;
+  const latest = bars[bars.length - 1];
+  const prev = bars.length > 1 ? bars[bars.length - 2] : null;
+  const changePct = prev && prev.close !== 0
+    ? ((latest.close - prev.close) / prev.close) * 100
+    : 0;
+  return {
+    date: latest.date,
+    close: latest.close,
+    changePct,
+  };
+}
+
+function getSymbolsWithLocalData(): SymbolEntry[] {
+  const dataRoot = join(process.cwd(), ".ohquant", "data");
+  const sources = ["tushare", "akshare", "llmquant-data"];
+  const symbols: SymbolEntry[] = [];
+  const seen = new Set<string>();
+
+  for (const source of sources) {
+    const sourceDir = join(dataRoot, source);
+    if (!existsSync(sourceDir)) continue;
+    try {
+      for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
+        if (!entry.isDirectory() || seen.has(entry.name)) continue;
+        if (!existsSync(join(sourceDir, entry.name, "daily.json"))) continue;
+        const metaPath = join(sourceDir, entry.name, "meta.json");
+        const meta = existsSync(metaPath)
+          ? JSON.parse(readFileSync(metaPath, "utf-8"))
+          : null;
+        symbols.push({
+          code: meta?.symbol || entry.name,
+          name: meta?.name || entry.name,
+        });
+        seen.add(entry.name);
+      }
+    } catch { /* ignore */ }
+  }
+
+  return symbols;
+}
+
+function getLocalDataSources(): string[] {
+  const dataRoot = join(process.cwd(), ".ohquant", "data");
+  const sources = ["tushare", "akshare", "llmquant-data"];
+  const result: string[] = [];
+
+  for (const source of sources) {
+    const sourceDir = join(dataRoot, source);
+    if (!existsSync(sourceDir)) continue;
+    try {
+      const count = readdirSync(sourceDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .filter((entry) => existsSync(join(sourceDir, entry.name, "daily.json")))
+        .length;
+      if (count > 0) result.push(`${source} ${count}`);
+    } catch { /* ignore */ }
+  }
+
+  return result;
+}
+
+function formatPrice(value: number): string {
+  return value.toFixed(value >= 100 ? 1 : 2);
+}
+
+function formatChange(value: number): string {
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${sign}${Math.abs(value).toFixed(2)}%`;
+}
+
+function truncate(value: string, max: number): string {
+  return [...value].length > max ? [...value].slice(0, max - 1).join("") + "…" : value;
 }

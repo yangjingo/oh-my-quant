@@ -4,6 +4,8 @@
 
 [![npm](https://img.shields.io/npm/v/whyj-quant)](https://www.npmjs.com/package/whyj-quant)
 
+![WhyJ Quant terminal homepage](./docs/assets/terminal.png)
+
 ## Quick Start
 
 ```bash

@@ -44,6 +44,7 @@ export async function executeCommand(cmd: ParsedCommand): Promise<CommandResult>
     case "add":       return addHandler(subcommand, flags);
     case "config":    return configHandler(subcommand, flags, _raw);
     case "benchmark": return benchmarkHandler(subcommand);
+    case "portfolio": return portfolioHandler(subcommand, flags);
     case "mcp":       return mcpHandler(subcommand);
     case "help":      return { success: true, message: HELP_TEXT };
     case "clear":     return { success: true, message: "", renderAs: "text" };
@@ -504,6 +505,72 @@ async function benchmarkHandler(sub: string): Promise<CommandResult> {
     `Portfolio Benchmarks:`,
     ...results.map((r) => `  ${String(r.grade||"?")} ${String(r.strategy||"?").padEnd(38)} score=${r.total_score}`),
   ].join("\n") };
+}
+
+// ── /portfolio ──
+
+async function portfolioHandler(sub: string, flags: Record<string, string | number | boolean>): Promise<CommandResult> {
+  const { existsSync, readFileSync, writeFileSync, mkdirSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const dir = join(process.cwd(), ".ohquant", "portfolio");
+  const configPath = join(dir, "config.json");
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+  // Load config
+  let config: { source?: string; display?: string[] } = {};
+  if (existsSync(configPath)) {
+    try { config = JSON.parse(readFileSync(configPath, "utf-8")); } catch { /* ignore */ }
+  }
+  config.display = config.display || [];
+  config.source = config.source || "tushare";
+
+  // Save helper
+  const save = () => writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+
+  if (sub === "source") {
+    const name = String(flags.name || flags.source || "");
+    if (!name) return { success: false, message: "Usage: /portfolio source --name tushare" };
+    config.source = name;
+    save();
+    return { success: true, message: `Portfolio data source set to: ${name}` };
+  }
+
+  if (sub === "add") {
+    const code = String(flags.code || "");
+    if (!code) return { success: false, message: "Usage: /portfolio add --code 000001.SZ" };
+    if (config.display!.includes(code)) {
+      return { success: false, message: `${code} already in portfolio display.` };
+    }
+    config.display!.push(code);
+    save();
+    return { success: true, message: `Added ${code} to portfolio display.` };
+  }
+
+  if (sub === "remove") {
+    const code = String(flags.code || "");
+    if (!code) return { success: false, message: "Usage: /portfolio remove --code 000001.SZ" };
+    const before = config.display!.length;
+    config.display = config.display!.filter((c) => c !== code);
+    if (config.display!.length === before) {
+      return { success: false, message: `${code} not in portfolio display.` };
+    }
+    save();
+    return { success: true, message: `Removed ${code} from portfolio display.` };
+  }
+
+  // Default: show config
+  return {
+    success: true,
+    message: [
+      `Portfolio Config`,
+      `  Source:  ${config.source}`,
+      `  Display: ${config.display!.length > 0 ? config.display!.join(", ") : "(all holdings)"}`,
+      ``,
+      `/portfolio source --name NAME   Switch data source`,
+      `/portfolio add --code CODE       Add to display`,
+      `/portfolio remove --code CODE    Remove from display`,
+    ].join("\n"),
+  };
 }
 
 const HELP_TEXT = `
