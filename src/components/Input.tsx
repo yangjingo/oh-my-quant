@@ -10,42 +10,46 @@ interface InputProps {
   disabled?: boolean;
 }
 
-interface SubCmd {
-  name: string; desc: string; usage: string;
+interface CmdAction {
+  label: string;
+  fill: string;
 }
 
 interface CmdDef {
-  name: string; desc: string; subs?: SubCmd[];
+  name: string; desc: string;
+  actions?: CmdAction[];
 }
 
 const CMDS: CmdDef[] = [
-  { name: "/claw", desc: "Stock snapshot", subs: [] },
-  { name: "/skill", desc: "List or trigger skills", subs: [
-    { name: "list", desc: "List available skills", usage: "/skill list" },
-    { name: "info", desc: "Show skill details", usage: "/skill info --name NAME" },
-    { name: "trigger", desc: "Execute skill directly", usage: "/skill trigger --name NAME --code CODE" },
-  ]},
-  { name: "/add", desc: "Manage watchlist", subs: [
-    { name: "stock", desc: "Add stock to watchlist", usage: "/add stock --code CODE --name NAME" },
-    { name: "list", desc: "Show watchlist", usage: "/add list" },
-    { name: "remove", desc: "Remove from watchlist", usage: "/add remove --code CODE" },
-  ]},
-  { name: "/portfolio", desc: "Configure portfolio panel", subs: [
-    { name: "source", desc: "Switch data source", usage: "/portfolio source --name NAME" },
-    { name: "add", desc: "Add to panel display", usage: "/portfolio add --code CODE" },
-    { name: "remove", desc: "Remove from display", usage: "/portfolio remove --code CODE" },
-  ]},
-  { name: "/config", desc: "Interactive settings", subs: [] },
-  { name: "/benchmark", desc: "Strategy scoring dashboard", subs: [
-    { name: "dashboard", desc: "Full results ranking", usage: "/benchmark dashboard" },
-  ]},
-  { name: "/mcp", desc: "Connect to data servers", subs: [
-    { name: "connect", desc: "Connect to all servers", usage: "/mcp connect" },
-    { name: "status", desc: "Show connection status", usage: "/mcp status" },
-  ]},
-  { name: "/help", desc: "Show all commands", subs: [] },
-  { name: "/clear", desc: "Clear conversation", subs: [] },
-  { name: "/exit", desc: "Exit WhyJ Quant", subs: [] },
+  { name: "/claw", desc: "Snapshot fund info" },
+  {
+    name: "/skill", desc: "List or trigger skills",
+    actions: [
+      { label: "Show all skills", fill: "/skill" },
+      { label: "Trigger a skill", fill: "/skill trigger " },
+    ],
+  },
+  {
+    name: "/watch", desc: "Manage fund watchlist",
+    actions: [
+      { label: "Show watchlist", fill: "/watch" },
+      { label: "Add fund", fill: "/watch " },
+      { label: "Remove fund", fill: "/watch remove " },
+    ],
+  },
+  { name: "/portfolio", desc: "Open portfolio config" },
+  { name: "/config", desc: "Interactive settings" },
+  { name: "/benchmark", desc: "Strategy scoring dashboard" },
+  {
+    name: "/mcp", desc: "Connect to data servers",
+    actions: [
+      { label: "Show status", fill: "/mcp" },
+      { label: "Connect all servers", fill: "/mcp connect" },
+    ],
+  },
+  { name: "/help", desc: "Show all commands" },
+  { name: "/clear", desc: "Clear conversation" },
+  { name: "/exit", desc: "Exit WhyJ Quant" },
 ];
 
 interface CodeEntry { code: string; name: string; }
@@ -55,7 +59,7 @@ function getWatchlist(): CodeEntry[] {
     const path = join(process.cwd(), ".ohquant", "watchlist.json");
     if (!existsSync(path)) return [];
     const raw = JSON.parse(readFileSync(path, "utf-8"));
-    return raw.stocks || [];
+    return raw.funds || [];
   } catch { return []; }
 }
 
@@ -96,28 +100,33 @@ export function Input({ onSubmit, disabled }: InputProps) {
 
     if (!value.startsWith("/")) return [];
 
-    // Level 2: subcommand suggestions (e.g. "/portfolio " → source/add/remove)
-    const spaceIdx = value.indexOf(" ");
-    if (spaceIdx > 0) {
-      const cmdName = value.slice(0, spaceIdx).toLowerCase();
-      const partial = value.slice(spaceIdx + 1).toLowerCase();
-      const cmd = CMDS.find((c) => c.name.toLowerCase() === cmdName);
-      if (cmd?.subs?.length) {
-        return cmd.subs
-          .filter((s) => !partial || s.name.startsWith(partial))
-          .map((s) => ({ label: `${s.name}  ${s.desc}`, fill: s.usage }));
-      }
-      return [];
+    // Actions: show when a command name is typed exactly
+    const exact = CMDS.find((c) => c.name === value && c.actions?.length);
+    if (exact?.actions) {
+      return exact.actions.map((a) => ({ label: a.label, fill: a.fill }));
     }
 
-    // Level 1: command suggestions (e.g. "/por" → /portfolio)
+    // Command suggestions (e.g. "/por" → /portfolio)
     const lower = value.toLowerCase();
     return CMDS
       .filter((c) => c.name.toLowerCase().startsWith(lower))
-      .map((c) => ({ label: `${c.name}  ${c.desc}`, fill: c.subs?.length ? `${c.name} ` : c.name }));
+      .map((c) => ({ label: `${c.name}  ${c.desc}`, fill: c.name }));
   }, [value, watchlist]);
 
   const hasSuggestions = suggestions.length > 0;
+
+  function submit(fill: string) {
+    setHistory((h) => [fill, ...h].slice(0, 100));
+    // If fill ends with space, let user continue typing
+    if (fill.endsWith(" ")) {
+      setValue(fill);
+      setCursor(0);
+    } else {
+      onSubmit(fill);
+      setValue("");
+      setCursor(0);
+    }
+  }
 
   useInput((input, key) => {
     if (disabled) return;
@@ -132,16 +141,11 @@ export function Input({ onSubmit, disabled }: InputProps) {
         return;
       }
       if (key.return) {
-        const chosen = suggestions[cursor % suggestions.length];
-        setHistory((h) => [chosen.fill, ...h].slice(0, 100));
-        onSubmit(chosen.fill);
-        setValue("");
-        setCursor(0);
+        submit(suggestions[cursor % suggestions.length].fill);
         return;
       }
       if (key.tab) {
-        setValue(suggestions[cursor % suggestions.length].fill);
-        setCursor(0);
+        submit(suggestions[cursor % suggestions.length].fill);
         return;
       }
       if (key.escape) {
@@ -192,8 +196,17 @@ export function Input({ onSubmit, disabled }: InputProps) {
 
   return (
     <Box flexDirection="column">
+      <Box>
+        <Text color={GOLD} bold>{"> "}</Text>
+        {value ? (
+          <Text>{value}</Text>
+        ) : (
+          <Text dimColor>ask a research question or type /</Text>
+        )}
+        <Text dimColor>|</Text>
+      </Box>
       {hasSuggestions && (
-        <Box flexDirection="column" marginBottom={1}>
+        <Box flexDirection="column" marginTop={1}>
           {suggestions.map((s, i) => (
             <Box key={s.label}>
               <Text color={i === cursor ? GOLD : undefined}>
@@ -206,15 +219,6 @@ export function Input({ onSubmit, disabled }: InputProps) {
           ))}
         </Box>
       )}
-      <Box>
-        <Text color={GOLD} bold>{"> "}</Text>
-        {value ? (
-          <Text>{value}</Text>
-        ) : (
-          <Text dimColor>ask a research question or type /</Text>
-        )}
-        <Text dimColor>|</Text>
-      </Box>
     </Box>
   );
 }
