@@ -10,7 +10,7 @@ import { parseCommand, executeCommand } from "./commands/registry.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
 import { connectAll, getServerStatus, type McpServerStatus } from "./data/mcp-client.ts";
 import { createAgent } from "./agent/session.ts";
-import type { Agent } from "./agent/core/agent.ts";
+import type { Agent } from "@earendil-works/pi-agent-core";
 
 export function App() {
   const { exit } = useApp();
@@ -132,7 +132,7 @@ export function App() {
         return;
       }
 
-      if (input === "/config" || input === "/setup") {
+      if (input === "/config" || input === "/setup" || input === "/portfolio") {
         setConfigOpen(true);
         return;
       }
@@ -182,7 +182,13 @@ export function App() {
       <Box flexDirection="row" flexGrow={1}>
         <Box flexDirection="column" flexGrow={1} marginRight={2}>
           {configOpen ? (
-            <ConfigPanel onDone={() => setConfigOpen(false)} />
+            <ConfigPanel
+              onDone={() => setConfigOpen(false)}
+              onAction={(cmd) => {
+                setConfigOpen(false);
+                setTimeout(() => handleSubmit(cmd), 50);
+              }}
+            />
           ) : (
             <>
               <Conversation messages={messages} />

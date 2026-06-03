@@ -23,7 +23,8 @@ export function StatusBar() {
             </Text>
           </React.Fragment>
         ))}
-        <Text dimColor> · {portfolioVariant}</Text>
+        <Text dimColor> · </Text>
+        <Text color={GOLD}>{activeScheme?.name || portfolioVariant}</Text>
       </Box>
     </Box>
   );
