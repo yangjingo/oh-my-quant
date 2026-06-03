@@ -38,19 +38,35 @@ export interface McpTool {
 
 const connectedServers = new Map<string, ConnectedServer>();
 
-/** Load MCP server configs from .claude/mcp.json at project root */
+/** Load MCP server configs from settings.json mcp.servers, fallback to .claude/mcp.json */
 function loadMcpConfig(): Record<string, McpServerConfig> {
+  // Primary: settings.json mcp.servers
+  try {
+    const sp = join(process.cwd(), ".ohquant", "settings.json");
+    if (existsSync(sp)) {
+      const settings = JSON.parse(readFileSync(sp, "utf-8"));
+      const servers = settings?.mcp?.servers;
+      if (servers && Object.keys(servers).length > 0) {
+        const configs: Record<string, McpServerConfig> = {};
+        for (const [name, cfg] of Object.entries(servers)) {
+          const s = cfg as Record<string, unknown>;
+          if (!s.enabled) continue;
+          configs[name] = { transport: (s.transport as McpServerConfig["transport"]) || (s.command ? "stdio" : "http"), command: s.command as string, args: s.args as string[], url: s.url as string, env: s.env as Record<string, string>, headers: s.headers as Record<string, string> };
+        }
+        return resolveEnvVars(configs);
+      }
+    }
+  } catch { /* fallback to .claude/mcp.json */ }
+
+  // Fallback: .claude/mcp.json
   const root = process.cwd();
   const paths = [join(root, ".claude", "mcp.json"), join(root, ".mcp.json")];
   for (const p of paths) {
     if (existsSync(p)) {
       try {
         const raw = JSON.parse(readFileSync(p, "utf-8")) as McpJson;
-        // Resolve env vars in config values
         return resolveEnvVars(raw.mcpServers);
-      } catch {
-        // continue
-      }
+      } catch { /* continue */ }
     }
   }
   return {};

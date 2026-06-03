@@ -4,7 +4,7 @@
  */
 import { Type } from "typebox";
 import type { Static } from "typebox";
-import type { AgentTool, AgentToolResult } from "../agent/core/types.ts";
+import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import { ERRORS, formatError, type ErrorCode } from "../types/errors.ts";
 
 // ── Schemas ──
@@ -13,6 +13,7 @@ const S = {
   FetchBars: Type.Object({
     symbol: Type.String({ description: "Stock code e.g. 000001.SZ or AAPL" }),
     market: Type.Union([Type.Literal("A"), Type.Literal("US"), Type.Literal("HK")], { default: "A" }),
+    source: Type.Optional(Type.Union([Type.Literal("akshare"), Type.Literal("tushare"), Type.Literal("llmquant-data"), Type.Literal("auto")], { default: "auto", description: "Data source" })),
     start: Type.Optional(Type.String({ description: "Start date YYYY-MM-DD" })),
     end: Type.Optional(Type.String({ description: "End date YYYY-MM-DD" })),
   }),
@@ -70,7 +71,7 @@ export const fetchBarsTool: AgentTool<typeof S.FetchBars> = {
 
   async execute(_id: string, args: FetchBarsArgs): Promise<AgentToolResult<unknown>> {
     const { fetchBars } = await import("../data/sources.ts");
-    const result = await fetchBars(args.symbol, args.market, args.start, args.end);
+    const result = await fetchBars(args.symbol, args.market, args.start, args.end, args.source);
     const bars = result.bars;
     const latest = bars[bars.length - 1];
     return ok([

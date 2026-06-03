@@ -7,54 +7,64 @@ import { callTool, type McpTool } from "./mcp-client.ts";
 import { loadBars, saveBars, isCacheFresh } from "../storage/bars.ts";
 import type { Bar, Market, SymbolInfo } from "../types/data.ts";
 
-/** Fetch daily bars — cache-first, AKShare (free) → MCP (needs keys) */
+export type DataSource = "auto" | "akshare" | "tushare" | "llmquant-data" | "financial-datasets";
+
+/** Fetch daily bars. source="auto" picks best available. Explicit source skips cache. */
 export async function fetchBars(
   symbol: string,
   market: Market,
   start?: string,
   end?: string,
+  source?: DataSource,
 ): Promise<{ bars: Bar[]; source: string }> {
-  const primarySource = market === "A" ? "akshare" : "llmquant-data";
+  const explicit = source && source !== "auto";
+  const selected = source && source !== "auto" ? source : (market === "A" ? "akshare" : "llmquant-data");
 
-  // Check cache
-  const fresh = await isCacheFresh(symbol, primarySource);
-  if (fresh) {
-    const cached = await loadBars(symbol, primarySource);
-    const filtered = filterByDate(cached, start, end);
-    if (filtered.length > 0) return { bars: filtered, source: primarySource };
+  // Cache: only use when auto mode and fresh
+  if (!explicit) {
+    const fresh = await isCacheFresh(symbol, selected);
+    if (fresh) {
+      const cached = await loadBars(symbol, selected);
+      const filtered = filterByDate(cached, start, end);
+      if (filtered.length > 0) return { bars: filtered, source: selected };
+    }
   }
 
-  // A-share: AKShare first (free, no token), MCP fallback
   let bars: Bar[] = [];
-  let source = primarySource;
 
-  if (market === "A") {
+  if (selected === "akshare") {
     try {
       const { fetchFromAKShare } = await import("../bridge/akshare.ts");
       bars = await fetchFromAKShare(symbol, start, end);
-      source = "akshare";
-    } catch {
-      // AKShare failed — try tushare MCP
-      try {
-        bars = await fetchFromTushare(symbol, start, end);
-        source = "tushare";
-      } catch {
-        bars = await loadBars(symbol, "akshare");
-      }
-    }
-  } else {
+    } catch { /* fall through */ }
+  }
+
+  if (selected === "tushare" || (selected === "akshare" && bars.length === 0)) {
+    try {
+      bars = await fetchFromTushare(symbol, start, end);
+    } catch { /* fall through */ }
+  }
+
+  if (selected === "llmquant-data" || (market !== "A" && bars.length === 0)) {
     try {
       bars = await fetchFromLlmQuant(symbol, start, end);
-    } catch {
-      bars = await loadBars(symbol, source);
+    } catch { /* fall through */ }
+  }
+
+  // Last resort: load any cached data
+  if (bars.length === 0) {
+    for (const src of ["tushare", "akshare", "llmquant-data"]) {
+      const cached = await loadBars(symbol, src);
+      if (cached.length > 0) { bars = cached; break; }
     }
   }
 
+  const usedSource = explicit ? selected : (bars.length > 0 ? selected : "cache");
   if (bars.length > 0) {
-    await saveBars(symbol, source, bars);
+    await saveBars(symbol, usedSource, bars);
   }
 
-  return { bars: filterByDate(bars, start, end), source };
+  return { bars: filterByDate(bars, start, end), source: usedSource };
 }
 
 /** Search symbols */
