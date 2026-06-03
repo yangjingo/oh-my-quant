@@ -9,34 +9,39 @@ export interface UserPreferences {
   portfolioVariant: string;
 }
 
-export interface AnthropicConfig {
-  model: string;
-  maxTokens: number;
-  thinkingLevel: "off" | "minimal" | "low" | "medium" | "high";
-}
-
 export interface McpConfig {
   enabled: boolean;
   autoConnect: boolean;
-}
-
-export interface ApiKeys {
-  ANTHROPIC_API_KEY?: string;
-  TUSHARE_TOKEN?: string;
-  FINANCIAL_DATASETS_KEY?: string;
-  LLMQUANT_API_KEY?: string;
+  servers?: Record<string, { enabled: boolean }>;
 }
 
 export interface OhQuantSettings {
   version: number;
+  /** Claude Code-style env vars (API keys, base URLs, etc.) */
+  env: Record<string, string>;
+  /** Claude model: "sonnet" | "opus" | "haiku" */
+  model: string;
+  /** Thinking/reasoning level: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" */
+  thinkingLevel: string;
+  /** Tool allow/deny lists */
+  permissions: { allow?: string[]; deny?: string[] };
+  /** User business preferences */
   preferences: UserPreferences;
+  /** MCP server management */
   mcp: McpConfig;
-  anthropic: AnthropicConfig;
-  apiKeys: ApiKeys;
 }
 
 export const DEFAULT_SETTINGS: OhQuantSettings = {
   version: 1,
+  env: {},
+  model: "sonnet",
+  thinkingLevel: "off",
+  permissions: {
+    allow: [
+      "mcp__financial-datasets__get_company_facts",
+      "mcp__financial-datasets__get_financial_metrics_snapshot",
+    ],
+  },
   preferences: {
     defaultMarket: "A",
     defaultBenchmark: "000300.SH",
@@ -49,10 +54,4 @@ export const DEFAULT_SETTINGS: OhQuantSettings = {
     enabled: true,
     autoConnect: true,
   },
-  anthropic: {
-    model: "claude-sonnet-4-6",
-    maxTokens: 4096,
-    thinkingLevel: "off",
-  },
-  apiKeys: {},
 };

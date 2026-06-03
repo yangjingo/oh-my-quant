@@ -1,11 +1,17 @@
 /**
  * AgentSession — pi Agent + WhyJ Quant tools + Anthropic model.
  */
-import { Agent } from "./core/agent.ts";
-import type { AgentMessage, StreamFn } from "./core/types.ts";
+import { Agent, type AgentMessage, type StreamFn } from "@earendil-works/pi-agent-core";
+import {
+  getEnvApiKey,
+  getModels,
+  streamSimple,
+  type KnownProvider,
+  type Message,
+  type Model,
+} from "@earendil-works/pi-ai";
 import { QUANT_TOOLS } from "../tools/quant-tools.ts";
 import { loadSettings } from "../storage/index.ts";
-import { streamSimple } from "./core/shim/anthropic-stream.ts";
 
 const SYSTEM_PROMPT = `You are a quantitative finance analyst in WhyJ Quant terminal.
 
@@ -28,35 +34,75 @@ const SYSTEM_PROMPT = `You are a quantitative finance analyst in WhyJ Quant term
 
 export function createAgent(): Agent {
   const config = loadSettings();
+  const modelId = resolveModelId(config.model || "sonnet", config.env);
+  const provider = inferProvider(modelId);
+  const model = resolveModel(provider, modelId);
 
   const agent = new Agent({
     sessionId: `whyj-${Date.now()}`,
     initialState: {
       systemPrompt: SYSTEM_PROMPT,
-      model: {
-        id: config.anthropic.model,
-        name: config.anthropic.model,
-        api: "anthropic-messages" as const,
-        provider: "anthropic" as const,
-        baseUrl: "https://api.anthropic.com",
-        reasoning: true,
-        input: ["text" as const],
-        cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
-        contextWindow: 200_000,
-        maxTokens: 8192,
-      },
-      thinkingLevel: config.anthropic.thinkingLevel,
+      model,
+      thinkingLevel: (config.thinkingLevel as any) ?? "off",
       tools: QUANT_TOOLS.slice(),
     },
     convertToLlm,
-    streamFn: ((model, context, options) => streamSimple(model, context, options)) as StreamFn,
+    streamFn: streamSimple as StreamFn,
+    getApiKey: () => {
+      return config.env["WHYJ_AUTH_TOKEN"] ?? config.env["WHYJ_API_KEY"] ?? "";
+    },
+    transport: "auto",
+    maxRetryDelayMs: 60_000,
+    toolExecution: "sequential",
+    steeringMode: "one-at-a-time",
+    followUpMode: "one-at-a-time",
   });
 
   return agent;
 }
 
-function convertToLlm(messages: AgentMessage[]) {
+function convertToLlm(messages: AgentMessage[]): Message[] {
   return messages
-    .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "toolResult")
-    .map((m) => ({ role: m.role, content: m.content, timestamp: m.timestamp })) as Parameters<typeof streamSimple>[1]["messages"];
+    .filter((m): m is Message => m.role === "user" || m.role === "assistant" || m.role === "toolResult");
+}
+
+function resolveModelId(model: string, env: Record<string, string>): string {
+  const envKey = `WHYJ_DEFAULT_${model.toUpperCase()}_MODEL`;
+  return env[envKey] || process.env[envKey] || inferModelId(model);
+}
+
+/** Map shorthand names to concrete model IDs. */
+function inferModelId(model: string): string {
+  switch (model) {
+    case "sonnet": return "deepseek-v4-pro";
+    case "opus": return "deepseek-v4-pro";
+    case "haiku": return "deepseek-v4-flash";
+    default: return model;
+  }
+}
+
+function inferProvider(modelId: string): string {
+  if (modelId.startsWith("deepseek-")) return "deepseek";
+  if (modelId.startsWith("claude-")) return "anthropic";
+  if (modelId.startsWith("gpt-") || modelId.startsWith("o")) return "openai";
+  if (modelId.startsWith("gemini-")) return "google";
+  if (modelId.startsWith("mistral-")) return "mistral";
+  return "deepseek";
+}
+
+function resolveModel(provider: string, id: string): Model<any> {
+  const models = getModels(provider as KnownProvider);
+  const model = models.find((candidate) => candidate.id === id);
+  if (!model) {
+    // fallback: try finding any model matching the ID prefix
+    const prefix = models.find((candidate) => id.startsWith(candidate.id));
+    if (prefix) return prefix;
+    throw new Error(`pi-ai model not found: ${provider}/${id}`);
+  }
+  return model;
+}
+
+function providerToApiKeyName(provider: string): string {
+  const normalized = provider.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+  return `${normalized}_API_KEY`;
 }

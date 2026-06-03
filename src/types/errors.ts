@@ -19,9 +19,9 @@ export const ERRORS = {
   AUTH_NO_ANTHROPIC_KEY: {
     code: "AUTH_NO_ANTHROPIC_KEY",
     category: "auth" as const,
-    problem: "Cannot use AI agent — Anthropic API key is missing",
-    cause: "ANTHROPIC_API_KEY is not set in .env or .ohquant/settings.json",
-    fix: "Run /config for setup guide, or add: ANTHROPIC_API_KEY=sk-ant-... to .env file",
+    problem: "Cannot use AI agent — auth token is missing",
+    cause: "WHYJ_AUTH_TOKEN is not set in .env or .ohquant/settings.json",
+    fix: "Run /config for setup guide, or add: WHYJ_AUTH_TOKEN=sk-... to .env file",
     docs: "/config",
   },
   AUTH_NO_TUSHARE_KEY: {

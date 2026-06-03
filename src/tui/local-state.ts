@@ -2,11 +2,9 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 interface LocalSettings {
+  model?: string;
   preferences?: {
     portfolioVariant?: string;
-  };
-  anthropic?: {
-    model?: string;
   };
 }
 
@@ -23,11 +21,12 @@ export interface LocalPortfolioScheme {
   key: string;
   variant: string;
   label: string;
+  name: string;
   holdingsFile: string;
   available: boolean;
 }
 
-type PortfolioSchemeConfig = Omit<LocalPortfolioScheme, "available">;
+type PortfolioSchemeConfig = Omit<LocalPortfolioScheme, "available" | "name">;
 
 export interface LocalUiState {
   model: string;
@@ -51,7 +50,7 @@ export function readLocalUiState(): LocalUiState {
   const portfolioVariant = readLocalPortfolioVariant(settings);
 
   return {
-    model: settings?.anthropic?.model || "model unset",
+    model: settings?.model || "model unset",
     portfolioVariant,
     portfolioSchemes: readLocalPortfolioSchemes(portfolioVariant),
   };
@@ -68,10 +67,18 @@ export function readLocalPortfolioSchemes(activeVariant = readLocalPortfolioVari
   const schemes = localSchemes.length > 0 ? localSchemes : DEFAULT_PORTFOLIO_SCHEMES;
   const withActive = ensureActiveScheme(schemes, activeVariant);
 
-  return withActive.map((scheme) => ({
-    ...scheme,
-    available: existsSync(join(PORTFOLIO_DIR, scheme.holdingsFile)),
-  }));
+  return withActive.map((scheme) => {
+    const hp = join(PORTFOLIO_DIR, scheme.holdingsFile);
+    const available = existsSync(hp);
+    let name = scheme.variant;
+    if (available) {
+      try {
+        const data = JSON.parse(readFileSync(hp, "utf-8"));
+        if (data.name) name = data.name;
+      } catch { /* keep variant as name */ }
+    }
+    return { ...scheme, name, available };
+  });
 }
 
 export function holdingsFileForVariant(variant: string): string {

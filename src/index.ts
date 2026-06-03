@@ -16,7 +16,7 @@ migrateOldConfig();
 const settings = loadSettings();
 
 // 2. Inject API keys from settings into process.env (so MCP client can find them)
-for (const [key, value] of Object.entries(settings.apiKeys)) {
+for (const [key, value] of Object.entries(settings.env)) {
   if (value && !process.env[key]) process.env[key] = value;
 }
 
