@@ -34,7 +34,7 @@ export function Sidebar({ mcpStatuses }: SidebarProps) {
   const priced = portfolio.filter((item) => item.latest).length;
 
   return (
-    <Box flexDirection="column" width={SIDEBAR_WIDTH} paddingLeft={1} marginTop={1}>
+    <Box flexDirection="column" width={SIDEBAR_WIDTH} flexShrink={0} paddingLeft={1} marginTop={1}>
       {/* Portfolio */}
       <SectionHeader title="Portfolio" hint={portfolio.length > 0 ? `${priced}/${portfolio.length} priced` : ""} />
       <Divider />

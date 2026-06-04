@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 interface LocalSettings {
   model?: string;
+  env?: Record<string, string>;
   preferences?: {
     portfolioVariant?: string;
   };
@@ -49,8 +50,12 @@ export function readLocalUiState(): LocalUiState {
   const settings = readJson<LocalSettings>(SETTINGS_PATH);
   const portfolioVariant = readLocalPortfolioVariant(settings);
 
+  const model = settings?.env?.["WHYJ_DEFAULT_SONNET_MODEL"]
+    ?? process.env["WHYJ_DEFAULT_SONNET_MODEL"]
+    ?? "deepseek-v4-pro";
+
   return {
-    model: settings?.model || "model unset",
+    model,
     portfolioVariant,
     portfolioSchemes: readLocalPortfolioSchemes(portfolioVariant),
   };
