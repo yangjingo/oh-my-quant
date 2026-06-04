@@ -8,6 +8,7 @@ import { GOLD } from "../tui/tokens.ts";
 interface InputProps {
   onSubmit: (value: string) => void;
   disabled?: boolean;
+  width?: number;
 }
 
 interface CmdAction {
@@ -65,7 +66,7 @@ function getWatchlist(): CodeEntry[] {
 
 interface Suggestion { label: string; fill: string; }
 
-export function Input({ onSubmit, disabled }: InputProps) {
+export function Input({ onSubmit, disabled, width }: InputProps) {
   const [value, setValue] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
@@ -132,6 +133,12 @@ export function Input({ onSubmit, disabled }: InputProps) {
     if (disabled) return;
 
     if (hasSuggestions) {
+      // Number keys 1-9: direct selection
+      const num = parseInt(input, 10);
+      if (num >= 1 && num <= Math.min(suggestions.length, 9)) {
+        submit(suggestions[num - 1].fill);
+        return;
+      }
       if (key.upArrow) {
         setCursor((c) => (c > 0 ? c - 1 : suggestions.length - 1));
         return;
@@ -195,25 +202,25 @@ export function Input({ onSubmit, disabled }: InputProps) {
   });
 
   return (
-    <Box flexDirection="column">
-      <Box>
+    <Box flexDirection="column" width={width}>
+      <Box width={width}>
         <Text color={GOLD} bold>{"> "}</Text>
         {value ? (
-          <Text>{value}</Text>
+          <Text wrap="wrap">{value}</Text>
         ) : (
           <Text dimColor>ask a research question or type /</Text>
         )}
-        <Text dimColor>|</Text>
+        <Text color={GOLD}>|</Text>
       </Box>
       {hasSuggestions && (
-        <Box flexDirection="column" marginTop={1}>
+        <Box flexDirection="column" marginTop={1} width={width}>
           {suggestions.map((s, i) => (
-            <Box key={s.label}>
-              <Text color={i === cursor ? GOLD : undefined}>
-                {i === cursor ? "> " : "  "}
+            <Box key={s.label} width={width}>
+              <Text color={i === cursor ? GOLD : undefined} dimColor={i !== cursor}>
+                {String(i + 1).padStart(2)}.
               </Text>
               <Text bold color={i === cursor ? GOLD : undefined}>
-                {s.label}
+                {" "}{s.label}
               </Text>
             </Box>
           ))}
