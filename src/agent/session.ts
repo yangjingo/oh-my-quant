@@ -48,8 +48,12 @@ export function createAgent(): Agent {
     },
     convertToLlm,
     streamFn: streamSimple as StreamFn,
-    getApiKey: () => {
-      return config.env["WHYJ_AUTH_TOKEN"] ?? config.env["WHYJ_API_KEY"] ?? "";
+    getApiKey: (_provider: string) => {
+      return config.env["WHYJ_AUTH_TOKEN"]
+        ?? process.env["WHYJ_AUTH_TOKEN"]
+        ?? config.env["WHYJ_API_KEY"]
+        ?? process.env["WHYJ_API_KEY"]
+        ?? undefined;
     },
     transport: "auto",
     maxRetryDelayMs: 60_000,
@@ -66,22 +70,24 @@ function convertToLlm(messages: AgentMessage[]): Message[] {
     .filter((m): m is Message => m.role === "user" || m.role === "assistant" || m.role === "toolResult");
 }
 
-function resolveModelId(model: string, env: Record<string, string>): string {
+export function resolveModelId(model: string, env: Record<string, string>): string {
   const envKey = `WHYJ_DEFAULT_${model.toUpperCase()}_MODEL`;
   return env[envKey] || process.env[envKey] || inferModelId(model);
 }
 
 /** Map shorthand names to concrete model IDs. */
-function inferModelId(model: string): string {
+export function inferModelId(model: string): string {
   switch (model) {
     case "sonnet": return "deepseek-v4-pro";
     case "opus": return "deepseek-v4-pro";
     case "haiku": return "deepseek-v4-flash";
+    case "gpt-5.5": return "openai/gpt-5.5";
     default: return model;
   }
 }
 
 function inferProvider(modelId: string): string {
+  if (modelId.startsWith("openai/")) return "openrouter";
   if (modelId.startsWith("deepseek-")) return "deepseek";
   if (modelId.startsWith("claude-")) return "anthropic";
   if (modelId.startsWith("gpt-") || modelId.startsWith("o")) return "openai";
@@ -100,9 +106,4 @@ function resolveModel(provider: string, id: string): Model<any> {
     throw new Error(`pi-ai model not found: ${provider}/${id}`);
   }
   return model;
-}
-
-function providerToApiKeyName(provider: string): string {
-  const normalized = provider.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
-  return `${normalized}_API_KEY`;
 }

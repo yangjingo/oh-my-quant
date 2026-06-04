@@ -22,7 +22,7 @@ interface Field {
   section?: string;
 }
 
-const MODEL_OPTIONS = ["sonnet", "opus", "haiku"];
+const MODEL_OPTIONS = ["sonnet", "opus", "haiku", "gpt-5.5"];
 const THINKING_OPTIONS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 
 export function ConfigPanel({ onDone, onAction }: ConfigPanelProps) {
