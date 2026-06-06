@@ -36,7 +36,7 @@
     "build": "bun build src/index.ts --outdir dist --target node",
     "start": "bun run dist/index.js",
     "typecheck": "bun run tsc --noEmit",
-    "test": "bun test",
+    "test": "bun test src/",
     "test:watch": "bun test --watch",
     "prepublishOnly": "bun run build && bun run typecheck"
   },
