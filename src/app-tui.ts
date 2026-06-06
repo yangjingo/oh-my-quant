@@ -29,12 +29,21 @@ function extractTextFromResult(r: unknown): string {
 
 export async function startApp(oneShot?: string): Promise<void> {
   ensureDirs();
-  loadSettings();
+  const settings = loadSettings();
+
+  // Inject API keys from settings into process.env (MCP client needs them)
+  for (const [key, value] of Object.entries(settings.env)) {
+    if (value && !process.env[key]) process.env[key] = value;
+  }
 
   // ── Build initial state ──
+  const modelName = settings.model === "sonnet" ? "claude-sonnet-4-6"
+    : settings.model === "opus" ? "claude-opus-4-7"
+    : settings.model === "haiku" ? "claude-haiku-4-5"
+    : settings.model || "claude-sonnet-4-6";
   const pkg = getPkgVersion();
   const initial: AppState = {
-    model: "claude-sonnet-4-6",
+    model: modelName,
     version: pkg,
     user: process.env.USER || process.env.USERNAME || "trader",
     activity: "starting",
@@ -48,15 +57,17 @@ export async function startApp(oneShot?: string): Promise<void> {
   const tui = new QuantTui(initial);
   tui.start();
 
-  // ── Connect MCP ──
-  try { await connectAll(); getServerStatus(); } catch { /* no servers */ }
-
-  // ── Load portfolio snapshot ──
-  try { initial.panel = loadPortfolioSnapshot(); } catch { initial.panel = []; }
+  // ── Connect MCP + load portfolio ──
+  try {
+    await connectAll();
+    initial.panel = loadPortfolioSnapshot();
+    tui.update({ panel: initial.panel });
+  } catch { /* no servers */ }
 
   // ── Init agent ──
   const agent = createAgent();
   const uiMessages: UIMessage[] = [];
+  let busy = false;
 
   agent.subscribe(async (event) => {
     switch (event.type) {
@@ -126,6 +137,7 @@ export async function startApp(oneShot?: string): Promise<void> {
         break;
       }
       case "agent_end": {
+        busy = false;
         tui.update({ activity: "ready" });
         saveSession(event.messages as any[]);
         try { tui.update({ panel: loadPortfolioSnapshot() }); } catch { /* ok */ }
@@ -135,24 +147,31 @@ export async function startApp(oneShot?: string): Promise<void> {
   });
 
   tui.onSubmit(async (input: string) => {
+    if (busy) return; // Ignore input while agent is processing
     if (input === "/exit" || input === "/quit") { tui.stop(); process.exit(0); }
     if (input === "/clear") { uiMessages.length = 0; tui.update({ messages: [] }); agent.reset(); return; }
 
+    busy = true;
     uiMessages.push({ role: "user", text: input });
     tui.update({ messages: [...uiMessages], activity: "thinking" });
 
     const parsed = parseCommand(input);
     if (parsed) {
-      const result = await executeCommand(parsed);
-      uiMessages.push({ role: result.success ? "assistant" : "error", text: result.message });
-      tui.update({ messages: [...uiMessages], activity: "ready" });
-      if (parsed.flags["symbol"] || parsed.flags["code"])
-        updateSessionCtx({ lastSymbol: String(parsed.flags["symbol"] || parsed.flags["code"]) });
+      try {
+        const result = await executeCommand(parsed);
+        uiMessages.push({ role: result.success ? "assistant" : "error", text: result.message });
+        if (parsed.flags["symbol"] || parsed.flags["code"])
+          updateSessionCtx({ lastSymbol: String(parsed.flags["symbol"] || parsed.flags["code"]) });
+      } finally {
+        busy = false;
+        tui.update({ messages: [...uiMessages], activity: "ready" });
+      }
     } else {
       try {
         const ctxInput = injectContext(input);
         await agent.prompt(ctxInput);
       } catch (err) {
+        busy = false;
         uiMessages.push({ role: "error", text: `Agent: ${err instanceof Error ? err.message : String(err)}` });
         tui.update({ messages: [...uiMessages], activity: "ready" });
       }

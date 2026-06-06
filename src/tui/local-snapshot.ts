@@ -31,9 +31,13 @@ function loadHoldings(): Holding[] {
         if (bars.length < 2) continue;
         const meta = loadMeta(join(dir, entry.name));
         const last = bars[bars.length - 1], prev = bars[bars.length - 2];
+        const code = entry.name.replace(/\.(SZ|SH|BJ|HK)$/i, "");
+        const rawName = meta?.name || entry.name;
+        // Clean tushare-style double-prefix names (e.g. "000001.000001.SZ" → "平安银行")
+        const name = rawName.includes(".") && meta?.name ? rawName.split(".").slice(-1)[0] || rawName : rawName;
         result.push({
-          code: entry.name,
-          name: meta?.name || entry.name,
+          code,
+          name: name.length > 12 ? name.slice(0, 11) + "…" : name,
           price: last.close,
           pct: prev.close ? (last.close - prev.close) / prev.close * 100 : 0,
         });
@@ -60,6 +64,11 @@ function loadWatchlistPrices(): Quote[] {
 }
 
 function loadMarketIndices(): Quote[] {
+  const indexMap: Record<string, string> = {
+    "000300": "沪深300", "399001": "深证成指", "000001": "上证指数",
+    "000016": "上证50", "000688": "科创50", "000852": "中证1000",
+    "000905": "中证500", "399006": "创业板指", "HSI": "恒生指数",
+  };
   const result: Quote[] = [];
   for (const src of ["tushare", "akshare"]) {
     const dir = join(DATA, src);
@@ -67,14 +76,13 @@ function loadMarketIndices(): Quote[] {
     try {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         if (!entry.isDirectory()) continue;
-        const name = entry.name.toUpperCase();
-        if (name.includes("000300") || name.includes("399001") || name.includes("000001") || name.includes("HSI")) {
-          const bars = loadBars(join(dir, entry.name));
-          if (bars.length < 2) continue;
-          const last = bars[bars.length - 1], prev = bars[bars.length - 2];
-          const label = name.includes("000300") ? "沪深300" : name.includes("399001") ? "深证" : name.includes("HSI") ? "恒生" : name;
-          result.push({ symbol: label, price: last.close, pct: (last.close - prev.close) / prev.close * 100 });
-        }
+        const code = entry.name.replace(/\.(SZ|SH|BJ|HK)$/i, "");
+        const label = indexMap[code];
+        if (!label) continue;
+        const bars = loadBars(join(dir, entry.name));
+        if (bars.length < 2) continue;
+        const last = bars[bars.length - 1], prev = bars[bars.length - 2];
+        result.push({ symbol: label, price: last.close, pct: (last.close - prev.close) / prev.close * 100 });
       }
     } catch { /* skip */ }
   }
