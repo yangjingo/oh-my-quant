@@ -10,8 +10,9 @@ import type { MessageProps } from "./components/Message.tsx";
 import { parseCommand, executeCommand } from "./commands/registry.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
 import { connectAll, getServerStatus, type McpServerStatus } from "./data/mcp-client.ts";
-import { createAgent } from "./agent/session.ts";
+import { createAgent, injectContext, saveSession, updateSessionCtx } from "./agent/session.ts";
 import type { Agent } from "@earendil-works/pi-agent-core";
+import { subscribeFileEvents, type FileEvent } from "./storage/fs-events.ts";
 
 function extractText(m: { content: unknown[] }): string {
   return m.content
@@ -34,11 +35,16 @@ export function App() {
   const [mode, setMode] = useState<string>("loading");
   const [lastSymbol, setLastSymbol] = useState<string | null>(null);
   const [mcpStatuses, setMcpStatuses] = useState<McpServerStatus[]>([]);
+  const [fileEvents, setFileEvents] = useState<FileEvent[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
-  const agentRef = useRef<Agent | null>(null);
+  const agentRef = useRef<Agent>(null!);
   const streamingIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const unsubscribeFiles = subscribeFileEvents((event) => {
+      setFileEvents((prev) => [event, ...prev].slice(0, 12));
+    });
+
     void (async () => {
       try {
         ensureDirs();
@@ -49,36 +55,37 @@ export function App() {
         setMcpStatuses([]);
       }
 
-      // Init agent
-      try {
-        const agent = createAgent();
-        agentRef.current = agent;
+      const agent = createAgent();
+      agentRef.current = agent;
 
-        // Subscribe to agent events → update TUI messages
-        agent.subscribe(async (event) => {
+      agent.subscribe(async (event) => {
           switch (event.type) {
             case "message_start": {
               const m = event.message;
               if (m.role === "assistant") {
                 const id = `agent-${Date.now()}`;
                 streamingIdRef.current = id;
-                setMessages((prev) => [...prev, { id, role: "system", content: "..." }]);
+                setMessages((prev) => [...prev, { id, role: "system", content: "" }]);
               }
               break;
             }
+
             case "message_update": {
               const m = event.message;
               if (m.role === "assistant" && streamingIdRef.current) {
                 const text = extractText(m);
                 const thinking = extractThinking(m);
-                setMessages((prev) => prev.map((msg) =>
-                  msg.id === streamingIdRef.current
-                    ? { ...msg, content: text || "...", thinking: thinking || undefined }
-                    : msg
-                ));
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === streamingIdRef.current
+                      ? { ...msg, content: text, thinking: thinking || (msg.thinking ?? "") }
+                      : msg,
+                  ),
+                );
               }
               break;
             }
+
             case "message_end": {
               const m = event.message;
               if (m.role !== "assistant") break;
@@ -88,75 +95,88 @@ export function App() {
               const isError = stopReason === "error" || stopReason === "aborted";
 
               if (streamingIdRef.current) {
-                setMessages((prev) => prev.map((msg) =>
-                  msg.id === streamingIdRef.current
-                    ? {
-                        ...msg,
-                        role: isError ? "error" : "system",
-                        content: isError
-                          ? `Agent error: ${text || `API call failed (${stopReason})`}`
-                          : (text || "(empty)"),
-                        thinking: thinking || undefined,
-                      }
-                    : msg
-                ));
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === streamingIdRef.current
+                      ? {
+                          ...msg,
+                          role: isError ? "error" : "system",
+                          content: isError
+                            ? `Agent error: ${text || `API call failed (${stopReason})`}`
+                            : text,
+                          thinking: thinking || msg.thinking,
+                          thinkingDone: true,
+                        }
+                      : msg,
+                  ),
+                );
                 streamingIdRef.current = null;
               } else if (isError) {
-                setMessages((prev) => [...prev, {
-                  id: `agent-err-${Date.now()}`,
-                  role: "error",
-                  content: `Agent error: ${text || `API call failed (${stopReason})`}`,
-                }]);
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: `agent-err-${Date.now()}`,
+                    role: "error",
+                    content: `Agent error: ${text || `API call failed (${stopReason})`}`,
+                  },
+                ]);
               }
               break;
             }
+
             case "tool_execution_start":
               setMode("running");
-              setMessages((prev) => [...prev, {
-                id: `tool-${event.toolCallId}`,
-                role: "tool",
-                content: event.toolName,
-              }]);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `tool-${event.toolCallId}`,
+                  role: "tool",
+                  content: event.toolName,
+                  toolStatus: "running" as const,
+                  toolArgs: event.args as Record<string, unknown> | undefined,
+                },
+              ]);
               break;
+
+            case "tool_execution_update":
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === `tool-${event.toolCallId}`
+                    ? { ...msg, content: event.toolName, toolPartial: extractTextFromResult(event.partialResult) }
+                    : msg,
+                ),
+              );
+              break;
+
             case "tool_execution_end":
-              if (event.isError) {
-                setMessages((prev) => [...prev, {
-                  id: `tool-err-${event.toolCallId}`,
-                  role: "error",
-                  content: String(event.result?.content?.[0]?.text || "Tool error"),
-                }]);
-              }
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === `tool-${event.toolCallId}`
+                    ? {
+                        ...msg,
+                        toolStatus: event.isError ? ("error" as const) : ("done" as const),
+                        toolResult: extractTextFromResult(event.result),
+                        toolError: event.isError ? extractToolError(event.result) : undefined,
+                      }
+                    : msg,
+                ),
+              );
               break;
-            case "turn_end": {
-              const m = event.message;
-              const stopReason = (m as unknown as Record<string, unknown>).stopReason;
-              if ((stopReason === "error" || stopReason === "aborted") && !streamingIdRef.current) {
-                const text = extractText(m as unknown as { content: unknown[] });
-                const errMsg = (m as unknown as Record<string, unknown>).errorMessage as string | undefined;
-                setMessages((prev) => [...prev, {
-                  id: `agent-err-${Date.now()}`,
-                  role: "error",
-                  content: `Agent error: ${text || errMsg || `API call failed (${stopReason})`}`,
-                }]);
-              }
-              break;
-            }
+
             case "agent_end":
               setMode("idle");
+              saveSession(event.messages as any[]);
               break;
           }
         });
-      } catch (err) {
-        // Agent not available — natural language disabled
-        setMessages((prev) => [...prev, {
-          id: `init-err-${Date.now()}`,
-          role: "error",
-          content: `Agent init failed: ${err instanceof Error ? err.message : String(err)}`,
-        }]);
-      }
 
       setMode("idle");
     })();
+
+    return () => {
+      unsubscribeFiles();
+      agentRef.current?.abort();
+    };
   }, []);
 
   const addMessage = useCallback((role: MessageProps["role"], content: string) => {
@@ -199,7 +219,6 @@ export function App() {
       try {
         const parsed = parseCommand(input);
         if (parsed) {
-          // Slash command — direct execution
           const result = await executeCommand(parsed);
           if (result.success) {
             addMessage("system", result.message);
@@ -207,20 +226,16 @@ export function App() {
             addMessage("error", result.message);
           }
           if (parsed.flags["symbol"] || parsed.flags["code"]) {
-            setLastSymbol(String(parsed.flags["symbol"] || parsed.flags["code"]));
+            const sym = String(parsed.flags["symbol"] || parsed.flags["code"]);
+            setLastSymbol(sym);
+            updateSessionCtx({ lastSymbol: sym, lastMarket: String(parsed.flags["market"] || parsed.flags["m"] || "A") });
           }
           setMode("idle");
         } else if (agentRef.current) {
-          // Natural language — AI Agent
-          try {
-            await agentRef.current.prompt(input);
-          } catch (err) {
-            addMessage("error", `Agent: ${err instanceof Error ? err.message : String(err)}`);
-            setMode("idle");
-          }
+          const ctxInput = injectContext(input);
+          await agentRef.current.prompt(ctxInput);
         } else {
-          addMessage("system", "Set Anthropic API key in /config to enable AI analysis.");
-          setMode("idle");
+          addMessage("system", "Initializing... please wait a moment.");
         }
       } catch (err) {
         addMessage("error", err instanceof Error ? err.message : String(err));
@@ -266,7 +281,7 @@ export function App() {
           )}
         </Box>
 
-        {showSidebar ? <Sidebar mcpStatuses={mcpStatuses} /> : null}
+        {showSidebar ? <Sidebar mcpStatuses={mcpStatuses} fileEvents={fileEvents} /> : null}
       </Box>
 
       <StatusBar />
@@ -274,17 +289,45 @@ export function App() {
   );
 }
 
+// ── helpers ──
+
+function extractToolError(result: unknown): string {
+  if (!result || typeof result !== "object") return "Tool execution failed";
+  const r = result as Record<string, unknown>;
+  if (Array.isArray(r.content)) {
+    const first = (r.content as Array<Record<string, unknown>>)[0];
+    return String(first?.text ?? "Tool execution failed");
+  }
+  return "Tool execution failed";
+}
+
+function extractTextFromResult(result: unknown): string {
+  if (!result) return "";
+  const r = result as Record<string, unknown>;
+  if (Array.isArray(r.content)) {
+    return (r.content as Array<{ text?: string }>)
+      .filter((c) => c.text)
+      .map((c) => c.text!)
+      .join("\n");
+  }
+  if (typeof r.text === "string") return r.text;
+  return typeof result === "string" ? result : "";
+}
+
 const helpText = [
   "Commands:",
   "",
-  "  /claw      Stock snapshot     /claw --code 000001.SZ",
-  "  /skill     Trigger skills     /skill trigger --name fetch_bars --code CODE",
+  "  /data      Download/info      /data download --symbol 000001.SZ",
+  "  /factor    Factor analysis    /factor analyze --symbol CODE --factor momentum",
+  "  /backtest  SMA backtest       /backtest run --symbol CODE --fast 20 --slow 60",
+  "  /risk      Risk metrics       /risk check --symbol CODE",
+  "  /benchmark Score/dashboard    /benchmark run --symbol CODE",
   "  /add       Watchlist          /add stock --code CODE --name NAME",
-  "  /portfolio Config portfolio   /portfolio add --code CODE",
   "  /config    Settings           /config",
-  "  /benchmark Strategy scores    /benchmark dashboard",
   "  /mcp       Data servers       /mcp connect",
   "  /help  /clear  /exit",
+  "",
+  "Compatibility: /skill  /claw  /watch",
   "",
   "No / prefix → AI analysis.",
 ].join("\n");
