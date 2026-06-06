@@ -4,7 +4,7 @@
 
 ## 1. Overview
 
-`whyj` is an interactive quantitative analysis terminal built with **Bun + TypeScript + Ink (React) + pi Agent**.
+`whyj` is an interactive quantitative analysis terminal built with **Bun + TypeScript + pi Agent**.
 
 Two modes:
 - **Slash commands** (`/data download --symbol 000001.SZ`) — deterministic, fast path
@@ -15,7 +15,7 @@ Two modes:
 | Layer | Choice |
 |-------|--------|
 | Runtime | Bun + TypeScript (strict) |
-| TUI | Ink 5 + React 18 |
+| TUI | Custom frame-buffer (cell-grid, zero-dependency, ratatui pattern) |
 | AI Agent | @earendil-works/pi-agent-core + @earendil-works/pi-ai |
 | Data | @modelcontextprotocol/sdk (MCP client) + local JSON files |
 | Schema | TypeBox (agent tool parameters) |
@@ -26,70 +26,42 @@ Two modes:
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                  Ink App (React)                      │
+│              QuantTui (frame-buffer)                  │
 │  ┌──────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │ Sidebar  │  │ Conversation │  │ Input          │  │
-│  │(portfolio│  │ (Message[] + │  │ (autocomplete) │  │
-│  │ + data)  │  │  ToolCalls)  │  │                │  │
-│  └──────────┘  └──────┬───────┘  └───────┬────────┘  │
-│                       │                   │           │
-│                       ▼                   ▼           │
+│  │ Header   │  │ Conversation │  │ Portfolio Dock │  │
+│  │(brand+   │  │ (scrollable, │  │ (persistent,   │  │
+│  │ status)  │  │  bottom-anch)│  │  data-driven)  │  │
+│  └──────────┘  └──────────────┘  └────────────────┘  │
 │  ┌──────────────────────────────────────────────────┐ │
-│  │              App (app.tsx)                        │ │
-│  │  agent.subscribe() → event → setMessages()       │ │
-│  │  handleSubmit() → slash / agent dispatch         │ │
-│  └──────────────────────┬───────────────────────────┘ │
-│                         │                              │
-│  ┌──────────────────────▼───────────────────────────┐ │
-│  │              Agent Layer                          │ │
-│  │  ┌─────────────┐  ┌──────────────┐               │ │
-│  │  │ session.ts  │  │  context.ts  │               │ │
-│  │  │ (pi Agent   │  │  (prompt     │               │ │
-│  │  │  wrapper)   │  │   assembly)  │               │ │
-│  │  └──────┬──────┘  └──────────────┘               │ │
-│  │         │                                         │ │
-│  │  ┌──────▼──────────────────────────┐             │ │
-│  │  │  Tool Layer                      │             │ │
-│  │  │  MCP_TOOLS (7) + COMPUTE_TOOLS  │             │ │
-│  │  │  (5)                             │             │ │
-│  │  └─────────────────────────────────┘             │ │
+│  │ Composer (raw keyboard input, history)           │ │
 │  └──────────────────────────────────────────────────┘ │
-│                         │                              │
-│  ┌──────────────────────▼───────────────────────────┐ │
-│  │              Data Layer                           │ │
-│  │  ┌──────────────┐  ┌────────────────────────┐    │ │
-│  │  │ MCP Client   │  │ .ohquant/ (local JSON) │    │ │
-│  │  │ (tushare,    │  │ data/{source}/{symbol}/ │    │ │
-│  │  │  llmquant,   │  │ daily.json + meta.json  │    │ │
-│  │  │  fin-datasets│  │ sessions/{date}/         │    │ │
-│  │  │ )            │  │ settings.json            │    │ │
-│  │  └──────────────┘  └────────────────────────┘    │ │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │ Status Bar (model, cost, cache hit %)             │ │
 │  └──────────────────────────────────────────────────┘ │
+│                                                       │
+│  app-tui.ts: agent.subscribe() -> tui.update()       │
+│              onSubmit() -> slash / agent dispatch     │
+│                                                       │
+│  Agent Layer: session.ts (pi Agent wrapper)           │
+│              context.ts (prompt assembly)              │
+│  Tool Layer:  MCP_TOOLS (7) + COMPUTE_TOOLS (5)       │
+│  Data Layer:  MCP Client + .ohquant/ local JSON       │
 └──────────────────────────────────────────────────────┘
 ```
 
-## 4. Component Tree (actual)
+## 4. TUI Engine (r2 frame-buffer)
 
-```
-<App>
-  <Box flexDirection="row">
-    <Box flexDirection="column" width={mainWidth}>
-      <Conversation messages={messages}>
-        <Message>           // user / system / error / tool
-          <ThinkingPanel>   // thinking: gold spinner + elapsed + collapsible
-          <ToolCallInline>  // tool: spinner → ✓/✗ + collapsible result
-          <StreamCursor>    // blinking "▌" during live text
-        </Message>
-      </Conversation>
-      <Input>               // Tab autocomplete, ↑↓ history, numbered suggestions
-    </Box>
-    <Sidebar>               // portfolio prices, local data sources
-  </Box>
-  <StatusBar>               // model name, portfolio variant
-</App>
-```
+| File | Purpose |
+|------|---------|
+| `src/tui/buffer.ts` | Cell-grid Buffer + Screen: text, box (title-in-border), ANSI render, atomic flush |
+| `src/tui/render.ts` | Pure draw functions: layout(), drawHeader, drawConversation, drawPortfolio, drawComposer, drawStatus |
+| `src/tui/tui.ts` | QuantTui class: raw-mode keyboard, history, resize, paint loop |
+| `src/tui/styles.ts` | Style presets from DESIGN.md palette |
+| `src/tui/types.ts` | AppState, UIMessage, Holding, Quote, PanelSection, Layout |
 
-### Key animation components (from pi Loader pattern)
+See `docs/tui-layout-design.md` for full layout spec with ASCII diagram.
+
+### Key animation components
 
 | Component | Pattern | Files |
 |-----------|---------|-------|

@@ -10,14 +10,19 @@ const SOURCES = ["tushare", "akshare", "llmquant-data"];
 
 export function loadPortfolioSnapshot(): PanelSection[] {
   const sections: PanelSection[] = [];
-  const holdings = loadHoldings();
-  if (holdings.length > 0) sections.push({ kind: "holdings", title: "Holdings", rows: holdings });
+  const stocks = loadHoldings();
+  if (stocks.length > 0) sections.push({ kind: "holdings", title: "Positions", rows: stocks });
+  const funds = loadFundHoldings();
+  if (funds.length > 0) sections.push({ kind: "quotes", title: "Funds", rows: funds });
   const watch = loadWatchlistPrices();
   if (watch.length > 0) sections.push({ kind: "quotes", title: "Watchlist", rows: watch });
   const market = loadMarketIndices();
   if (market.length > 0) sections.push({ kind: "quotes", title: "Market", rows: market });
   return sections;
 }
+
+// Known index codes — excluded from stock holdings (they go in Market section)
+const INDEX_CODES = new Set(["000300", "399001", "000001", "000016", "000688", "000852", "000905", "399006"]);
 
 function loadHoldings(): Holding[] {
   const result: Holding[] = [];
@@ -27,13 +32,13 @@ function loadHoldings(): Holding[] {
     try {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         if (!entry.isDirectory()) continue;
+        const code = entry.name.replace(/\.(SZ|SH|BJ|HK)$/i, "");
+        if (INDEX_CODES.has(code)) continue; // indices go to Market section
         const bars = loadBars(join(dir, entry.name));
         if (bars.length < 2) continue;
         const meta = loadMeta(join(dir, entry.name));
         const last = bars[bars.length - 1], prev = bars[bars.length - 2];
-        const code = entry.name.replace(/\.(SZ|SH|BJ|HK)$/i, "");
         const rawName = meta?.name || entry.name;
-        // Clean tushare-style double-prefix names (e.g. "000001.000001.SZ" → "平安银行")
         const name = rawName.includes(".") && meta?.name ? rawName.split(".").slice(-1)[0] || rawName : rawName;
         result.push({
           code,
@@ -45,6 +50,36 @@ function loadHoldings(): Holding[] {
     } catch { /* skip */ }
   }
   return result.slice(0, 20);
+}
+
+// Fund holdings from .ohquant/portfolio/
+function loadFundHoldings(): Quote[] {
+  const result: Quote[] = [];
+  try {
+    const portfolioDir = join(process.cwd(), ".ohquant", "portfolio");
+    if (!existsSync(portfolioDir)) return [];
+    // Read config to get active variant
+    const configPath = join(portfolioDir, "config.json");
+    let variant = "v1";
+    if (existsSync(configPath)) {
+      const cfg = JSON.parse(readFileSync(configPath, "utf-8"));
+      variant = cfg.active || "v1";
+    }
+    // Try holdings JSON
+    const holdingsPath = join(portfolioDir, `holdings_${variant}.json`);
+    if (existsSync(holdingsPath)) {
+      const data = JSON.parse(readFileSync(holdingsPath, "utf-8"));
+      for (const f of (data.funds || []).slice(0, 15)) {
+        const code = f.code || "";
+        const name = f.name || code;
+        const bars = loadBarsForCode(code);
+        if (bars.length < 2) continue;
+        const last = bars[bars.length - 1], prev = bars[bars.length - 2];
+        result.push({ symbol: name.length > 18 ? name.slice(0, 17) + "…" : name, price: last.close, pct: (last.close - prev.close) / prev.close * 100 });
+      }
+    }
+  } catch { /* skip */ }
+  return result;
 }
 
 function loadWatchlistPrices(): Quote[] {

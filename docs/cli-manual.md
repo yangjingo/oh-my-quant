@@ -6,10 +6,16 @@
 
 ```bash
 bun install
-bun run src/index.ts
+bun run src/index.ts          # Interactive frame-buffer TUI
+whyj -c "/data download --symbol 000001.SZ"   # One-shot
+whyj --json doctor             # Config check
 ```
 
-Or global: `npm i -g whyj-quant` then `whyj`
+Global: `npm i -g whyj-quant` then `whyj`
+
+## TUI Layout
+
+Full-screen docked layout (r2 frame-buffer): header, conversation (left), Portfolio panel (right, persistent dock), composer (bottom), status bar. See `docs/tui-layout-design.md`.
 
 ## Two Modes
 
