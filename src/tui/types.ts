@@ -41,6 +41,7 @@ export interface AppState {
   cacheHit: number;
   messages: UIMessage[];
   panel: PanelSection[];
+  panelLoading: boolean;
   input: string;
 }
 

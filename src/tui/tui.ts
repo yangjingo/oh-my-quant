@@ -58,7 +58,7 @@ export class QuantTui {
         this.screen.buf.set(x, y, " ", { fg: CANVAS });
     drawHeader(this.screen.buf, st);
     drawConversation(this.screen.buf, L.conversation, st.messages);
-    if (L.showPanel) drawPortfolio(this.screen.buf, L.portfolio, st.panel);
+    if (L.showPanel) drawPortfolio(this.screen.buf, L.portfolio, st.panel, st.panelLoading);
     drawComposer(this.screen.buf, L.composer, st.input);
     drawStatus(this.screen.buf, L.statusRow, this.screen.cols, st);
     this.screen.flush();

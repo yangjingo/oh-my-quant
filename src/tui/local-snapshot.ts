@@ -104,6 +104,7 @@ function loadMarketIndices(): Quote[] {
     "000016": "上证50", "000688": "科创50", "000852": "中证1000",
     "000905": "中证500", "399006": "创业板指", "HSI": "恒生指数",
   };
+  const seen = new Set<string>();
   const result: Quote[] = [];
   for (const src of ["tushare", "akshare"]) {
     const dir = join(DATA, src);
@@ -113,7 +114,8 @@ function loadMarketIndices(): Quote[] {
         if (!entry.isDirectory()) continue;
         const code = entry.name.replace(/\.(SZ|SH|BJ|HK)$/i, "");
         const label = indexMap[code];
-        if (!label) continue;
+        if (!label || seen.has(code)) continue;
+        seen.add(code);
         const bars = loadBars(join(dir, entry.name));
         if (bars.length < 2) continue;
         const last = bars[bars.length - 1], prev = bars[bars.length - 2];

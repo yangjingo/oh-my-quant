@@ -85,11 +85,15 @@ export async function startApp(): Promise<void> {
     cacheHit: 100,
     messages: [],
     panel: [],
+    panelLoading: true,
     input: "",
   };
 
   const tui = new QuantTui(initial);
   tui.start();
+
+  // Animate portfolio loading
+  const loadInterval = setInterval(() => tui.refresh(), 80);
 
   // ── Init backend ──
   let busy = false;
@@ -98,8 +102,10 @@ export async function startApp(): Promise<void> {
   try {
     await connectAll();
     initial.panel = loadPortfolioSnapshot();
-    tui.update({ panel: initial.panel });
-  } catch { /* no MCP servers — data tools will fail gracefully */ }
+  } catch { /* no MCP servers */ }
+  initial.panelLoading = false;
+  clearInterval(loadInterval);
+  tui.update({ panel: initial.panel, panelLoading: false });
 
   const agent = createAgent();
 

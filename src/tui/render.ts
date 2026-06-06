@@ -10,7 +10,7 @@ import type { AppState, Layout, UIMessage, PanelSection, Holding, Quote } from "
 // ── Layout computation (pure, testable) ──
 
 export function layout(C: number, R: number): Layout {
-  const panelW = Math.min(40, Math.max(30, Math.floor(C * 0.26)));
+  const panelW = Math.min(48, Math.max(36, Math.floor(C * 0.312)));
   const showPanel = C >= 78;
   const mainH = R - HEADER_H - COMPOSER_H - STATUS_H;
   const convW = showPanel ? C - panelW : C;
@@ -86,17 +86,32 @@ function renderMsg(msg: UIMessage, width: number): string[] {
 
 // ── Portfolio dock ──
 
-export function drawPortfolio(buf: Buffer, r: { x: number; y: number; w: number; h: number }, sections: PanelSection[]): void {
+export function drawPortfolio(buf: Buffer, r: { x: number; y: number; w: number; h: number }, sections: PanelSection[], loading: boolean): void {
   const heldCount = sections
     .filter((s): s is { kind: "holdings"; title: string; rows: Holding[] } => s.kind === "holdings")
     .reduce((n, s) => n + s.rows.length, 0);
+  const titleRight = loading ? undefined : heldCount > 0 ? `${heldCount} held` : "no data";
   const inner = buf.box(r, {
     title: "Portfolio", titleStyle: S.creamB,
-    titleRight: heldCount > 0 ? `${heldCount} held` : undefined,
-    titleRightStyle: S.dim, border: S.rule,
+    titleRight, titleRightStyle: S.dim, border: S.rule,
   });
   const x = inner.x;
   let y = inner.y + 1;
+
+  if (loading) {
+    const frames = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
+    const frame = frames[Math.floor(Date.now() / 80) % frames.length];
+    buf.text(x + 2, y + 2, `${frame} Fetching positions...`, S.dim);
+    return;
+  }
+
+  if (sections.length === 0) {
+    buf.text(x + 2, y + 2, "No portfolio data yet.", S.dim);
+    buf.text(x + 2, y + 3, "Use /data download --symbol CODE", S.dim);
+    buf.text(x + 2, y + 4, "to build your local cache.", S.dim);
+    return;
+  }
+
   for (const sec of sections) {
     y = secHeader(buf, x, y, inner.w, sec.title);
     if (sec.kind === "holdings") {
