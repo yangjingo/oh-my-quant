@@ -26,6 +26,11 @@ export function parseCommand(input: string): ParsedCommand | null {
       if (i + 1 < parts.length && !parts[i + 1].startsWith("--")) {
         i++; flags[key] = parts[i];
       } else flags[key] = true;
+    } else if (/^-[A-Za-z]$/.test(part)) {
+      const key = part.slice(1);
+      if (i + 1 < parts.length && !parts[i + 1].startsWith("-")) {
+        i++; flags[key] = parts[i];
+      } else flags[key] = true;
     } else {
       positional.push(part);
     }
@@ -37,12 +42,17 @@ export function parseCommand(input: string): ParsedCommand | null {
 export async function executeCommand(cmd: ParsedCommand): Promise<CommandResult> {
   const { command, flags, positional } = cmd;
   switch (command) {
+    case "data":      return dataHandler(flags, positional);
+    case "factor":    return factorHandler(flags, positional);
+    case "backtest":  return backtestHandler(flags, positional);
+    case "risk":      return riskHandler(flags, positional);
     case "skill":     return skillHandler(flags, positional);
     case "claw":      return clawHandler(flags, positional);
+    case "add":       return addHandler(flags, positional);
     case "watch":     return watchHandler(flags, positional);
     case "config":    return configHandler();
-    case "benchmark": return benchmarkHandler();
-    case "portfolio": return { success: true, message: "Type /portfolio in TUI to open the config panel." };
+    case "benchmark": return benchmarkHandler(flags, positional);
+    case "portfolio": return { success: true, message: "/portfolio is a compatibility alias for /config. Portfolio data is live-only and is not cached locally." };
     case "mcp":       return mcpHandler(positional);
     case "help":      return { success: true, message: HELP_TEXT };
     case "clear":     return { success: true, message: "", renderAs: "text" };
@@ -61,7 +71,15 @@ interface SkillEntry {
 }
 
 const BUILTIN_SKILLS: SkillEntry[] = [
-  { name: "fetch_bars", label: "Fetch Data", description: "Download OHLCV price data for any symbol", category: "data", triggerable: true },
+  // MCP data tools
+  { name: "tushare_daily", label: "A-Share Bars", description: "Fetch A-share daily OHLCV bars via tushare MCP", category: "data", triggerable: true },
+  { name: "tushare_stock_basic", label: "Search A", description: "Search A-share stocks by name/code via tushare", category: "data", triggerable: true },
+  { name: "tushare_fina_indicator", label: "A Financials", description: "A-share financial indicators via tushare", category: "data", triggerable: true },
+  { name: "llmquant_price", label: "US Price", description: "US equity daily OHLCV via llmquant-data MCP", category: "data", triggerable: true },
+  { name: "fd_price", label: "US Price FD", description: "US equity prices via Financial Datasets", category: "data", triggerable: true },
+  { name: "fd_snapshot", label: "Snapshot", description: "Financial metrics snapshot via FD", category: "data", triggerable: true },
+  { name: "fd_company", label: "Company", description: "Company facts via FD", category: "data", triggerable: true },
+  // Computation tools
   { name: "compute_factor", label: "Factor", description: "Compute momentum, reversal, volatility, RSI, SMA deviation", category: "factor", triggerable: true },
   { name: "run_backtest", label: "Backtest", description: "SMA crossover backtest with full metrics", category: "backtest", triggerable: true },
   { name: "check_risk", label: "Risk", description: "VaR, CVaR, max drawdown, Sharpe, skewness, kurtosis", category: "risk", triggerable: true },
@@ -69,35 +87,157 @@ const BUILTIN_SKILLS: SkillEntry[] = [
   { name: "show_dashboard", label: "Dashboard", description: "Aggregated benchmark results viewer", category: "benchmark", triggerable: true },
 ];
 
+const FACTORS = ["momentum", "reversal", "volatility", "volume_ratio", "rsi", "sma_deviation"];
+
+async function runQuantTool(
+  name: string,
+  flags: Record<string, string | number | boolean>,
+  defaults: Record<string, unknown> = {},
+): Promise<CommandResult> {
+  try {
+    const { MCP_TOOLS } = await import("../tools/mcp-tools.ts");
+    const { COMPUTE_TOOLS } = await import("../tools/quant-tools.ts");
+    const tool = [...MCP_TOOLS, ...COMPUTE_TOOLS].find((t) => t.name === name);
+    if (!tool) return { success: false, message: `Tool "${name}" not registered.` };
+
+    const params = normalizeToolParams(flags, defaults);
+    const preparedParams = tool.prepareArguments ? tool.prepareArguments(params) : params;
+    const result = await tool.execute(`cli-${Date.now()}`, preparedParams, undefined);
+    const text = result.content.map((c) => ("text" in c ? c.text : "[image]")).join("\n");
+    return { success: true, message: text, data: result.details };
+  } catch (err) {
+    return { success: false, message: `Command failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+function normalizeToolParams(
+  flags: Record<string, string | number | boolean>,
+  defaults: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const params: Record<string, unknown> = { ...defaults };
+  const remap: Record<string, string> = {
+    code: "symbol",
+    c: "symbol",
+    symbol: "symbol",
+    s: "symbol",
+    market: "market",
+    m: "market",
+    factor: "factor",
+    f: "factor",
+    period: "period",
+    p: "period",
+    fast: "fast",
+    slow: "slow",
+    cash: "cash",
+    benchmark: "benchmark_symbol",
+    benchmarkSymbol: "benchmark_symbol",
+    "benchmark-symbol": "benchmark_symbol",
+    label: "label",
+    source: "source",
+    start: "start",
+    end: "end",
+    "sort-by": "sort_by",
+    sort: "sort_by",
+  };
+
+  for (const [key, value] of Object.entries(flags)) {
+    const mappedKey = remap[key] || key;
+    params[mappedKey] = coerceFlagValue(value);
+  }
+  return params;
+}
+
+function coerceFlagValue(value: string | number | boolean): string | number | boolean {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (trimmed !== "" && /^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
+  return value;
+}
+
+// ── Canonical workflow commands ──
+
+async function dataHandler(flags: Record<string, string | number | boolean>, positional: string[]): Promise<CommandResult> {
+  const action = positional[0] || "info";
+  if (action === "download" || action === "fetch") {
+    const symbol = String(flags.symbol || flags.code || flags.s || flags.c || positional[1] || "");
+    if (!symbol) return { success: false, message: "Usage: /data download --symbol 000001.SZ [--market A]" };
+    const m = String(flags.market || flags.m || "A");
+    if (m === "US" || m === "HK") return runQuantTool("llmquant_price", { ...flags, ticker: symbol }, {});
+    return runQuantTool("tushare_daily", { ...flags, ts_code: symbol }, {});
+  }
+  if (action === "info" || action === "snapshot") {
+    const symbol = String(flags.symbol || flags.code || flags.s || flags.c || positional[1] || "");
+    if (!symbol) return { success: false, message: "Usage: /data info --symbol CODE" };
+    return clawHandler(flags, positional.slice(1));
+  }
+  return { success: false, message: "Usage: /data download --symbol CODE | /data info --symbol CODE" };
+}
+
+async function factorHandler(flags: Record<string, string | number | boolean>, positional: string[]): Promise<CommandResult> {
+  const action = positional[0] || "analyze";
+  if (action === "list") {
+    return { success: true, message: ["Factors", "───────", ...FACTORS.map((f) => `  ${f}`)].join("\n"), data: FACTORS };
+  }
+  if (action === "analyze" || action === "compute") {
+    const symbol = String(flags.symbol || flags.code || flags.s || flags.c || positional[1] || "");
+    const factor = String(flags.factor || flags.f || positional[2] || "");
+    if (!symbol || !factor) return { success: false, message: "Usage: /factor analyze --symbol CODE --factor momentum [--period 20]" };
+    return runQuantTool("compute_factor", { ...flags, symbol, factor }, { period: 20 });
+  }
+  return { success: false, message: "Usage: /factor list | /factor analyze --symbol CODE --factor NAME" };
+}
+
+async function backtestHandler(flags: Record<string, string | number | boolean>, positional: string[]): Promise<CommandResult> {
+  const action = positional[0] || "run";
+  if (action !== "run") return { success: false, message: "Usage: /backtest run --symbol CODE [--fast 20 --slow 60]" };
+  const symbol = String(flags.symbol || flags.code || flags.s || flags.c || positional[1] || "");
+  if (!symbol) return { success: false, message: "Usage: /backtest run --symbol CODE [--fast 20 --slow 60]" };
+  return runQuantTool("run_backtest", { ...flags, symbol }, { fast: 20, slow: 60, cash: 100_000 });
+}
+
+async function riskHandler(flags: Record<string, string | number | boolean>, positional: string[]): Promise<CommandResult> {
+  const action = positional[0] || "check";
+  if (action !== "check") return { success: false, message: "Usage: /risk check --symbol CODE" };
+  const symbol = String(flags.symbol || flags.code || flags.s || flags.c || positional[1] || "");
+  if (!symbol) return { success: false, message: "Usage: /risk check --symbol CODE" };
+  return runQuantTool("check_risk", { ...flags, symbol });
+}
+
 async function skillHandler(flags: Record<string, string | number | boolean>, positional: string[]): Promise<CommandResult> {
+  if (positional[0] === "info") {
+    const name = positional[1] || String(flags.name || flags.skill || "");
+    if (!name) return { success: false, message: "Usage: /skill info --name fetch_bars" };
+    const skill = BUILTIN_SKILLS.find((s) => s.name === name);
+    if (!skill) return { success: false, message: `Unknown skill: ${name}. Use /skill list.` };
+    return {
+      success: true,
+      message: [
+        `${skill.name}`,
+        `────────────────────`,
+        `Label:       ${skill.label}`,
+        `Category:    ${skill.category}`,
+        `Triggerable: ${skill.triggerable ? "yes" : "no"}`,
+        `Description: ${skill.description}`,
+      ].join("\n"),
+      data: skill,
+    };
+  }
+
+  if (positional[0] === "install") {
+    return {
+      success: false,
+      message: "Skill install is not wired yet. Add a tool in src/tools/mcp-tools.ts or quant-tools.ts.",
+    };
+  }
+
   // /skill trigger NAME --code CODE
   if (positional[0] === "trigger") {
-    const name = positional[1] || String(flags.skill || "");
+    const name = positional[1] || String(flags.name || flags.skill || "");
     if (!name) return { success: false, message: "Usage: select trigger action, then type skill name --code CODE" };
     const skill = BUILTIN_SKILLS.find((s) => s.name === name);
     if (!skill) return { success: false, message: `Unknown skill: ${name}. Use /skill to list.` };
     if (!skill.triggerable) return { success: false, message: `${name} cannot be triggered directly.` };
-
-    try {
-      const { QUANT_TOOLS } = await import("../tools/quant-tools.ts");
-      const tool = QUANT_TOOLS.find((t) => t.name === name);
-      if (!tool) return { success: false, message: `Tool "${name}" not registered.` };
-
-      const params: Record<string, unknown> = {};
-      const remap: Record<string, string> = { code: "symbol", c: "symbol", symbol: "symbol", market: "market", m: "market", factor: "factor", f: "factor", period: "period", p: "period", fast: "fast", slow: "slow", cash: "cash", benchmark: "benchmark_symbol" };
-      for (const [k, v] of Object.entries(flags)) {
-        const mappedKey = remap[k] || k;
-        if (typeof v === "string" && !isNaN(Number(v))) params[mappedKey] = Number(v);
-        else params[mappedKey] = v;
-      }
-
-      const preparedParams = tool.prepareArguments ? tool.prepareArguments(params) : params;
-      const result = await tool.execute(`cli-${Date.now()}`, preparedParams, undefined);
-      const text = result.content.map((c) => ("text" in c ? c.text : "[image]")).join("\n");
-      return { success: true, message: text };
-    } catch (err) {
-      return { success: false, message: `Skill execution failed: ${err instanceof Error ? err.message : String(err)}` };
-    }
+    return runQuantTool(name, flags);
   }
 
   // /skill — list all
@@ -113,7 +253,7 @@ async function skillHandler(flags: Record<string, string | number | boolean>, po
     lines.push(`\n${cat}:`);
     for (const s of skills) lines.push(`  ${s.label.padEnd(12)} ${s.name.padEnd(20)} ${s.description}`);
   }
-  return { success: true, message: lines.join("\n") };
+  return { success: true, message: lines.join("\n"), data: filtered };
 }
 
 // ── /claw — Snapshot ──
@@ -213,6 +353,23 @@ async function watchHandler(flags: Record<string, string | number | boolean>, po
   return { success: true, message: [`Watchlist (${watchlist.funds.length})`, ...lines].join("\n") };
 }
 
+// ── /add — Stock watchlist alias documented in CLI manual ──
+
+async function addHandler(flags: Record<string, string | number | boolean>, positional: string[]): Promise<CommandResult> {
+  const action = positional[0] || "list";
+  if (action === "stock") {
+    const code = String(flags.code || flags.symbol || flags.c || positional[1] || "");
+    if (!code) return { success: false, message: "Usage: /add stock --code 000001.SZ --name 平安银行" };
+    return watchHandler(flags, [code]);
+  }
+  if (action === "list") return watchHandler(flags, []);
+  if (action === "remove") {
+    const code = String(flags.code || flags.symbol || flags.c || positional[1] || "");
+    return watchHandler(flags, ["remove", code]);
+  }
+  return { success: false, message: "Usage: /add stock --code CODE [--name NAME] | /add list | /add remove --code CODE" };
+}
+
 // ── /mcp ──
 
 async function mcpHandler(positional: string[]): Promise<CommandResult> {
@@ -249,16 +406,40 @@ async function configHandler(): Promise<CommandResult> {
 
 // ── /benchmark ──
 
-async function benchmarkHandler(): Promise<CommandResult> {
+async function benchmarkHandler(flags: Record<string, string | number | boolean>, positional: string[]): Promise<CommandResult> {
+  const action = positional[0] || "dashboard";
+  if (action === "run" || action === "score") {
+    const symbol = String(flags.symbol || flags.code || flags.s || flags.c || positional[1] || "");
+    if (!symbol) return { success: false, message: "Usage: /benchmark run --symbol CODE [--benchmark-symbol 000300.SH]" };
+    return runQuantTool("score_benchmark", { ...flags, symbol }, {
+      benchmark_symbol: "000300.SH",
+      fast: 20,
+      slow: 60,
+      cash: 100_000,
+    });
+  }
+  if (action !== "dashboard" && action !== "list") {
+    return { success: false, message: "Usage: /benchmark run --symbol CODE | /benchmark dashboard" };
+  }
+
   const { readdirSync, readFileSync } = await import("node:fs");
   const { join } = await import("node:path");
+  const { emitFileEvent } = await import("../storage/fs-events.ts");
   const dir = join(process.cwd(), ".ohquant", "benchmark", "results");
   const { collectResults, dashboardSummary } = await import("../services/dashboard.ts");
   let files: string[] = [];
-  try { files = readdirSync(dir).filter((f: string) => f.endsWith(".json")); } catch { files = []; }
+  try {
+    files = readdirSync(dir).filter((f: string) => f.endsWith(".json"));
+    emitFileEvent({ operation: "READ", path: dir, detail: "benchmark index" });
+  } catch { files = []; }
   if (files.length === 0) return { success: true, message: "No results. Ask AI agent: run SMA 20/60 on 000001.SZ and score it." };
   const results = files.map((f) => {
-    try { return JSON.parse(readFileSync(join(dir, f), "utf-8")); } catch { return null; }
+    const path = join(dir, f);
+    try {
+      const text = readFileSync(path, "utf-8");
+      emitFileEvent({ operation: "READ", path, bytes: text.length, detail: "benchmark result" });
+      return JSON.parse(text);
+    } catch { return null; }
   }).filter(Boolean) as Record<string, unknown>[];
   const rows = collectResults(results);
   const s = dashboardSummary(rows);
@@ -269,15 +450,19 @@ async function benchmarkHandler(): Promise<CommandResult> {
 const HELP_TEXT = `
 Commands:
 
-  /skill          List or trigger skills
-  /claw --code C  Snapshot fund info
-  /watch          Manage fund watchlist
+  /data           Download data or show symbol info
+  /factor         List or compute factors
+  /backtest       Run SMA backtests
+  /risk           Check risk metrics
+  /benchmark      Run scoring or show dashboard
+  /add            Add/list/remove watchlist stocks
   /config         Show config status
-  /benchmark      Strategy scoring dashboard
   /mcp            MCP server status / connect
-  /portfolio      Open portfolio config panel
+  /portfolio      Alias for /config; portfolio data is live-only
 
   /help  /clear  /exit
+
+  Compatibility: /skill  /claw  /watch
 
   No / prefix → Chat with AI agent
 `;

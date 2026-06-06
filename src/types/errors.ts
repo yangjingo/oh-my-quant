@@ -61,8 +61,8 @@ export const ERRORS = {
     category: "data" as const,
     problem: "No cached data for this symbol",
     cause: "Data must be downloaded before analysis. The symbol may not exist or has never been fetched.",
-    fix: "Use the AI agent: 'Download data for SYMBOL' or /skill trigger --name fetch_bars --code SYMBOL",
-    docs: "/skill trigger --name fetch_bars --code 000001.SZ",
+    fix: "Use the AI agent: 'Download data for SYMBOL' or /data download --symbol SYMBOL",
+    docs: "/data download --symbol 000001.SZ",
   },
   DATA_NOT_ENOUGH: {
     code: "DATA_NOT_ENOUGH",

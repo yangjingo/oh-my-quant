@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Box, Text } from "ink";
 import { useInput } from "ink";
 import { loadSettings, saveSettings } from "../storage/index.ts";
-import { readLocalPortfolioSchemes } from "../tui/local-state.ts";
+import type { OhQuantSettings } from "../types/config.ts";
 import { GOLD, GOLD_HIGHLIGHT } from "../tui/tokens.ts";
 
 interface ConfigPanelProps {
@@ -26,15 +26,24 @@ const MODEL_OPTIONS = ["sonnet", "opus", "haiku", "gpt-5.5"];
 const THINKING_OPTIONS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 
 export function ConfigPanel({ onDone, onAction }: ConfigPanelProps) {
-  const cfg = useMemo(() => loadSettings(), []);
+  const [cfg, setCfg] = useState<OhQuantSettings | null>(null);
   const [cursor, setCursor] = useState(0);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
   const [, forceUpdate] = useState(0);
 
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setCfg(loadSettings());
+    });
+    return () => { active = false; };
+  }, []);
+
   const fieldGroups = useMemo<Array<{ label: string; fields: Field[] }>>(() => {
-    const schemes = readLocalPortfolioSchemes().filter((s) => s.available);
+    if (!cfg) return [];
 
     return [
       {
@@ -43,13 +52,13 @@ export function ConfigPanel({ onDone, onAction }: ConfigPanelProps) {
           {
             key: "ANTHROPIC_AUTH_TOKEN", label: "Auth token",
             get: () => cfg.env.WHYJ_AUTH_TOKEN ? "configured" : "not set",
-            set: (v: string) => { cfg.env.WHYJ_AUTH_TOKEN = v; process.env.WHYJ_AUTH_TOKEN = v; },
+            set: (v: string) => { cfg.env.WHYJ_AUTH_TOKEN = v; },
             isSecret: true,
           },
           {
             key: "TUSHARE_TOKEN", label: "Tushare token",
             get: () => cfg.env.TUSHARE_TOKEN ? "configured" : "not set",
-            set: (v: string) => { cfg.env.TUSHARE_TOKEN = v; process.env.TUSHARE_TOKEN = v; },
+            set: (v: string) => { cfg.env.TUSHARE_TOKEN = v; },
             isSecret: true,
           },
           {
@@ -63,23 +72,6 @@ export function ConfigPanel({ onDone, onAction }: ConfigPanelProps) {
             get: () => cfg.thinkingLevel,
             set: (v: string) => { cfg.thinkingLevel = v; },
             options: THINKING_OPTIONS,
-          },
-        ],
-      },
-      {
-        label: "Portfolio",
-        fields: [
-          {
-            key: "portfolioVariant", label: "Scheme",
-            get: () => {
-              const active = schemes.find((s) => s.variant === cfg.preferences.portfolioVariant);
-              return active?.name || cfg.preferences.portfolioVariant;
-            },
-            set: (v: string) => {
-              const target = schemes.find((s) => s.name === v || s.variant === v);
-              if (target) cfg.preferences.portfolioVariant = target.variant;
-            },
-            options: schemes.map((s) => s.name),
           },
         ],
       },
@@ -98,7 +90,7 @@ export function ConfigPanel({ onDone, onAction }: ConfigPanelProps) {
           {
             key: "fetch", label: "Fetch bars",
             get: () => "enter symbol…",
-            action: "/skill", editAction: "/skill trigger fetch_bars --code ",
+            action: "/data", editAction: "/data download --symbol ",
           },
           {
             key: "claw", label: "Snapshot",
@@ -168,6 +160,7 @@ export function ConfigPanel({ onDone, onAction }: ConfigPanelProps) {
   const fields: Field[] = fieldGroups.flatMap((g) => g.fields);
 
   function cycle(f: Field, direction: 1 | -1 = 1) {
+    if (!cfg) return;
     if (!f.options) return;
     const idx = f.options.indexOf(f.get());
     const next = (idx + direction + f.options.length) % f.options.length;
@@ -190,6 +183,11 @@ export function ConfigPanel({ onDone, onAction }: ConfigPanelProps) {
   }
 
   useInput((input, key) => {
+    if (!cfg) {
+      if (key.escape) onDone();
+      return;
+    }
+
     if (editing) {
       if (key.return) {
         const f = fields[cursor];
@@ -271,6 +269,17 @@ export function ConfigPanel({ onDone, onAction }: ConfigPanelProps) {
     for (const f of group.fields) {
       rows.push({ field: f, idx: globalIdx++, isSection: false });
     }
+  }
+
+  if (!cfg) {
+    return (
+      <Box flexDirection="column" paddingY={1}>
+        <Box marginBottom={1}>
+          <Text bold color={GOLD}>WhyJ Quant</Text>
+          <Text dimColor>  loading local settings</Text>
+        </Box>
+      </Box>
+    );
   }
 
   return (
