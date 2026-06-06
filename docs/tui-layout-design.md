@@ -1,239 +1,90 @@
 # WhyJ Quant — TUI Layout Design
 
 > last-updated: 2026-06-06
+> revision: **r2 — full-screen docked layout** (supersedes the Ink-flexbox draft)
 
-## 1. Design Tokens (src/tui/tokens.ts)
-
-Single source of truth for all visual constants. All values follow `DESIGN.md`.
-
-### Palette
-
-| Token | Hex | Usage |
-|-------|-----|-------|
-| `GOLD` | `#D4AF37` | Primary accent: prompts, active states, highlights |
-| `GOLD_HIGHLIGHT` | `#E2BE4D` | Hover/active variant |
-| `PRIMARY_ON_DARK` | `#F0D77A` | Gold on dark background |
-| `INK` | `#F5F5F5` | Primary text |
-| `MUTED` | `#A6A6A6` | Secondary text, dimmed |
-| `CANVAS` | `#0B0B0C` | Root background |
-| `SURFACE` | `#111111` | Card surfaces |
-| `SURFACE_ELEVATED` | `#171717` | Elevated surfaces |
-| `SURFACE_TERMINAL` | `#000000` | Terminal panels |
-| `DIVIDER_SOFT` | `#1A1A1A` | Subtle dividers |
-| `HAIRLINE` | `#242424` | Border lines |
-
-### Layout Constants
-
-| Token | Value | Usage |
-|-------|-------|-------|
-| `SIDEBAR_WIDTH` | 34 | Right sidebar fixed width |
-| `DIVIDER_CHAR` | `─` | Horizontal rule character |
-| `SECTION_ACCENT` | `▎ ` | Sidebar section header prefix |
-
-## 2. Component Tree
+Frame-buffer TUI with persistent Portfolio dock. Architecture inspired by deepseek-tui (ratatui).
 
 ```
-<App paddingX={1} paddingY={1}>
-  <Box flexDirection="row" flexGrow={1}>
-
-    ┌─ Main Column (left) ─────────────────────────────┐
-    │ <Box width={mainWidth} marginRight={showSidebar ? 2 : 0}>  │
-    │                                                    │
-    │   [ConfigPanel]  (when configOpen)                  │
-    │     OR                                             │
-    │   [Conversation]  +  [Input]                       │
-    │                                                    │
-    │   Conversation                                     │
-    │     <Message role="user" />       gold "> " prefix  │
-    │     <Message role="system" />     text + thinking   │
-    │       <ThinkingPanel />           gold spinner,     │
-    │                                   elapsed, expand   │
-    │     <Message role="tool" />       spinner→✓/✗      │
-    │       <ToolCallInline />          status, result    │
-    │     <Message role="error" />      gold "ERR" prefix │
-    │                                                    │
-    │   Input                                            │
-    │     "> " prompt  placeholder  "|" cursor            │
-    │     [numbered suggestion list]  (when autocomplete) │
-    └────────────────────────────────────────────────────┘
-
-    ┌─ Sidebar (right, 34 cols) ────────────────────────┐
-    │ (hidden when terminal < 78 cols)                   │
-    │                                                    │
-    │   ▎ Portfolio  20/20 priced                        │
-    │   ──────────────────────────────────────────       │
-    │     CODE   NAME        PRICE    CHANGE             │
-    │                                                    │
-    │   ▎ Data                                          │
-    │   ──────────────────────────────────────────       │
-    │     tushare 12   akshare 2   llmquant-data 4      │
-    └────────────────────────────────────────────────────┘
-
-  </Box>
-
-  ┌─ StatusBar (bottom) ────────────────────────────────┐
-  │ ──────────────────────────────────────────────      │
-  │   sonnet · portfolio v1/v2-semicon/v2-kc50 · name   │
-  └─────────────────────────────────────────────────────┘
-</App>
+┌ header ───────────────────────────────────────────────────────────────────┐
+│ ▌ WhyJ Quant  hunterbown · claude-sonnet-4-6              ◆ ready · v2.0.0 │
+├────────────────────────────────────────────────┬──────────────────────────┤
+│ conversation (scrolls, bottom-anchored)         │ ╭ Portfolio ──── 3 held ╮│
+│   ▏ user message              (gold gutter)     │ │ ▎ Holdings            ││
+│   · thinking done 0:14 [-]                      │ │ ─────────────────────  ││
+│   ▏ assistant text…                             │ │ 000001 平安银行        ││
+│   ✓ run_backtest · 600519.SH · 20/60 [+]        │ │           10.68  0.00% ││
+│                                                 │ │ ▎ Watchlist           ││
+│                                                 │ │ ▎ Market              ││
+├ Composer ──────────────────────── / · ↵ · ^C ───┤ ╰───────────────────────╯ │
+│ › analyze 平安银行 risk▏                         │                          │
+├───────────────────────────────────────────────────────────────────────────┤
+│ WhyJ · claude-sonnet-4-6 · $0.01 · Activity: ready      Cache 97.9% hit    │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 3. Responsive Layout
+## Implementation
 
-### Breakpoint calculation (app.tsx)
+| File | Purpose |
+|------|---------|
+| `src/tui/buffer.ts` | Cell-grid Buffer with `text`, `box`, `hline`, `vline` primitives + ANSI render |
+| `src/tui/utils.ts` | `strWidth` (CJK-aware), `truncate`, ANSI constants |
+| `src/tui/styles.ts` | Style presets (`S.gold`, `S.cream`, `S.dim`, etc.), `pctStyle`, format helpers |
+| `src/tui/types.ts` | `AppState`, `UIMessage`, `Holding`, `Quote`, `PanelSection`, `Layout` |
+| `src/tui/tokens.ts` | Palette, `HEADER_H`, `COMPOSER_H`, `STATUS_H`, `BOX_CHARS` |
+| `src/tui/render.ts` | Pure render functions: `drawHeader`, `drawConversation`, `drawPortfolio`, `drawComposer`, `drawStatus`, `layout()` |
+| `src/tui/tui.ts` | `QuantTui` class: alt-screen, atomic flush, resize handler, `update(partial)` |
 
-```typescript
-const terminalWidth = stdout?.columns ?? 100
-const rootPaddingX = 2          // App-level horizontal padding
-const mainRightMargin = 2       // Gap between main column and sidebar
-const minMainWidth = 40         // Minimum usable width for main column
-
-// Sidebar visible when terminal >= 78 cols
-const showSidebar = terminalWidth >= rootPaddingX + mainRightMargin + SIDEBAR_WIDTH + minMainWidth
-//                  = terminalWidth >= 2 + 2 + 34 + 40 = 78
-
-const mainWidth = Math.max(
-  24,  // Absolute minimum
-  terminalWidth - rootPaddingX - (showSidebar ? SIDEBAR_WIDTH + mainRightMargin : 0),
-)
-```
-
-| Terminal Width | Sidebar | mainWidth |
-|---------------|---------|-----------|
-| < 78 cols | Hidden | terminalWidth - 2 |
-| 78+ cols | Visible (34 cols) | terminalWidth - 38 |
-| 200 cols (max) | Visible | 162 |
-
-### Why the sidebar hides below 78 cols
-
-The sidebar (34) + gap (2) + padding (2) + minimum usable main (40) = 78. Below this, the sidebar would make the main conversation area unreadable.
-
-## 4. Component Layout Details
-
-### Conversation (flexGrow: 1)
-
-- Takes all available vertical space between header and input
-- Messages auto-scroll with `flexDirection: "column"`
-- Each message: `marginBottom: 1`
-
-### Input (fixed height, bottom-anchored)
+## Layout (layout function)
 
 ```
-┌─ Prompt line ──────────────────────────────────┐
-│ > ask a research question or type /          | │
-└────────────────────────────────────────────────┘
-┌─ Suggestions (conditional, marginTop: 1) ──────┐
-│  1. /data   Download data                       │
-│  2. /factor List or compute factors              │
-└────────────────────────────────────────────────┘
+rows (R, cols C):
+  header        y=0,                  h=HEADER_H (2)
+  main          y=HEADER_H,           h=R - HEADER_H - COMPOSER_H - STATUS_H
+     conversation  x=1,        w=C - PANEL_W - 2   (if dock visible)
+     portfolio     x=C-PANEL_W, w=PANEL_W          (persistent dock)
+  composer      y=R-COMPOSER_H-STATUS_H, h=COMPOSER_H (3)
+  status        y=R-1,                h=STATUS_H (1)
 ```
 
-- Placeholder text when empty: `"ask a research question or type /"`
-- Gold `> ` prefix and `|` cursor
-- Suggestions show with numbered selection (1-9), ↑↓ arrow navigation, Tab/Enter to accept
-- Escape clears input
+`PANEL_W = clamp(30, 40, floor(C * 0.26))`. Dock hidden when `C < 78`.
 
-### Sidebar (fixed width 34, right-aligned)
+## Key design decisions
 
-Two sections with gold-accented headers:
+- **Alternate screen** (`?1049h`) + **synchronized output** (`?2026h/l`) for tear-free frames
+- **Pure render functions** over `(Buffer, Rect, State)` — testable without a terminal
+- **Portfolio dock** drawn every frame from `PanelSection[]` — extensible (Holdings, Watchlist, Market, Data, Alerts)
+- **CJK-aware** `strWidth` — all alignment uses visual width, not `.length`
+- **Title-in-border boxes** via `Buffer.box({title, titleRight})`
 
-```
-▎ Portfolio  {priced}/{total} priced
-  ──────────────────────────────────
-  [code] [name]    [price]  [change%]
+## Responsive
 
-▎ Data
-  ──────────────────────────────────
-  {source} {count}  {source} {count}
-```
+| Terminal width | Portfolio dock | Conversation |
+|---------------|----------------|--------------|
+| `< 78` cols | hidden | full width |
+| `≥ 78` cols | `clamp(30,40,⌊w·0.26⌋)` | `w − PANEL_W` |
 
-Portfolio rows: 4 columns — code (17), spacer (1), price (7, right-aligned), change (7, right-aligned with color).
+## deepseek-tui mapping
 
-### StatusBar (bottom, full width)
+| deepseek-tui (ratatui, Rust) | WhyJ Quant (TS frame buffer) |
+|------------------------------|------------------------------|
+| `Layout::default().constraints([...])` split | `layout(C,R): Layout` |
+| `Block::default().borders(ALL).title(..)` | `Buffer.box({title, titleRight})` |
+| right `Tasks` dock | right `Portfolio` dock (persistent) |
+| `Paragraph` + scroll offset | `drawConversation` bottom-anchored wrap |
+| bottom `Composer` block | `drawComposer` |
+| cache-hit footer | `drawStatus` colored footer |
+| `terminal.draw(\|f\| …)` per tick | `renderFrame(buf)` + atomic `flush()` |
 
-```
-──────────────────────────────────────────  (w = cols - 2)
-{model} · portfolio {v1/v2-semicon} · {active-scheme-name}
-```
+## Animation
 
-- Separator: `DIVIDER_CHAR.repeat(w)` in dimmed color
-- Active portfolio variant highlighted in GOLD
-- Archived portfolio keys shown in dimmed
+Spinner/elapsed timer advance via `setInterval` → `tui.refresh()`. Only the affected region re-renders.
 
-### Message States
-
-| Role | Prefix | Color | Extras |
-|------|--------|-------|--------|
-| `user` | `> ` | GOLD, bold | — |
-| `system` | — | default | ThinkingPanel above text |
-| `error` | `ERR ` | GOLD | ThinkingPanel above text |
-| `tool` | spinner/✓/✗ | GOLD (running) | elapsed timer, collapsible result |
-
-## 5. Animation System
-
-### Spinner (src/components/Spinner.tsx)
-
-Frame-based animation from pi's Loader pattern. `setInterval` at configured interval, cycling frame index.
-
-```typescript
-// 9 variants, each with frames + interval
-SPINNERS = {
-  dots:       { frames: ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"], interval: 80 },
-  line:       { frames: ["|","/","-","\\"], interval: 120 },
-  dots2:      { frames: ["⣾","⣽","⣻","⢿","⡿","⣟","⣯","⣷"], interval: 80 },
-  arc:        { frames: ["◜","◠","◝","◞","◡","◟"], interval: 100 },
-  star:       { frames: ["✶","✸","✹","✺","✹","✷"], interval: 70 },
-  bounce:     { frames: ["⠁","⠂","⠄","⠂"], interval: 120 },
-  triangle:   { frames: ["◢","◣","◤","◥"], interval: 100 },
-  pipe:       { frames: ["┤","┘","┴","└","├","┌","┬","┐"], interval: 80 },
-  simpleDots: { frames: [".  ",".. ","..."], interval: 200 },
-}
-```
-
-### AnimatedText (src/components/AnimatedText.tsx)
-
-| Component | Effect | Interval |
-|-----------|--------|----------|
-| `Pulse` | Brightness oscillation (dimColor toggle) | 600ms |
-| `ProgressDots` | Trailing dots `""→"."→".."→"..."` | 300ms |
-| `StreamCursor` | Blinking `▌` block | 530ms |
-| `ElapsedTimer` | MM:SS counter | 1000ms |
-
-### ThinkingPanel
-
-```
-[gold spinner] thinking...  0:23  [+]
-  dimmed thinking text lines
-  last line ▌ (streaming cursor)
-```
-
-- Gold spinner (dots variant, 80ms) while thinking
-- ProgressDots animation after "thinking"
-- ElapsedTimer from panel mount time
-- Auto-collapse when `done=true`
-- Toggle expand/collapse with [+] / [-]
-
-### ToolCallInline
-
-```
-Running:  [gold spinner] tool_name · symbol · 0:05
-Done:     ✓ tool_name · symbol  [+]
-Error:    ✗ tool_name · symbol  [+]
-```
-
-- Spinner → checkmark/cross transition on status change
-- Args preview derived from tool arguments (symbol/code/factor/ticker)
-- Elapsed timer while running
-- Collapsible result text (truncated at 150 chars in preview)
-
-## 6. Edge Cases Handled
+## Edge cases
 
 | Case | Behavior |
 |------|----------|
-| Terminal < 78 cols | Sidebar hidden, main fills width |
-| Terminal < 24 cols | mainWidth clamped to 24 minimum |
-| Agent init not yet complete | "Initializing..." message, no crash |
-| API key not configured | Agent boots anyway, error surfaced on first API call |
-| Long tool result (> 150 chars) | Truncated with "..." in preview, expandable |
-| Thinking content empty | ThinkingPanel returns null |
-| Concurrent tool calls | Each gets own message with independent spinner |
+| Terminal `< 78` cols | Dock hidden, conversation fills width |
+| CJK in names/labels | Counted as 2 cells by `strWidth` |
+| Resize mid-stream | `layout()` recomputed, full repaint |
+| Holdings overflow | Clipped to rect height |
