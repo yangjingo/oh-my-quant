@@ -1,57 +1,35 @@
 /**
  * QuantTui — full-screen frame-buffer TUI.
- * Pattern: deepseek-tui (ratatui); renderFrame + atomic flush.
+ * Wraps Screen + Buffer with app-specific render logic.
  */
-import { Buffer } from "./buffer.ts";
+import { Buffer, Screen, type Style } from "./buffer.ts";
 import { layout, drawHeader, drawConversation, drawPortfolio, drawComposer, drawStatus } from "./render.ts";
-import { S } from "./styles.ts";
 import { CANVAS } from "./tokens.ts";
-import { ansi } from "./utils.ts";
 import type { AppState } from "./types.ts";
 
 export class QuantTui {
-  private buf: Buffer;
-  private state: AppState;
-  private prevLines: string[] = [];
-  private running = false;
-  private resizeTimer: ReturnType<typeof setTimeout> | null = null;
+  screen: Screen;
+  state: AppState;
   private submitHandler: ((text: string) => void) | null = null;
 
   constructor(state: AppState) {
     this.state = state;
-    this.buf = new Buffer(process.stdout.columns ?? 120, process.stdout.rows ?? 40);
+    this.screen = new Screen(process.stdout);
     process.stdout.on("resize", () => {
-      if (this.resizeTimer) clearTimeout(this.resizeTimer);
-      this.resizeTimer = setTimeout(() => {
-        this.buf = new Buffer(process.stdout.columns ?? 120, process.stdout.rows ?? 40);
-        this.refresh();
-      }, 50);
+      this.screen.resize();
+      this.paint();
     });
   }
 
-  start(): void {
-    this.running = true;
-    process.stdout.write(ansi.altScreen + ansi.hideCursor);
-    this.paint();
-  }
-
-  stop(): void {
-    this.running = false;
-    if (this.resizeTimer) clearTimeout(this.resizeTimer);
-    process.stdout.write(ansi.showCursor + ansi.normalScreen);
-  }
+  start(): void { this.screen.enter(); this.paint(); }
+  stop(): void { this.screen.exit(); }
 
   update(partial: Partial<AppState>): void {
     Object.assign(this.state, partial);
-    this.buf = new Buffer(process.stdout.columns ?? 120, process.stdout.rows ?? 40);
     this.paint();
   }
 
-  refresh(): void {
-    if (!this.running) return;
-    this.buf = new Buffer(process.stdout.columns ?? 120, process.stdout.rows ?? 40);
-    this.paint();
-  }
+  refresh(): void { this.paint(); }
 
   onSubmit(handler: (text: string) => void): void {
     this.submitHandler = handler;
@@ -62,33 +40,19 @@ export class QuantTui {
   }
 
   private paint(): void {
-    const C = this.buf.w;
-    const R = this.buf.h;
-    this.buf.clear();
-
-    // Background
-    for (let y = 0; y < R; y++) {
-      for (let x = 0; x < C; x++) {
-        this.buf.set(x, y, " ", S.canvas);
+    this.screen.buf.clear();
+    const bg: Style = { fg: CANVAS };
+    for (let y = 0; y < this.screen.buf.h; y++) {
+      for (let x = 0; x < this.screen.buf.w; x++) {
+        this.screen.buf.set(x, y, " ", bg);
       }
     }
-
-    const L = layout(C, R);
-
-    drawHeader(this.buf, this.state);
-    drawConversation(this.buf, L.conversation, this.state.messages);
-    if (L.showPanel) {
-      drawPortfolio(this.buf, L.portfolio, this.state.panel);
-    }
-    drawComposer(this.buf, L.composer, this.state.input);
-    drawStatus(this.buf, L.statusRow, C, this.state);
-
-    // Atomic flush
-    const rendered = this.buf.render();
-    const lines = rendered.split("\n");
-    process.stdout.write(ansi.syncOn);
-    process.stdout.write(ansi.cursorTo(0, 0) + lines.join("\r\n"));
-    process.stdout.write(ansi.syncOff);
-    this.prevLines = lines;
+    const L = layout(this.screen.cols, this.screen.rows);
+    drawHeader(this.screen.buf, this.state);
+    drawConversation(this.screen.buf, L.conversation, this.state.messages);
+    if (L.showPanel) drawPortfolio(this.screen.buf, L.portfolio, this.state.panel);
+    drawComposer(this.screen.buf, L.composer, this.state.input);
+    drawStatus(this.screen.buf, L.statusRow, this.screen.cols, this.state);
+    this.screen.flush();
   }
 }

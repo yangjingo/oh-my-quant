@@ -1,137 +1,262 @@
 /**
- * Cell-grid frame buffer for terminal rendering.
- * Pattern: deepseek-tui / ratatui Buffer.
+ * src/tui/buffer.ts — minimal zero-dependency TUI engine.
+ *
+ * A cell-grid frame buffer (like a tiny ratatui) with:
+ *   • full-screen alternate buffer + raw mode + synchronized output
+ *   • box widgets with the title embedded in the top border (CodeWhale style)
+ *   • CJK-aware width handling (中文 = 2 cells)
+ *   • one-shot full-frame flush (no flicker via DEC 2026 sync)
+ *
+ * The app draws into a Buffer each frame; regions never scroll independently
+ * of one another, so a docked panel (e.g. Portfolio) stays put forever.
  */
-import { strWidth, ansi } from "./utils.ts";
 
-export interface Cell {
-  char: string;
-  style: Style;
-}
+const ESC = "\x1b";
+
+export const ansi = {
+  altOn: `${ESC}[?1049h`,
+  altOff: `${ESC}[?1049l`,
+  hideCursor: `${ESC}[?25l`,
+  showCursor: `${ESC}[?25h`,
+  clear: `${ESC}[2J`,
+  home: `${ESC}[H`,
+  reset: `${ESC}[0m`,
+  syncOn: `${ESC}[?2026h`,
+  syncOff: `${ESC}[?2026l`,
+  moveTo: (r: number, c: number) => `${ESC}[${r};${c}H`,
+  fg: (hex: string) => {
+    const n = hex.replace("#", "");
+    const r = parseInt(n.slice(0, 2), 16);
+    const g = parseInt(n.slice(2, 4), 16);
+    const b = parseInt(n.slice(4, 6), 16);
+    return `${ESC}[38;2;${r};${g};${b}m`;
+  },
+};
 
 export interface Style {
-  fg?: string;      // hex color
+  fg?: string;
   bold?: boolean;
   dim?: boolean;
 }
-
-export class Buffer {
-  cells: Cell[][];
+export interface Rect {
+  x: number;
+  y: number;
   w: number;
   h: number;
+}
+
+export function charWidth(ch: string): number {
+  const c = ch.codePointAt(0)!;
+  if (c === 0) return 0;
+  if (c < 0x80) return 1;
+  return (c >= 0x1100 && c <= 0x115f) ||
+    (c >= 0x2e80 && c <= 0x303e) ||
+    (c >= 0x3041 && c <= 0x33ff) ||
+    (c >= 0x3400 && c <= 0x4dbf) ||
+    (c >= 0x4e00 && c <= 0x9fff) ||
+    (c >= 0xa000 && c <= 0xa4cf) ||
+    (c >= 0xac00 && c <= 0xd7a3) ||
+    (c >= 0xf900 && c <= 0xfaff) ||
+    (c >= 0xfe30 && c <= 0xfe4f) ||
+    (c >= 0xff00 && c <= 0xff60) ||
+    (c >= 0xffe0 && c <= 0xffe6)
+    ? 2
+    : 1;
+}
+
+export function strWidth(s: string): number {
+  let w = 0;
+  for (const ch of s) w += charWidth(ch);
+  return w;
+}
+
+/** Truncate a string to a max display width (CJK-aware), adding an ellipsis. */
+export function truncate(s: string, maxW: number, ell = "…"): string {
+  if (strWidth(s) <= maxW) return s;
+  let out = "";
+  let w = 0;
+  for (const ch of s) {
+    const cw = charWidth(ch);
+    if (w + cw + strWidth(ell) > maxW) break;
+    out += ch;
+    w += cw;
+  }
+  return out + ell;
+}
+
+interface Cell {
+  ch: string;
+  fg?: string;
+  bold?: boolean;
+  dim?: boolean;
+  cont?: boolean; // right half of a wide glyph — skipped on render
+}
+
+export class Buffer {
+  w: number;
+  h: number;
+  cells: Cell[] = [];
 
   constructor(w: number, h: number) {
-    this.w = w;
-    this.h = h;
-    this.cells = Array.from({ length: h }, () =>
-      Array.from({ length: w }, () => ({ char: " ", style: {} }))
-    );
+    this.w = Math.max(1, w);
+    this.h = Math.max(1, h);
+    this.clear();
   }
 
   clear(): void {
-    for (let y = 0; y < this.h; y++) {
-      for (let x = 0; x < this.w; x++) {
-        this.cells[y][x] = { char: " ", style: {} };
-      }
+    this.cells = Array.from({ length: this.w * this.h }, () => ({ ch: " " }));
+  }
+
+  private idx(x: number, y: number) {
+    return y * this.w + x;
+  }
+  private inb(x: number, y: number) {
+    return x >= 0 && x < this.w && y >= 0 && y < this.h;
+  }
+
+  set(x: number, y: number, ch: string, st: Style = {}): void {
+    if (!this.inb(x, y)) return;
+    this.cells[this.idx(x, y)] = { ch, fg: st.fg, bold: st.bold, dim: st.dim };
+    if (charWidth(ch) === 2 && this.inb(x + 1, y)) {
+      this.cells[this.idx(x + 1, y)] = { ch: "", cont: true };
     }
   }
 
-  set(x: number, y: number, char: string, style: Style = {}): void {
-    if (x < 0 || x >= this.w || y < 0 || y >= this.h) return;
-    this.cells[y][x] = { char, style };
-  }
-
-  text(x: number, y: number, text: string, style: Style = {}): void {
-    let col = x;
-    for (const ch of [...text]) {
-      if (col >= this.w) break;
-      if (ch === "\n") { y++; col = x; continue; }
-      this.set(col, y, ch, style);
-      col++;
+  /** Write a string; returns the x just past the last cell written. */
+  text(x: number, y: number, s: string, st: Style = {}, maxW = Infinity): number {
+    let cx = x;
+    let used = 0;
+    for (const ch of s) {
+      if (ch === "\n") break;
+      const cw = charWidth(ch);
+      if (used + cw > maxW) break;
+      this.set(cx, y, ch, st);
+      cx += cw;
+      used += cw;
     }
+    return cx;
   }
 
-  textRight(x: number, y: number, text: string, style: Style = {}): void {
-    const w = strWidth(text);
-    this.text(x - w + 1, y, text, style);
+  /** Right-align text so it ends at xRight (inclusive edge). */
+  textRight(xRight: number, y: number, s: string, st: Style = {}): number {
+    const x = xRight - strWidth(s);
+    return this.text(x, y, s, st);
   }
 
-  hline(x: number, y: number, len: number, char: string, style: Style = {}): void {
-    for (let i = 0; i < len; i++) this.set(x + i, y, char, style);
+  hline(x: number, y: number, len: number, ch = "─", st: Style = {}): void {
+    for (let i = 0; i < len; i++) this.set(x + i, y, ch, st);
+  }
+  vline(x: number, y: number, len: number, ch = "│", st: Style = {}): void {
+    for (let i = 0; i < len; i++) this.set(x, y + i, ch, st);
   }
 
-  vline(x: number, y: number, len: number, char: string, style: Style = {}): void {
-    for (let i = 0; i < len; i++) this.set(x, y + i, char, style);
-  }
-
-  box(r: { x: number; y: number; w: number; h: number }, o: {
-    title?: string; titleRight?: string;
-    border?: Style; titleStyle?: Style; titleRightStyle?: Style;
-  } = {}): { x: number; y: number; w: number; h: number } {
+  /** Box with rounded corners and optional title in top border.
+   *  Returns the inner content rect (1-col padding inside the border). */
+  box(
+    r: Rect,
+    opts: {
+      title?: string;
+      titleRight?: string;
+      border?: Style;
+      titleStyle?: Style;
+      titleRightStyle?: Style;
+    } = {},
+  ): Rect {
     const { x, y, w, h } = r;
-    const b = o.border ?? {};
-    const ts = o.titleStyle ?? b;
-    const trs = o.titleRightStyle ?? b;
-    this.set(x, y, "╭", b);            this.set(x + w - 1, y, "╮", b);
-    this.set(x, y + h - 1, "╰", b);    this.set(x + w - 1, y + h - 1, "╯", b);
+    const b = opts.border ?? {};
+    this.set(x, y, "╭", b);
+    this.set(x + w - 1, y, "╮", b);
+    this.set(x, y + h - 1, "╰", b);
+    this.set(x + w - 1, y + h - 1, "╯", b);
     this.hline(x + 1, y, w - 2, "─", b);
     this.hline(x + 1, y + h - 1, w - 2, "─", b);
     this.vline(x, y + 1, h - 2, "│", b);
     this.vline(x + w - 1, y + 1, h - 2, "│", b);
-    if (o.title) this.text(x + 2, y, ` ${o.title} `, ts);
-    if (o.titleRight) {
-      const t = ` ${o.titleRight} `;
-      this.text(x + w - 2 - strWidth(t), y, t, trs);
+    if (opts.title) {
+      this.text(x + 2, y, ` ${opts.title} `, opts.titleStyle ?? b);
+    }
+    if (opts.titleRight) {
+      const t = ` ${opts.titleRight} `;
+      this.text(x + w - 2 - strWidth(t), y, t, opts.titleRightStyle ?? b);
     }
     return { x: x + 2, y: y + 1, w: w - 4, h: h - 2 };
   }
 
-  /** Render to ANSI string with diff against previous frame for minimal output. */
-  render(prev?: string[]): string {
-    const lines: string[] = [];
-    let lastStyle = "";
-    for (let y = 0; y < this.h; y++) {
-      let line = "";
-      let currentStyle: Style = {};
-      for (let x = 0; x < this.w; x++) {
-        const cell = this.cells[y][x];
-        if (x === 0 || !styleEq(cell.style, currentStyle)) {
-          currentStyle = cell.style;
-          line += styleToAnsi(cell.style);
-        }
-        line += cell.char;
-      }
-      line += ansi.reset;
-      lines.push(line);
-    }
-    return lines.join("\n");
-  }
-
-  toPlain(): string {
+  /** Render the whole buffer to a single ANSI string. */
+  render(): string {
     let out = "";
     for (let y = 0; y < this.h; y++) {
-      for (let x = 0; x < this.w; x++) out += this.cells[y][x].char;
-      if (y < this.h - 1) out += "\n";
+      out += ansi.moveTo(y + 1, 1) + ansi.reset;
+      for (let x = 0; x < this.w; x++) {
+        const c = this.cells[this.idx(x, y)];
+        if (c.cont) continue;
+        let seg = "";
+        if (c.dim) seg += `${ESC}[2m`;
+        if (c.bold) seg += `${ESC}[1m`;
+        if (c.fg) seg += ansi.fg(c.fg);
+        seg += c.ch === "" ? " " : c.ch;
+        out += seg;
+      }
+      out += ansi.reset;
     }
     return out;
   }
+
+  /** For testing: plain text rows (no ANSI). */
+  toPlain(): string[] {
+    const rows: string[] = [];
+    for (let y = 0; y < this.h; y++) {
+      let line = "";
+      for (let x = 0; x < this.w; x++) {
+        const c = this.cells[this.idx(x, y)];
+        if (c.cont) continue;
+        line += c.ch === "" ? " " : c.ch;
+      }
+      rows.push(line);
+    }
+    return rows;
+  }
 }
 
-export function styleEq(a: Style, b: Style): boolean {
-  return a.fg === b.fg && a.bold === b.bold && a.dim === b.dim;
+/** Width-aware word wrap. */
+export function wrap(text: string, width: number): string[] {
+  const out: string[] = [];
+  for (const para of text.split("\n")) {
+    if (para === "") { out.push(""); continue; }
+    let line = "";
+    let lineW = 0;
+    for (const word of para.split(" ")) {
+      const ww = strWidth(word);
+      if (lineW === 0) {
+        line = word;
+        lineW = ww;
+      } else if (lineW + 1 + ww <= width) {
+        line += " " + word;
+        lineW += 1 + ww;
+      } else {
+        out.push(line);
+        line = word;
+        lineW = ww;
+      }
+    }
+    out.push(line);
+  }
+  return out;
 }
 
-export function styleToAnsi(s: Style): string {
-  let code = "";
-  if (s.dim) code += ansi.dim;
-  if (s.bold) code += ansi.bold;
-  if (s.fg) code += `\x1b[38;2;${hexToRgb(s.fg)}m`;
-  return code;
-}
+/** Terminal screen controller wrapping a Buffer. */
+export class Screen {
+  out: NodeJS.WriteStream;
+  buf: Buffer;
 
-function hexToRgb(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `${r};${g};${b}`;
+  constructor(out: NodeJS.WriteStream = process.stdout) {
+    this.out = out;
+    this.buf = new Buffer(this.cols, this.rows);
+  }
+  get cols() { return (this.out as any).columns ?? 80; }
+  get rows() { return (this.out as any).rows ?? 24; }
+  enter(): void { this.out.write(ansi.altOn + ansi.hideCursor + ansi.clear); this.resize(); }
+  exit(): void { this.out.write(ansi.reset + ansi.showCursor + ansi.altOff); }
+  resize(): void { this.buf = new Buffer(this.cols, this.rows); }
+  flush(): void { this.out.write(ansi.syncOn + this.buf.render() + ansi.syncOff); }
 }
