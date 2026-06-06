@@ -1,194 +1,138 @@
-import { access, readFile, readdir } from "node:fs/promises";
-import type { Dirent } from "node:fs";
+/**
+ * Sync portfolio data loader for the frame-buffer TUI dock panel.
+ */
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { emitFileEvent } from "../storage/fs-events.ts";
+import type { PanelSection, Holding, Quote } from "./types.ts";
 
-export interface CodeEntry {
-  code: string;
-  name: string;
+const DATA = join(process.cwd(), ".ohquant", "data");
+const SOURCES = ["tushare", "akshare", "llmquant-data"];
+
+export function loadPortfolioSnapshot(): PanelSection[] {
+  const sections: PanelSection[] = [];
+  const holdings = loadHoldings();
+  if (holdings.length > 0) sections.push({ kind: "holdings", title: "Holdings", rows: holdings });
+  const watch = loadWatchlistPrices();
+  if (watch.length > 0) sections.push({ kind: "quotes", title: "Watchlist", rows: watch });
+  const market = loadMarketIndices();
+  if (market.length > 0) sections.push({ kind: "quotes", title: "Market", rows: market });
+  return sections;
 }
 
-export interface WatchItem {
-  code: string;
-  name: string;
-  source?: string;
-  latest?: {
-    date: string;
-    close: number;
-    changePct: number;
-  };
-}
-
-export interface SidebarSnapshot {
-  watchItems: WatchItem[];
-  localSources: string[];
-}
-
-interface LocalSettings {
-  model?: string;
-  env?: Record<string, string>;
-}
-
-interface DataMeta {
-  symbol?: string;
-  name?: string;
-  source?: string;
-}
-
-interface Bar {
-  date: string;
-  close: number;
-}
-
-const OHQUANT_DIR = join(process.cwd(), ".ohquant");
-
-export async function loadLocalModel(): Promise<string> {
-  const settings = await readJsonFile<LocalSettings>(join(OHQUANT_DIR, "settings.json"));
-  return settings?.env?.["WHYJ_DEFAULT_SONNET_MODEL"]
-    ?? process.env["WHYJ_DEFAULT_SONNET_MODEL"]
-    ?? "deepseek-v4-pro";
-}
-
-export async function loadSidebarSnapshot(): Promise<SidebarSnapshot> {
-  const [watchlist, localData, localSources] = await Promise.all([
-    loadWatchlistEntries(),
-    getSymbolsWithLocalData(),
-    getLocalDataSources(),
-  ]);
-  const symbols = watchlist.length > 0
-    ? watchlist.map((symbol) => findSymbol(symbol.code, localData) || symbol)
-    : localData;
-  const watchItems = await Promise.all(symbols.map(loadWatchItem));
-
-  return { watchItems, localSources };
-}
-
-export async function loadWatchlistEntries(): Promise<CodeEntry[]> {
-  const data = await readJsonFile<{ funds?: CodeEntry[]; stocks?: CodeEntry[] }>(join(OHQUANT_DIR, "watchlist.json"));
-  if (data?.funds?.length) return data.funds.map((s) => ({ code: s.code, name: s.name }));
-  if (data?.stocks?.length) return data.stocks.map((s) => ({ code: s.code, name: s.name }));
-  return [];
-}
-
-async function loadWatchItem(symbol: CodeEntry): Promise<WatchItem> {
-  const loaded = await loadSymbolData(symbol.code);
-  const name = loaded.meta?.name || symbol.name || symbol.code;
-  return {
-    code: symbol.code,
-    name,
-    source: loaded.source,
-    latest: getLatestSnapshot(loaded.bars),
-  };
-}
-
-function findSymbol(code: string, group: CodeEntry[]): CodeEntry | null {
-  return group.find((item) => item.code === code) || null;
-}
-
-async function loadSymbolData(symbol: string): Promise<{ bars: Bar[]; meta: DataMeta | null; source?: string }> {
-  const sources = ["tushare", "akshare", "llmquant-data"];
-  for (const src of sources) {
-    const dir = join(OHQUANT_DIR, "data", src, symbol);
-    const dailyPath = join(dir, "daily.json");
-    if (!(await pathExists(dailyPath))) continue;
-    const [bars, meta] = await Promise.all([
-      readJsonFile<Bar[]>(dailyPath),
-      readJsonFile<DataMeta>(join(dir, "meta.json")),
-    ]);
-    return {
-      bars: bars ?? [],
-      meta,
-      source: meta?.source || src,
-    };
-  }
-  return { bars: [], meta: null };
-}
-
-async function getSymbolsWithLocalData(): Promise<CodeEntry[]> {
-  const dataRoot = join(OHQUANT_DIR, "data");
-  const sources = ["tushare", "akshare", "llmquant-data"];
-  const symbols: CodeEntry[] = [];
-  const seen = new Set<string>();
-
-  for (const source of sources) {
-    const sourceDir = join(dataRoot, source);
-    let entries: Dirent<string>[];
+function loadHoldings(): Holding[] {
+  const result: Holding[] = [];
+  for (const src of SOURCES) {
+    const dir = join(DATA, src);
+    if (!existsSync(dir)) continue;
     try {
-      entries = await readdir(sourceDir, { withFileTypes: true });
-      emitFileEvent({ operation: "READ", path: sourceDir, detail: "cache index" });
-    } catch {
-      continue;
-    }
-
-    for (const entry of entries) {
-      if (!entry.isDirectory() || seen.has(entry.name)) continue;
-      if (!(await pathExists(join(sourceDir, entry.name, "daily.json")))) continue;
-      const meta = await readJsonFile<DataMeta>(join(sourceDir, entry.name, "meta.json"));
-      symbols.push({
-        code: meta?.symbol || entry.name,
-        name: meta?.name || entry.name,
-      });
-      seen.add(entry.name);
-    }
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const bars = loadBars(join(dir, entry.name));
+        if (bars.length < 2) continue;
+        const meta = loadMeta(join(dir, entry.name));
+        const last = bars[bars.length - 1], prev = bars[bars.length - 2];
+        result.push({
+          code: entry.name,
+          name: meta?.name || entry.name,
+          price: last.close,
+          pct: prev.close ? (last.close - prev.close) / prev.close * 100 : 0,
+        });
+      }
+    } catch { /* skip */ }
   }
-
-  return symbols;
+  return result.slice(0, 20);
 }
 
-async function getLocalDataSources(): Promise<string[]> {
-  const dataRoot = join(OHQUANT_DIR, "data");
-  const sources = ["tushare", "akshare", "llmquant-data"];
-  const result: string[] = [];
-
-  for (const source of sources) {
-    const sourceDir = join(dataRoot, source);
-    let entries: Dirent<string>[];
-    try {
-      entries = await readdir(sourceDir, { withFileTypes: true });
-      emitFileEvent({ operation: "READ", path: sourceDir, detail: "cache index" });
-    } catch {
-      continue;
+function loadWatchlistPrices(): Quote[] {
+  const result: Quote[] = [];
+  try {
+    const wp = join(process.cwd(), ".ohquant", "watchlist.json");
+    if (!existsSync(wp)) return [];
+    const wl = JSON.parse(readFileSync(wp, "utf-8"));
+    for (const f of (wl.funds || []).slice(0, 5)) {
+      const bars = loadBarsForCode(f.code);
+      if (bars.length < 2) continue;
+      const last = bars[bars.length - 1], prev = bars[bars.length - 2];
+      result.push({ symbol: f.name || f.code, price: last.close, pct: (last.close - prev.close) / prev.close * 100 });
     }
-
-    let count = 0;
-    for (const entry of entries) {
-      if (entry.isDirectory() && await pathExists(join(sourceDir, entry.name, "daily.json"))) count += 1;
-    }
-    if (count > 0) result.push(`${source} ${count}`);
-  }
-
+  } catch { /* skip */ }
   return result;
 }
 
-function getLatestSnapshot(bars: Bar[]): WatchItem["latest"] | undefined {
-  if (bars.length < 1) return undefined;
-  const latest = bars[bars.length - 1];
-  const prev = bars.length > 1 ? bars[bars.length - 2] : null;
-  const changePct = prev && prev.close !== 0
-    ? ((latest.close - prev.close) / prev.close) * 100
-    : 0;
-  return {
-    date: latest.date,
-    close: latest.close,
-    changePct,
-  };
+function loadMarketIndices(): Quote[] {
+  const result: Quote[] = [];
+  for (const src of ["tushare", "akshare"]) {
+    const dir = join(DATA, src);
+    if (!existsSync(dir)) continue;
+    try {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const name = entry.name.toUpperCase();
+        if (name.includes("000300") || name.includes("399001") || name.includes("000001") || name.includes("HSI")) {
+          const bars = loadBars(join(dir, entry.name));
+          if (bars.length < 2) continue;
+          const last = bars[bars.length - 1], prev = bars[bars.length - 2];
+          const label = name.includes("000300") ? "沪深300" : name.includes("399001") ? "深证" : name.includes("HSI") ? "恒生" : name;
+          result.push({ symbol: label, price: last.close, pct: (last.close - prev.close) / prev.close * 100 });
+        }
+      }
+    } catch { /* skip */ }
+  }
+  return result;
 }
 
-async function readJsonFile<T>(path: string): Promise<T | null> {
-  try {
-    const text = await readFile(path, "utf-8");
-    emitFileEvent({ operation: "READ", path, bytes: text.length, detail: "local snapshot" });
-    return JSON.parse(text) as T;
-  } catch {
-    return null;
-  }
+function loadBars(dir: string): Array<{ date: string; close: number }> {
+  const dp = join(dir, "daily.json");
+  if (!existsSync(dp)) return [];
+  try { return JSON.parse(readFileSync(dp, "utf-8")); } catch { return []; }
 }
 
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
+function loadMeta(dir: string): { name?: string } | null {
+  const mp = join(dir, "meta.json");
+  if (!existsSync(mp)) return null;
+  try { return JSON.parse(readFileSync(mp, "utf-8")); } catch { return null; }
+}
+
+function loadBarsForCode(code: string): Array<{ date: string; close: number }> {
+  for (const src of SOURCES) {
+    const dir = join(DATA, src, code);
+    if (!existsSync(dir)) continue;
+    const bars = loadBars(dir);
+    if (bars.length > 0) return bars;
   }
+  return [];
+}
+
+// ── Backward-compat exports (used by Ink components) ──
+
+export interface CodeEntry { code: string; name: string }
+export interface WatchItem { code: string; name: string; source?: string; latest?: { date: string; close: number; changePct: number } }
+export interface SidebarSnapshot { watchItems: WatchItem[]; localSources: string[] }
+
+export async function loadLocalModel(): Promise<string> {
+  try {
+    const s = JSON.parse(existsSync(join(process.cwd(), ".ohquant", "settings.json"))
+      ? readFileSync(join(process.cwd(), ".ohquant", "settings.json"), "utf-8") : "{}");
+    return s?.env?.["WHYJ_DEFAULT_SONNET_MODEL"] ?? "deepseek-v4-pro";
+  } catch { return "deepseek-v4-pro"; }
+}
+
+export async function loadWatchlistEntries(): Promise<CodeEntry[]> {
+  try {
+    const wp = join(process.cwd(), ".ohquant", "watchlist.json");
+    if (!existsSync(wp)) return [];
+    const d = JSON.parse(readFileSync(wp, "utf-8"));
+    if (d?.funds?.length) return d.funds;
+    if (d?.stocks?.length) return d.stocks;
+    return [];
+  } catch { return []; }
+}
+
+export async function loadSidebarSnapshot(): Promise<SidebarSnapshot> {
+  const watchItems: WatchItem[] = [];
+  for (const h of loadHoldings()) {
+    watchItems.push({ code: h.code, name: h.name, latest: { date: "", close: h.price, changePct: h.pct } });
+  }
+  const localSources = SOURCES.filter((s) => existsSync(join(DATA, s)));
+  return { watchItems, localSources: localSources.map((s) => `${s} 0`) };
 }

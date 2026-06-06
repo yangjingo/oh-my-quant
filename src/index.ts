@@ -57,16 +57,9 @@ if (args.includes("--help") || args.includes("-h")) {
   const fixed = cmdArg.replace(/^[A-Z]:\/[^ ]+\/(\w+)/, "/$1");
   await runOneShot(fixed, json);
 } else {
-  // 3a. Print launch banner (visible before Ink alternate screen, reappears on exit)
-  const version = getPackageVersion();
-  printBanner({ version });
-
-  const { render } = await import("ink");
-  const React = await import("react");
-  const { App } = await import("./app.tsx");
-  const { unmount } = render(React.createElement(App));
-  process.on("SIGINT", () => { unmount(); process.exit(0); });
-  process.on("SIGTERM", () => { unmount(); process.exit(0); });
+  // Frame-buffer TUI
+  const { startApp } = await import("./app-tui.ts");
+  await startApp();
 }
 
 async function runOneShot(input: string, json: boolean) {
