@@ -12,7 +12,6 @@ import { ensureDirs, loadSettings } from "./storage/index.ts";
 import { connectAll, getServerStatus, type McpServerStatus } from "./data/mcp-client.ts";
 import { createAgent, injectContext, saveSession, updateSessionCtx } from "./agent/session.ts";
 import type { Agent } from "@earendil-works/pi-agent-core";
-import { subscribeFileEvents, type FileEvent } from "./storage/fs-events.ts";
 
 function extractText(m: { content: unknown[] }): string {
   return m.content
@@ -35,16 +34,11 @@ export function App() {
   const [mode, setMode] = useState<string>("loading");
   const [lastSymbol, setLastSymbol] = useState<string | null>(null);
   const [mcpStatuses, setMcpStatuses] = useState<McpServerStatus[]>([]);
-  const [fileEvents, setFileEvents] = useState<FileEvent[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
   const agentRef = useRef<Agent>(null!);
   const streamingIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const unsubscribeFiles = subscribeFileEvents((event) => {
-      setFileEvents((prev) => [event, ...prev].slice(0, 12));
-    });
-
     void (async () => {
       try {
         ensureDirs();
@@ -174,7 +168,6 @@ export function App() {
     })();
 
     return () => {
-      unsubscribeFiles();
       agentRef.current?.abort();
     };
   }, []);
@@ -281,7 +274,7 @@ export function App() {
           )}
         </Box>
 
-        {showSidebar ? <Sidebar mcpStatuses={mcpStatuses} fileEvents={fileEvents} /> : null}
+        {showSidebar ? <Sidebar mcpStatuses={mcpStatuses} /> : null}
       </Box>
 
       <StatusBar />

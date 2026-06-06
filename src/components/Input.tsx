@@ -1,8 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Box, Text } from "ink";
 import { useInput } from "ink";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { loadWatchlistEntries, type CodeEntry } from "../tui/local-snapshot.ts";
 import { GOLD } from "../tui/tokens.ts";
 
 interface InputProps {
@@ -38,7 +37,7 @@ const CMDS: CmdDef[] = [
       { label: "Remove fund", fill: "/watch remove " },
     ],
   },
-  { name: "/portfolio", desc: "Open portfolio config" },
+  { name: "/portfolio", desc: "Alias for config" },
   { name: "/config", desc: "Interactive settings" },
   { name: "/benchmark", desc: "Strategy scoring dashboard" },
   {
@@ -53,17 +52,6 @@ const CMDS: CmdDef[] = [
   { name: "/exit", desc: "Exit WhyJ Quant" },
 ];
 
-interface CodeEntry { code: string; name: string; }
-
-function getWatchlist(): CodeEntry[] {
-  try {
-    const path = join(process.cwd(), ".ohquant", "watchlist.json");
-    if (!existsSync(path)) return [];
-    const raw = JSON.parse(readFileSync(path, "utf-8"));
-    return raw.funds || [];
-  } catch { return []; }
-}
-
 interface Suggestion { label: string; fill: string; }
 
 export function Input({ onSubmit, disabled, width }: InputProps) {
@@ -71,8 +59,15 @@ export function Input({ onSubmit, disabled, width }: InputProps) {
   const [history, setHistory] = useState<string[]>([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
   const [cursor, setCursor] = useState(0);
+  const [watchlist, setWatchlist] = useState<CodeEntry[]>([]);
 
-  const watchlist = useMemo(() => getWatchlist(), []);
+  useEffect(() => {
+    let active = true;
+    void loadWatchlistEntries().then((entries) => {
+      if (active) setWatchlist(entries);
+    });
+    return () => { active = false; };
+  }, []);
 
   const suggestions: Suggestion[] = useMemo(() => {
     if (!value || value.startsWith(" ")) return [];

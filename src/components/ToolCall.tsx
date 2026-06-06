@@ -46,10 +46,11 @@ export function ToolCallInline({ name, args, status, result, error, partial }: T
     prevStatus.current = status;
   }, [status]);
 
-  const label = name.replace(/_/g, " ");
+  const label = formatToolLabel(name);
   const isRunning = status === "running";
 
   const preview = (() => {
+    if (args.path || args.file || args.filename) return String(args.path || args.file || args.filename);
     if (args.symbol || args.code) return String(args.symbol || args.code);
     if (args.factor) return `${args.factor}${args.period ? `, p=${args.period}` : ""}`;
     if (args.fast && args.slow) return `SMA(${args.fast},${args.slow})`;
@@ -87,4 +88,17 @@ export function ToolCallInline({ name, args, status, result, error, partial }: T
       )}
     </Box>
   );
+}
+
+function formatToolLabel(name: string): string {
+  const normalized = name.toLowerCase().replace(/-/g, "_");
+  if (normalized === "read" || normalized === "read_file" || normalized === "file_read") return "READ";
+  if (
+    normalized === "write"
+    || normalized === "write_file"
+    || normalized === "file_write"
+    || normalized === "edit"
+    || normalized === "apply_patch"
+  ) return "WRITE";
+  return name.replace(/_/g, " ");
 }

@@ -6,7 +6,6 @@ export interface UserPreferences {
   defaultCash: number;
   defaultFast: number;
   defaultSlow: number;
-  portfolioVariant: string;
 }
 
 export interface McpConfig {
@@ -48,7 +47,6 @@ export const DEFAULT_SETTINGS: OhQuantSettings = {
     defaultCash: 100_000,
     defaultFast: 20,
     defaultSlow: 60,
-    portfolioVariant: "v1",
   },
   mcp: {
     enabled: true,
