@@ -1,5 +1,7 @@
 # WhyJ Quant CLI — Design Document (v2, implemented)
 
+> last-updated: 2026-06-06
+
 ## 1. Overview
 
 `whyj` is an interactive quantitative analysis terminal built with **Bun + TypeScript + Ink (React) + pi Agent**.

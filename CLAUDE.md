@@ -48,12 +48,29 @@ oh-my-quant/
 - `DESIGN.md` 是项目唯一的 UI 设计系统来源
 - `docs/notes.md` 是投资原则和知识体系的唯一真源
 - `docs/reference.md` 是量化资源索引
-- `.ohquant/` 下所有数据为本地存储，不提交 git
+- `.ohquant/` 下所有数据为本地存储，不提交 git；存储策略见 `docs/ohquant-storage-policy.md`
+- `.ohquant/data/` 与 `.ohquant/cache/` 只缓存可重取的市场公开数据或派生结果
+- portfolio 信息（持仓、净值、仓位、个人组合）是 live-only 私有状态，不允许缓存、推断或读取 `.ohquant/portfolio/`
 - `.env` 中存放 API keys，不提交 git
 - CLI 只暴露已实现并能运行的命令
 - 未实现的功能列在 `ROADMAP.md`
 - Push 前先做代码审查
 - import 用 `.ts` 扩展名 (verbatimModuleSyntax)
+- 文件命名: 源码用 kebab-case (`mcp-client.ts`)，React 组件用 PascalCase (`Sidebar.tsx`)，测试用 `*.test.ts`，文档用 kebab-case `.md`
+
+### 实现时先读参考设计
+
+**任何 CLI / UI / 核心逻辑的实现，必须先查阅对应的设计文档，直接复用其中的架构、组件树、数据流和接口定义，不要凭空造。**
+
+| 实现领域 | 必须先读的参考文档 |
+|---------|-------------------|
+| CLI 架构、组件树、命令格式、MCP 集成、Session 上下文 | `docs/interactive-cli-design.md` |
+| AI Agent 架构、Tool 系统、System Prompt、数据存储、Session 管理 | `docs/agent-system-spec.md` |
+| Slash 命令定义、参数格式、数据流、目录结构 | `docs/cli-manual.md` |
+| 颜色、字体、间距、组件样式、品牌规则 | `DESIGN.md` |
+| MCP server 能力、数据源 API、Python 库速记 | `docs/reference.md` |
+
+**Why:** 这些文档包含了完整的架构决策、组件树、事件流、数据格式和接口签名。绕过它们直接写代码会导致与设计不一致的 API 签名、错误的组件结构、不匹配的颜色方案，以及遗漏关键的架构约束（如双队列系统、缓存优先数据源、事件驱动 UI 更新）。
 
 ## 技术栈
 
@@ -130,3 +147,19 @@ oh-my-quant/
 ---
 
 **这些准则在起作用的表现是:** diff 中不必要的改动减少、不会因过度设计而重写、澄清问题在实现之前提出，而非在犯错之后。
+
+## gstack review
+
+本项目只使用 gstack 的 review 类 skills：
+
+- `/review`
+- `/design-review`
+- `/devex-review`
+- `/plan-ceo-review`
+- `/plan-design-review`
+- `/plan-devex-review`
+- `/plan-eng-review`
+
+当用户需求不明确、存在多种解释、实现范围可能漂移，或计划/设计/代码之间不一致时，先运行对应的 review skill 来明确需求，不要直接实现。
+
+需求仍不清楚时，要进行多轮 review：先用 plan review 明确目标、范围和成功标准，再根据任务类型使用 design/devex/code review 复核，直到需求、约束、验收标准和下一步动作都清楚。review 后仍有关键歧义时，停下来向用户提问。

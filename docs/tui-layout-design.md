@@ -1,5 +1,7 @@
 # WhyJ Quant — TUI Layout Design
 
+> last-updated: 2026-06-06
+
 ## 1. Design Tokens (src/tui/tokens.ts)
 
 Single source of truth for all visual constants. All values follow `DESIGN.md`.

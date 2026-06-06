@@ -1,5 +1,7 @@
 # WhyJ Quant CLI — Command Manual (v2)
 
+> last-updated: 2026-06-06
+
 ## Quick Start
 
 ```bash

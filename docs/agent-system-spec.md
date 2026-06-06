@@ -1,5 +1,7 @@
 # WhyJ Quant — AI Agent System Spec (v2, implemented)
 
+> last-updated: 2026-06-06
+
 ## 1. Overview
 
 The agent system wraps pi's `@earendil-works/pi-agent-core` Agent class with quant-specific tools, session management, context compaction, and prompt assembly.
