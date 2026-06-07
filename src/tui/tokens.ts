@@ -21,11 +21,14 @@ export const CODE_DIM = "#6E6A60";
 
 // ── Layout (r2 docked) ──
 export const SIDEBAR_WIDTH = 34;           // kept for Ink compatibility
-export const HEADER_H = 2;                 // header row + hairline
-export const COMPOSER_H = 3;               // composer box height
-export const STATUS_H = 1;                 // status bar
+export const HEADER_H = 3;                 // logo + tagline + divider
+export const COMPOSER_H = 8;               // border + input + vertical suggestions + border
+export const STATUS_H = 2;                 // divider + status bar row
 export const MAIN_WIDTH = 50;              // nominal
 export const DIVIDER_CHAR = "─";
 export const SECTION_ACCENT = "▎ ";
 export const BOX_CHARS = { tl: "╭", tr: "╮", bl: "╰", br: "╯", v: "│", h: "─" } as const;
 export const GUTTER = "▏";
+
+/** Loading overlay glyph scale (2 = 2×2 cells per ASCII char, i.e. 2× font-size). */
+export const LOADING_FONT_SCALE = 2;

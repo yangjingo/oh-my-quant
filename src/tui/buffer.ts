@@ -70,6 +70,21 @@ export function strWidth(s: string): number {
   return w;
 }
 
+/** Display width when each glyph is drawn at N× (N×N cells for ASCII). */
+export function scaleVisualWidth(s: string, scale: number): number {
+  let w = 0;
+  for (const ch of s) {
+    const cw = charWidth(ch);
+    w += cw === 1 ? scale : cw;
+  }
+  return w;
+}
+
+/** @deprecated use scaleVisualWidth(s, 2) */
+export function scale2VisualWidth(s: string): number {
+  return scaleVisualWidth(s, 2);
+}
+
 /** Truncate a string to a max display width (CJK-aware), adding an ellipsis. */
 export function truncate(s: string, maxW: number, ell = "…"): string {
   if (strWidth(s) <= maxW) return s;
@@ -120,6 +135,44 @@ export class Buffer {
     if (charWidth(ch) === 2 && this.inb(x + 1, y)) {
       this.cells[this.idx(x + 1, y)] = { ch: "", cont: true };
     }
+  }
+
+  /** Draw one glyph at N× size (N×N cells for ASCII, N rows for CJK). */
+  setScale(x: number, y: number, ch: string, scale: number, st: Style = {}): void {
+    const cw = charWidth(ch);
+    if (cw === 1) {
+      for (let dy = 0; dy < scale; dy++) {
+        for (let dx = 0; dx < scale; dx++) this.set(x + dx, y + dy, ch, st);
+      }
+    } else {
+      for (let dy = 0; dy < scale; dy++) this.set(x, y + dy, ch, st);
+    }
+  }
+
+  /** Write a string at N× font-size; returns x past the last cell column used. */
+  textScale(x: number, y: number, s: string, scale: number, st: Style = {}, maxVisualW = Infinity): number {
+    let cx = x;
+    let used = 0;
+    for (const ch of s) {
+      if (ch === "\n") break;
+      const cw = charWidth(ch);
+      const visualW = cw === 1 ? scale : cw;
+      if (used + visualW > maxVisualW) break;
+      this.setScale(cx, y, ch, scale, st);
+      cx += visualW;
+      used += visualW;
+    }
+    return cx;
+  }
+
+  /** @deprecated use textScale(..., 2, ...) */
+  setScale2(x: number, y: number, ch: string, st: Style = {}): void {
+    this.setScale(x, y, ch, 2, st);
+  }
+
+  /** @deprecated use textScale(..., 2, ...) */
+  textScale2(x: number, y: number, s: string, st: Style = {}, maxVisualW = Infinity): number {
+    return this.textScale(x, y, s, 2, st, maxVisualW);
   }
 
   /** Write a string; returns the x just past the last cell written. */

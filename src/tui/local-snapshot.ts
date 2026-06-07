@@ -1,7 +1,7 @@
 /**
  * Sync portfolio data loader for the frame-buffer TUI dock panel.
  */
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { PanelSection, Holding, Quote } from "./types.ts";
 
@@ -10,14 +10,14 @@ const SOURCES = ["tushare", "akshare", "llmquant-data"];
 
 export function loadPortfolioSnapshot(): PanelSection[] {
   const sections: PanelSection[] = [];
-  const stocks = loadHoldings();
-  if (stocks.length > 0) sections.push({ kind: "holdings", title: "Positions", rows: stocks });
-  const funds = loadFundHoldings();
-  if (funds.length > 0) sections.push({ kind: "quotes", title: "Funds", rows: funds });
   const watch = loadWatchlistPrices();
   if (watch.length > 0) sections.push({ kind: "quotes", title: "Watchlist", rows: watch });
+  const stocks = loadHoldings();
+  if (stocks.length > 0) sections.push({ kind: "holdings", title: "Local Cache", rows: stocks });
   const market = loadMarketIndices();
   if (market.length > 0) sections.push({ kind: "quotes", title: "Market", rows: market });
+  const sources = loadSourceTimestamps();
+  if (sources.length > 0) sections.push({ kind: "keyvalue", title: "Sources", rows: sources });
   return sections;
 }
 
@@ -49,37 +49,7 @@ function loadHoldings(): Holding[] {
       }
     } catch { /* skip */ }
   }
-  return result.slice(0, 20);
-}
-
-// Fund holdings from .ohquant/portfolio/
-function loadFundHoldings(): Quote[] {
-  const result: Quote[] = [];
-  try {
-    const portfolioDir = join(process.cwd(), ".ohquant", "portfolio");
-    if (!existsSync(portfolioDir)) return [];
-    // Read config to get active variant
-    const configPath = join(portfolioDir, "config.json");
-    let variant = "v1";
-    if (existsSync(configPath)) {
-      const cfg = JSON.parse(readFileSync(configPath, "utf-8"));
-      variant = cfg.active || "v1";
-    }
-    // Try holdings JSON
-    const holdingsPath = join(portfolioDir, `holdings_${variant}.json`);
-    if (existsSync(holdingsPath)) {
-      const data = JSON.parse(readFileSync(holdingsPath, "utf-8"));
-      for (const f of (data.funds || []).slice(0, 15)) {
-        const code = f.code || "";
-        const name = f.name || code;
-        const bars = loadBarsForCode(code);
-        if (bars.length < 2) continue;
-        const last = bars[bars.length - 1], prev = bars[bars.length - 2];
-        result.push({ symbol: name.length > 18 ? name.slice(0, 17) + "…" : name, price: last.close, pct: (last.close - prev.close) / prev.close * 100 });
-      }
-    }
-  } catch { /* skip */ }
-  return result;
+  return result.slice(0, 10);
 }
 
 function loadWatchlistPrices(): Quote[] {
@@ -146,6 +116,40 @@ function loadBarsForCode(code: string): Array<{ date: string; close: number }> {
     if (bars.length > 0) return bars;
   }
   return [];
+}
+
+function loadSourceTimestamps(): { label: string; value: string }[] {
+  const result: { label: string; value: string }[] = [];
+  for (const src of SOURCES) {
+    const dir = join(DATA, src);
+    if (!existsSync(dir)) continue;
+    const ts = latestMtime(dir);
+    result.push({ label: src, value: ts ? fmtSince(ts) : "empty" });
+  }
+  return result;
+}
+
+function latestMtime(dir: string): number | null {
+  let latest = 0;
+  try {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        const t = latestMtime(p);
+        if (t && t > latest) latest = t;
+      } else {
+        const s = statSync(p);
+        if (s.mtimeMs > latest) latest = s.mtimeMs;
+      }
+    }
+  } catch { /* skip */ }
+  return latest || null;
+}
+
+function fmtSince(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 // ── Backward-compat exports (used by Ink components) ──

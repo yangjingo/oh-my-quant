@@ -26,8 +26,8 @@ export const S = {
 };
 
 export function pctStyle(pct: number): Style {
-  if (pct > 0.001) return S.positive;
-  if (pct < -0.001) return S.negative;
+  if (pct > 0.001) return { fg: NEGATIVE };
+  if (pct < -0.001) return { fg: POSITIVE };
   return S.muted;
 }
 

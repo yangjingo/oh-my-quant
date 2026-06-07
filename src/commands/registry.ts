@@ -4,6 +4,12 @@
  */
 import type { CommandResult } from "../types/messages.ts";
 
+export const SLASH_COMMANDS = [
+  "/data", "/factor", "/backtest", "/risk", "/benchmark",
+  "/add", "/config", "/mcp", "/help", "/clear", "/exit",
+  "/skill", "/claw", "/watch", "/portfolio",
+];
+
 export interface ParsedCommand {
   command: string; raw: string;
   flags: Record<string, string | number | boolean>;
