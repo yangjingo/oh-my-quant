@@ -58,7 +58,7 @@ if (args.includes("--help") || args.includes("-h")) {
   await runOneShot(fixed, json);
 } else {
   // Frame-buffer TUI
-  const { startApp } = await import("./app-tui.ts");
+  const { startApp } = await import("./app.ts");
   await startApp();
 }
 
