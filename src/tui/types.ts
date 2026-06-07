@@ -32,20 +32,28 @@ export type PanelSection =
   | { kind: "quotes"; title: string; rows: Quote[] }
   | { kind: "keyvalue"; title: string; rows: { label: string; value: string }[] };
 
+export interface ComposerStatus {
+  kind: "info" | "error";
+  text: string;
+}
+
 export interface AppState {
   model: string;
+  modelLabel: string;
   version: string;
   user: string;
-  activity: string;
+  activity: "starting" | "thinking" | "running tool" | "ready";
   cost: number;
   cacheHit: number;
   messages: UIMessage[];
   panel: PanelSection[];
   panelLoading: boolean;
   input: string;
+  composerStatus: ComposerStatus | null;
 }
 
 export interface Layout {
+  mainPane: { x: number; y: number; w: number; h: number };
   conversation: { x: number; y: number; w: number; h: number };
   portfolio: { x: number; y: number; w: number; h: number };
   composer: { x: number; y: number; w: number; h: number };
