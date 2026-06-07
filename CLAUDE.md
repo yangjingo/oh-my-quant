@@ -77,7 +77,7 @@ oh-my-quant/
 | 层 | 选型 |
 |---|------|
 | Runtime | Bun + TypeScript (strict) |
-| TUI | Ink 5 + React 18 |
+| TUI | Ink 5 + React 18 (详见 docs/tui-layout-design.md) |
 | AI Agent | @anthropic-ai/sdk + pi agent core (vendor) |
 | 数据 | MCP (@modelcontextprotocol/sdk) + 本地文件 |
 | Schema | TypeBox (agent tools) + Zod |
