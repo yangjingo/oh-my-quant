@@ -1,0 +1,135 @@
+import type { Layout } from "./types.ts";
+import type { CodeEntry } from "./watchlist.ts";
+import { COMMAND_CATALOG } from "../../cli/catalog.ts";
+
+export type ScrollRegion = "composer" | "conversation" | "overview";
+
+export interface ComposerSuggestion {
+  label: string;
+  fill: string;
+}
+
+export interface MouseEvent {
+  col: number;
+  row: number;
+  kind: "press" | "release" | "motion";
+  button: number;
+  wheel: -1 | 0 | 1;
+  dragging: boolean;
+}
+
+export type InputAction =
+  | { type: "mouse"; events: MouseEvent[] }
+  | { type: "key"; name: string; shift: boolean; ctrl: boolean; meta: boolean; char?: string }
+  | { type: "discard" };
+
+export function hitTestScrollRegion(col: number, row: number, L: Layout): ScrollRegion {
+  const inRect = (r: { x: number; y: number; w: number; h: number }) =>
+    col >= r.x && col < r.x + r.w && row >= r.y && row < r.y + r.h;
+  if (L.showPanel && inRect(L.portfolio)) return "overview";
+  if (inRect(L.mainPane)) return "conversation";
+  return "composer";
+}
+
+function decodeMouse(btn: number): Pick<MouseEvent, "button" | "wheel" | "dragging" | "kind"> {
+  if (btn === 64 || btn === 65) return { button: 0, wheel: btn === 64 ? -1 : 1, dragging: false, kind: "motion" };
+  if (btn >= 33 && btn <= 35) return { button: btn - 33, wheel: 0, dragging: true, kind: "motion" };
+  if (btn === 32) return { button: 0, wheel: 0, dragging: false, kind: "motion" };
+  return { button: btn, wheel: 0, dragging: false, kind: "press" };
+}
+
+function readMouse(buf: string): { events: MouseEvent[]; rest: string } | null {
+  const events: MouseEvent[] = [];
+  let rest = buf;
+  while (rest.length > 0) {
+    const m = /^(?:\x1b\[<)?(\d+);(\d+);(\d+)([Mm])/.exec(rest);
+    if (!m) break;
+    const decoded = decodeMouse(Number(m[1]));
+    events.push({
+      ...decoded,
+      col: Number(m[2]) - 1,
+      row: Number(m[3]) - 1,
+      kind: decoded.kind === "motion" ? "motion" : m[4] === "M" ? "press" : "release",
+    });
+    rest = rest.slice(m[0].length);
+  }
+  return events.length > 0 ? { events, rest } : null;
+}
+
+function readCsi(buf: string): { len: number; name: string; shift: boolean; ctrl: boolean } | null {
+  const m = /^\x1b\[(\d*(?:;\d+)*)?([A-Za-z~])/.exec(buf);
+  if (!m) return null;
+  const nums = m[1]?.split(";").filter(Boolean).map(Number) ?? [];
+  const modifier = nums.length > 1 ? nums[nums.length - 1] : 1;
+  const shift = [2, 4, 6, 8].includes(modifier);
+  const ctrl = [5, 6, 7, 8].includes(modifier);
+  const map: Record<string, string> = { A: "up", B: "down", C: "right", D: "left", H: "home", F: "end", Z: "tab" };
+  const name = m[2] === "~" ? ({ 5: "pageup", 6: "pagedown" } as Record<number, string>)[nums[0]] ?? `${nums[0]}~` : map[m[2]] ?? m[2];
+  return { len: m[0].length, name, shift: m[2] === "Z" || shift, ctrl };
+}
+
+function waitForMore(buf: string): boolean {
+  return buf.startsWith("\x1b[") && buf.length < 16 && /^\x1b\[<?[\d;]*$/.test(buf);
+}
+
+export function nextInputAction(buf: string): { action: InputAction | null; rest: string } {
+  if (!buf) return { action: null, rest: "" };
+
+  const mouse = readMouse(buf);
+  if (mouse) return { action: { type: "mouse", events: mouse.events }, rest: mouse.rest };
+  if (/^\d+;\d+;\d+[Mm]?/.test(buf)) {
+    const leak = /^\d+;\d+;\d+[Mm]?/.exec(buf)![0];
+    return { action: { type: "discard" }, rest: buf.slice(leak.length) };
+  }
+  if (waitForMore(buf)) return { action: null, rest: buf };
+
+  if (buf[0] === "\x1b") {
+    if (buf.length === 1) return { action: key("escape"), rest: "" };
+    const csi = readCsi(buf);
+    if (csi) return { action: key(csi.name, { shift: csi.shift, ctrl: csi.ctrl }), rest: buf.slice(csi.len) };
+    return { action: { type: "discard" }, rest: buf.slice(1) };
+  }
+
+  const single: Record<string, string> = { "\r": "return", "\n": "return", "\x7f": "backspace", "\b": "backspace", "\t": "tab" };
+  const control: Record<string, string> = { "\x03": "c", "\x04": "d", "\x10": "p" };
+  const ch = Array.from(buf)[0];
+  if (single[ch]) return { action: key(single[ch]), rest: buf.slice(ch.length) };
+  if (control[ch]) return { action: key(control[ch], { ctrl: true }), rest: buf.slice(ch.length) };
+  if (ch >= " " && ch !== "\x7f") return { action: key("", { char: ch }), rest: buf.slice(ch.length) };
+  return { action: { type: "discard" }, rest: buf.slice(ch.length) };
+}
+
+function key(name: string, opts: Partial<Omit<Extract<InputAction, { type: "key" }>, "type" | "name">> = {}): InputAction {
+  return { type: "key", name, shift: false, ctrl: false, meta: false, ...opts };
+}
+
+export function buildSuggestions(value: string, watchlist: CodeEntry[]): ComposerSuggestion[] {
+  if (!value || value.startsWith(" ")) return [];
+
+  const codeMatch = value.match(/^(.+--(code|symbol)\s+)(\S*)$/i);
+  if (codeMatch) {
+    const prefix = codeMatch[1], partial = codeMatch[3].toLowerCase();
+    return partial ? watchlist
+      .filter((c) => c.code.toLowerCase().includes(partial) || c.name.toLowerCase().includes(partial))
+      .slice(0, 8)
+      .map((c) => ({ label: `${c.code.split(".")[0]}  ${c.name}`, fill: prefix + c.code })) : [];
+  }
+
+  const nameMatch = value.match(/^(.+--name\s+)(\S*)$/i);
+  if (nameMatch) {
+    const prefix = nameMatch[1], partial = nameMatch[2].toLowerCase();
+    return partial ? watchlist
+      .filter((c) => c.name.toLowerCase().includes(partial))
+      .slice(0, 8)
+      .map((c) => ({ label: c.name, fill: prefix + c.name })) : [];
+  }
+
+  if (!value.startsWith("/")) return [];
+  const exact = COMMAND_CATALOG.find((c) => c.name === value);
+  if (exact) return exact.actions ? [...exact.actions] : [];
+  const lower = value.toLowerCase();
+  return COMMAND_CATALOG
+    .filter((c) => c.name.toLowerCase().startsWith(lower))
+    .slice(0, 8)
+    .map((c) => ({ label: `${c.name}  ${c.desc}`, fill: c.name }));
+}

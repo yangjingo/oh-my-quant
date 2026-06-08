@@ -7,7 +7,7 @@
  */
 import { migrateOldConfig, loadSettings } from "./storage/index.ts";
 import { parseCommand, executeCommand } from "./commands/registry.ts";
-import { printBanner } from "./tui/banner.ts";
+import { printBanner } from "./tui/src/banner.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

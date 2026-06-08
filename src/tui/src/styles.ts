@@ -2,12 +2,27 @@
 import type { Style } from "./buffer.ts";
 
 export const GOLD = "#D4AF37";
+export const GOLD_HIGHLIGHT = "#E2BE4D";
 export const CREAM = "#F5F5F5";
 export const MUTED = "#A6A6A6";
 export const HAIRLINE = "#242424";
 export const POSITIVE = "#6FB06A";
 export const NEGATIVE = "#CF5B4A";
 export const CODE_DIM = "#6E6A60";
+export const CANVAS = "#0B0B0C";
+
+// ── Layout ──
+/** `compact` (default) uses tighter rows; set WHYJ_UI_DENSITY=comfortable to restore spacious layout. */
+export type UiDensity = "compact" | "comfortable";
+export const UI_DENSITY: UiDensity =
+  process.env.WHYJ_UI_DENSITY === "comfortable" ? "comfortable" : "compact";
+
+export const HEADER_H = UI_DENSITY === "compact" ? 2 : 3;
+export const COMPOSER_H = UI_DENSITY === "compact" ? 6 : 8;
+export const STATUS_H = 2;
+export const OVERVIEW_ROW_H = UI_DENSITY === "compact" ? 1 : 2;
+export const OVERVIEW_SECTION_H = UI_DENSITY === "compact" ? 2 : 3;
+export const DIVIDER_CHAR = "─";
 
 export const S = {
   gold:     { fg: GOLD } as Style,
@@ -22,7 +37,8 @@ export const S = {
   positive: { fg: POSITIVE } as Style,
   negative: { fg: NEGATIVE } as Style,
   code:     { fg: CODE_DIM } as Style,
-  canvas:   { fg: "#0B0B0C" } as Style,
+  thinking: { fg: CODE_DIM, dim: true } as Style,
+  canvas:   { fg: CANVAS } as Style,
 };
 
 export function pctStyle(pct: number): Style {

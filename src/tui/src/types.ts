@@ -8,7 +8,8 @@ export interface Holding {
 }
 
 export interface Quote {
-  symbol: string;
+  code: string;
+  name: string;
   price: number;
   pct: number;
 }
@@ -24,6 +25,8 @@ export interface ToolState {
 export interface UIMessage {
   role: "user" | "assistant" | "thinking" | "tool" | "error";
   text?: string;
+  /** When true, thinking text is still streaming (show cursor dots). */
+  thinkingLive?: boolean;
   tool?: ToolState;
 }
 

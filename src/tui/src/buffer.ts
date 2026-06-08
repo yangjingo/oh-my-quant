@@ -23,6 +23,9 @@ export const ansi = {
   reset: `${ESC}[0m`,
   syncOn: `${ESC}[?2026h`,
   syncOff: `${ESC}[?2026l`,
+  /** Click, drag, wheel reporting (SGR coords). No 1003 — hover floods stdin during loading. */
+  mouseOn: `${ESC}[?1000h${ESC}[?1002h${ESC}[?1006h`,
+  mouseOff: `${ESC}[?1006l${ESC}[?1002l${ESC}[?1000l`,
   moveTo: (r: number, c: number) => `${ESC}[${r};${c}H`,
   fg: (hex: string) => {
     const n = hex.replace("#", "");
@@ -70,21 +73,6 @@ export function strWidth(s: string): number {
   return w;
 }
 
-/** Display width when each glyph is drawn at N× (N×N cells for ASCII). */
-export function scaleVisualWidth(s: string, scale: number): number {
-  let w = 0;
-  for (const ch of s) {
-    const cw = charWidth(ch);
-    w += cw === 1 ? scale : cw;
-  }
-  return w;
-}
-
-/** @deprecated use scaleVisualWidth(s, 2) */
-export function scale2VisualWidth(s: string): number {
-  return scaleVisualWidth(s, 2);
-}
-
 /** Truncate a string to a max display width (CJK-aware), adding an ellipsis. */
 export function truncate(s: string, maxW: number, ell = "…"): string {
   if (strWidth(s) <= maxW) return s;
@@ -129,60 +117,26 @@ export class Buffer {
     return x >= 0 && x < this.w && y >= 0 && y < this.h;
   }
 
-  set(x: number, y: number, ch: string, st: Style = {}): void {
+  set(x: number, y: number, ch: string, st: Style = {}, xMax = this.w): void {
     if (!this.inb(x, y)) return;
+    const cw = charWidth(ch);
+    if (x + cw > xMax) return;
     this.cells[this.idx(x, y)] = { ch, fg: st.fg, bold: st.bold, dim: st.dim };
-    if (charWidth(ch) === 2 && this.inb(x + 1, y)) {
+    if (cw === 2 && this.inb(x + 1, y) && x + 2 <= xMax) {
       this.cells[this.idx(x + 1, y)] = { ch: "", cont: true };
     }
   }
 
-  /** Draw one glyph at N× size (N×N cells for ASCII, N rows for CJK). */
-  setScale(x: number, y: number, ch: string, scale: number, st: Style = {}): void {
-    const cw = charWidth(ch);
-    if (cw === 1) {
-      for (let dy = 0; dy < scale; dy++) {
-        for (let dx = 0; dx < scale; dx++) this.set(x + dx, y + dy, ch, st);
-      }
-    } else {
-      for (let dy = 0; dy < scale; dy++) this.set(x, y + dy, ch, st);
-    }
-  }
-
-  /** Write a string at N× font-size; returns x past the last cell column used. */
-  textScale(x: number, y: number, s: string, scale: number, st: Style = {}, maxVisualW = Infinity): number {
-    let cx = x;
-    let used = 0;
-    for (const ch of s) {
-      if (ch === "\n") break;
-      const cw = charWidth(ch);
-      const visualW = cw === 1 ? scale : cw;
-      if (used + visualW > maxVisualW) break;
-      this.setScale(cx, y, ch, scale, st);
-      cx += visualW;
-      used += visualW;
-    }
-    return cx;
-  }
-
-  /** @deprecated use textScale(..., 2, ...) */
-  setScale2(x: number, y: number, ch: string, st: Style = {}): void {
-    this.setScale(x, y, ch, 2, st);
-  }
-
-  /** @deprecated use textScale(..., 2, ...) */
-  textScale2(x: number, y: number, s: string, st: Style = {}, maxVisualW = Infinity): number {
-    return this.textScale(x, y, s, 2, st, maxVisualW);
-  }
-
   /** Write a string; returns the x just past the last cell written. */
-  text(x: number, y: number, s: string, st: Style = {}, maxW = Infinity): number {
+  text(x: number, y: number, s: string, st: Style = {}, maxW = Infinity, xEnd = this.w): number {
     let cx = x;
     let used = 0;
     for (const ch of s) {
       if (ch === "\n") break;
       const cw = charWidth(ch);
       if (used + cw > maxW) break;
+      if (cx >= xEnd) break;
+      if (cx + cw > xEnd) break;
       this.set(cx, y, ch, st);
       cx += cw;
       used += cw;
@@ -190,17 +144,33 @@ export class Buffer {
     return cx;
   }
 
-  /** Right-align text so it ends at xRight (inclusive edge). */
-  textRight(xRight: number, y: number, s: string, st: Style = {}): number {
-    const x = xRight - strWidth(s);
-    return this.text(x, y, s, st);
+  /** Paint a solid rect (used to erase neighbor-panel bleed). */
+  fillRect(r: Rect, st: Style = {}): void {
+    const xMax = r.x + r.w;
+    for (let dy = 0; dy < r.h; dy++) {
+      for (let dx = 0; dx < r.w; dx++) {
+        const cx = r.x + dx;
+        if (cx >= xMax) break;
+        this.set(cx, r.y + dy, " ", st, xMax);
+      }
+    }
   }
 
-  hline(x: number, y: number, len: number, ch = "─", st: Style = {}): void {
-    for (let i = 0; i < len; i++) this.set(x + i, y, ch, st);
+  /** Right-align text so it ends at xRight (inclusive edge). Optional xMin prevents left bleed. */
+  textRight(xRight: number, y: number, s: string, st: Style = {}, xMin = 0): number {
+    const x = xRight - strWidth(s);
+    return this.text(Math.max(xMin, x), y, s, st, Infinity, xRight);
   }
-  vline(x: number, y: number, len: number, ch = "│", st: Style = {}): void {
-    for (let i = 0; i < len; i++) this.set(x, y + i, ch, st);
+
+  hline(x: number, y: number, len: number, ch = "─", st: Style = {}, xMax = this.w): void {
+    for (let i = 0; i < len; i++) {
+      const cx = x + i;
+      if (cx >= xMax) break;
+      this.set(cx, y, ch, st, xMax);
+    }
+  }
+  vline(x: number, y: number, len: number, ch = "│", st: Style = {}, xMax = this.w): void {
+    for (let i = 0; i < len; i++) this.set(x, y + i, ch, st, xMax);
   }
 
   /** Box with rounded corners and optional title in top border.
@@ -213,24 +183,26 @@ export class Buffer {
       border?: Style;
       titleStyle?: Style;
       titleRightStyle?: Style;
+      clipEnd?: number;
     } = {},
   ): Rect {
     const { x, y, w, h } = r;
+    const xMax = opts.clipEnd ?? this.w;
     const b = opts.border ?? {};
-    this.set(x, y, "╭", b);
-    this.set(x + w - 1, y, "╮", b);
-    this.set(x, y + h - 1, "╰", b);
-    this.set(x + w - 1, y + h - 1, "╯", b);
-    this.hline(x + 1, y, w - 2, "─", b);
-    this.hline(x + 1, y + h - 1, w - 2, "─", b);
-    this.vline(x, y + 1, h - 2, "│", b);
-    this.vline(x + w - 1, y + 1, h - 2, "│", b);
+    this.set(x, y, "╭", b, xMax);
+    this.set(x + w - 1, y, "╮", b, xMax);
+    this.set(x, y + h - 1, "╰", b, xMax);
+    this.set(x + w - 1, y + h - 1, "╯", b, xMax);
+    this.hline(x + 1, y, w - 2, "─", b, xMax);
+    this.hline(x + 1, y + h - 1, w - 2, "─", b, xMax);
+    this.vline(x, y + 1, h - 2, "│", b, xMax);
+    this.vline(x + w - 1, y + 1, h - 2, "│", b, xMax);
     if (opts.title) {
-      this.text(x + 2, y, ` ${opts.title} `, opts.titleStyle ?? b);
+      this.text(x + 2, y, ` ${opts.title} `, opts.titleStyle ?? b, Infinity, xMax);
     }
     if (opts.titleRight) {
       const t = ` ${opts.titleRight} `;
-      this.text(x + w - 2 - strWidth(t), y, t, opts.titleRightStyle ?? b);
+      this.text(x + w - 2 - strWidth(t), y, t, opts.titleRightStyle ?? b, Infinity, xMax);
     }
     return { x: x + 2, y: y + 1, w: w - 4, h: h - 2 };
   }
@@ -240,15 +212,34 @@ export class Buffer {
     let out = "";
     for (let y = 0; y < this.h; y++) {
       out += ansi.moveTo(y + 1, 1) + ansi.reset;
+      let bold = false;
+      let dim = false;
+      let fg: string | undefined;
       for (let x = 0; x < this.w; x++) {
         const c = this.cells[this.idx(x, y)];
         if (c.cont) continue;
-        let seg = "";
-        if (c.dim) seg += `${ESC}[2m`;
-        if (c.bold) seg += `${ESC}[1m`;
-        if (c.fg) seg += ansi.fg(c.fg);
-        seg += c.ch === "" ? " " : c.ch;
-        out += seg;
+        const wantBold = !!c.bold;
+        const wantDim = !!c.dim;
+        const wantFg = c.fg;
+        if (wantBold !== bold || wantDim !== dim || wantFg !== fg) {
+          out += ansi.reset;
+          bold = false;
+          dim = false;
+          fg = undefined;
+          if (wantDim) {
+            out += `${ESC}[2m`;
+            dim = true;
+          }
+          if (wantBold) {
+            out += `${ESC}[1m`;
+            bold = true;
+          }
+          if (wantFg) {
+            out += ansi.fg(wantFg);
+            fg = wantFg;
+          }
+        }
+        out += c.ch === "" ? " " : c.ch;
       }
       out += ansi.reset;
     }
@@ -271,25 +262,58 @@ export class Buffer {
   }
 }
 
+/** Strip ANSI + control chars that would hijack the terminal cursor during render. */
+export function sanitizeTerminalText(s: string): string {
+  return s
+    .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
+    .replace(/\x1b\[[0-9?]*[ -/]*[@-~]/g, "")
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+}
+
+function breakLongToken(token: string, width: number): string[] {
+  if (width < 1) width = 1;
+  if (strWidth(token) <= width) return [token];
+  const parts: string[] = [];
+  let chunk = "";
+  let w = 0;
+  for (const ch of token) {
+    const cw = charWidth(ch);
+    if (w + cw > width && chunk) {
+      parts.push(chunk);
+      chunk = ch;
+      w = cw;
+    } else {
+      chunk += ch;
+      w += cw;
+    }
+  }
+  if (chunk) parts.push(chunk);
+  return parts;
+}
+
 /** Width-aware word wrap. */
 export function wrap(text: string, width: number): string[] {
+  if (width < 1) width = 1;
   const out: string[] = [];
-  for (const para of text.split("\n")) {
+  for (const para of sanitizeTerminalText(text).split("\n")) {
     if (para === "") { out.push(""); continue; }
     let line = "";
     let lineW = 0;
     for (const word of para.split(" ")) {
-      const ww = strWidth(word);
-      if (lineW === 0) {
-        line = word;
-        lineW = ww;
-      } else if (lineW + 1 + ww <= width) {
-        line += " " + word;
-        lineW += 1 + ww;
-      } else {
-        out.push(line);
-        line = word;
-        lineW = ww;
+      if (word === "") continue;
+      for (const piece of breakLongToken(word, width)) {
+        const ww = strWidth(piece);
+        if (lineW === 0) {
+          line = piece;
+          lineW = ww;
+        } else if (lineW + 1 + ww <= width) {
+          line += " " + piece;
+          lineW += 1 + ww;
+        } else {
+          out.push(line);
+          line = piece;
+          lineW = ww;
+        }
       }
     }
     out.push(line);
@@ -308,8 +332,11 @@ export class Screen {
   }
   get cols() { return (this.out as any).columns ?? 80; }
   get rows() { return (this.out as any).rows ?? 24; }
-  enter(): void { this.out.write(ansi.altOn + ansi.hideCursor + ansi.clear); this.resize(); }
-  exit(): void { this.out.write(ansi.reset + ansi.showCursor + ansi.altOff); }
+  enter(): void {
+    this.out.write(ansi.altOn + ansi.hideCursor + ansi.mouseOn + ansi.clear);
+    this.resize();
+  }
+  exit(): void { this.out.write(ansi.reset + ansi.showCursor + ansi.mouseOff + ansi.altOff); }
   resize(): void { this.buf = new Buffer(this.cols, this.rows); }
   flush(): void { this.out.write(ansi.syncOn + this.buf.render() + ansi.syncOff); }
 }

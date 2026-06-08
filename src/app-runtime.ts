@@ -3,7 +3,7 @@ import { parseCommand, executeCommand } from "./commands/registry.ts";
 import { connectAll, getServerStatus, type McpServerStatus } from "./data/mcp-client.ts";
 import { createAgent, injectContext, saveSession, updateSessionCtx } from "./agent/session.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
-import type { AppState, UIMessage } from "./tui/types.ts";
+import type { AppState, UIMessage } from "./tui/src/types.ts";
 
 export interface AppRuntimeSnapshot {
   model: string;
