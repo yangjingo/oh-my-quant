@@ -3,9 +3,15 @@ import { Buffer, truncate } from "./buffer.ts";
 import { S, GOLD, GOLD_HIGHLIGHT } from "./styles.ts";
 import { loadSettings, saveSettings } from "../../storage/index.ts";
 import {
-  importLegacyHoldings,
   loadPanelPortfolio,
   savePanelPortfolio,
+  createGroup,
+  renameGroup,
+  deleteGroup,
+  addSymbolToGroup,
+  removeSymbolFromGroup,
+  addSymbol,
+  removeSymbol,
   type PanelPortfolioFile,
 } from "../../storage/panel-portfolio.ts";
 import type { OhQuantSettings } from "../../types/config.ts";
@@ -30,13 +36,16 @@ type Row = { section: string } | { field: Field; index: number };
 
 const MODEL_OPTIONS = ["sonnet", "opus", "haiku", "gpt-5.5"];
 const THINKING_OPTIONS = ["off", "minimal", "low", "medium", "high", "xhigh"];
+const ENABLE_OPTIONS = ["on", "off"];
 
 export class PanelController {
   private cfg: OhQuantSettings | null = null;
-  private panelSymbols: PanelPortfolioFile = { updated: "", symbols: [] };
+  private panelSymbols: PanelPortfolioFile = { updated: "", symbols: [], groups: [] };
   private cursor = 0;
   private draft: string | null = null;
   private removePick = 0;
+  private groupPick = 0;
+  private symbolPick = 0;
   private status = "";
 
   open(): void {
@@ -45,6 +54,8 @@ export class PanelController {
     this.cursor = 0;
     this.draft = null;
     this.removePick = 0;
+    this.groupPick = 0;
+    this.symbolPick = 0;
     this.status = "";
   }
 
@@ -78,7 +89,13 @@ export class PanelController {
         const opts = this.fieldOptions(field);
         if (opts.length > 0) {
           const delta = key.name === "left" ? -1 : 1;
-          this.removePick = (this.removePick + delta + opts.length) % opts.length;
+          if (field.label === "Selected group") {
+            this.groupPick = (this.groupPick + delta + opts.length) % opts.length;
+          } else if (field.label === "Remove from group") {
+            this.symbolPick = (this.symbolPick + delta + opts.length) % opts.length;
+          } else {
+            this.removePick = (this.removePick + delta + opts.length) % opts.length;
+          }
         }
         return {};
       }
@@ -88,9 +105,14 @@ export class PanelController {
     if (key.name !== "return" || !field) return {};
 
     if (field.pickRemove) {
-      const msg = this.removeSelectedSymbol();
+      let msg: string;
+      if (field.label === "Remove from group") {
+        msg = this.removeSymbolFromSelectedGroup();
+      } else {
+        msg = this.removeSelectedSymbol();
+      }
       this.status = msg;
-      refreshPanel = msg.startsWith("Removed");
+      refreshPanel = msg.startsWith("Removed") || msg.startsWith("Deleted");
       return refreshPanel ? { refreshPanel } : {};
     }
     if (field.onEnter) {
@@ -105,10 +127,13 @@ export class PanelController {
 
   render(buf: Buffer): void {
     if (!this.cfg) return;
+    if (this.draft === null) {
+      this.panelSymbols = loadPanelPortfolio();
+    }
     const rows = this.rows();
     const fields = this.fields();
-    const boxW = Math.min(76, buf.w - 6);
-    const boxH = Math.min(buf.h - 6, Math.max(16, rows.length + 6));
+    const boxW = Math.min(62, buf.w - 6);
+    const boxH = Math.min(buf.h - 6, Math.max(14, rows.length + 6));
     const boxX = Math.floor((buf.w - boxW) / 2);
     const boxY = Math.floor((buf.h - boxH) / 2);
 
@@ -116,7 +141,7 @@ export class PanelController {
     const inner = buf.box({ x: boxX, y: boxY, w: boxW, h: boxH }, {
       title: "Config",
       titleStyle: S.creamB,
-      titleRight: "↑↓ select  ←→ cycle  ↵ act  esc back",
+      titleRight: "↑↓ move  ←→ toggle  ↵ edit  esc close",
       titleRightStyle: S.dim,
       border: S.rule,
     });
@@ -138,7 +163,8 @@ export class PanelController {
       buf.textRight(inner.x + inner.w, y++, truncate(value, 20), this.draft !== null && active ? { fg: GOLD_HIGHLIGHT } : field.action ? S.dim : { fg: GOLD });
     }
 
-    if (this.status) buf.text(inner.x, inner.y + inner.h - 1, truncate(this.status, inner.w), S.dim);
+    const footer = this.status || "Use slash commands for data, watchlist, MCP, and session actions.";
+    buf.text(inner.x, inner.y + inner.h - 1, truncate(footer, inner.w), S.dim);
     if (this.draft !== null && fields[this.cursor]) {
       const hint = fields[this.cursor].apply ? "code or code name" : "";
       const prefix = hint ? `${fields[this.cursor].label} (${hint}): ` : `${fields[this.cursor].label}: `;
@@ -155,7 +181,9 @@ export class PanelController {
       if (!field || !value) return {};
       if (field.apply) {
         this.status = field.apply(value);
-        const ok = this.status.startsWith("Added") || this.status.startsWith("Imported");
+        const ok = this.status.startsWith("Added") || this.status.startsWith("Imported") ||
+                   this.status.startsWith("Created") || this.status.startsWith("Renamed") ||
+                   this.status.startsWith("Deleted");
         return ok ? { refreshPanel: true } : {};
       }
       if (field.prompt) {
@@ -200,20 +228,83 @@ export class PanelController {
     return `Removed ${removed.code}.`;
   }
 
+  private createNewGroup(name: string): string {
+    if (!name.trim()) return "Enter a group name.";
+    const { id, data } = createGroup(this.panelSymbols, name.trim());
+    this.panelSymbols = data;
+    savePanelPortfolio(this.panelSymbols);
+    return `Created group "${name.trim()}" (${id}).`;
+  }
+
+  private selectedGroupLabel(): string {
+    const groups = this.panelSymbols.groups;
+    if (groups.length === 0) return "no groups";
+    const group = groups[this.groupPick % groups.length];
+    return group ? group.name : "no groups";
+  }
+
+  private groupSymbolLabel(): string {
+    const groups = this.panelSymbols.groups;
+    if (groups.length === 0) return "no groups";
+    const group = groups[this.groupPick % groups.length];
+    if (!group) return "no groups";
+    if (group.symbolCodes.length === 0) return "empty";
+    const code = group.symbolCodes[this.symbolPick % group.symbolCodes.length];
+    return code ?? "empty";
+  }
+
+  private renameSelectedGroup(newName: string): string {
+    const groups = this.panelSymbols.groups;
+    if (groups.length === 0) return "No groups to rename.";
+    if (!newName.trim()) return "Enter a group name.";
+    const group = groups[this.groupPick % groups.length];
+    if (!group) return "No groups to rename.";
+    this.panelSymbols = renameGroup(this.panelSymbols, group.id, newName.trim());
+    savePanelPortfolio(this.panelSymbols);
+    return `Renamed group to "${newName.trim()}".`;
+  }
+
+  private deleteSelectedGroup(): string {
+    const groups = this.panelSymbols.groups;
+    if (groups.length === 0) return "No groups to delete.";
+    const group = groups[this.groupPick % groups.length];
+    if (!group) return "No groups to delete.";
+    this.panelSymbols = deleteGroup(this.panelSymbols, group.id);
+    this.groupPick = Math.max(0, Math.min(this.groupPick, this.panelSymbols.groups.length - 1));
+    savePanelPortfolio(this.panelSymbols);
+    return `Deleted group "${group.name}".`;
+  }
+
+  private addSymbolToSelectedGroup(code: string): string {
+    const groups = this.panelSymbols.groups;
+    if (groups.length === 0) return "No groups to add to.";
+    const group = groups[this.groupPick % groups.length];
+    if (!group) return "No groups to add to.";
+    if (!code.trim()) return "Enter a symbol code.";
+    this.panelSymbols = addSymbolToGroup(this.panelSymbols, group.id, code.trim());
+    savePanelPortfolio(this.panelSymbols);
+    return `Added ${code.trim()} to "${group.name}".`;
+  }
+
+  private removeSymbolFromSelectedGroup(): string {
+    const groups = this.panelSymbols.groups;
+    if (groups.length === 0) return "No groups configured.";
+    const group = groups[this.groupPick % groups.length];
+    if (!group) return "No groups configured.";
+    if (group.symbolCodes.length === 0) return `Group "${group.name}" is empty.`;
+    const code = group.symbolCodes[this.symbolPick % group.symbolCodes.length];
+    if (!code) return `Group "${group.name}" is empty.`;
+    this.panelSymbols = removeSymbolFromGroup(this.panelSymbols, group.id, code);
+    this.symbolPick = Math.max(0, Math.min(this.symbolPick, group.symbolCodes.length - 2));
+    savePanelPortfolio(this.panelSymbols);
+    return `Removed ${code} from "${group.name}".`;
+  }
+
   private removeLabel(): string {
     const symbols = this.panelSymbols.symbols;
     if (symbols.length === 0) return "empty";
     const entry = symbols[this.removePick % symbols.length];
     return entry ? `${entry.code} · ${entry.name}` : "empty";
-  }
-
-  private importLegacyPanel(): string {
-    const imported = importLegacyHoldings();
-    if (imported.symbols.length === 0) return "No legacy holdings.json found.";
-    this.panelSymbols = imported;
-    savePanelPortfolio(imported);
-    this.removePick = 0;
-    return `Imported ${imported.symbols.length} symbols from holdings.json.`;
   }
 
   private panelSummaryLabel(): string {
@@ -222,11 +313,6 @@ export class PanelController {
     const preview = symbols.slice(0, 2).map((s) => s.code).join(", ");
     const suffix = symbols.length > 2 ? ` +${symbols.length - 2}` : "";
     return `${symbols.length} · ${preview}${suffix}`;
-  }
-
-  private panelCountLabel(): string {
-    const n = this.panelSymbols.symbols.length;
-    return n === 0 ? "empty" : `${n} symbol${n === 1 ? "" : "s"}`;
   }
 
   private fieldOptions(field: Field): string[] {
@@ -247,26 +333,19 @@ export class PanelController {
 
   private groups(): Array<{ label: string; fields: Field[] }> {
     if (!this.cfg) return [];
-    const env = this.cfg.env;
     return [
       {
-        label: "Settings",
+        label: "Basic",
         fields: [
-          { label: "Auth token", get: () => env.WHYJ_AUTH_TOKEN ? "configured" : "not set", set: (v) => { env.WHYJ_AUTH_TOKEN = v; }, secret: true },
-          { label: "Tushare token", get: () => env.TUSHARE_TOKEN ? "configured" : "not set", set: (v) => { env.TUSHARE_TOKEN = v; }, secret: true },
           { label: "Model", get: () => this.cfg?.model || "sonnet", set: (v) => { if (this.cfg) this.cfg.model = v; }, options: MODEL_OPTIONS },
           { label: "Thinking", get: () => this.cfg?.thinkingLevel || "off", set: (v) => { if (this.cfg) this.cfg.thinkingLevel = v; }, options: THINKING_OPTIONS },
+          { label: "Insight", get: () => this.cfg?.insightEnabled === false ? "off" : "on", set: (v) => { if (this.cfg) this.cfg.insightEnabled = v !== "off"; }, options: ENABLE_OPTIONS },
         ],
       },
       {
-        label: "Panel Portfolio",
+        label: "Overview",
         fields: [
           { label: "Symbols", get: () => this.panelSummaryLabel() },
-          {
-            label: "Import legacy",
-            get: () => "holdings.json · Enter",
-            onEnter: () => this.importLegacyPanel(),
-          },
           {
             label: "Add symbol",
             get: () => "type code + name",
@@ -281,33 +360,45 @@ export class PanelController {
         ],
       },
       {
-        label: "Data",
+        label: "Groups",
         fields: [
-          { label: "Fetch bars", get: () => "enter symbol", action: "/data", prompt: "/data download --symbol " },
-          { label: "Snapshot", get: () => "enter symbol", action: "/claw", prompt: "/claw --code " },
-        ],
-      },
-      {
-        label: "Tools",
-        fields: [
-          { label: "Skills", get: () => "list all", action: "/skill" },
-          { label: "Benchmarks", get: () => "view dashboard", action: "/benchmark" },
-          { label: "MCP status", get: () => "server list", action: "/mcp" },
-          { label: "MCP connect", get: () => "connect all", action: "/mcp connect" },
-        ],
-      },
-      {
-        label: "Watchlist",
-        fields: [
-          { label: "Watch fund", get: () => "enter code", action: "/watch", prompt: "/watch " },
-          { label: "Show list", get: () => "view all", action: "/watch" },
-        ],
-      },
-      {
-        label: "Session",
-        fields: [
-          { label: "Help", get: () => "commands list", action: "/help" },
-          { label: "Clear chat", get: () => "reset history", action: "/clear" },
+          {
+            label: "Selected group",
+            get: () => this.selectedGroupLabel(),
+            pickRemove: true,
+            optionsFn: () => this.panelSymbols.groups.map((g) => g.name),
+          },
+          {
+            label: "Create group",
+            get: () => "type name",
+            apply: (v) => this.createNewGroup(v),
+          },
+          {
+            label: "Rename group",
+            get: () => "type new name",
+            apply: (v) => this.renameSelectedGroup(v),
+          },
+          {
+            label: "Delete group",
+            get: () => "confirm",
+            onEnter: () => this.deleteSelectedGroup(),
+          },
+          {
+            label: "Add to group",
+            get: () => "type code",
+            apply: (v) => this.addSymbolToSelectedGroup(v),
+          },
+          {
+            label: "Remove from group",
+            get: () => this.groupSymbolLabel(),
+            pickRemove: true,
+            optionsFn: () => {
+              const groups = this.panelSymbols.groups;
+              if (groups.length === 0) return [];
+              const group = groups[this.groupPick % groups.length];
+              return group?.symbolCodes ?? [];
+            },
+          },
         ],
       },
     ];

@@ -16,6 +16,8 @@ export interface Quote {
 
 export interface ToolState {
   name: string;
+  /** Human-readable label with data provider, e.g. "Tushare · Daily OHLCV". */
+  label: string;
   args?: string;
   status: "running" | "done" | "error";
   startedAt: number;
@@ -33,7 +35,8 @@ export interface UIMessage {
 export type PanelSection =
   | { kind: "holdings"; title: string; rows: Holding[] }
   | { kind: "quotes"; title: string; rows: Quote[] }
-  | { kind: "keyvalue"; title: string; rows: { label: string; value: string }[] };
+  | { kind: "keyvalue"; title: string; rows: { label: string; value: string }[] }
+  | { kind: "group"; groupId: string; title: string; rows: Holding[]; collapsed: boolean };
 
 export interface ComposerStatus {
   kind: "info" | "error";
@@ -52,6 +55,8 @@ export interface AppState {
   panel: PanelSection[];
   panelLoading: boolean;
   input: string;
+  /** Pending NL messages waiting for agent pickup (shown in Composer, not conversation). */
+  composerQueue: string[];
   composerStatus: ComposerStatus | null;
 }
 

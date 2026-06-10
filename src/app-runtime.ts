@@ -1,9 +1,17 @@
-import type { Agent } from "@earendil-works/pi-agent-core";
-import { parseCommand, executeCommand } from "./commands/registry.ts";
-import { connectAll, getServerStatus, type McpServerStatus } from "./data/mcp-client.ts";
-import { createAgent, injectContext, saveSession, updateSessionCtx } from "./agent/session.ts";
+import { formatToolArgs, formatToolLine, toolDisplayLabel } from "./tools/catalog.ts";
+import { buildCommandHelpText } from "./cli/catalog.ts";
+import { executeCommand, isLocalSlashCommand, parseCommand } from "./cli/registry.ts";
+import type { CommandEffect, CommandResult } from "./cli/types.ts";
+import { connectAll, disconnectAll, getServerStatus, type McpServerStatus } from "./source/mcp-client.ts";
+import { fetchLiveBars, formatRefreshMinute, formatSourceLabels, type PullSource } from "./source/sources.ts";
+import { dispatchUserMessage, isAgentTurnActive } from "./agent/dispatch.ts";
+import { createAgent, injectContext, updateSessionCtx, type QuantAgentSession } from "./agent/session.ts";
+import { deriveConversationInsights, insightToPanelRows } from "./quant/insight.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
-import type { AppState, UIMessage } from "./tui/src/types.ts";
+import { loadPanelPortfolio, loadPortfolioSymbols } from "./storage/portfolio.ts";
+import type { AppState, PanelSection, UIMessage } from "./tui/src/types.ts";
+import type { CodeEntry } from "./tui/src/watchlist.ts";
+import type { Bar, Market } from "./types/data.ts";
 
 export interface AppRuntimeSnapshot {
   model: string;
@@ -15,8 +23,20 @@ interface AppRuntimeCallbacks {
   onMessages: (messages: UIMessage[]) => void;
   onActivity: (activity: AppState["activity"]) => void;
   onComposerStatus?: (status: AppState["composerStatus"]) => void;
+  onComposerQueue?: (queue: string[]) => void;
   onConfigRequest?: () => void;
-  onTurnComplete?: () => void | Promise<void>;
+  onPanel?: (panel: PanelSection[], loading?: boolean) => void;
+}
+
+type Quote = { code: string; name: string; price: number; pct: number };
+type Holding = { code: string; name: string; price: number; pct: number };
+type QuoteFetcher = (entries: CodeEntry[], meta: PullMeta) => Promise<Quote[]>;
+type HoldingFetcher = (entries: CodeEntry[], meta: PullMeta) => Promise<Holding[]>;
+type SymbolProvider = () => Promise<CodeEntry[]>;
+
+interface PullMeta {
+  sources: PullSource[];
+  asOfDates: string[];
 }
 
 const SHORT_MODEL: Record<string, string> = {
@@ -26,22 +46,52 @@ const SHORT_MODEL: Record<string, string> = {
   "deepseek-v4-pro": "deepseek",
 };
 
+/** Fixed market indicators that should always lead the Overview panel. */
+const MARKET_INDICES: CodeEntry[] = [
+  { code: "000001.SH", name: "上证指数" },
+  { code: "399001.SZ", name: "深证成指" },
+  { code: "000300.SH", name: "沪深300" },
+  { code: "000905.SH", name: "中证500" },
+  { code: "399006.SZ", name: "创业板指" },
+];
+
 export class AppRuntime {
-  private agent: Agent | null = null;
-  private busy = false;
+  private agent: QuantAgentSession | null = null;
+  /** Slash command in flight (panel refresh). Agent concurrency uses agent.state.isStreaming. */
+  private slashRunning = false;
+  /** Raw user text waiting in Composer until agent message_start(user). */
+  private composerQueue: string[] = [];
   private messages: UIMessage[] = [];
+  /** After first successful Overview fetch, later refreshes stay in-place (no spinner wipe). */
+  private overviewReady = false;
+  private marketSections: PanelSection[] = [];
+  private insightSection: PanelSection | null = null;
+  private lastInsightSignature = "";
+  private insightEnabled = true;
 
-  constructor(private readonly callbacks: AppRuntimeCallbacks) {}
+  constructor(
+    private readonly callbacks: AppRuntimeCallbacks,
+    private readonly quoteFetcher: QuoteFetcher = fetchQuotes,
+    private readonly symbolProvider: SymbolProvider = loadPortfolioSymbols,
+    private readonly holdingFetcher: HoldingFetcher = fetchHoldings,
+  ) {}
 
-  async init(): Promise<AppRuntimeSnapshot> {
+  async refreshOverviewPanel(): Promise<void> {
+    await this.refreshMarketPanel();
+  }
+
+  /** Startup: MCP + agent, then enter ready before blocking on market quotes. */
+  async bootstrap(): Promise<AppRuntimeSnapshot> {
     ensureDirs();
     const settings = loadSettings();
+    this.insightEnabled = settings.insightEnabled ?? true;
 
     for (const [key, value] of Object.entries(settings.env)) {
       if (value && !process.env[key]) process.env[key] = value;
     }
 
-    this.callbacks.onActivity("starting");
+    this.setActivity("starting");
+
     try {
       await connectAll();
     } catch {
@@ -53,11 +103,21 @@ export class AppRuntime {
       switch (event.type) {
         case "message_start": {
           const m = event.message;
+          if (m.role === "user") {
+            const raw = this.dequeueComposer();
+            if (raw) this.addUserMessage(raw);
+            break;
+          }
           if (m.role === "assistant") {
+            const last = this.messages[this.messages.length - 1];
+            const prev = this.messages[this.messages.length - 2];
+            if (last?.role === "assistant" && prev?.role === "thinking" && prev.thinkingLive) {
+              break;
+            }
+            this.messages.push({ role: "thinking", text: "", thinkingLive: true });
             this.messages.push({ role: "assistant", text: "" });
-            this.upsertThinkingMessage("");
-            this.flushMessages();
-            this.callbacks.onActivity("thinking");
+            this.emitMessages();
+            this.setActivity("thinking");
           }
           break;
         }
@@ -72,20 +132,26 @@ export class AppRuntime {
           break;
         }
         case "tool_execution_start": {
-          this.removeThinkingMessages();
+          this.finalizeThinking();
           this.messages.push({
             role: "tool",
-            tool: { name: event.toolName, args: shortArgs(event.args), status: "running", startedAt: Date.now() },
+            tool: {
+              name: event.toolName,
+              label: formatToolLine(event.toolName, formatToolArgs(event.args)),
+              args: formatToolArgs(event.args) ?? "",
+              status: "running",
+              startedAt: Date.now(),
+            },
           });
-          this.flushMessages();
-          this.callbacks.onActivity("running tool");
+          this.emitMessages();
+          this.setActivity("running tool");
           break;
         }
         case "tool_execution_update": {
           const last = this.messages[this.messages.length - 1];
           if (last?.role === "tool" && last.tool) {
             last.tool.result = extractTextFromResult(event.partialResult);
-            this.flushMessages();
+            this.emitMessages();
           }
           break;
         }
@@ -94,21 +160,21 @@ export class AppRuntime {
           if (last?.role === "tool" && last.tool) {
             last.tool.status = event.isError ? "error" : "done";
             last.tool.result = event.isError ? extractToolError(event.result) : extractTextFromResult(event.result);
-            this.flushMessages();
+            this.emitMessages();
           }
           break;
         }
         case "agent_end": {
-          this.busy = false;
-          this.callbacks.onActivity("ready");
-          saveSession(event.messages as never[]);
-          await this.callbacks.onTurnComplete?.();
+          await this.refreshMarketPanel();
+          this.setActivity("ready");
           break;
         }
       }
     });
 
-    this.callbacks.onActivity("ready");
+    this.setActivity("ready");
+    void this.refreshMarketPanel().catch(() => this.setMarketUnavailable());
+
     return {
       model: readModel(settings.env),
       modelLabel: readModelLabel(settings.env),
@@ -118,124 +184,295 @@ export class AppRuntime {
 
   async submit(input: string): Promise<"continue" | "exit"> {
     const trimmed = input.trim();
-    if (!trimmed || this.busy) return "continue";
-    const parsed = parseCommand(trimmed);
-    const isSlash = trimmed.startsWith("/");
+    if (!trimmed) return "continue";
 
     if (trimmed === "/exit" || trimmed === "/quit") return "exit";
 
-    if (trimmed === "/clear") {
-      this.messages = [];
-      this.flushMessages();
-      this.callbacks.onComposerStatus?.(null);
-      this.agent?.reset();
-      this.callbacks.onActivity("ready");
-      return "continue";
-    }
+    const parsed = parseCommand(trimmed);
+    const localOnly = parsed ? isPureLocalCommand(parsed) : false;
 
-    if (trimmed === "/config" || trimmed === "/setup" || trimmed === "/portfolio") {
-      if (this.callbacks.onConfigRequest) {
-        this.callbacks.onConfigRequest();
-      } else {
-        this.callbacks.onComposerStatus?.({ kind: "info", text: "Set API keys via .ohquant/settings.json and restart." });
-      }
-      this.callbacks.onActivity("ready");
-      return "continue";
-    }
-
-    if (trimmed === "/help") {
-      this.callbacks.onComposerStatus?.({ kind: "info", text: helpText });
-      this.callbacks.onActivity("ready");
-      return "continue";
-    }
-
-    if (!isSlash) {
-      this.removeThinkingMessages();
-      this.messages.push({ role: "user", text: trimmed });
-      this.flushMessages();
-      this.callbacks.onComposerStatus?.(null);
-    }
-
-    this.busy = true;
-    this.callbacks.onActivity("thinking");
     if (parsed) {
-      try {
-        const result = await executeCommand(parsed);
-        this.callbacks.onComposerStatus?.({
-          kind: result.success ? "info" : "error",
-          text: result.message,
-        });
-        if (parsed.flags["symbol"] || parsed.flags["code"]) {
-          const sym = String(parsed.flags["symbol"] || parsed.flags["code"]);
-          updateSessionCtx({
-            lastSymbol: sym,
-            lastMarket: String(parsed.flags["market"] || parsed.flags["m"] || "A"),
-          });
-        }
-      } catch (err) {
-        this.callbacks.onComposerStatus?.({
-          kind: "error",
-          text: err instanceof Error ? err.message : String(err),
-        });
-      }
-      this.busy = false;
-      this.callbacks.onActivity("ready");
-      await this.callbacks.onTurnComplete?.();
+      if (this.slashRunning && !localOnly) return "continue";
+      if (isAgentTurnActive(this.agent) && !localOnly) return "continue";
+      if (!localOnly) this.slashRunning = true;
+      await this.runSlashCommand(parsed, localOnly);
       return "continue";
     }
 
-    if (!this.agent) {
-      this.busy = false;
-      this.callbacks.onComposerStatus?.({ kind: "error", text: "Initializing... please wait a moment." });
-      this.callbacks.onActivity("ready");
-      return "continue";
-    }
-
-    try {
-      await this.agent.prompt(injectContext(trimmed));
-    } catch (err) {
-      this.busy = false;
-      this.messages.push({ role: "error", text: `Agent: ${err instanceof Error ? err.message : String(err)}` });
-      this.flushMessages();
-      this.callbacks.onComposerStatus?.({ kind: "error", text: err instanceof Error ? err.message : String(err) });
-      this.callbacks.onActivity("ready");
-    }
-
+    if (this.slashRunning) return "continue";
+    await this.runAgentPrompt(trimmed);
     return "continue";
-  }
-
-  reset(): void {
-    this.messages = [];
-    this.flushMessages();
-    this.agent?.reset();
-    this.callbacks.onActivity("ready");
   }
 
   dispose(): void {
     this.agent?.abort();
+    void disconnectAll();
   }
 
-  private flushMessages(): void {
+  private async runSlashCommand(
+    parsed: NonNullable<ReturnType<typeof parseCommand>>,
+    localOnly: boolean,
+  ): Promise<void> {
+    try {
+      const result = await executeCommand(parsed, {
+        openConfig: this.callbacks.onConfigRequest
+          ? () => { this.callbacks.onConfigRequest!(); }
+          : undefined,
+        agentSession: this.agent,
+      });
+      this.applyCommandResult(result);
+      updateLastSymbol(parsed.flags);
+    } catch (err) {
+      this.setStatus({ kind: "error", text: errorText(err) });
+    } finally {
+      await this.refreshMarketPanel();
+      if (!localOnly) this.slashRunning = false;
+      if (!isAgentTurnActive(this.agent)) this.setActivity("ready");
+    }
+  }
+
+  private applyCommandResult(result: CommandResult): void {
+    for (const effect of result.effects ?? []) {
+      this.applyCommandEffect(effect);
+    }
+    if (result.message) {
+      this.setStatus({ kind: result.success ? "info" : "error", text: result.message });
+    }
+  }
+
+  private applyCommandEffect(effect: CommandEffect): void {
+    switch (effect.type) {
+      case "clearConversation":
+        this.messages = [];
+        this.clearComposerQueue();
+        this.insightSection = null;
+        this.lastInsightSignature = "";
+        this.emitMessages();
+        this.setStatus(null);
+        this.syncOverviewPanel();
+        break;
+      case "resetAgent":
+        this.agent?.abort();
+        this.agent?.clearAllQueues();
+        this.agent?.reset();
+        this.clearComposerQueue();
+        this.insightSection = null;
+        this.lastInsightSignature = "";
+        this.syncOverviewPanel();
+        break;
+      case "openConfig":
+        this.callbacks.onConfigRequest?.();
+        break;
+    }
+  }
+
+  private async runAgentPrompt(input: string): Promise<void> {
+    if (!this.agent) {
+      this.enqueueComposer(input);
+      this.setActivity("thinking");
+      this.setStatus({ kind: "error", text: "Initializing... please wait a moment." });
+      this.setActivity("ready");
+      return;
+    }
+    const text = injectContext(input);
+    this.enqueueComposer(input);
+    try {
+      await dispatchUserMessage(this.agent, text);
+    } catch (err) {
+      if (this.composerQueue.at(-1) === input) {
+        this.composerQueue.pop();
+        this.emitComposerQueue();
+      }
+      this.messages.push({ role: "error", text: `Agent: ${errorText(err)}` });
+      this.emitMessages();
+      this.setStatus({ kind: "error", text: errorText(err) });
+      if (!isAgentTurnActive(this.agent)) this.setActivity("ready");
+    }
+  }
+
+  private enqueueComposer(text: string): void {
+    this.composerQueue.push(text);
+    this.emitComposerQueue();
+  }
+
+  private dequeueComposer(): string | undefined {
+    const next = this.composerQueue.shift();
+    this.emitComposerQueue();
+    return next;
+  }
+
+  private clearComposerQueue(): void {
+    this.composerQueue = [];
+    this.emitComposerQueue();
+  }
+
+  private emitComposerQueue(): void {
+    this.callbacks.onComposerQueue?.([...this.composerQueue]);
+  }
+
+  private addUserMessage(text: string): void {
+    this.finalizeThinking();
+    this.messages.push({ role: "user", text });
+    this.emitMessages();
+    this.setStatus(null);
+  }
+
+  private emitMessages(): void {
     this.callbacks.onMessages([...this.messages]);
+    this.updateInsightPanel();
+  }
+
+  private setActivity(activity: AppState["activity"]): void {
+    this.callbacks.onActivity(activity);
+  }
+
+  private setStatus(status: AppState["composerStatus"]): void {
+    this.callbacks.onComposerStatus?.(status);
+  }
+
+  private setPanel(panel: PanelSection[], loading = false): void {
+    this.callbacks.onPanel?.(panel, loading);
+  }
+
+  private syncOverviewPanel(loading = false): void {
+    const sections = [...this.marketSections];
+    if (this.insightEnabled && this.insightSection) sections.push(this.insightSection);
+    if (!this.overviewReady && sections.length === 0) {
+      this.setPanel([{ kind: "keyvalue", title: "Market Refresh", rows: [{ label: "status", value: "fetching" }] }], true);
+      return;
+    }
+    this.setPanel(sections, loading);
+  }
+
+  private static readonly MARKET_REFRESH_TIMEOUT_MS = 30_000;
+
+  private async refreshMarketPanel(): Promise<void> {
+    if (!this.overviewReady) this.syncOverviewPanel(true);
+    await Promise.race([
+      this.pullMarketPanel(),
+      new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error("Overview market refresh timed out")),
+          AppRuntime.MARKET_REFRESH_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  }
+
+  private async pullMarketPanel(): Promise<void> {
+    const refreshedAt = new Date();
+    const pullMeta: PullMeta = { sources: [], asOfDates: [] };
+    const panelPortfolio = loadPanelPortfolio();
+    const groups = panelPortfolio.groups ?? [];
+    const allSymbols = panelPortfolio.symbols.map(s => ({ code: s.code, name: s.name || s.code }));
+    const [marketQuotes, portfolioRows] = await Promise.all([
+      this.quoteFetcher(MARKET_INDICES, pullMeta),
+      this.holdingFetcher(allSymbols, pullMeta),
+    ]);
+    const sections: PanelSection[] = [];
+    if (allSymbols.length > 0) {
+      const rowsByCode = new Map<string, Holding>();
+      for (const row of portfolioRows) {
+        rowsByCode.set(row.code, row);
+      }
+      const fallbackRows = allSymbols.map((entry) => ({
+        code: entry.code.split(".")[0] || entry.code,
+        name: entry.name || entry.code,
+        price: 0,
+        pct: 0,
+      }));
+      const fallbackByCode = new Map<string, Holding>();
+      for (const row of fallbackRows) {
+        fallbackByCode.set(row.code, row);
+      }
+      const getRow = (code: string): Holding => {
+        const baseCode = code.split(".")[0] || code;
+        return rowsByCode.get(code) || rowsByCode.get(baseCode) || fallbackByCode.get(code) || fallbackByCode.get(baseCode) || {
+          code: baseCode,
+          name: allSymbols.find(s => s.code === code || s.code === baseCode)?.name || code,
+          price: 0,
+          pct: 0,
+        };
+      };
+      if (groups.length > 0) {
+        for (const group of groups) {
+          const groupRows = group.symbolCodes.map(code => getRow(code));
+          sections.push({
+            kind: "group",
+            groupId: group.id,
+            title: group.name,
+            rows: groupRows,
+            collapsed: false,
+          });
+        }
+      } else {
+        const rows = portfolioRows.length > 0 ? portfolioRows : fallbackRows;
+        sections.push({ kind: "holdings", title: "Portfolio", rows });
+      }
+    }
+    if (marketQuotes.length > 0) {
+      sections.push({ kind: "quotes", title: "Market", rows: marketQuotes });
+    } else {
+      sections.push({ kind: "keyvalue", title: "Market", rows: [{ label: "data", value: "unavailable" }] });
+    }
+    sections.push(buildSourceSection(pullMeta, refreshedAt));
+    this.marketSections = sections;
+    this.overviewReady = true;
+    this.syncOverviewPanel();
+  }
+
+  private setMarketUnavailable(): void {
+    this.overviewReady = true;
+    this.marketSections = [{ kind: "keyvalue", title: "Market", rows: [{ label: "data", value: "unavailable" }] }];
+    this.syncOverviewPanel();
+  }
+
+  private updateInsightPanel(): void {
+    if (!this.overviewReady) return;
+    if (!this.insightEnabled) {
+      if (!this.insightSection) return;
+      this.insightSection = null;
+      this.lastInsightSignature = "";
+      this.syncOverviewPanel();
+      return;
+    }
+    const insights = deriveConversationInsights(this.messages);
+    if (insights.length === 0) {
+      if (!this.insightSection) return;
+      this.insightSection = null;
+      this.lastInsightSignature = "";
+      this.syncOverviewPanel();
+      return;
+    }
+    const section = {
+      kind: "keyvalue" as const,
+      title: "Insight",
+      rows: insightToPanelRows(insights),
+    };
+    const signature = JSON.stringify(section);
+    if (signature === this.lastInsightSignature) return;
+    this.lastInsightSignature = signature;
+    this.insightSection = section;
+    this.syncOverviewPanel();
   }
 
   private applyAssistantUpdate(m: { content: unknown[] }): void {
     const assistant = this.findLatestMessage("assistant");
     if (!assistant) return;
-    assistant.text = extractText(m);
     const thinking = extractThinking(m);
-    if (thinking && thinking.trim()) {
-      this.upsertThinkingMessage(thinking);
-    }
-    if (assistant.text && assistant.text.trim()) this.removeThinkingMessages();
-    this.flushMessages();
+    if (thinking.trim()) this.upsertThinkingMessage(thinking);
+    assistant.text = extractText(m);
+    this.emitMessages();
   }
 
   private applyAssistantEnd(m: { content: unknown[] }): void {
     const text = extractText(m);
+    const thinking = extractThinking(m);
     const stopReason = (m as Record<string, unknown>).stopReason;
     const isError = stopReason === "error" || stopReason === "aborted";
-    this.removeThinkingMessages();
+    if (thinking.trim()) this.upsertThinkingMessage(thinking);
+    this.finalizeThinking();
+    this.removeTrailingThinkingAfterAssistant();
     const assistant = this.findLatestMessage("assistant");
     if (assistant) {
       assistant.text = isError ? `Agent error: ${text || `API call failed (${stopReason})`}` : text;
@@ -243,7 +480,7 @@ export class AppRuntime {
     } else if (isError) {
       this.messages.push({ role: "error", text: `Agent error: ${text || `API call failed (${stopReason})`}` });
     }
-    this.flushMessages();
+    this.emitMessages();
   }
 
   private findLatestMessage(role: UIMessage["role"]): UIMessage | undefined {
@@ -253,14 +490,53 @@ export class AppRuntime {
     return undefined;
   }
 
-  private upsertThinkingMessage(text: string): void {
-    const existing = this.findLatestMessage("thinking");
-    if (existing) existing.text = text;
-    else this.messages.push({ role: "thinking", text });
+  private findPairedThinking(): UIMessage | undefined {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].role !== "assistant") continue;
+      const prev = this.messages[i - 1];
+      return prev?.role === "thinking" ? prev : undefined;
+    }
+    return undefined;
   }
 
-  private removeThinkingMessages(): void {
-    this.messages = this.messages.filter((msg) => msg.role !== "thinking");
+  private upsertThinkingMessage(text: string): void {
+    const paired = this.findPairedThinking();
+    if (paired) {
+      paired.text = text;
+      return;
+    }
+    const assistant = this.findLatestMessage("assistant");
+    if (assistant) {
+      const idx = this.messages.indexOf(assistant);
+      this.messages.splice(idx, 0, { role: "thinking", text, thinkingLive: true });
+      return;
+    }
+    this.messages.push({ role: "thinking", text, thinkingLive: true });
+  }
+
+  private finalizeThinking(): void {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      const msg = this.messages[i];
+      if (msg.role !== "thinking" || !msg.thinkingLive) continue;
+      msg.thinkingLive = false;
+      if (!msg.text?.trim()) this.messages.splice(i, 1);
+      return;
+    }
+  }
+
+  private removeTrailingThinkingAfterAssistant(): void {
+    let lastAssistant = -1;
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].role === "assistant") {
+        lastAssistant = i;
+        break;
+      }
+    }
+    if (lastAssistant < 0) return;
+    this.messages = this.messages.filter((msg, idx) => {
+      if (idx <= lastAssistant) return true;
+      return msg.role !== "thinking";
+    });
   }
 }
 
@@ -279,6 +555,7 @@ export function createInitialAppState(version: string): AppState {
     panel: [],
     panelLoading: true,
     input: "",
+    composerQueue: [],
     composerStatus: null,
   };
 }
@@ -329,26 +606,111 @@ function extractToolError(result: unknown): string {
   return "Tool execution failed";
 }
 
-function shortArgs(args: unknown): string {
-  if (!args || typeof args !== "object") return "";
-  const a = args as Record<string, unknown>;
-  return String(a.symbol || a.code || a.ts_code || a.ticker || a.factor || "");
+function updateLastSymbol(flags: Record<string, unknown>): void {
+  const symbol = flags["symbol"] || flags["code"];
+  if (!symbol) return;
+  updateSessionCtx({
+    lastSymbol: String(symbol),
+    lastMarket: String(flags["market"] || flags["m"] || "A"),
+  });
 }
 
-export const helpText = [
-  "Commands:",
-  "",
-  "  /data      Download/info      /data download --symbol 000001.SZ",
-  "  /factor    Factor analysis    /factor analyze --symbol CODE --factor momentum",
-  "  /backtest  SMA backtest       /backtest run --symbol CODE --fast 20 --slow 60",
-  "  /risk      Risk metrics       /risk check --symbol CODE",
-  "  /benchmark Score/dashboard    /benchmark run --symbol CODE",
-  "  /add       Watchlist          /add stock --code CODE --name NAME",
-  "  /config    Settings           /config",
-  "  /mcp       Data servers       /mcp connect",
-  "  /help  /clear  /exit",
-  "",
-  "Compatibility: /skill  /claw  /watch",
-  "",
-  "No / prefix -> AI analysis.",
-].join("\n");
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+async function fetchQuotes(entries: CodeEntry[], meta: PullMeta): Promise<Quote[]> {
+  return Promise.all(entries.map(async (entry) => {
+    try {
+      const bars = await fetchQuoteBars(entry.code, meta);
+      const quote = quoteFromBars(entry, bars);
+      if (quote) return quote;
+    } catch {
+      // Fall through to placeholder row so fixed indices always render.
+    }
+    return {
+      code: entry.code.split(".")[0] || entry.code,
+      name: entry.name || entry.code,
+      price: 0,
+      pct: 0,
+    };
+  }));
+}
+
+async function fetchHoldings(entries: CodeEntry[], meta: PullMeta): Promise<Holding[]> {
+  return Promise.all(entries.map(async (entry) => {
+    try {
+      const bars = await fetchQuoteBars(entry.code, meta);
+      const row = holdingFromBars(entry, bars);
+      if (row) return row;
+    } catch {
+      // Fall through to placeholder row.
+    }
+    return {
+      code: entry.code.split(".")[0] || entry.code,
+      name: entry.name || entry.code,
+      price: 0,
+      pct: 0,
+    };
+  }));
+}
+
+async function fetchQuoteBars(symbol: string, meta: PullMeta): Promise<Bar[]> {
+  const market = inferMarket(symbol);
+  const end = new Date().toISOString().slice(0, 10);
+  const start = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const { bars, source, asOfDate } = await fetchLiveBars(symbol, market, start, end);
+  meta.sources.push(source);
+  if (asOfDate) meta.asOfDates.push(asOfDate);
+  return bars.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function buildSourceSection(meta: PullMeta, refreshedAt: Date): PanelSection {
+  const asOfDate = meta.asOfDates.sort().at(-1) ?? refreshedAt.toISOString().slice(0, 10);
+  return {
+    kind: "keyvalue",
+    title: "Source",
+    rows: [
+      { label: "来源", value: formatSourceLabels(meta.sources) },
+      { label: "更新", value: formatRefreshMinute(refreshedAt) },
+      { label: "数据", value: asOfDate },
+    ],
+  };
+}
+
+function quoteFromBars(entry: CodeEntry, bars: Bar[]): Quote | null {
+  if (bars.length < 2) return null;
+  const prev = bars[bars.length - 2];
+  const last = bars[bars.length - 1];
+  return {
+    code: entry.code.split(".")[0] || entry.code,
+    name: entry.name || entry.code,
+    price: last.close,
+    pct: prev.close ? (last.close - prev.close) / prev.close * 100 : 0,
+  };
+}
+
+function holdingFromBars(entry: CodeEntry, bars: Bar[]): Holding | null {
+  if (bars.length < 2) return null;
+  const prev = bars[bars.length - 2];
+  const last = bars[bars.length - 1];
+  return {
+    code: entry.code.split(".")[0] || entry.code,
+    name: entry.name || entry.code,
+    price: last.close,
+    pct: prev.close ? (last.close - prev.close) / prev.close * 100 : 0,
+  };
+}
+
+function inferMarket(symbol: string): Market {
+  if (/\.HK$/i.test(symbol)) return "HK";
+  if (/^[A-Z][A-Z0-9.-]*$/i.test(symbol) && !/^\d{6}/.test(symbol)) return "US";
+  return "A";
+}
+
+export const helpText = buildCommandHelpText();
+
+function isPureLocalCommand(parsed: NonNullable<ReturnType<typeof parseCommand>>): boolean {
+  if (parsed.command === "skill" && ["run", "trigger"].includes(parsed.positional[0] || "")) return false;
+  return isLocalSlashCommand(parsed.command);
+}
