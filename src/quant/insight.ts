@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { generateInsights, getNotePaths } from "./insight-generator.ts";
 
 // ── Types ──
 
@@ -107,6 +108,20 @@ let _rules: InsightRule[] | null = null;
 
 function loadEntries(): InsightEntry[] {
   if (_entries) return _entries;
+
+  // Auto-regenerate if source notes are newer than cached insights.json
+  const jsonAge = fileMtimeMs(INSIGHTS_PATH);
+  const noteAge = getNotePaths().reduce((max, p) => Math.max(max, fileMtimeMs(p)), 0);
+  if (noteAge > 0 && noteAge > jsonAge) {
+    try {
+      const generated = generateInsights();
+      if (generated.length > 0) {
+        mkdirSync(resolve(INSIGHTS_PATH, ".."), { recursive: true });
+        writeFileSync(INSIGHTS_PATH, JSON.stringify(generated, null, 2), "utf-8");
+      }
+    } catch { /* regeneration failed, fall through to cached or fallback */ }
+  }
+
   if (existsSync(INSIGHTS_PATH)) {
     try {
       const parsed = JSON.parse(readFileSync(INSIGHTS_PATH, "utf-8"));
@@ -118,6 +133,10 @@ function loadEntries(): InsightEntry[] {
   }
   _entries = [];
   return _entries;
+}
+
+function fileMtimeMs(path: string): number {
+  try { return statSync(path).mtimeMs; } catch { return 0; }
 }
 
 function fallbackQuotes(): InvestmentQuote[] {
