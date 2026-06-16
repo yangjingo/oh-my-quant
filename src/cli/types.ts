@@ -10,11 +10,20 @@ export interface ParsedCommand {
 export type CommandEffect =
   | { type: "clearConversation" }
   | { type: "resetAgent" }
-  | { type: "openConfig" };
+  | { type: "openConfig" }
+  | { type: "openResume" }
+  | { type: "openPortfolio" }
+  | { type: "openHelp" };
 
 export interface CommandContext {
-  /** When set, /config /setup /portfolio open the settings panel instead of printing status. */
+  /** When set, /config opens the settings panel. */
   openConfig?: () => void;
+  /** When set, /resume opens the resume panel. */
+  openResume?: () => void;
+  /** When set, /portfolio opens the portfolio panel. */
+  openPortfolio?: () => void;
+  /** When set, /help opens the help panel. */
+  openHelp?: () => void;
   /** Active agent session for session/harness commands. */
   agentSession?: QuantAgentSession | null;
 }

@@ -2,7 +2,7 @@ import { describe, expect, it, mock } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { configHandler, portfolioHandler, sessionHandler, setupHandler } from "./system.ts";
+import { configHandler, hotkeysHandler, portfolioHandler, resumeHandler, sessionHandler } from "./system.ts";
 import { skillHandler } from "./skill.ts";
 import type { QuantAgentSession } from "../../agent/session.ts";
 
@@ -39,6 +39,7 @@ function mockAgent(overrides: Partial<QuantAgentSession> = {}): QuantAgentSessio
       tools: [],
       messages: [],
       isStreaming: false,
+      thinkingText: "",
       pendingToolCalls: new Set<string>(),
     },
     subscribe: mock(() => () => {}),
@@ -58,6 +59,11 @@ function mockAgent(overrides: Partial<QuantAgentSession> = {}): QuantAgentSessio
     getSessionEntries: mock(async () => [{ id: "e1", parentId: null, timestamp: "2026-06-10T00:00:00.000Z", type: "message", message: { role: "user", content: "hi", timestamp: 0 } } as any]),
     getSessionBranch: mock(async () => []),
     getLeafId: mock(async () => "e1"),
+    listSessions: mock(async () => [
+      { id: "s1", createdAt: "2026-06-10T00:00:00.000Z", cwd: "C:/tmp", path: "C:/tmp/s1.jsonl" },
+      { id: "s0", createdAt: "2026-06-09T00:00:00.000Z", cwd: "C:/tmp", path: "C:/tmp/s0.jsonl" },
+    ]),
+    resumeSession: mock(async (sessionId: string) => ({ id: sessionId, createdAt: "2026-06-09T00:00:00.000Z", cwd: "C:/tmp", path: `C:/tmp/${sessionId}.jsonl` })),
     getSkills: mock(async () => []),
     abort: mock(() => {}),
     clearAllQueues: mock(() => {}),
@@ -66,6 +72,52 @@ function mockAgent(overrides: Partial<QuantAgentSession> = {}): QuantAgentSessio
   };
 }
 
+describe("resumeHandler", () => {
+  it("returns error when no agent session is available", async () => {
+    const result = await resumeHandler({}, [], {});
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("not initialized");
+  });
+
+  it("lists saved sessions by default", async () => {
+    const result = await resumeHandler({}, [], { agentSession: mockAgent() });
+    expect(result.success).toBe(true);
+    expect(result.message).toContain("Saved sessions");
+    expect(result.message).toContain("Use /resume <sessionId> to switch sessions");
+    expect(result.message).toContain("s1");
+  });
+
+  it("opens the resume panel in TUI for bare resume", async () => {
+    const result = await resumeHandler({}, [], {
+      openResume: () => {},
+      agentSession: mockAgent(),
+    });
+    expect(result.success).toBe(true);
+    expect(result.effects).toEqual([{ type: "openResume" }]);
+  });
+
+  it("treats legacy subcommands as session ids now", async () => {
+    const resumeSession = mock(async (sessionId: string) => ({ id: sessionId, createdAt: "2026-06-09T00:00:00.000Z", cwd: "C:/tmp", path: `C:/tmp/${sessionId}.jsonl` }));
+    const result = await resumeHandler({}, ["list"], {
+      agentSession: mockAgent({ resumeSession }),
+    });
+    expect(result.success).toBe(true);
+    expect(resumeSession).toHaveBeenCalledWith("list");
+    expect(result.message).toContain("id: list");
+  });
+
+  it("resumes a target session through the harness facade", async () => {
+    const resumeSession = mock(async (sessionId: string) => ({ id: sessionId, createdAt: "2026-06-09T00:00:00.000Z", cwd: "C:/tmp", path: `C:/tmp/${sessionId}.jsonl` }));
+    const result = await resumeHandler({}, ["s0"], {
+      agentSession: mockAgent({ resumeSession }),
+    });
+    expect(result.success).toBe(true);
+    expect(resumeSession).toHaveBeenCalledWith("s0");
+    expect(result.message).toContain("Resumed");
+    expect(result.message).toContain("id: s0");
+  });
+});
+
 describe("sessionHandler", () => {
   it("returns error when no agent session is available", async () => {
     const result = await sessionHandler({}, [], {});
@@ -73,100 +125,69 @@ describe("sessionHandler", () => {
     expect(result.message).toContain("not initialized");
   });
 
-  it("shows session info by default", async () => {
+  it("renders current session metadata and context usage", async () => {
     const result = await sessionHandler({}, [], { agentSession: mockAgent() });
     expect(result.success).toBe(true);
     expect(result.message).toContain("Session");
-    expect(result.message).toContain("entries: 1");
-    expect(result.message).toContain("leaf: e1");
+    expect(result.message).toContain("id          s1");
+    expect(result.message).toContain("context     1200/200000");
   });
+});
 
-  it("runs compaction through the harness facade", async () => {
-    const compact = mock(async () => ({
-      summary: "Compacted summary",
-      firstKeptEntryId: "e2",
-      tokensBefore: 1234,
-    }));
-    const result = await sessionHandler({}, ["compact", "focus", "on", "signals"], {
-      agentSession: mockAgent({ compact }),
-    });
+describe("hotkeysHandler", () => {
+  it("renders core TUI shortcuts", async () => {
+    const result = await hotkeysHandler({}, [], {});
     expect(result.success).toBe(true);
-    expect(compact).toHaveBeenCalledWith("focus on signals");
-    expect(result.message).toContain("Session compacted.");
-    expect(result.message).toContain("Compacted summary");
-  });
-
-  it("returns reset effects", async () => {
-    const result = await sessionHandler({}, ["reset"], { agentSession: mockAgent() });
-    expect(result.success).toBe(true);
-    expect(result.effects).toEqual([{ type: "clearConversation" }, { type: "resetAgent" }]);
-  });
-
-  it("lists recent session entries", async () => {
-    const result = await sessionHandler({}, ["entries"], { agentSession: mockAgent() });
-    expect(result.success).toBe(true);
-    expect(result.message).toContain("Recent session entries");
-    expect(result.message).toContain("e1");
-  });
-
-  it("navigates to a target entry through the harness facade", async () => {
-    const navigateTree = mock(async () => ({ cancelled: false, editorText: "analyze 000001.SZ" }));
-    const result = await sessionHandler({}, ["goto", "e1"], {
-      agentSession: mockAgent({ navigateTree }),
-    });
-    expect(result.success).toBe(true);
-    expect(navigateTree).toHaveBeenCalledWith("e1");
-    expect(result.message).toContain("Moved session leaf to e1.");
+    expect(result.message).toContain("Hotkeys");
+    expect(result.message).toContain("Ctrl+P");
+    expect(result.message).toContain("Tab");
   });
 });
 
 describe("portfolioHandler", () => {
-  it("adds, lists, and removes panel portfolio symbols", async () => {
-    await withTempOhq(async () => {
-      const add = await portfolioHandler({ code: "510300.SH", name: "沪深300ETF" }, ["add"], {});
-      expect(add.success).toBe(true);
-      expect(add.message).toContain("Added");
+  it("opens the portfolio panel in TUI for bare portfolio", async () => {
+    const result = await portfolioHandler({}, [], { openPortfolio: () => {} });
+    expect(result.success).toBe(true);
+    expect(result.effects).toEqual([{ type: "openPortfolio" }]);
+  });
 
-      const list = await portfolioHandler({}, ["list"], {});
+  it("lists local portfolio files outside TUI", async () => {
+    await withTempOhq(async () => {
+      mkdirSync(join(OHQ, "portfolio"), { recursive: true });
+      await Bun.write(join(OHQ, "portfolio", "holdings_v2_kc50.json"), JSON.stringify({
+        name: "科创50宽基",
+        updated: "2026-05-30T00:00:00+08:00",
+        funds: [{ code: "011613", name: "华夏科创50ETF联接C" }],
+      }, null, 2));
+      const list = await portfolioHandler({}, [], {});
       expect(list.success).toBe(true);
-      expect(list.message).toContain("Panel portfolio (1)");
-      expect(list.message).toContain("510300.SH");
-
-      const remove = await portfolioHandler({ code: "510300.SH" }, ["remove"], {});
-      expect(remove.success).toBe(true);
-      expect(remove.message).toContain("Removed");
+      expect(list.message).toContain("Local portfolios");
+      expect(list.message).toContain("科创50宽基");
+      expect(list.message).not.toContain("holdings_v2_kc50.json");
     });
   });
 
-  it("rejects duplicate add requests", async () => {
+  it("renders a compact config summary outside TUI", async () => {
     await withTempOhq(async () => {
-      await portfolioHandler({ code: "510300.SH", name: "沪深300ETF" }, ["add"], {});
-      const dup = await portfolioHandler({ code: "510300.SH", name: "沪深300ETF" }, ["add"], {});
-      expect(dup.success).toBe(false);
-      expect(dup.message).toContain("already in panel portfolio");
-    });
-  });
-});
-
-describe("setupHandler", () => {
-  it("shows credential setup help", async () => {
-    await withTempOhq(async () => {
-      const result = await setupHandler({}, [], {});
+      mkdirSync(join(OHQ, "portfolio"), { recursive: true });
+      await Bun.write(join(OHQ, "portfolio", "holdings.json"), JSON.stringify({
+        name: "当前主组合",
+        updated: "2026-05-30T00:00:00+08:00",
+        funds: [{ code: "011613", name: "华夏科创50ETF联接C" }],
+      }, null, 2));
+      const result = await configHandler({}, [], {});
       expect(result.success).toBe(true);
-      expect(result.message).toContain("/setup whyj <token>");
-      expect(result.message).toContain("Settings file:");
+      expect(result.message).toContain("Config");
+      expect(result.message).toContain("Active portfolio  当前主组合");
+      expect(result.message).toContain("Ctrl+P opens the settings panel");
+      expect(result.message).not.toContain("────────────────");
     });
   });
 
-  it("saves a WhyJ auth token into settings", async () => {
-    await withTempOhq(async () => {
-      const result = await setupHandler({}, ["whyj", "test-key-123"], {});
-      expect(result.success).toBe(true);
-      expect(result.message).toContain("Saved WHYJ_AUTH_TOKEN");
-
-      const status = await configHandler({}, [], {});
-      expect(status.message).toContain("Auth token                  [✓]");
-    });
+  it("rejects legacy portfolio edit subcommands", async () => {
+    const result = await portfolioHandler({}, ["add"], {});
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("read/write local portfolio files");
   });
 });
 
@@ -205,7 +226,7 @@ describe("skillHandler", () => {
       }),
     });
     expect(result.success).toBe(true);
-    expect(result.message).toContain("Location:");
+    expect(result.message).toContain("Location");
     expect(result.message).toContain("explicit");
   });
 
