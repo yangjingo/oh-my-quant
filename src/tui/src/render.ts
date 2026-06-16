@@ -639,7 +639,7 @@ export function drawComposer(
 
 export function drawStatus(buf: Buffer, row: number, width: number, st: AppState): void {
   buf.hline(0, row - 1, width, DIVIDER_CHAR, S.rule);
-  const sources = [st.aShareSource, st.globalSource].filter(Boolean).join(" · ");
+  const sources = [...new Set([st.aShareSource, st.globalSource].filter(Boolean))].join(" · ");
   const portfolio = st.activePortfolio ? `  ·  ${st.activePortfolio}` : "";
   buf.text(
     0,
