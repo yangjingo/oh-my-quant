@@ -268,6 +268,10 @@ export class PanelController {
     return this.currentPortfolioName();
   }
 
+  insightEnabled(): boolean {
+    return this.cfg?.insightEnabled !== false;
+  }
+
   /** Name of the currently highlighted item in the panel list. */
   selectedPortfolioName(): string {
     const items = this.filteredPortfolioItems();

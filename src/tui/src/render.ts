@@ -220,9 +220,9 @@ export function buildOverviewView(
 }
 
 
-export function layout(C: number, R: number): Layout {
+export function layout(C: number, R: number, insightEnabled?: boolean): Layout {
   const panelW = Math.min(48, Math.max(36, Math.floor(C * 0.312)));
-  const showPanel = C >= 78;
+  const showPanel = C >= 78 && insightEnabled !== false;
   const mainH = R - HEADER_H - COMPOSER_H - STATUS_H;
   const mainW = showPanel ? C - panelW : C;
   return {

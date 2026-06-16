@@ -604,6 +604,7 @@ export function createInitialAppState(version: string): AppState {
     activePortfolio,
     aShareSource: settings.preferences.aShareSource || "akshare",
     globalSource: settings.preferences.globalSource || "llmquant-data",
+    insightEnabled: settings.insightEnabled !== false,
   };
 }
 

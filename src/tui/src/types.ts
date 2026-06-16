@@ -63,6 +63,8 @@ export interface AppState {
   /** Active data source labels (shown in status line). */
   aShareSource: string;
   globalSource: string;
+  /** Whether the right-side overview panel is visible. */
+  insightEnabled: boolean;
 }
 
 export interface Layout {
