@@ -92,7 +92,7 @@ export class QuantTui {
   openHelp(): void { this.panel.open("help"); this.paint(); }
 
   private paint(): void {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.insightEnabled);
+    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
     this.clampScroll(L);
     const st = { ...this.state, input: this.inputBuf };
     this.screen.buf.clear();
@@ -146,7 +146,7 @@ export class QuantTui {
   }
 
   private scroll(region: ScrollRegion, delta: number): void {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.insightEnabled);
+    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
     if (region === "conversation") {
       const max = conversationMaxScrollUp(this.state.messages, L.mainPane.w - 4, L.mainPane.h - 2);
       this.convScrollUp = Math.min(max, Math.max(0, this.convScrollUp + delta));
@@ -162,7 +162,7 @@ export class QuantTui {
   }
 
   private scrollRegionPanel(up: boolean, page: boolean): void {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.insightEnabled);
+    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
     const step = page
       ? Math.max(1, (this.scrollRegion === "overview" ? L.portfolio.h : L.mainPane.h) - 3)
       : 1;
@@ -221,7 +221,7 @@ export class QuantTui {
   }
 
   private handleMouseEvent(evt: MouseEvent): boolean {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.insightEnabled);
+    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
     const region = hitTestScrollRegion(evt.col, evt.row, L);
     this.scrollRegion = region;
 
@@ -299,7 +299,7 @@ export class QuantTui {
   }
 
   private async copyConversationSelection(): Promise<void> {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.insightEnabled);
+    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
     const view = buildConversationView(this.state.messages, L.conversation, this.convScrollUp, L.mainPane);
     await this.copyPanelSelection("conversation", view);
   }
@@ -350,10 +350,10 @@ export class QuantTui {
       if (result?.refreshPanel) this.panelRefreshHandler?.();
       if (result?.close) {
         const name = this.panel.activePortfolioName();
-        const insight = this.panel.insightEnabled();
+        const showPanel = this.panel.showPortfolioPanel();
         this.panel.close();
         this.state.activePortfolio = name;
-        this.state.insightEnabled = insight;
+        this.state.showPortfolioPanel = showPanel;
       } else {
         this.state.activePortfolio = this.panel.selectedPortfolioName();
       }
@@ -394,12 +394,12 @@ export class QuantTui {
         this.submitHandler?.(text);
       }
     } else if (key.name === "pageup") {
-      const L = layout(this.screen.cols, this.screen.rows, this.state.insightEnabled);
+      const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
       const page = Math.max(1, L.mainPane.h - 3);
       if (key.shift && L.showPanel) this.scroll("overview", -page);
       else this.scroll("conversation", page);
     } else if (key.name === "pagedown") {
-      const L = layout(this.screen.cols, this.screen.rows, this.state.insightEnabled);
+      const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
       const page = Math.max(1, L.mainPane.h - 3);
       if (key.shift && L.showPanel) this.scroll("overview", page);
       else this.scroll("conversation", -page);

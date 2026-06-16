@@ -268,8 +268,8 @@ export class PanelController {
     return this.currentPortfolioName();
   }
 
-  insightEnabled(): boolean {
-    return this.cfg?.insightEnabled !== false;
+  showPortfolioPanel(): boolean {
+    return this.cfg?.showPortfolioPanel !== false;
   }
 
   /** Name of the currently highlighted item in the panel list. */
@@ -530,7 +530,7 @@ export class PanelController {
   private renderConfigHeaderInfo(buf: Buffer, frame: PanelFrame): void {
     if (!this.cfg) return;
     const left = `Model: ${this.cfg.model || "sonnet"}    Thinking: ${this.cfg.thinkingLevel || "high"}`;
-    const right = `Insight: ${this.cfg.insightEnabled === false ? "off" : "on"}`;
+    const right = `Panel: ${this.cfg.showPortfolioPanel === false ? "off" : "on"}`;
     buf.text(frame.inner.x, frame.inner.y, truncate(left, frame.inner.w - Math.min(frame.inner.w - 20, strWidth(right) + 2)), S.cream);
     buf.textRight(frame.inner.x + frame.inner.w, frame.inner.y, truncate(right, Math.floor(frame.inner.w * 0.4)), S.dim, frame.inner.x + Math.floor(frame.inner.w * 0.45));
     buf.text(frame.inner.x, frame.inner.y + 1, truncate(`Active portfolio: ${this.currentPortfolioName()}`, frame.inner.w), S.dim);
@@ -716,6 +716,7 @@ export class PanelController {
             get: () => this.dataSourceKeyLabel(this.currentGlobalSource()),
             apply: (v) => this.saveDataSourceKey(this.currentGlobalSource(), v),
           },
+          { label: "Portfolio Panel", get: () => this.cfg?.showPortfolioPanel === false ? "off" : "on", set: (v) => { if (this.cfg) this.cfg.showPortfolioPanel = v !== "off"; }, options: ENABLE_OPTIONS },
           { label: "Insight", get: () => this.cfg?.insightEnabled === false ? "off" : "on", set: (v) => { if (this.cfg) this.cfg.insightEnabled = v !== "off"; }, options: ENABLE_OPTIONS },
         ],
       },

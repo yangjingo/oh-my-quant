@@ -64,7 +64,7 @@ export interface AppState {
   aShareSource: string;
   globalSource: string;
   /** Whether the right-side overview panel is visible. */
-  insightEnabled: boolean;
+  showPortfolioPanel: boolean;
 }
 
 export interface Layout {

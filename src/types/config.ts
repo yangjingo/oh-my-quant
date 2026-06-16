@@ -1,17 +1,17 @@
 import type { Market } from "./data.ts";
 
+export type AShareSource = "akshare" | "tushare";
+export type GlobalSource = "llmquant-data" | "financial-datasets";
+
 export interface UserPreferences {
   defaultMarket: Market;
   defaultBenchmark: string;
   defaultCash: number;
   defaultFast: number;
   defaultSlow: number;
-}
-
-export interface McpConfig {
-  enabled: boolean;
-  autoConnect: boolean;
-  servers?: Record<string, { enabled: boolean }>;
+  currentPortfolioFile: string;
+  aShareSource: AShareSource;
+  globalSource: GlobalSource;
 }
 
 export interface OhQuantSettings {
@@ -22,34 +22,32 @@ export interface OhQuantSettings {
   model: string;
   /** Thinking/reasoning level: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" */
   thinkingLevel: string;
+  /** Whether the insight panel is shown and auto-derived from the conversation. */
+  insightEnabled: boolean;
+  /** Whether the right-side overview/portfolio panel is visible. */
+  showPortfolioPanel: boolean;
   /** Tool allow/deny lists */
   permissions: { allow?: string[]; deny?: string[] };
   /** User business preferences */
   preferences: UserPreferences;
-  /** MCP server management */
-  mcp: McpConfig;
 }
 
 export const DEFAULT_SETTINGS: OhQuantSettings = {
   version: 1,
   env: {},
   model: "sonnet",
-  thinkingLevel: "off",
-  permissions: {
-    allow: [
-      "mcp__financial-datasets__get_company_facts",
-      "mcp__financial-datasets__get_financial_metrics_snapshot",
-    ],
-  },
+  thinkingLevel: "high",
+  insightEnabled: true,
+  showPortfolioPanel: true,
+  permissions: {},
   preferences: {
     defaultMarket: "A",
     defaultBenchmark: "000300.SH",
     defaultCash: 100_000,
     defaultFast: 20,
     defaultSlow: 60,
-  },
-  mcp: {
-    enabled: true,
-    autoConnect: true,
+    currentPortfolioFile: "holdings.json",
+    aShareSource: "akshare",
+    globalSource: "llmquant-data",
   },
 };
