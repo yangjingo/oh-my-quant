@@ -602,6 +602,8 @@ export function createInitialAppState(version: string): AppState {
     composerQueue: [],
     composerStatus: null,
     activePortfolio,
+    aShareSource: settings.preferences.aShareSource || "akshare",
+    globalSource: settings.preferences.globalSource || "llmquant-data",
   };
 }
 

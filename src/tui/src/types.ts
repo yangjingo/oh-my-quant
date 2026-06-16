@@ -60,6 +60,9 @@ export interface AppState {
   composerStatus: ComposerStatus | null;
   /** Name of the currently active local portfolio (shown in status line). */
   activePortfolio: string;
+  /** Active data source labels (shown in status line). */
+  aShareSource: string;
+  globalSource: string;
 }
 
 export interface Layout {
