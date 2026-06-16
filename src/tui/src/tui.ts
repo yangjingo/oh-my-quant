@@ -352,6 +352,8 @@ export class QuantTui {
         const name = this.panel.activePortfolioName();
         this.panel.close();
         this.state.activePortfolio = name;
+      } else {
+        this.state.activePortfolio = this.panel.selectedPortfolioName();
       }
       return;
     }

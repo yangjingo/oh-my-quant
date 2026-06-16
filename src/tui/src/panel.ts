@@ -268,6 +268,12 @@ export class PanelController {
     return this.currentPortfolioName();
   }
 
+  /** Name of the currently highlighted item in the panel list. */
+  selectedPortfolioName(): string {
+    const items = this.filteredPortfolioItems();
+    return items[this.portfolioSelection]?.name || this.currentPortfolioName();
+  }
+
   render(buf: Buffer): void {
     if (!this.cfg) return;
     if (this.mode === "resume") {
