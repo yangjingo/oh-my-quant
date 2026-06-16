@@ -639,12 +639,12 @@ export function drawComposer(
 
 export function drawStatus(buf: Buffer, row: number, width: number, st: AppState): void {
   buf.hline(0, row - 1, width, DIVIDER_CHAR, S.rule);
-  const sources = [...new Set([st.aShareSource, st.globalSource].filter(Boolean))].join(" · ");
+  const source = st.aShareSource || st.globalSource || "";
   const portfolio = st.activePortfolio ? `  ·  ${st.activePortfolio}` : "";
   buf.text(
     0,
     row,
-    `\x1b[38;2;212;175;55m◆ ${st.model}\x1b[0m\x1b[2m · ${sources}${portfolio}\x1b[0m`,
+    `\x1b[38;2;212;175;55m◆ ${st.model}\x1b[0m\x1b[2m · ${source}${portfolio}\x1b[0m`,
   );
 }
 

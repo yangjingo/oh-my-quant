@@ -349,8 +349,9 @@ export class QuantTui {
       if (result?.command) this.submitHandler?.(result.command);
       if (result?.refreshPanel) this.panelRefreshHandler?.();
       if (result?.close) {
+        const name = this.panel.activePortfolioName();
         this.panel.close();
-        this.state.activePortfolio = this.panel.activePortfolioName();
+        this.state.activePortfolio = name;
       }
       return;
     }
