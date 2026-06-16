@@ -44,9 +44,9 @@ function buildConversationLines(msgs: UIMessage[], width: number): RenderLine[] 
 }
 
 /** Lines scrolled up from the bottom (0 = stick to latest). */
-export function conversationMaxScrollUp(msgs: UIMessage[], innerW: number, innerH: number): number {
+export function conversationMaxScrollUp(msgs: UIMessage[], innerW: number, innerH: number, reservedBottomRows: number = 0): number {
   const lines = buildConversationLines(msgs, innerW);
-  return Math.max(0, lines.length - innerH);
+  return Math.max(0, lines.length - Math.max(0, innerH - reservedBottomRows));
 }
 
 /** Cap holdings/quotes rows to `max` total across all sections. */
@@ -292,14 +292,18 @@ export function buildConversationView(
   r: { x: number; y: number; w: number; h: number },
   scrollUpFromBottom: number,
   mainPane?: { x: number; y: number; w: number; h: number },
+  reservedBottomRows: number = 0,
 ): ConversationView {
   const panelRect = mainPane ?? r;
   const inner = conversationPanelInner(panelRect);
   const lines = buildConversationLines(msgs, inner.w);
-  const maxUp = Math.max(0, lines.length - inner.h);
+  const visibleH = Math.max(0, inner.h - reservedBottomRows);
+  const maxUp = Math.max(0, lines.length - visibleH);
   const up = Math.min(Math.max(0, scrollUpFromBottom), maxUp);
-  const startLineIdx = Math.max(0, lines.length - inner.h - up);
-  return { inner, clipEnd: conversationClipEnd(panelRect), lines, startLineIdx };
+  const startLineIdx = Math.max(0, lines.length - visibleH - up);
+  const visibleLineCount = Math.min(visibleH, Math.max(0, lines.length - startLineIdx));
+  const topPadding = Math.max(0, visibleH - visibleLineCount);
+  return { inner, clipEnd: conversationClipEnd(panelRect), lines, startLineIdx, topPadding, visibleH };
 }
 
 const SELECTION_STYLE: Style = { fg: "#0D0B0A", bg: "#C9A227", bold: true };
@@ -357,7 +361,8 @@ export function drawConversation(
   const panelRect = mainPane ?? r;
   const clipEnd = conversationClipEnd(panelRect);
   buf.fillRect(panelRect, { fg: CANVAS });
-  const view = buildConversationView(msgs, r, scrollUpFromBottom, mainPane);
+  const thinkBarH = activeConversationStatusRows(activity, msgs);
+  const view = buildConversationView(msgs, r, scrollUpFromBottom, mainPane, thinkBarH);
   const scrollHint = scrollUpFromBottom > 0 ? "···" : undefined;
   const inner = buf.box(panelRect, {
     title: "◉ Conversation",
@@ -373,24 +378,29 @@ export function drawConversation(
     return;
   }
 
-  // Reserve bottom line for thinking bar when agent is active
-  const thinkBarH = (activity !== "ready" && msgs.length > 0) ? 1 : 0;
-  const visibleH = inner.h - thinkBarH;
-
+  const visibleH = view.visibleH ?? inner.h;
+  const topPadding = view.topPadding ?? 0;
   for (let i = view.startLineIdx; i < view.lines.length && i - view.startLineIdx < visibleH; i++) {
     const line = view.lines[i];
-    const y = inner.y + i - view.startLineIdx;
+    const y = inner.y + topPadding + i - view.startLineIdx;
     drawConversationLine(buf, inner.x, y, line.text, line.style ?? {}, inner.w, clipEnd, i, selection);
   }
 
-  // Thinking status bar: spinner + tip on its own line at conversation bottom
   if (thinkBarH > 0) {
-    const spinner = oraFrame();
-    const tip = thinkingQuote();
-    const bar = truncate(`${spinner} ${tip}`, inner.w - 2);
-    const barY = inner.y + inner.h - 1;
-    buf.text(inner.x + 1, barY, bar, { fg: "#D4AF37", dim: true }, inner.w - 2, inner.x + inner.w);
+    const statusY = inner.y + inner.h - thinkBarH;
+    const elapsed = latestThinkingStartedAt(msgs);
+    const meta = elapsed ? `${fmtShortElapsed(Date.now() - elapsed)} · ${activity}` : activity;
+    const status = truncate(`${oraFrame()} ${activityLabel(activity)}... (${meta})`, inner.w - 2);
+    buf.text(inner.x + 1, statusY, status, thinkingBannerStyle(), inner.w - 2, inner.x + inner.w);
+    if (thinkBarH > 1) {
+      const tip = truncate(`Tip: ${conversationTip(msgs)}`, inner.w - 4);
+      buf.text(inner.x + 3, statusY + 1, tip, S.dim, inner.w - 4, inner.x + inner.w);
+    }
   }
+}
+
+export function activeConversationStatusRows(activity: string, msgs: UIMessage[], innerH: number = 2): number {
+  return activity !== "ready" && msgs.length > 0 ? Math.min(2, innerH) : 0;
 }
 
 const ORA_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -402,7 +412,54 @@ function oraFrame(): string {
 
 function thinkingQuote(): string {
   const idx = Math.floor(Date.now() / 5000) % LOADING_INSIGHTS.length;
-  return LOADING_INSIGHTS[idx].quote;
+  const q = LOADING_INSIGHTS[idx];
+  return `"${q.quote}" — ${q.author}`;
+}
+
+function conversationTip(msgs: UIMessage[]): string {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const msg = msgs[i];
+    if (msg.role === "error" && msg.text?.trim()) {
+      return oneLine(`Error: ${msg.text}`);
+    }
+    if (msg.role === "tool" && msg.tool?.status === "error" && msg.tool.result?.trim()) {
+      return oneLine(`Error: ${msg.tool.result}`);
+    }
+  }
+  return thinkingQuote();
+}
+
+function latestThinkingStartedAt(msgs: UIMessage[]): number | undefined {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const msg = msgs[i];
+    if (msg.role === "thinking" && msg.thinkingLive && msg.startedAt) return msg.startedAt;
+  }
+  return undefined;
+}
+
+function thinkingBannerStyle(): Style {
+  return { fg: stepHex(Date.now() / 500), bold: true };
+}
+
+function fmtShortElapsed(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  if (total < 60) return `${total}s`;
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${minutes}m ${seconds}s`;
+}
+
+function oneLine(text: string): string {
+  return sanitizeTerminalText(text).replace(/\s+/g, " ").trim();
+}
+
+function activityLabel(activity: string): string {
+  switch (activity) {
+    case "starting": return "Starting";
+    case "running tool": return "Running tool";
+    case "thinking": return "Thinking";
+    default: return "Working";
+  }
 }
 
 function stepHex(phase: number): string {
@@ -492,16 +549,20 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
       lines.push({ text: `▏ ${line}`, style: S.creamB });
     }
   } else if (msg.role === "thinking") {
-    const prefix = "▏ ";
-    for (const line of wrap(sanitizeTerminalText(msg.text ?? ""), Math.max(1, w - strWidth(prefix)))) {
-      lines.push({ text: `${prefix}${line}`, style: S.thinking });
+    const bodyPrefix = "  ";
+    lines.push({ text: "✻ Thinking", style: S.thinking });
+    const body = sanitizeTerminalText(msg.text ?? "").trim();
+    if (body) {
+      for (const line of wrap(body, Math.max(1, w - strWidth(bodyPrefix)))) {
+        lines.push({ text: `${bodyPrefix}${line}`, style: S.thinking });
+      }
     }
   } else if (msg.role === "tool") {
     const t = msg.tool!;
-    const status = t.status === "running" ? "○" : t.status === "done" ? "✓" : "✗";
+    const status = t.status === "running" ? "●" : t.status === "done" ? "●" : "✗";
     const lineLabel = t.label || formatToolLine(t.name, t.args);
     const elapsed = t.status === "running" ? `  ${fmtElapsed(Date.now() - t.startedAt)}` : "";
-    const prefix = `  ${status} `;
+    const prefix = `${status} `;
     const body = `${lineLabel}${elapsed}`;
     const wrapped = wrap(body, Math.max(1, w - strWidth(prefix)));
     if (wrapped.length > 0) {
@@ -514,9 +575,12 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
     }
     if (t.result) {
       const preview = t.result.length > 120 ? t.result.slice(0, 120) + "..." : t.result;
-      const resultPrefix = "    ";
-      for (const line of wrap(preview, Math.max(1, w - strWidth(resultPrefix)))) {
-        lines.push({ text: `${resultPrefix}${line}`, style: S.dim });
+      const resultPrefix = "  ⎿ ";
+      const continuationPrefix = "    ";
+      const resultLines = wrap(preview, Math.max(1, w - strWidth(resultPrefix)));
+      for (let i = 0; i < resultLines.length; i++) {
+        const prefixForLine = i === 0 ? resultPrefix : continuationPrefix;
+        lines.push({ text: `${prefixForLine}${resultLines[i]}`, style: S.dim });
       }
     }
   } else if (msg.role === "error") {
@@ -667,7 +731,10 @@ export function drawComposer(
 
 export function drawStatus(buf: Buffer, row: number, width: number, st: AppState): void {
   buf.hline(0, row - 1, width, DIVIDER_CHAR, S.rule);
-  const source = st.aShareSource || st.globalSource || "";
+  const source = [
+    st.aShareSource ? `A:${st.aShareSource}` : "",
+    st.globalSource ? `G:${st.globalSource}` : "",
+  ].filter(Boolean).join(" · ");
   const portfolio = st.activePortfolio ? ` · ${st.activePortfolio}` : "";
   buf.text(
     0,
