@@ -28,7 +28,7 @@ Frame-buffer TUI with persistent Portfolio dock. Architecture inspired by deepse
 │ │ /co▏                                                                     ││
 │ ╰──────────────────────────────────────────────────────────────────────────╯│
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ ◆ deepseek/deepseek-chat · .ohquant market-cache only · portfolio live-only │
+│ ◆ deepseek-v4-pro · akshare · 全仓科技成长                                  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -247,8 +247,8 @@ Slash suggestions render as a **floating panel above the Composer**, not inside 
 ```
 ┌─ / Commands ────────────────┐
 │ ▶ /config  Settings panel   │
-│   /factor  Factor analysis  │
-│   /backtest  SMA backtest   │
+│   /resume  Resume session   │
+│   /portfolio Local portfolio│
 └─────────────────────────────┘
 ┌─ ⌘ Composer ────────────────────────────────┐
 │ /da▏                                          │
@@ -268,7 +268,6 @@ Slash suggestions render as a **floating panel above the Composer**, not inside 
 | `/` | All commands | Auto-completes to 1st command | Selects 1st |
 | `/r` | `/resume` | Auto-completes to `/resume` | Fills selected |
 | `/config` | none | **Submits `/config`** | Fills command |
-| `/factor` | `list`, `analyze` (subcommands) | **Submits `/factor`** | Fills subcommand |
 | `/resume` | none | **Submits `/resume`** | Fills command |
 | `hello` | None | Submits to AI agent | — |
 
@@ -280,9 +279,9 @@ Slash suggestions render as a **floating panel above the Composer**, not inside 
 
 Top-level slash command metadata comes from `src/cli/catalog.ts` (`COMMAND_CATALOG`). `src/tui/src/input.ts` maps catalog entries to composer suggestions.
 
-**Level 1**: Partial command name → matching top-level commands with descriptions (e.g. `/c` → `/config  Settings panel`, `/factor  Factor analysis`)
+**Level 1**: Partial command name → matching top-level commands with descriptions (e.g. `/c` → `/config  Settings panel`, `/p` → `/portfolio  Local portfolios`)
 
-**Level 2**: Exact command match with subcommands → subcommand list (e.g. `/factor` → `list`, `analyze`)
+**Level 2**: Exact command match with actions → action list when the catalog defines local UI actions.
 
 **Level 3**: Exact command match without subcommands → no suggestions, Enter submits directly.
 
@@ -298,11 +297,29 @@ Top-level slash command metadata comes from `src/cli/catalog.ts` (`COMMAND_CATAL
 
 Mouse mode enables click, drag, and wheel reporting (`1000`, `1002`, `1006`). Hover reporting (`1003`) is intentionally disabled because it floods stdin during loading animations in Cursor/Windows terminals.
 
+## Thinking bar
+
+When agent activity is `"thinking"` or `"running tool"` and conversation has messages, a thin status line appears at the bottom of the conversation area (reserved, not overlapping message content):
+
+```
+⠋ "investment quote text" — Author Name
+```
+
+The spinner cycles through ora frames (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) every 80ms via the animation timer. The investment tip rotates every 5s from `getQuotes()` (sourced from `.ohquant/insights.json`, auto-regenerated from `notes/quant/*.md` on startup).
+
+When conversation is empty and agent is active, the full-screen loading overlay shows the spinner + staircase animation + multi-line quote display instead.
+
 ## Status bar
 
-Two rows: divider (`STATUS_H = 2`). Left side shows model name (gold) plus local-data safety notes (market cache only, portfolio live-only).
+Two rows: divider (`STATUS_H = 2`). Shows model name (gold) · A-share data source · active portfolio name.
 
-Model is provided by `createInitialAppState()` / `AppRuntime.init()` from `.ohquant/settings.json` → `env.WHYJ_DEFAULT_SONNET_MODEL`, falling back to `deepseek-v4-pro`.
+Format: `◆ model · source · portfolio`
+
+Source is read from `.ohquant/settings.json` → `preferences.aShareSource` (falls back to `globalSource` if A-share unset).
+
+Portfolio name is resolved from `preferences.currentPortfolioFile` via `listLocalPortfolios()`, synced from config panel changes and portfolio panel selections in real-time.
+
+Model is provided by `createInitialAppState()` / `AppRuntime.bootstrap()` from `.ohquant/settings.json` → `env.WHYJ_DEFAULT_SONNET_MODEL`, falling back to `deepseek-v4-pro`.
 
 ## Font support
 
@@ -312,15 +329,18 @@ All emphasis now stays on native terminal glyphs. There is no custom bitmap font
 
 | Terminal width | Portfolio dock | Conversation |
 |---------------|----------------|--------------|
-| `< 78` cols | hidden | full width |
-| `≥ 78` cols | `clamp(36,48,⌊w·0.312⌋)` | `w − PANEL_W` |
+| `< 78` cols or `showPortfolioPanel: off` | hidden | full width |
+| `≥ 78` cols and `showPortfolioPanel: on` | `clamp(36,48,⌊w·0.312⌋)` | `w − PANEL_W` |
+
+The `showPortfolioPanel` toggle is in config (default: on). Independent from the Insight setting.
 
 ## Animation
 
 Animation timer (`setInterval 80ms`) fires when `activity !== "ready"`, triggering repaints for:
 - Staircase wave in header
-- Loading overlay staircase + text pulses
-- Portfolio spinner pulse
+- Loading overlay staircase + text pulses + ora spinner rotation
+- Thinking bar spinner rotation at conversation bottom
+- Tool elapsed timers in conversation
 
 Once `activity === "ready"`, the timer pauses to save CPU.
 

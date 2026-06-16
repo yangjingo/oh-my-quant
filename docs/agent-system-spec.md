@@ -1,10 +1,10 @@
-# WhyJ Quant — AI Agent System Spec (v2, implemented)
+# WhyJ Quant — AI Agent System Spec (v3, implemented)
 
-> last-updated: 2026-06-06
+> last-updated: 2026-06-10
 
 ## 1. Overview
 
-The agent system wraps pi's `@earendil-works/pi-agent-core` Agent class with quant-specific tools, session management, context compaction, and prompt assembly.
+The agent system now vendors pi's full `packages/agent/src` core+harness implementation into the repo and wraps it with a thin WhyJ Quant adapter. The runtime uses pi's harness lifecycle, JSONL tree session storage, compaction, and branch-summary machinery, while preserving WhyJ Quant tools, prompting, and TUI behavior.
 
 **Design references:**
 - pi `packages/agent/src/harness/agent-harness.ts` — harness lifecycle, hooks, queue management
@@ -16,15 +16,22 @@ The agent system wraps pi's `@earendil-works/pi-agent-core` Agent class with qua
 
 ```
 src/agent/
-  session.ts          Agent wrapper (pi Agent + hooks + compaction + persistence)
+  pi/                 Vendored pi packages/agent/src (core + harness + session + compaction)
+  session.ts          WhyJ Quant facade over AgentHarness
+  dispatch.ts         prompt/steer/followUp routing against the facade
   context.ts          Prompt assembly (base template + dynamic injection)
-  session.test.ts     12 tests: estimateTokens, createAgent
-  context.test.ts     9 tests: BASE_SYSTEM_PROMPT, injectSessionContext
-  core/               Vendored pi agent core (agent-loop, types)
+  session.test.ts     estimateTokens, estimateContextTokens, createAgent
+  context.test.ts     BASE_SYSTEM_PROMPT, injectSessionContext
+
+src/cli/
+  catalog.ts          Slash command catalog (help text, autocomplete, one-shot help)
+  registry.ts         parseCommand(), executeCommand(), slash handlers
+  registry.test.ts    Parser tests
 
 src/tools/
-  mcp-tools.ts        7 MCP-backed tools (tushare x3, llmquant x1, fd x3)
+  data-tools.ts       local data fetch tools
   quant-tools.ts      5 computation tools (factor, backtest, risk, benchmark, dashboard)
+  bash-tool.ts        Shell tool (pi NodeExecutionEnv + codex-style params)
 
 src/storage/
   index.ts            .ohquant/ directory layout, settings load/save
@@ -33,65 +40,53 @@ src/storage/
 
 ## 3. Agent Architecture
 
-```typescript
-// src/agent/session.ts
-createAgent(): Agent {
-  const config = loadSettings()
-  return new Agent({
-    sessionId,
-    initialState: {
-      systemPrompt: buildSystemPrompt(),
-      model,
-      thinkingLevel,
-      tools: [...MCP_TOOLS, ...COMPUTE_TOOLS],  // 12 tools total
-    },
-    convertToLlm,               // Filter to user/assistant/toolResult only
-    streamFn: streamSimple,
-    getApiKey: () => loadSettings().env["WHYJ_AUTH_TOKEN"],  // settings.json only
-    transformContext: (msgs) => {  // Token estimate + compaction
-      if (estimateContextTokens(msgs) >= 111616) return compactMessages(msgs)
-      return msgs
-    },
-    toolExecution: "sequential",
-    steeringMode: "one-at-a-time",
-    followUpMode: "one-at-a-time",
-  })
-}
-```
+`createAgent()` now returns a facade that:
 
-## 4. MCP-backed Tools (src/tools/mcp-tools.ts)
+- creates a `NodeExecutionEnv` rooted at the current cwd
+- opens or creates a pi `JsonlSessionRepo` session under `.ohquant/sessions/`
+- instantiates pi `AgentHarness` with WhyJ Quant tools and system prompt callback
+- mirrors core `AgentEvent` state (`isStreaming`, `pendingToolCalls`, `messages`) so the existing TUI runtime can keep its event-driven UI flow
+- preserves lightweight per-turn symbol memory via `injectSessionContext()`
 
-Each tool wraps `callTool(serverName, toolName, args)` → cache locally.
+## 4. Data Tools (src/tools/data-tools.ts)
 
-| Tool | Server | MCP Call | Caches? |
+Each tool wraps the repo's local data adapter path and caches locally when appropriate.
+
+| Tool | Backend | Call | Caches? |
 |------|--------|----------|---------|
-| `tushare_daily` | tushare | `daily(ts_code, start_date, end_date)` | Yes |
-| `tushare_stock_basic` | tushare | `stock_basic(name, exchange, list_status)` | No |
-| `tushare_fina_indicator` | tushare | `fina_indicator(ts_code, period)` | No |
-| `llmquant_price` | llmquant-data | `equity_historical_prices(ticker, start, end)` | Yes |
-| `fd_price` | financial-datasets | `get_stock_prices(ticker, start, end)` | No |
-| `fd_snapshot` | financial-datasets | `get_financial_metrics_snapshot(ticker)` | No |
-| `fd_company` | financial-datasets | `get_company_facts(ticker)` | No |
+| `fetch_bars` | akshare | `fetchBars(symbol, market, start, end)` | Yes |
 
-Pattern: TypeBox schema → `callTool()` → normalize → `saveBars()` (if cacheable) → `ok(text)`.
+Pattern: TypeBox schema → `fetchBars()` → `saveBars()` → `ok(text)`.
 
 ## 5. Computation Tools (src/tools/quant-tools.ts)
+
+Quant tools are built-in agent tools, not slash commands. Full functional design: `docs/quant-tools-design.md`.
 
 | Tool | Requires | Output |
 |------|----------|--------|
 | `compute_factor` | Cached bars | momentum/reversal/volatility/volume_ratio/rsi/sma_deviation, percentile |
 | `run_backtest` | Cached bars | total return, CAGR, Sharpe, max drawdown, win rate, P/L ratio |
 | `check_risk` | Cached bars | annual vol, VaR(95/99), CVaR(95/99), max drawdown duration, skewness, kurtosis |
-| `score_benchmark` | MCP (direct) | Fetch strategy + benchmark, backtest, 3-dimension score (100-point), save JSON |
+| `score_benchmark` | direct data fetch | Fetch strategy + benchmark, backtest, 3-dimension score (100-point), save JSON |
 | `show_dashboard` | .ohquant/ files | Read benchmark results, rank, display top 10 |
 
-All use `loadCachedBars(symbol)` which tries sources in order. Returns `DATA_NO_CACHE` error if nothing found — agent should then call MCP data tools first.
+`compute_factor`, `run_backtest`, and `check_risk` use `loadCachedBars(symbol)` which tries sources in order. They return `DATA_NO_CACHE` if nothing is found, so the agent should call `fetch_bars` first. `score_benchmark` fetches strategy and benchmark bars directly and saves a result artifact. `show_dashboard` reads saved artifacts only.
+
+## 5b. Shell Tool (src/tools/bash-tool.ts)
+
+Reference: pi `NodeExecutionEnv` + `executeShellWithCapture`; codex `shell` tool parameters.
+
+| Tool | Params | Behavior |
+|------|--------|----------|
+| `bash` | `command`, optional `workdir`, optional `timeout_ms` | Run shell via pi harness (bash on Unix, Git Bash on Windows). `executionMode: sequential`. Non-zero exit throws. Output tail-truncated at pi defaults (~50KB). |
+
+Use for `whyj` CLI, `bun test`, git, file inspection. Market data should still go through data tools.
 
 ## 6. Prompt Assembly (src/agent/context.ts)
 
 ### Base template (BASE_SYSTEM_PROMPT)
 - Identity: "quantitative finance analyst in WhyJ Quant terminal"
-- Lists all 12 tools with one-line descriptions
+- Lists local data, quant, and shell tools with one-line descriptions
 - Workflow: data → factor → backtest → risk → benchmark
 - **Output constraints**: NO markdown, NO emoji, plain ASCII, SI suffixes, financial terminology
 - Financial terms: annualized return, momentum premium, tail risk, tracking error, info ratio, etc.
@@ -102,59 +97,38 @@ All use `loadCachedBars(symbol)` which tries sources in order. Returns `DATA_NO_
 
 ## 7. Token Estimation & Compaction
 
-### Constants (from pi: DEFAULT_COMPACTION_SETTINGS)
+Compaction is no longer a local heuristic in `src/agent/session.ts`. WhyJ Quant now reuses pi harness compaction directly:
 
-| Constant | Value | Based on |
-|----------|-------|----------|
-| CONTEXT_WINDOW | 128,000 | deepseek-v4-pro |
-| RESERVE_TOKENS | 16,384 | output buffer |
-| KEEP_RECENT_TOKENS | 24,000 | ~20% of window |
-| COMPACTION_THRESHOLD | 111,616 | window - reserve |
-
-### Algorithm
-
-```
-compactMessages(messages):
-  1. Walk backward, accumulate estimateTokens()
-  2. When >= 24000: find user-message boundary, cut there
-  3. Build heuristic summary (user queries, symbols, tools)
-  4. Return [compactionMsg, ...recent]
-```
-
-No LLM call for summarization — heuristic only. Structured format: "Activity Summary" with queries, symbols, tools called.
+- token estimation delegates to vendored pi `estimateTokens()` / `estimateContextTokens()`
+- session history is compacted through pi `prepareCompaction()` and `compact()`
+- compaction summaries and branch summaries are stored as explicit session-tree entries
+- the current adapter exposes token estimation helpers for tests and small utilities, but the authoritative compaction behavior lives in vendored pi code
 
 ## 8. Session Persistence
 
-Format: Markdown files at `.ohquant/sessions/{YYYY-MM-DD}/session-{HHMMSS}.md`
+Primary storage is now pi JSONL tree sessions under `.ohquant/sessions/<encoded-cwd>/...jsonl`.
 
-```
-# Session 2026-06-05 14:30:22
-## 14:30:22 · User
-analyze 000001.SZ momentum
-## 14:30:25 · Assistant
-Factor: momentum_20 — 000001.SZ  Latest: +0.0432  Percentile: 78%
-<!-- tool result -->
-> Downloaded 487 bars for 000001.SZ via tushare
-```
-
-Hook: `agent_end` event → `saveSession(event.messages)` in app.tsx.
+- entries are append-only and include message, compaction, branch_summary, label, and leaf records
+- `app-runtime` no longer serializes Markdown transcripts on `agent_end`
+- session replay is derived from the stored branch path via pi `buildSessionContext()`
 
 ## 9. Lifecycle
 
 ```
 App mount
-  → ensureDirs(), loadSettings(), connectAll()  // MCP servers
-  → createAgent()                                // pi Agent
-  → agent.subscribe()                            // Event → UI
+  → ensureDirs(), loadSettings()
+  → createAgent()                                // WhyJ Quant facade over pi AgentHarness
+  → agent.subscribe()                            // Core AgentEvent → UI
 
 User message
-  → parseCommand(input)
-    → /slash → direct executeCommand()
+  → src/cli/registry.ts: parseCommand(input)
+    → /slash → executeCommand()
     → NL text → injectContext(input) → agent.prompt()
-      → transformContext → compaction check
+      → pi harness session context build
+      → pi compaction / branch-summary hooks when needed
       → streamFn → LLM API
       → tool_execution_start/update/end → UI updates
-      → agent_end → saveSession()
+      → agent_end → session already persisted by harness
 ```
 
 ## 10. Configuration
@@ -168,8 +142,40 @@ Single source: `.ohquant/settings.json`
   "model": "sonnet",
   "thinkingLevel": "off",
   "preferences": {},
-  "mcp": { "enabled": true }
 }
 ```
 
 Key is read via `loadSettings().env["WHYJ_AUTH_TOKEN"]` on every API call — no `.env` dependency.
+
+## 9. Insight system & tips
+
+Investment tips displayed during agent thinking are driven by the insight pipeline:
+
+```
+notes/quant/funder.md  ──┐
+                         ├──→ src/quant/insight-generator.ts
+notes/quant/notes.md   ──┘         │
+                                   ▼
+                          .ohquant/insights.json  (auto-regenerated on startup)
+                                   │
+                                   ▼
+                          insight.ts → getQuotes() → thinking bar spinner + tips
+                                      → getInsightRules() → conversation keyword matching
+```
+
+**Components:**
+
+| File | Role |
+|------|------|
+| `src/quant/insight-generator.ts` | Parses `notes/quant/*.md` → `InsightEntry[]` (quote, author, title, principle, wisdom, keywords) |
+| `src/quant/insight.ts` | Loading overlay quotes + conversation insight derivation + built-in risk rules |
+| `scripts/generate-insights.ts` | CLI command for manual regeneration: `bun scripts/generate-insights.ts` |
+| `.ohquant/insights.json` | Cached output; auto-regenerated when notes source files are newer |
+
+**Auto-regeneration:** On each `loadEntries()` call (first `getQuotes()` or `getInsightRules()` call), the system compares `mtime` of `notes/quant/funder.md` and `notes/quant/notes.md` against `.ohquant/insights.json`. If the notes are newer, regeneration runs automatically. No manual script invocation needed.
+
+**Thinking bar:** During agent `"thinking"` or `"running tool"` activity with conversation content, a reserved bottom line shows: `⠋ "quote" — Author` cycling every 5s with ora spinner frames every 80ms.
+
+**Loading overlay:** When conversation is empty and agent is starting, replaces the conversation area with a centered display of spinner + staircase animation + multi-line investment quote (Chinese + English + author).
+
+**Fallback:** When `.ohquant/insights.json` is missing or empty, 16 hardcoded quant tips in `fallbackQuotes()` serve as the default set.
