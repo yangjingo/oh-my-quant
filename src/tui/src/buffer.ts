@@ -34,10 +34,18 @@ export const ansi = {
     const b = parseInt(n.slice(4, 6), 16);
     return `${ESC}[38;2;${r};${g};${b}m`;
   },
+  bg: (hex: string) => {
+    const n = hex.replace("#", "");
+    const r = parseInt(n.slice(0, 2), 16);
+    const g = parseInt(n.slice(2, 4), 16);
+    const b = parseInt(n.slice(4, 6), 16);
+    return `${ESC}[48;2;${r};${g};${b}m`;
+  },
 };
 
 export interface Style {
   fg?: string;
+  bg?: string;
   bold?: boolean;
   dim?: boolean;
 }
@@ -90,6 +98,7 @@ export function truncate(s: string, maxW: number, ell = "…"): string {
 interface Cell {
   ch: string;
   fg?: string;
+  bg?: string;
   bold?: boolean;
   dim?: boolean;
   cont?: boolean; // right half of a wide glyph — skipped on render
@@ -121,7 +130,7 @@ export class Buffer {
     if (!this.inb(x, y)) return;
     const cw = charWidth(ch);
     if (x + cw > xMax) return;
-    this.cells[this.idx(x, y)] = { ch, fg: st.fg, bold: st.bold, dim: st.dim };
+    this.cells[this.idx(x, y)] = { ch, fg: st.fg, bg: st.bg, bold: st.bold, dim: st.dim };
     if (cw === 2 && this.inb(x + 1, y) && x + 2 <= xMax) {
       this.cells[this.idx(x + 1, y)] = { ch: "", cont: true };
     }
@@ -215,17 +224,20 @@ export class Buffer {
       let bold = false;
       let dim = false;
       let fg: string | undefined;
+      let bg: string | undefined;
       for (let x = 0; x < this.w; x++) {
         const c = this.cells[this.idx(x, y)];
         if (c.cont) continue;
         const wantBold = !!c.bold;
         const wantDim = !!c.dim;
         const wantFg = c.fg;
-        if (wantBold !== bold || wantDim !== dim || wantFg !== fg) {
+        const wantBg = c.bg;
+        if (wantBold !== bold || wantDim !== dim || wantFg !== fg || wantBg !== bg) {
           out += ansi.reset;
           bold = false;
           dim = false;
           fg = undefined;
+          bg = undefined;
           if (wantDim) {
             out += `${ESC}[2m`;
             dim = true;
@@ -237,6 +249,10 @@ export class Buffer {
           if (wantFg) {
             out += ansi.fg(wantFg);
             fg = wantFg;
+          }
+          if (wantBg) {
+            out += ansi.bg(wantBg);
+            bg = wantBg;
           }
         }
         out += c.ch === "" ? " " : c.ch;
@@ -256,6 +272,8 @@ export class Buffer {
         if (c.cont) continue;
         line += c.ch === "" ? " " : c.ch;
       }
+      // Pad to full width: cont cells (from double-width chars) shorten the line
+      while (line.length < this.w) line += " ";
       rows.push(line);
     }
     return rows;

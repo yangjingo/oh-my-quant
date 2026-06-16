@@ -378,9 +378,28 @@ export function drawConversation(
     const y = inner.y + i - view.startLineIdx;
     drawConversationLine(buf, inner.x, y, line.text, line.style ?? {}, inner.w, clipEnd, i, selection);
   }
+
+  // Thinking status bar: spinner + tip at conversation bottom when agent is active
+  if (activity !== "ready" && msgs.length > 0) {
+    const spinner = oraFrame();
+    const tip = thinkingQuote();
+    const bar = truncate(`${spinner} ${tip}`, inner.w - 2);
+    const barY = inner.y + inner.h - 1;
+    buf.text(inner.x + 1, barY, bar, { fg: "#D4AF37", dim: true }, inner.w - 2, inner.x + inner.w);
+  }
 }
 
+const ORA_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const LOADING_INSIGHTS = getQuotes();
+
+function oraFrame(): string {
+  return ORA_FRAMES[Math.floor(Date.now() / 80) % ORA_FRAMES.length];
+}
+
+function thinkingQuote(): string {
+  const idx = Math.floor(Date.now() / 5000) % LOADING_INSIGHTS.length;
+  return LOADING_INSIGHTS[idx].quote;
+}
 
 function stepHex(phase: number): string {
   const t = (Math.sin(phase) + 1) / 2;
@@ -415,7 +434,8 @@ function drawLoadingOverlay(
   const cnLines = wrap(`"${insight.quote}"`, maxLineW);
   const enLines = wrap(insight.en, maxLineW);
   const authorText = `— ${insight.author}`;
-  const blockH = 1 + cnLines.length + enLines.length + 1; // cn quote + en quote + author
+  const spinnerLine = ` ${oraFrame()} WhyJ is thinking…`;
+  const blockH = 1 + 1 + cnLines.length + enLines.length + 1; // spinner + cn quote + en quote + author
 
   const minY = main.y;
   const maxY = main.y + main.h - 1;
@@ -423,8 +443,12 @@ function drawLoadingOverlay(
   let textStartY = cy - Math.floor(blockH / 2);
   textStartY = Math.max(minY, Math.min(textStartY, maxY - blockH + 1));
 
-  // Staircase above
-  const stairY = textStartY - 2;
+  // Spinner line
+  buf.text(centerInMain(main, spinnerLine), textStartY, spinnerLine, S.goldB, main.w, clipEnd);
+  textStartY++;
+
+  // Staircase below spinner
+  const stairY = textStartY;
   if (stairY >= minY && stairY <= maxY) {
     const stairX = centerInMain(main, TREND);
     for (let i = 0; i < n; i++) {
@@ -640,7 +664,7 @@ export function drawComposer(
 export function drawStatus(buf: Buffer, row: number, width: number, st: AppState): void {
   buf.hline(0, row - 1, width, DIVIDER_CHAR, S.rule);
   const source = st.aShareSource || st.globalSource || "";
-  const portfolio = st.activePortfolio ? `  ·  ${st.activePortfolio}` : "";
+  const portfolio = st.activePortfolio ? ` · ${st.activePortfolio}` : "";
   buf.text(
     0,
     row,
