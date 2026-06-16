@@ -6,6 +6,7 @@ import { fetchLiveBars, formatRefreshMinute, formatSourceLabels, type PullSource
 import { dispatchUserMessage, isAgentTurnActive } from "./agent/dispatch.ts";
 import { createAgent, injectContext, updateSessionCtx, type QuantAgentSession } from "./agent/session.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
+import { listLocalPortfolios } from "./storage/local-portfolios.ts";
 import { loadPanelPortfolio, loadPortfolioSymbols } from "./storage/portfolio.ts";
 import type { AppState, PanelSection, UIMessage } from "./tui/src/types.ts";
 import type { CodeEntry } from "./tui/src/watchlist.ts";
@@ -583,6 +584,9 @@ function extractAgentMessageText(message: unknown): string {
 export function createInitialAppState(version: string): AppState {
   const settings = loadSettings();
   const model = readModel(settings.env);
+  const portfolioFile = settings.preferences.currentPortfolioFile || "holdings.json";
+  const portfolios = listLocalPortfolios();
+  const activePortfolio = portfolios.find((p) => p.fileName === portfolioFile)?.name || portfolioFile;
   return {
     model,
     modelLabel: readModelLabel(settings.env),
@@ -597,6 +601,7 @@ export function createInitialAppState(version: string): AppState {
     input: "",
     composerQueue: [],
     composerStatus: null,
+    activePortfolio,
   };
 }
 

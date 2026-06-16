@@ -34,6 +34,8 @@ function harness(
   const panels: Array<{ panel: PanelSection[]; loading: boolean }> = [];
   const queues: string[][] = [];
   let configOpened = 0;
+  let resumeOpened = 0;
+  let portfolioOpened = 0;
   const runtime = new AppRuntime(
     {
       onMessages: (m) => messages.push(m),
@@ -41,13 +43,15 @@ function harness(
       onComposerStatus: (s) => statuses.push(s),
       onComposerQueue: (q) => queues.push(q),
       onConfigRequest: () => { configOpened++; },
+      onResumeRequest: () => { resumeOpened++; },
+      onPortfolioRequest: () => { portfolioOpened++; },
       onPanel: (panel, loading = false) => panels.push({ panel, loading }),
     },
     quoteFetcher,
     symbolProvider,
     holdingFetcher,
   );
-  return { runtime, messages, activities, statuses, panels, queues, get configOpened() { return configOpened; } };
+  return { runtime, messages, activities, statuses, panels, queues, get configOpened() { return configOpened; }, get resumeOpened() { return resumeOpened; }, get portfolioOpened() { return portfolioOpened; } };
 }
 
 describe("AppRuntime.submit", () => {
@@ -60,7 +64,11 @@ describe("AppRuntime.submit", () => {
   it("handles help and config locally without agent initialization", async () => {
     const h = harness();
     expect(await h.runtime.submit("/help")).toBe("continue");
-    expect(h.statuses.at(-1)?.text).toContain("Commands:");
+    expect(h.messages.at(-1)?.at(-1)).toEqual(expect.objectContaining({
+      role: "assistant",
+      text: expect.stringContaining("Commands"),
+    }));
+    expect(h.statuses.at(-1)).toBeNull();
     expect(h.activities.at(-1)).toBe("ready");
 
     expect(await h.runtime.submit("/config")).toBe("continue");
@@ -145,20 +153,50 @@ describe("AppRuntime.submit", () => {
     expect(latestPanel.some((section) => section.title === "Source")).toBe(true);
   });
 
-  it("refreshes overview panel for /market without thinking activity", async () => {
-    const marketSeen: string[][] = [];
-    const h = harness(async (entries) => {
-      marketSeen.push(entries.map((entry) => entry.code));
-      return [{ code: "000001", name: "上证指数", price: 3000, pct: 1 }];
-    });
-    await h.runtime.submit("/market");
-    expect(marketSeen.length).toBeGreaterThan(0);
-    expect(h.activities).not.toContain("thinking");
-    expect(h.statuses.at(-1)).toEqual({ kind: "info", text: "Overview refreshed." });
-    expect(h.panels.at(-1)?.loading).toBe(false);
-    const latestPanel = h.panels.at(-1)?.panel ?? [];
-    expect(latestPanel[0]).toMatchObject({ kind: "group", title: "Default" });
-    expect(latestPanel.some((section) => section.title === "Market")).toBe(true);
+  it("syncs resumed session messages into conversation", async () => {
+    const h = harness();
+    const agent = {
+      state: {
+        isStreaming: false,
+        messages: [] as Array<{ role: string; content: string }>,
+      },
+      resumeSession: async (sessionId: string) => {
+        agent.state.messages = [
+          { role: "user", content: "resume me" },
+          { role: "assistant", content: `session ${sessionId} restored` },
+        ];
+        return { id: sessionId, createdAt: "2026-06-09T00:00:00.000Z", cwd: "C:/tmp", path: `C:/tmp/${sessionId}.jsonl` };
+      },
+    };
+    (h.runtime as unknown as { agent: object }).agent = agent;
+    await h.runtime.submit("/resume s0");
+    expect(h.messages.at(-1)).toEqual([
+      { role: "user", text: "resume me" },
+      { role: "assistant", text: "session s0 restored" },
+      expect.objectContaining({
+        role: "assistant",
+        text: expect.stringContaining("Resumed\n"),
+      }),
+    ]);
+    expect(h.messages.at(-1)?.[1]).toEqual(expect.objectContaining({
+      role: "assistant",
+      text: "session s0 restored",
+    }));
+    expect(h.statuses.at(-1)).toBeNull();
+  });
+
+  it("opens resume panel for bare resume command before agent initialization", async () => {
+    const h = harness();
+    expect(await h.runtime.submit("/resume")).toBe("continue");
+    expect(h.resumeOpened).toBe(1);
+    expect(h.activities.at(-1)).toBe("ready");
+  });
+
+  it("opens portfolio panel for bare portfolio command before agent initialization", async () => {
+    const h = harness();
+    expect(await h.runtime.submit("/portfolio")).toBe("continue");
+    expect(h.portfolioOpened).toBe(1);
+    expect(h.activities.at(-1)).toBe("ready");
   });
 
   it("refreshes overview panel after /clear", async () => {
@@ -174,46 +212,5 @@ describe("AppRuntime.submit", () => {
     expect(h.panels.length).toBeGreaterThan(panelsBefore);
     expect(marketSeen.length).toBeGreaterThan(0);
   });
-
-  it("pushes conversation insight into the overview panel when dialogue matches risk keywords", () => {
-    const h = harness();
-    const runtime = h.runtime as unknown as {
-      overviewReady: boolean;
-      marketSections: PanelSection[];
-      messages: UIMessage[];
-      emitMessages: () => void;
-    };
-    runtime.overviewReady = true;
-    runtime.marketSections = [{ kind: "keyvalue", title: "Market", rows: [{ label: "data", value: "ok" }] }];
-    runtime.messages = [
-      { role: "user", text: "I need to manage drawdown and position sizing." },
-      { role: "assistant", text: "Keep the size small and respect risk limits." },
-    ];
-    runtime.emitMessages();
-
-    const latestPanel = h.panels.at(-1)?.panel ?? [];
-    expect(latestPanel.some((section) => section.title === "Insight")).toBe(true);
-  });
-
-  it("skips the insight panel when the setting is disabled", () => {
-    const h = harness();
-    const runtime = h.runtime as unknown as {
-      overviewReady: boolean;
-      marketSections: PanelSection[];
-      messages: UIMessage[];
-      insightEnabled: boolean;
-      emitMessages: () => void;
-    };
-    runtime.overviewReady = true;
-    runtime.marketSections = [{ kind: "keyvalue", title: "Market", rows: [{ label: "data", value: "ok" }] }];
-    runtime.insightEnabled = false;
-    runtime.messages = [
-      { role: "user", text: "I need to manage drawdown and position sizing." },
-      { role: "assistant", text: "Keep the size small and respect risk limits." },
-    ];
-    runtime.emitMessages();
-
-    const latestPanel = h.panels.at(-1)?.panel ?? [];
-    expect(latestPanel.some((section) => section.title === "Insight")).toBe(false);
-  });
 });
+

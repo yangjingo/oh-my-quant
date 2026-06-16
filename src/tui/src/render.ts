@@ -639,10 +639,11 @@ export function drawComposer(
 
 export function drawStatus(buf: Buffer, row: number, width: number, st: AppState): void {
   buf.hline(0, row - 1, width, DIVIDER_CHAR, S.rule);
+  const portfolio = st.activePortfolio ? `  ·  ${st.activePortfolio}` : "";
   buf.text(
     0,
     row,
-    `\x1b[38;2;212;175;55m◆ ${st.model}\x1b[0m\x1b[2m · .ohquant market-cache only · portfolio live-only\x1b[0m`,
+    `\x1b[38;2;212;175;55m◆ ${st.model}\x1b[0m\x1b[2m · .ohquant market-cache only${portfolio}\x1b[0m`,
   );
 }
 

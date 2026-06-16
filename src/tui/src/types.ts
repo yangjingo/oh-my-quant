@@ -58,6 +58,8 @@ export interface AppState {
   /** Pending NL messages waiting for agent pickup (shown in Composer, not conversation). */
   composerQueue: string[];
   composerStatus: ComposerStatus | null;
+  /** Name of the currently active local portfolio (shown in status line). */
+  activePortfolio: string;
 }
 
 export interface Layout {

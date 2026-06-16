@@ -254,7 +254,18 @@ export class PanelController {
       if (items.length > 0) this.portfolioSelection = (this.portfolioSelection + 1) % items.length;
       return {};
     }
+    if (key.name === "return") {
+      const selected = this.filteredPortfolioItems()[this.portfolioSelection];
+      if (!selected || !this.cfg) return {};
+      this.cfg.preferences.currentPortfolioFile = selected.fileName;
+      saveSettings(this.cfg);
+      return { close: true };
+    }
     return {};
+  }
+
+  activePortfolioName(): string {
+    return this.currentPortfolioName();
   }
 
   render(buf: Buffer): void {
@@ -389,14 +400,20 @@ export class PanelController {
     let y = inner.y;
     const items = this.filteredPortfolioItems();
     const selected = items[this.portfolioSelection];
+    const activeFile = this.cfg?.preferences.currentPortfolioFile || "holdings.json";
 
-    // Selected portfolio preview
     let metaRows = 0;
     if (selected) {
       const a = assessPortfolio(selected);
-      buf.text(inner.x, y, truncate(`Active: ${this.currentPortfolioName()}`, inner.w), S.code);
+      const label = selected.fileName === activeFile ? "Active" : "Selected";
+      buf.text(inner.x, y, truncate(`${label}: ${selected.name}`, inner.w), S.code);
       y++; metaRows++;
-      buf.text(inner.x, y, truncate(`${a.styleTag}  Risk: ${a.riskTag}  ·  ${selected.fileName}`, inner.w), S.dim);
+      const sectors = selected.focusSectors.length > 0
+        ? selected.focusSectors.join(", ")
+        : "No sector tags";
+      buf.text(inner.x, y, truncate(`${a.styleTag}  Risk: ${a.riskTag}  ·  ${selected.count} holdings`, inner.w), S.dim);
+      y++; metaRows++;
+      buf.text(inner.x, y, truncate(`${sectors}  ·  ${selected.updated ? formatRelativeAge(selected.updated) : "-"}`, inner.w), S.dim);
       y++; metaRows++;
       y++;
       metaRows++;
@@ -414,14 +431,15 @@ export class PanelController {
     for (const [offset, item] of items.slice(start, start + listHeight).entries()) {
       const index = start + offset;
       const sel = index === this.portfolioSelection;
-      const age = item.updated ? formatRelativeAge(item.updated) : "-";
+      const isActive = item.fileName === activeFile;
+      const age = item.updated ? formatRelativeAge(item.updated).padEnd(8) : "-".padEnd(8);
       const prefix = sel ? "❯ " : "  ";
-      const divider = " ─ ";
-      const text = `${prefix}${age.padEnd(10)}${divider}${item.name}`;
+      const marker = isActive ? " ●" : "  ";
+      const text = `${prefix}${age}${marker}  ${item.name}`;
       buf.text(inner.x, y++, truncate(text, inner.w), sel ? S.goldB : S.cream);
     }
 
-    const footer = this.status || `Showing ${items.length} portfolio${items.length === 1 ? "" : "s"}`;
+    const footer = this.status || `↑↓ select  esc close  ·  ${items.length} portfolio${items.length === 1 ? "" : "s"}`;
     buf.text(inner.x, frame.footerY, truncate(footer, inner.w), S.dim);
   }
 

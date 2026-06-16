@@ -73,7 +73,7 @@ describe("PanelController portfolio UI", () => {
     const buf = new Buffer(120, 28);
     portfolioPanel.render(buf);
     const plain = buf.toPlain().join("\n");
-    expect(plain).toContain("Active: 聚焦半导体");
+    expect(plain).toContain("Selected: 当前主组合");
     expect(plain).toContain("聚焦半导体");
     expect(plain).toContain("当前主组合");
   });
@@ -109,7 +109,7 @@ describe("PanelController portfolio UI", () => {
     panel.render(buf);
     const plain = buf.toPlain().join("\n");
     expect(plain).toContain("Local portfolios");
-    expect(plain).toContain("Active: 聚焦半导体");
+    expect(plain).toContain("Selected: 当前主组合");
     expect(plain).toContain("聚焦半导体");
     expect(plain).toContain("当前主组合");
 
