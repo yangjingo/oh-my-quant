@@ -4,12 +4,21 @@
  */
 import type * as readline from "node:readline";
 import { Buffer, Screen } from "./buffer.ts";
-import { layout, drawHeader, drawConversation, drawPortfolio, drawComposer, drawStatus, conversationMaxScrollUp, overviewMaxScrollTop } from "./render.ts";
+import { layout, drawHeader, drawConversation, drawPortfolio, drawComposer, drawStatus, conversationMaxScrollUp, overviewMaxScrollTop, buildConversationView, buildOverviewView } from "./render.ts";
 import { CANVAS } from "./styles.ts";
 import type { AppState } from "./types.ts";
 import { loadWatchlistEntries, type CodeEntry } from "./watchlist.ts";
-import { PanelController } from "./panel.ts";
+import { PanelController, type CurrentSessionMeta } from "./panel.ts";
 import { buildSuggestions, hitTestScrollRegion, nextInputAction, type InputAction, type MouseEvent, type ScrollRegion } from "./input.ts";
+import { copyToClipboard } from "./clipboard.ts";
+import {
+  conversationPointFromScreen,
+  conversationPointFromScreenClamped,
+  extractConversationSelection,
+  lastAssistantPlainText,
+  type ConversationSelection,
+  type ConversationView,
+} from "./selection.ts";
 
 export class QuantTui {
   screen: Screen;
@@ -33,6 +42,11 @@ export class QuantTui {
   private pendingInput = "";
   private dragTarget: "conversation" | "overview" | null = null;
   private dragRow = 0;
+  private textSelection: ConversationSelection | null = null;
+  private selectDrag = false;
+  /** Panel that owns the active text selection (for highlight + copy scope). */
+  private selectionRegion: ScrollRegion | null = null;
+  private copyStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(state: AppState) {
     this.state = state;
@@ -72,7 +86,10 @@ export class QuantTui {
 
   onSubmit(handler: (text: string) => void): void { this.submitHandler = handler; }
   onPanelRefresh(handler: () => void): void { this.panelRefreshHandler = handler; }
-  openConfig(): void { this.panel.open(); this.paint(); }
+  openConfig(): void { this.panel.open("config"); this.paint(); }
+  openResume(meta?: CurrentSessionMeta): void { if (meta) this.panel.setCurrentSessionMeta(meta); this.panel.open("resume"); this.paint(); }
+  openPortfolio(): void { this.panel.open("portfolio"); this.paint(); }
+  openHelp(): void { this.panel.open("help"); this.paint(); }
 
   private paint(): void {
     const L = layout(this.screen.cols, this.screen.rows);
@@ -90,6 +107,7 @@ export class QuantTui {
       st.activity,
       L.mainPane,
       this.convScrollUp,
+      this.selectionRegion === "conversation" ? this.textSelection : null,
     );
     if (L.showPanel) {
       drawPortfolio(
@@ -98,11 +116,12 @@ export class QuantTui {
         st.panel,
         st.panelLoading,
         this.overviewScrollTop,
+        this.selectionRegion === "overview" ? this.textSelection : null,
       );
     }
     const suggestions = buildSuggestions(this.inputBuf, this.watchlist);
     const selectedIdx = suggestions.length === 0 ? -1 : Math.min(this.suggestionIdx, suggestions.length - 1);
-    drawComposer(this.screen.buf, L.composer, st, st.input, suggestions, selectedIdx);
+    drawComposer(this.screen.buf, L.composer, st, st.input, suggestions, selectedIdx, L.conversation);
     drawStatus(this.screen.buf, L.statusRow, this.screen.cols, st);
     this.panel.render(this.screen.buf);
     this.screen.flush();
@@ -154,10 +173,69 @@ export class QuantTui {
     }
   }
 
+  private handlePanelSelect(
+    panel: "conversation" | "overview",
+    view: ConversationView,
+    evt: MouseEvent,
+  ): boolean {
+    const pointAt = (c: number, r: number) =>
+      this.selectDrag ? conversationPointFromScreenClamped(c, r, view) : conversationPointFromScreen(c, r, view);
+    const point = pointAt(evt.col, evt.row);
+
+    if (evt.shift && evt.wheel === 0 && evt.kind === "press" && evt.button === 0 && point) {
+      this.textSelection = { anchor: point, cursor: point };
+      this.selectDrag = true;
+      this.selectionRegion = panel;
+      // #region agent log
+      fetch("http://127.0.0.1:7287/ingest/afac60de-da57-47d2-beed-4b5639b3d1cd", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "33aff1" }, body: JSON.stringify({ sessionId: "33aff1", hypothesisId: "A", location: "tui.ts:selectStart", message: "shift+press selection start", data: { panel, point, inner: view.inner }, timestamp: Date.now() }) }).catch(() => {});
+      // #endregion
+      return true;
+    }
+
+    if (this.selectDrag && this.selectionRegion === panel) {
+      const dragPoint = pointAt(evt.col, evt.row);
+      if (dragPoint && (evt.dragging || evt.kind === "motion")) {
+        if (this.textSelection) this.textSelection = { anchor: this.textSelection.anchor, cursor: dragPoint };
+        return true;
+      }
+      if (evt.kind === "release") {
+        this.selectDrag = false;
+        // #region agent log
+        fetch("http://127.0.0.1:7287/ingest/afac60de-da57-47d2-beed-4b5639b3d1cd", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "33aff1" }, body: JSON.stringify({ sessionId: "33aff1", hypothesisId: "E", location: "tui.ts:selectRelease", message: "selection release copy", data: { panel, hasSelection: !!this.textSelection }, timestamp: Date.now() }) }).catch(() => {});
+        // #endregion
+        void this.copyPanelSelection(panel, view);
+        return true;
+      }
+    }
+
+    if (evt.kind === "press" && evt.button === 0 && !evt.shift) {
+      this.clearSelection();
+    }
+    return false;
+  }
+
+  private clearSelection(): void {
+    this.textSelection = null;
+    this.selectDrag = false;
+    this.selectionRegion = null;
+  }
+
   private handleMouseEvent(evt: MouseEvent): boolean {
     const L = layout(this.screen.cols, this.screen.rows);
     const region = hitTestScrollRegion(evt.col, evt.row, L);
     this.scrollRegion = region;
+
+    if (region === "conversation") {
+      const view = buildConversationView(this.state.messages, L.conversation, this.convScrollUp, L.mainPane);
+      if (this.handlePanelSelect("conversation", view, evt)) return true;
+    } else if (region === "overview" && L.showPanel) {
+      const view = buildOverviewView(this.state.panel, L.portfolio, this.overviewScrollTop);
+      if (this.handlePanelSelect("overview", view, evt)) return true;
+    } else if (this.selectDrag && evt.kind === "press" && evt.button === 0) {
+      this.clearSelection();
+    }
+
+    if (this.selectDrag) return true;
 
     if (evt.wheel !== 0) {
       const step = this.wheelStep(L, region);
@@ -169,9 +247,13 @@ export class QuantTui {
       return region === "conversation" || region === "overview";
     }
 
-    if (evt.kind === "press" && evt.button === 0 && (region === "conversation" || region === "overview")) {
-      this.dragTarget = region;
-      this.dragRow = evt.row;
+    if (evt.kind === "press" && evt.button === 0) {
+      if (region === "conversation") {
+        this.dragTarget = region;
+        this.dragRow = evt.row;
+      } else {
+        this.dragTarget = null;
+      }
       return false;
     }
 
@@ -190,6 +272,47 @@ export class QuantTui {
     }
 
     return false;
+  }
+
+  private async copyPanelSelection(
+    panel: "conversation" | "overview",
+    view: ConversationView,
+  ): Promise<void> {
+    const fallback = panel === "conversation"
+      ? lastAssistantPlainText(this.state.messages)
+      : "";
+    const text = this.textSelection
+      ? extractConversationSelection(view, this.textSelection)
+      : fallback;
+    // #region agent log
+    fetch("http://127.0.0.1:7287/ingest/afac60de-da57-47d2-beed-4b5639b3d1cd", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "33aff1" }, body: JSON.stringify({ sessionId: "33aff1", hypothesisId: "C", location: "tui.ts:copyPanelSelection", message: "extracted copy text", data: { panel, len: text.length, trimmed: text.trim().length, hasSelection: !!this.textSelection }, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
+    if (!text.trim()) {
+      this.flashCopyStatus("Nothing to copy", true);
+      return;
+    }
+    const ok = await copyToClipboard(text);
+    // #region agent log
+    fetch("http://127.0.0.1:7287/ingest/afac60de-da57-47d2-beed-4b5639b3d1cd", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "33aff1" }, body: JSON.stringify({ sessionId: "33aff1", hypothesisId: "D", location: "tui.ts:copyPanelSelection", message: "clipboard result", data: { panel, ok, len: text.length, platform: process.platform }, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
+    this.flashCopyStatus(ok ? `Copied ${text.length} chars` : "Copy failed", !ok);
+  }
+
+  private async copyConversationSelection(): Promise<void> {
+    const L = layout(this.screen.cols, this.screen.rows);
+    const view = buildConversationView(this.state.messages, L.conversation, this.convScrollUp, L.mainPane);
+    await this.copyPanelSelection("conversation", view);
+  }
+
+  private flashCopyStatus(text: string, error = false): void {
+    if (this.copyStatusTimer) clearTimeout(this.copyStatusTimer);
+    this.state.composerStatus = { kind: error ? "error" : "info", text };
+    this.paint();
+    this.copyStatusTimer = setTimeout(() => {
+      this.state.composerStatus = null;
+      this.paint();
+      this.copyStatusTimer = null;
+    }, 2000);
   }
 
   private drainInput(): void {
@@ -239,13 +362,21 @@ export class QuantTui {
     }
 
     if (key.name === "return") {
+      const input = this.inputBuf;
       if (hasSuggestions) {
         const idx = Math.min(this.suggestionIdx, suggestions.length - 1);
-        this.applySuggestion(suggestions[idx].fill);
-        return;
+        const fill = suggestions[idx].fill;
+        // Auto-complete only when fill is a different command (e.g. /r → /resume).
+        // When fill is a subcommand/arg of current input (e.g. /factor → /factor analyze),
+        // submit the current input and let the user pick subcommands via Tab.
+        const trimInput = input.trim();
+        if (fill !== input && !fill.startsWith(trimInput + " ")) {
+          this.applySuggestion(fill);
+          return;
+        }
       }
-      const text = this.inputBuf.trim();
-      if (text) {
+      const text = input.trim();
+      if (text && text !== "/") {
         this.history.unshift(text);
         this.histIdx = -1;
         this.inputBuf = "";
@@ -287,6 +418,8 @@ export class QuantTui {
           this.inputBuf = this.history[this.histIdx];
         } else { this.histIdx = -1; this.inputBuf = ""; }
       }
+    } else if (key.ctrl && key.shift && key.name === "c") {
+      void this.copyConversationSelection();
     } else if (key.ctrl && key.name === "c") {
       if (this.inputBuf) { this.inputBuf = ""; this.suggestionIdx = 0; }
       else { this.stop(); process.exit(0); }
@@ -300,7 +433,8 @@ export class QuantTui {
         this.applySuggestion(suggestions[idx].fill);
       }
     } else if (key.name === "escape") {
-      this.suggestionIdx = 0;
+      if (this.inputBuf) { this.inputBuf = ""; this.suggestionIdx = 0; }
+      else { this.stop(); process.exit(0); }
     } else if (action.char && !key.ctrl && !key.meta) {
       this.scrollRegion = "composer";
       this.suggestionIdx = 0;

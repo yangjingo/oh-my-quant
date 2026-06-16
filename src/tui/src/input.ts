@@ -16,6 +16,9 @@ export interface MouseEvent {
   button: number;
   wheel: -1 | 0 | 1;
   dragging: boolean;
+  shift: boolean;
+  ctrl: boolean;
+  meta: boolean;
 }
 
 export type InputAction =
@@ -31,11 +34,20 @@ export function hitTestScrollRegion(col: number, row: number, L: Layout): Scroll
   return "composer";
 }
 
-function decodeMouse(btn: number): Pick<MouseEvent, "button" | "wheel" | "dragging" | "kind"> {
-  if (btn === 64 || btn === 65) return { button: 0, wheel: btn === 64 ? -1 : 1, dragging: false, kind: "motion" };
-  if (btn >= 33 && btn <= 35) return { button: btn - 33, wheel: 0, dragging: true, kind: "motion" };
-  if (btn === 32) return { button: 0, wheel: 0, dragging: false, kind: "motion" };
-  return { button: btn, wheel: 0, dragging: false, kind: "press" };
+function decodeMouse(btn: number): Pick<MouseEvent, "button" | "wheel" | "dragging" | "kind" | "shift" | "ctrl" | "meta"> {
+  const shift = (btn & 4) !== 0;
+  const meta = (btn & 8) !== 0;
+  const ctrl = (btn & 16) !== 0;
+  let b = btn;
+  if (shift) b -= 4;
+  if (meta) b -= 8;
+  if (ctrl) b -= 16;
+  const mods = { shift, ctrl, meta };
+  if (b === 64 || b === 65) return { button: 0, wheel: b === 64 ? -1 : 1, dragging: false, kind: "motion", ...mods };
+  if (b >= 33 && b <= 35) return { button: b - 33, wheel: 0, dragging: true, kind: "motion", ...mods };
+  if (b === 32) return { button: 0, wheel: 0, dragging: false, kind: "motion", ...mods };
+  if (b === 3) return { button: 0, wheel: 0, dragging: false, kind: "release", ...mods };
+  return { button: b, wheel: 0, dragging: false, kind: "press", ...mods };
 }
 
 function readMouse(buf: string): { events: MouseEvent[]; rest: string } | null {
@@ -49,7 +61,7 @@ function readMouse(buf: string): { events: MouseEvent[]; rest: string } | null {
       ...decoded,
       col: Number(m[2]) - 1,
       row: Number(m[3]) - 1,
-      kind: decoded.kind === "motion" ? "motion" : m[4] === "M" ? "press" : "release",
+      kind: m[4] === "m" ? "release" : decoded.kind === "motion" ? "motion" : "press",
     });
     rest = rest.slice(m[0].length);
   }
@@ -125,11 +137,31 @@ export function buildSuggestions(value: string, watchlist: CodeEntry[]): Compose
   }
 
   if (!value.startsWith("/")) return [];
+
+  const subMatch = value.match(/^(\/\S+)\s+(\S*)$/);
+  if (subMatch) {
+    const entry = COMMAND_CATALOG.find((c) => c.name === subMatch[1]);
+    const partial = subMatch[2].toLowerCase();
+    if (entry?.subcommands?.length) {
+      return entry.subcommands
+        .filter((sub) => !partial || sub.toLowerCase().startsWith(partial))
+        .slice(0, 8)
+        .map((sub) => ({ label: sub, fill: `${entry.name} ${sub} ` }));
+    }
+  }
+
   const exact = COMMAND_CATALOG.find((c) => c.name === value);
-  if (exact) return exact.actions ? [...exact.actions] : [];
+  if (exact) {
+    if (exact.actions?.length) return [...exact.actions];
+    if (exact.subcommands?.length) {
+      return exact.subcommands
+        .slice(0, 8)
+        .map((sub) => ({ label: sub, fill: `${exact.name} ${sub} ` }));
+    }
+    return [];
+  }
   const lower = value.toLowerCase();
   return COMMAND_CATALOG
     .filter((c) => c.name.toLowerCase().startsWith(lower))
-    .slice(0, 8)
     .map((c) => ({ label: `${c.name}  ${c.desc}`, fill: c.name }));
 }

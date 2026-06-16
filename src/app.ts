@@ -1,31 +1,40 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { AppRuntime, createInitialAppState } from "./app-runtime.ts";
 import { QuantTui } from "./tui/src/tui.ts";
 
 export async function startApp(): Promise<void> {
   const initial = createInitialAppState(getPkgVersion());
-  const tui = new QuantTui(initial);
-  tui.start();
+  let tui: QuantTui | null = null;
 
   const runtime = new AppRuntime({
-    onMessages: (messages) => tui.update({ messages }),
-    onActivity: (activity) => tui.update({ activity }),
-    onComposerStatus: (composerStatus) => tui.update({ composerStatus }),
-    onConfigRequest: () => tui.openConfig(),
+    onMessages: (messages) => tui?.update({ messages }),
+    onActivity: (activity) => tui?.update({ activity }),
+    onComposerStatus: (composerStatus) => tui?.update({ composerStatus }),
+    onComposerQueue: (composerQueue) => tui?.update({ composerQueue }),
+    onConfigRequest: () => tui?.openConfig(),
+    onResumeRequest: (meta) => tui?.openResume(meta),
+    onPortfolioRequest: () => tui?.openPortfolio(),
+    onHelpRequest: () => tui?.openHelp(),
+    onPanel: (panel, panelLoading = false) => tui?.update({ panel, panelLoading }),
   });
 
+  tui = new QuantTui(initial);
+  tui.start();
+
   try {
-    const snapshot = await runtime.init();
+    const snapshot = await runtime.bootstrap();
     tui.update({
       model: snapshot.model,
       modelLabel: snapshot.modelLabel,
       panelLoading: false,
+      activity: "ready",
     });
   } catch (err) {
     tui.update({
       panelLoading: false,
       activity: "ready",
       messages: [
-        ...tui.state.messages,
         {
           role: "error",
           text: err instanceof Error ? err.message : String(err),
@@ -38,23 +47,26 @@ export async function startApp(): Promise<void> {
     const result = await runtime.submit(input);
     if (result === "exit") {
       runtime.dispose();
-      tui.stop();
+      tui!.stop();
       process.exit(0);
     }
   });
 
+  tui.onPanelRefresh(() => {
+    void runtime.refreshOverviewPanel();
+  });
+
   process.once("exit", () => {
     runtime.dispose();
-    tui.stop();
+    tui?.stop();
   });
 }
 
 function getPkgVersion(): string {
   try {
-    const { readFileSync } = require("node:fs");
-    const pkg = JSON.parse(readFileSync(require("node:path").join(process.cwd(), "package.json"), "utf-8"));
-    return pkg.version || "2.0.5";
+    const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf-8"));
+    return pkg.version || "0.1.0";
   } catch {
-    return "2.0.5";
+    return "0.1.0";
   }
 }

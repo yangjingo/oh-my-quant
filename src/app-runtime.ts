@@ -2,21 +2,19 @@ import { formatToolArgs, formatToolLine, toolDisplayLabel } from "./tools/catalo
 import { buildCommandHelpText } from "./cli/catalog.ts";
 import { executeCommand, isLocalSlashCommand, parseCommand } from "./cli/registry.ts";
 import type { CommandEffect, CommandResult } from "./cli/types.ts";
-import { connectAll, disconnectAll, getServerStatus, type McpServerStatus } from "./source/mcp-client.ts";
 import { fetchLiveBars, formatRefreshMinute, formatSourceLabels, type PullSource } from "./source/sources.ts";
 import { dispatchUserMessage, isAgentTurnActive } from "./agent/dispatch.ts";
 import { createAgent, injectContext, updateSessionCtx, type QuantAgentSession } from "./agent/session.ts";
-import { deriveConversationInsights, insightToPanelRows } from "./quant/insight.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
 import { loadPanelPortfolio, loadPortfolioSymbols } from "./storage/portfolio.ts";
 import type { AppState, PanelSection, UIMessage } from "./tui/src/types.ts";
 import type { CodeEntry } from "./tui/src/watchlist.ts";
 import type { Bar, Market } from "./types/data.ts";
+import type { CurrentSessionMeta } from "./tui/src/panel.ts";
 
 export interface AppRuntimeSnapshot {
   model: string;
   modelLabel: string;
-  mcpStatuses: McpServerStatus[];
 }
 
 interface AppRuntimeCallbacks {
@@ -25,6 +23,9 @@ interface AppRuntimeCallbacks {
   onComposerStatus?: (status: AppState["composerStatus"]) => void;
   onComposerQueue?: (queue: string[]) => void;
   onConfigRequest?: () => void;
+  onResumeRequest?: (meta?: CurrentSessionMeta) => void;
+  onPortfolioRequest?: () => void;
+  onHelpRequest?: () => void;
   onPanel?: (panel: PanelSection[], loading?: boolean) => void;
 }
 
@@ -65,9 +66,6 @@ export class AppRuntime {
   /** After first successful Overview fetch, later refreshes stay in-place (no spinner wipe). */
   private overviewReady = false;
   private marketSections: PanelSection[] = [];
-  private insightSection: PanelSection | null = null;
-  private lastInsightSignature = "";
-  private insightEnabled = true;
 
   constructor(
     private readonly callbacks: AppRuntimeCallbacks,
@@ -80,23 +78,16 @@ export class AppRuntime {
     await this.refreshMarketPanel();
   }
 
-  /** Startup: MCP + agent, then enter ready before blocking on market quotes. */
+  /** Startup agent, then enter ready before blocking on market quotes. */
   async bootstrap(): Promise<AppRuntimeSnapshot> {
     ensureDirs();
     const settings = loadSettings();
-    this.insightEnabled = settings.insightEnabled ?? true;
 
     for (const [key, value] of Object.entries(settings.env)) {
       if (value && !process.env[key]) process.env[key] = value;
     }
 
     this.setActivity("starting");
-
-    try {
-      await connectAll();
-    } catch {
-      // MCP is optional for local startup.
-    }
 
     this.agent = createAgent();
     this.agent.subscribe(async (event) => {
@@ -178,7 +169,6 @@ export class AppRuntime {
     return {
       model: readModel(settings.env),
       modelLabel: readModelLabel(settings.env),
-      mcpStatuses: getServerStatus(),
     };
   }
 
@@ -206,7 +196,26 @@ export class AppRuntime {
 
   dispose(): void {
     this.agent?.abort();
-    void disconnectAll();
+  }
+
+  private async collectCurrentSessionMeta(): Promise<CurrentSessionMeta | undefined> {
+    if (!this.agent) return undefined;
+    const [metadata, usage, entries] = await Promise.all([
+      this.agent.getSessionMetadata(),
+      Promise.resolve(this.agent.getContextUsage()),
+      this.agent.getSessionEntries(),
+    ]);
+    if (!metadata) return undefined;
+    return {
+      id: metadata.id,
+      createdAt: metadata.createdAt,
+      usage: usage ?? null,
+      entryCount: {
+        messages: entries.filter(e => e.type === "message").length,
+        compactions: entries.filter(e => e.type === "compaction").length,
+        branches: entries.filter(e => e.type === "branch_summary").length,
+      },
+    };
   }
 
   private async runSlashCommand(
@@ -218,8 +227,20 @@ export class AppRuntime {
         openConfig: this.callbacks.onConfigRequest
           ? () => { this.callbacks.onConfigRequest!(); }
           : undefined,
+        openResume: this.callbacks.onResumeRequest
+          ? () => { void this.collectCurrentSessionMeta().then(meta => this.callbacks.onResumeRequest?.(meta)); }
+          : undefined,
+        openPortfolio: this.callbacks.onPortfolioRequest
+          ? () => { this.callbacks.onPortfolioRequest!(); }
+          : undefined,
+        openHelp: this.callbacks.onHelpRequest
+          ? () => { this.callbacks.onHelpRequest!(); }
+          : undefined,
         agentSession: this.agent,
       });
+      if (parsed.command === "resume" && result.success && parsed.positional[0]) {
+        this.syncMessagesFromAgentState();
+      }
       this.applyCommandResult(result);
       updateLastSymbol(parsed.flags);
     } catch (err) {
@@ -236,7 +257,12 @@ export class AppRuntime {
       this.applyCommandEffect(effect);
     }
     if (result.message) {
-      this.setStatus({ kind: result.success ? "info" : "error", text: result.message });
+      if (shouldRenderCommandResultAsMessage(result.message)) {
+        this.pushLocalCommandMessage(result.message, result.success ? "assistant" : "error");
+        this.setStatus(null);
+      } else {
+        this.setStatus({ kind: result.success ? "info" : "error", text: result.message });
+      }
     }
   }
 
@@ -245,8 +271,6 @@ export class AppRuntime {
       case "clearConversation":
         this.messages = [];
         this.clearComposerQueue();
-        this.insightSection = null;
-        this.lastInsightSignature = "";
         this.emitMessages();
         this.setStatus(null);
         this.syncOverviewPanel();
@@ -256,12 +280,19 @@ export class AppRuntime {
         this.agent?.clearAllQueues();
         this.agent?.reset();
         this.clearComposerQueue();
-        this.insightSection = null;
-        this.lastInsightSignature = "";
         this.syncOverviewPanel();
         break;
       case "openConfig":
         this.callbacks.onConfigRequest?.();
+        break;
+      case "openResume":
+        void this.collectCurrentSessionMeta().then(meta => this.callbacks.onResumeRequest?.(meta));
+        break;
+      case "openPortfolio":
+        this.callbacks.onPortfolioRequest?.();
+        break;
+      case "openHelp":
+        this.callbacks.onHelpRequest?.();
         break;
     }
   }
@@ -317,9 +348,22 @@ export class AppRuntime {
     this.setStatus(null);
   }
 
+  private pushLocalCommandMessage(text: string, role: "assistant" | "error"): void {
+    this.finalizeThinking();
+    this.messages.push({ role, text });
+    this.emitMessages();
+  }
+
+  private syncMessagesFromAgentState(): void {
+    const agentMessages = this.agent?.state.messages ?? [];
+    this.messages = agentMessages
+      .map((message) => toUiMessage(message))
+      .filter((message): message is UIMessage => message !== null);
+    this.emitMessages();
+  }
+
   private emitMessages(): void {
     this.callbacks.onMessages([...this.messages]);
-    this.updateInsightPanel();
   }
 
   private setActivity(activity: AppState["activity"]): void {
@@ -336,7 +380,6 @@ export class AppRuntime {
 
   private syncOverviewPanel(loading = false): void {
     const sections = [...this.marketSections];
-    if (this.insightEnabled && this.insightSection) sections.push(this.insightSection);
     if (!this.overviewReady && sections.length === 0) {
       this.setPanel([{ kind: "keyvalue", title: "Market Refresh", rows: [{ label: "status", value: "fetching" }] }], true);
       return;
@@ -427,39 +470,10 @@ export class AppRuntime {
     this.syncOverviewPanel();
   }
 
-  private updateInsightPanel(): void {
-    if (!this.overviewReady) return;
-    if (!this.insightEnabled) {
-      if (!this.insightSection) return;
-      this.insightSection = null;
-      this.lastInsightSignature = "";
-      this.syncOverviewPanel();
-      return;
-    }
-    const insights = deriveConversationInsights(this.messages);
-    if (insights.length === 0) {
-      if (!this.insightSection) return;
-      this.insightSection = null;
-      this.lastInsightSignature = "";
-      this.syncOverviewPanel();
-      return;
-    }
-    const section = {
-      kind: "keyvalue" as const,
-      title: "Insight",
-      rows: insightToPanelRows(insights),
-    };
-    const signature = JSON.stringify(section);
-    if (signature === this.lastInsightSignature) return;
-    this.lastInsightSignature = signature;
-    this.insightSection = section;
-    this.syncOverviewPanel();
-  }
-
   private applyAssistantUpdate(m: { content: unknown[] }): void {
     const assistant = this.findLatestMessage("assistant");
     if (!assistant) return;
-    const thinking = extractThinking(m);
+    const thinking = this.agent?.state.thinkingText ?? "";
     if (thinking.trim()) this.upsertThinkingMessage(thinking);
     assistant.text = extractText(m);
     this.emitMessages();
@@ -467,18 +481,21 @@ export class AppRuntime {
 
   private applyAssistantEnd(m: { content: unknown[] }): void {
     const text = extractText(m);
-    const thinking = extractThinking(m);
-    const stopReason = (m as Record<string, unknown>).stopReason;
+    const thinking = this.agent?.state.thinkingText ?? "";
+    const raw = m as Record<string, unknown>;
+    const stopReason = raw.stopReason;
+    const errorMessage = typeof raw.errorMessage === "string" ? raw.errorMessage : undefined;
     const isError = stopReason === "error" || stopReason === "aborted";
     if (thinking.trim()) this.upsertThinkingMessage(thinking);
     this.finalizeThinking();
     this.removeTrailingThinkingAfterAssistant();
     const assistant = this.findLatestMessage("assistant");
+    const errText = errorMessage || text || `API call failed (${stopReason})`;
     if (assistant) {
-      assistant.text = isError ? `Agent error: ${text || `API call failed (${stopReason})`}` : text;
+      assistant.text = isError ? `Agent error: ${errText}` : text;
       if (isError) assistant.role = "error";
     } else if (isError) {
-      this.messages.push({ role: "error", text: `Agent error: ${text || `API call failed (${stopReason})`}` });
+      this.messages.push({ role: "error", text: `Agent error: ${errText}` });
     }
     this.emitMessages();
   }
@@ -540,6 +557,29 @@ export class AppRuntime {
   }
 }
 
+function shouldRenderCommandResultAsMessage(text: string): boolean {
+  return text.includes("\n") || text.length > 120;
+}
+
+function toUiMessage(message: unknown): UIMessage | null {
+  const role = (message as { role?: string }).role;
+  const text = extractAgentMessageText(message);
+  if (role === "user") return { role: "user", text };
+  if (role === "assistant") return { role: "assistant", text };
+  return null;
+}
+
+function extractAgentMessageText(message: unknown): string {
+  const content = (message as { content?: unknown }).content;
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((part): part is { type?: string; text?: string; thinking?: string } => typeof part === "object" && part !== null)
+    .filter((part) => part.type === "text" || part.type === "thinking")
+    .map((part) => part.text ?? part.thinking ?? "")
+    .join("\n");
+}
+
 export function createInitialAppState(version: string): AppState {
   const settings = loadSettings();
   const model = readModel(settings.env);
@@ -574,13 +614,6 @@ function extractText(m: { content: unknown[] }): string {
     .filter((c) => c.type === "text" && c.text)
     .map((c) => c.text!)
     .join("");
-}
-
-function extractThinking(m: { content: unknown[] }): string {
-  return (m.content as Array<{ type?: string; thinking?: string }>)
-    .filter((c) => c.type === "thinking" && c.thinking)
-    .map((c) => c.thinking!)
-    .join("\n");
 }
 
 function extractTextFromResult(result: unknown): string {
@@ -618,6 +651,7 @@ function updateLastSymbol(flags: Record<string, unknown>): void {
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+
 
 async function fetchQuotes(entries: CodeEntry[], meta: PullMeta): Promise<Quote[]> {
   return Promise.all(entries.map(async (entry) => {

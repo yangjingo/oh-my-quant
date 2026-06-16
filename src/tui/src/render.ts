@@ -4,10 +4,11 @@
  */
 import { Buffer, wrap, strWidth, truncate, sanitizeTerminalText, charWidth } from "./buffer.ts";
 import type { Style } from "./buffer.ts";
-import { S, pctStyle, fmtPrice, fmtPct, HEADER_H, COMPOSER_H, STATUS_H, DIVIDER_CHAR, CANVAS, UI_DENSITY, OVERVIEW_ROW_H, OVERVIEW_SECTION_H } from "./styles.ts";
+import { S, pctStyle, fmtPct, HEADER_H, COMPOSER_H, STATUS_H, DIVIDER_CHAR, CANVAS, UI_DENSITY, OVERVIEW_ROW_H, OVERVIEW_SECTION_H, GOLD_HIGHLIGHT } from "./styles.ts";
 import type { ComposerSuggestion } from "./input.ts";
 import type { AppState, Layout, UIMessage, PanelSection, Holding, Quote } from "./types.ts";
 import { formatToolLine } from "../../tools/catalog.ts";
+import { getQuotes } from "../../quant/insight.ts";
 import {
   conversationPanelInner,
   isConversationCellSelected,
@@ -46,6 +47,23 @@ function buildConversationLines(msgs: UIMessage[], width: number): RenderLine[] 
 export function conversationMaxScrollUp(msgs: UIMessage[], innerW: number, innerH: number): number {
   const lines = buildConversationLines(msgs, innerW);
   return Math.max(0, lines.length - innerH);
+}
+
+/** Cap holdings/quotes rows to `max` total across all sections. */
+export function capSections(sections: PanelSection[], max: number): PanelSection[] {
+  let remaining = max;
+  return sections.map(sec => {
+    // Market quotes and keyvalue always visible
+    if (sec.kind === "quotes" || sec.kind === "keyvalue") return sec;
+    if (remaining <= 0) return null;
+    if (sec.rows.length <= remaining) {
+      remaining -= sec.rows.length;
+      return sec;
+    }
+    const capped = { ...sec, rows: sec.rows.slice(0, remaining) };
+    remaining = 0;
+    return capped;
+  }).filter((s): s is PanelSection => s !== null);
 }
 
 function buildOverviewBlocks(sections: PanelSection[]): OverviewBlock[] {
@@ -152,48 +170,21 @@ function overviewBlockToLines(block: OverviewBlock, w: number): RenderLine[] {
 
 function overviewRowLines(row: Holding, w: number): RenderLine[] {
   const pctTxt = fmtPct(row.pct);
-  if (UI_DENSITY === "compact") {
-    const priceTxt = fmtPrice(row.price);
-    const pctW = strWidth(pctTxt);
-    const nameW = Math.max(0, w - 7 - strWidth(priceTxt) - 2 - pctW);
-    const codePad = Math.max(1, 7 - strWidth(row.code));
-    const codePart = `${row.code}${" ".repeat(codePad)}`;
-    const namePart = truncate(row.name, nameW);
-    const pricePart = `  ${priceTxt}`;
-    const pctPart = `  ${pctTxt}`;
-    return [{
-      text: `${codePart}${namePart}${pricePart}${pctPart}`,
-      segments: [
-        { text: codePart, style: S.code },
-        { text: namePart, style: S.cream },
-        { text: pricePart, style: S.creamB },
-        { text: pctPart, style: pctStyle(row.pct) },
-      ],
-    }];
-  }
-  const namePart = truncate(row.name, Math.max(0, w - 8));
-  const line1 = `${row.code}  ${namePart}`;
-  const priceTxt = fmtPrice(row.price);
-  const pad = Math.max(0, w - strWidth(priceTxt) - 2 - strWidth(pctTxt));
-  const line2 = `${" ".repeat(pad)}${priceTxt}  ${pctTxt}`;
-  return [
-    {
-      text: line1,
-      segments: [
-        { text: row.code, style: S.code },
-        { text: `  ${namePart}`, style: S.cream },
-      ],
-    },
-    {
-      text: line2,
-      segments: [
-        { text: " ".repeat(pad), style: S.creamB },
-        { text: priceTxt, style: S.creamB },
-        { text: "  ", style: S.creamB },
-        { text: pctTxt, style: pctStyle(row.pct) },
-      ],
-    },
-  ];
+  const code = row.code.split(".")[0] || row.code;
+  const codePart = code.padEnd(8);
+  const pctPart = pctTxt.padStart(8);
+  const nameW = Math.max(0, w - strWidth(codePart) - strWidth(pctPart));
+  const namePart = truncate(row.name, nameW);
+  const pad = " ".repeat(Math.max(0, nameW - strWidth(namePart)));
+  return [{
+    text: `${codePart}${namePart}${pad}${pctPart}`,
+    segments: [
+      { text: codePart, style: S.code },
+      { text: namePart, style: S.cream },
+      { text: pad, style: {} },
+      { text: pctPart, style: pctStyle(row.pct) },
+    ],
+  }];
 }
 
 export function buildOverviewLines(sections: PanelSection[], innerW: number): RenderLine[] {
@@ -389,11 +380,7 @@ export function drawConversation(
   }
 }
 
-const LOADING_LINES: Record<string, string[]> = {
-  starting: ["Connecting data sources", "Loading portfolio snapshot", "Initializing agent"],
-  thinking: ["Processing request", "Consulting models", "Analyzing data"],
-  "running tool": ["Running tool", "Waiting for result"],
-};
+const LOADING_INSIGHTS = getQuotes();
 
 function stepHex(phase: number): string {
   const t = (Math.sin(phase) + 1) / 2;
@@ -415,25 +402,29 @@ function centerInMain(main: { x: number; w: number }, text: string): number {
 function drawLoadingOverlay(
   buf: Buffer,
   main: { x: number; y: number; w: number; h: number },
-  activity: string,
+  _activity: string,
   clipEnd: number,
 ): void {
   const t = Date.now() / 1000;
-  const lines = LOADING_LINES[activity] || LOADING_LINES.starting;
   const TREND = "▁▃▅▇█ WhyJ Quant";
   const n = TREND.length;
+  const stepSec = 5;
+  const idx = Math.floor(t / stepSec) % LOADING_INSIGHTS.length;
+  const insight = LOADING_INSIGHTS[idx];
+  const maxLineW = Math.min(main.w - 6, 56);
+  const cnLines = wrap(`"${insight.quote}"`, maxLineW);
+  const enLines = wrap(insight.en, maxLineW);
+  const authorText = `— ${insight.author}`;
+  const blockH = 1 + cnLines.length + enLines.length + 1; // cn quote + en quote + author
 
   const minY = main.y;
   const maxY = main.y + main.h - 1;
   const cy = main.y + Math.floor(main.h / 2);
-  const lineGap = 1;
-  const stairGap = 1;
-  const textBlockH = lines.length + Math.max(0, lines.length - 1) * lineGap;
-  const totalH = 1 + stairGap + textBlockH;
-  let textStartY = cy - Math.floor(totalH / 2) + 1 + stairGap;
-  textStartY = Math.max(minY, Math.min(textStartY, maxY - textBlockH + 1));
+  let textStartY = cy - Math.floor(blockH / 2);
+  textStartY = Math.max(minY, Math.min(textStartY, maxY - blockH + 1));
 
-  const stairY = textStartY - 1 - stairGap;
+  // Staircase above
+  const stairY = textStartY - 2;
   if (stairY >= minY && stairY <= maxY) {
     const stairX = centerInMain(main, TREND);
     for (let i = 0; i < n; i++) {
@@ -441,20 +432,26 @@ function drawLoadingOverlay(
       const sr = Math.round(60 + (212 - 60) * s).toString(16).padStart(2, "0");
       const sg = Math.round(55 + (175 - 55) * s).toString(16).padStart(2, "0");
       const sb = Math.round(48 + (55 - 48) * s).toString(16).padStart(2, "0");
-      const style = { fg: `#${sr}${sg}${sb}`, bold: true };
-      buf.set(stairX + i, stairY, TREND[i], style, clipEnd);
+      buf.set(stairX + i, stairY, TREND[i], { fg: `#${sr}${sg}${sb}`, bold: true }, clipEnd);
     }
   }
 
-  for (let i = 0; i < lines.length; i++) {
-    const y = textStartY + i * (1 + lineGap);
-    if (y > maxY) break;
-    const phase = t * 2 + i * 2.1;
-    const color = stepHex(phase);
-    const style = { fg: color, bold: true };
-    const text = lines[i];
-    const lx = centerInMain(main, text);
-    buf.text(lx, y, text, style, main.w, clipEnd);
+  let row = textStartY;
+  // Chinese quote
+  for (let i = 0; i < cnLines.length; i++) {
+    if (row > maxY) break;
+    buf.text(centerInMain(main, cnLines[i]), row, cnLines[i], { fg: stepHex(t * 1.5 + i) }, main.w, clipEnd);
+    row++;
+  }
+  // English quote
+  for (let i = 0; i < enLines.length; i++) {
+    if (row > maxY) break;
+    buf.text(centerInMain(main, enLines[i]), row, enLines[i], { fg: "#A09880" }, main.w, clipEnd);
+    row++;
+  }
+  // Author
+  if (row <= maxY) {
+    buf.text(centerInMain(main, authorText), row, authorText, { fg: "#8A8478", dim: true }, main.w, clipEnd);
   }
 }
 
@@ -467,20 +464,9 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
       lines.push({ text: `▏ ${line}`, style: S.creamB });
     }
   } else if (msg.role === "thinking") {
-    const text = msg.text?.trim() ?? "";
-    const live = !!msg.thinkingLive;
-    const content = text || (live ? `thinking${".".repeat(Math.floor(Date.now() / 250) % 4)}` : "");
-    if (!content) return lines;
     const prefix = "▏ ";
-    const wrapped = wrap(sanitizeTerminalText(content), Math.max(1, w - strWidth(prefix)));
-    for (const line of wrapped) {
+    for (const line of wrap(sanitizeTerminalText(msg.text ?? ""), Math.max(1, w - strWidth(prefix)))) {
       lines.push({ text: `${prefix}${line}`, style: S.thinking });
-    }
-    if (live && lines.length > 0) {
-      lines[lines.length - 1] = {
-        ...lines[lines.length - 1],
-        text: `${lines[lines.length - 1].text} ▏`,
-      };
     }
   } else if (msg.role === "tool") {
     const t = msg.tool!;
@@ -529,21 +515,14 @@ export function drawPortfolio(
   scrollFromTop: number = 0,
   selection?: ConversationSelection | null,
 ): void {
-  const fundCount = sections
-    .filter((sec) => sec.kind === "holdings")
-    .reduce((n, sec) => n + sec.rows.length, 0);
-  const itemCount = sections.reduce((n, sec) => n + sec.rows.length, 0);
+  const capped = sections;
   const innerPreview = panelInner(r);
-  const maxTop = overviewMaxScrollTop(sections, innerPreview.h);
+  const maxTop = overviewMaxScrollTop(capped, innerPreview.h);
   const top = Math.min(Math.max(0, scrollFromTop), maxTop);
-  let titleRight = fundCount > 0 ? `${fundCount} funds` : itemCount > 0 ? `${itemCount} items` : "no data";
-  if (maxTop > 0) {
-    titleRight = `${titleRight} · scroll ${top + 1}/${maxTop + 1}`;
-  }
   buf.fillRect(r, { fg: CANVAS });
   const inner = buf.box(r, {
     title: "◫ Overview", titleStyle: S.creamB,
-    titleRight: loading && sections.length === 0 ? undefined : titleRight,
+    titleRight: maxTop > 0 ? `scroll ${top + 1}/${maxTop + 1}` : undefined,
     titleRightStyle: S.dim, border: S.rule,
   });
 
@@ -557,7 +536,7 @@ export function drawPortfolio(
     return;
   }
 
-  const view = buildOverviewView(sections, r, scrollFromTop);
+  const view = buildOverviewView(capped, r, scrollFromTop);
   for (let i = view.startLineIdx; i < view.lines.length && i - view.startLineIdx < inner.h; i++) {
     const line = view.lines[i];
     const y = inner.y + i - view.startLineIdx;
@@ -572,6 +551,7 @@ export function drawComposer(
   input: string,
   suggestions: ComposerSuggestion[] = [],
   selectedIdx: number = -1,
+  conversation?: { x: number; w: number },
 ): void {
   const isCmd = input.startsWith("/");
   const queue = st.composerQueue ?? [];
@@ -615,36 +595,42 @@ export function drawComposer(
   }
   row++;
 
-  const suggestionRows = suggestions.length > 0
-    ? Math.min(suggestions.length, Math.max(1, inner.h - statusRows - 1))
-    : 0;
-  const maxQueueRows = Math.max(0, inner.y + inner.h - row - suggestionRows);
+  // Queue rows
+  const maxQueueRows = Math.max(0, inner.y + inner.h - row);
   const showQueueRows = Math.min(queueCount, maxQueueRows);
   const queueOverflow = queueCount - showQueueRows;
 
   for (let i = 0; i < showQueueRows; i++) {
     const item = queue[i];
     const prefix = `[${i + 1}] `;
-    const style = i === 0 ? S.cream : S.dim;
-    buf.text(inner.x, row, truncate(`${prefix}${item}`, inner.w), style);
+    buf.text(inner.x, row, truncate(`${prefix}${item}`, inner.w), i === 0 ? S.cream : S.dim);
     row++;
   }
   if (queueOverflow > 0) {
     buf.text(inner.x, row, truncate(`… +${queueOverflow} more`, inner.w), S.dim);
-    row++;
   }
 
+  // Dropdown panel above composer
   if (suggestions.length > 0) {
-    const visible = suggestions.slice(0, Math.max(0, inner.y + inner.h - row));
-    for (let i = 0; i < visible.length; i++) {
-      const suggestion = visible[i];
-      const y = row + i;
-      if (y > inner.y + inner.h - 1) break;
-      const active = i === selectedIdx;
-      const prefix = active ? "/ " : "  ";
-      buf.text(inner.x, y, prefix, active ? S.goldB : S.dim);
-      const label = truncate(suggestion.label, inner.w - 3);
-      buf.text(inner.x + 2, y, label, active ? S.creamB : S.dim);
+    const visible = suggestions.slice(0, 10);
+    const contentH = visible.length + 2;
+    const availAbove = r.y;
+    const ddH = Math.min(contentH, availAbove, 12);
+    if (ddH >= 3) {
+      const ddX = conversation ? conversation.x : r.x + 2;
+      const ddW = conversation ? conversation.w : r.w - 2;
+      const ddY = r.y - ddH;
+      const dd = buf.box({ x: ddX, y: ddY, w: ddW, h: ddH }, {
+        title: "/ Commands",
+        titleStyle: S.code,
+        border: { fg: GOLD_HIGHLIGHT },
+      });
+      for (let i = 0; i < Math.min(visible.length, dd.h); i++) {
+        const active = i === selectedIdx;
+        const item = visible[i];
+        buf.text(dd.x, dd.y + i, truncate(active ? `▶ ${item.label}` : `  ${item.label}`, dd.w - 1),
+          active ? { fg: GOLD_HIGHLIGHT } : S.cream);
+      }
     }
   }
 }

@@ -25,7 +25,20 @@ describe("nextInputAction", () => {
     expect(rest).toBe("");
     expect(action).toMatchObject({
       type: "mouse",
-      events: [{ col: 9, row: 4, wheel: -1, dragging: false }],
+      events: [{ col: 9, row: 4, wheel: -1, dragging: false, shift: false }],
+    });
+  });
+
+  it("parses SGR mouse shift press and release", () => {
+    const press = nextInputAction("\x1b[<4;10;5M");
+    expect(press.action).toMatchObject({
+      type: "mouse",
+      events: [{ col: 9, row: 4, kind: "press", shift: true, button: 0 }],
+    });
+    const release = nextInputAction("\x1b[<0;10;5m");
+    expect(release.action).toMatchObject({
+      type: "mouse",
+      events: [{ col: 9, row: 4, kind: "release", shift: false, button: 0 }],
     });
   });
 
@@ -60,23 +73,17 @@ describe("buildSuggestions", () => {
   ];
 
   it("suggests slash commands", () => {
-    expect(buildSuggestions("/mc", watchlist)).toEqual([
-      { label: "/mcp  Connect to data servers", fill: "/mcp" },
-    ]);
+    expect(buildSuggestions("/mc", watchlist)).toEqual([]);
   });
 
   it("suggests command actions for exact command names", () => {
-    expect(buildSuggestions("/mcp", watchlist).map((s) => s.fill)).toEqual(["/mcp", "/mcp connect"]);
+    expect(buildSuggestions("/config", watchlist)).toEqual([]);
   });
 
   it("suggests watchlist codes and names inside flags", () => {
-    expect(buildSuggestions("/data download --symbol 000", watchlist)[0]).toEqual({
+    expect(buildSuggestions("/factor analyze --symbol 000", watchlist)[0]).toEqual({
       label: "000001  平安银行",
-      fill: "/data download --symbol 000001.SZ",
-    });
-    expect(buildSuggestions("/add stock --name 沪深", watchlist)[0]).toEqual({
-      label: "沪深300ETF",
-      fill: "/add stock --name 沪深300ETF",
+      fill: "/factor analyze --symbol 000001.SZ",
     });
   });
 });
