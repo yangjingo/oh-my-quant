@@ -373,14 +373,18 @@ export function drawConversation(
     return;
   }
 
-  for (let i = view.startLineIdx; i < view.lines.length && i - view.startLineIdx < inner.h; i++) {
+  // Reserve bottom line for thinking bar when agent is active
+  const thinkBarH = (activity !== "ready" && msgs.length > 0) ? 1 : 0;
+  const visibleH = inner.h - thinkBarH;
+
+  for (let i = view.startLineIdx; i < view.lines.length && i - view.startLineIdx < visibleH; i++) {
     const line = view.lines[i];
     const y = inner.y + i - view.startLineIdx;
     drawConversationLine(buf, inner.x, y, line.text, line.style ?? {}, inner.w, clipEnd, i, selection);
   }
 
-  // Thinking status bar: spinner + tip at conversation bottom when agent is active
-  if (activity !== "ready" && msgs.length > 0) {
+  // Thinking status bar: spinner + tip on its own line at conversation bottom
+  if (thinkBarH > 0) {
     const spinner = oraFrame();
     const tip = thinkingQuote();
     const bar = truncate(`${spinner} ${tip}`, inner.w - 2);
