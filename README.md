@@ -13,18 +13,26 @@ npm i -g whyj-quant
 whyj
 ```
 
-第一条命令 — 无需任何配置，bundle 了示例数据：
+第一步先打开配置面板选择数据源：
 
 ```
-Q > /data info --symbol 000001.SZ
+Q > /config
 ```
 
-输出平安银行的 OHLCV 快照。要启用 AI Agent 分析，配置 API key：
+在 `Config` 里设置：
+
+- `API Key` 用于 AI Agent
+- `Source` 用于行情来源
+- `Source Key` 用于对应数据源密钥
+
+然后可以直接提问做分析：
 
 ```bash
 # .env 文件 (项目根目录)
 ANTHROPIC_API_KEY=sk-ant-...
 TUSHARE_TOKEN=your_token        # A 股数据 (可选)
+FINANCIAL_DATASETS_KEY=your_key # 美股直连数据 (可选)
+LLMQUANT_API_KEY=your_key       # 美股/HK 直连数据 (可选)
 ```
 
 然后：
@@ -41,31 +49,22 @@ Shell-level commands:
 |------|------|
 | `whyj` | 启动交互式 REPL |
 | `whyj --help` | 查看 CLI 入口帮助 |
-| `whyj --json doctor` | 检查 runtime、配置目录、auth 来源、MCP 配置发现 |
+| `whyj --json doctor` | 检查 runtime、配置目录、auth 来源 |
 | `whyj -c "/help"` | 执行单条 slash command 后退出 |
-| `whyj --json -c "/factor list"` | 执行单条 slash command 并输出 JSON envelope |
+| `whyj --json -c "/portfolio"` | 执行单条 slash command 并输出 JSON envelope |
 
 Slash commands:
 
 | 命令 | 说明 |
 |------|------|
-| `/data download --symbol CODE` | 下载并缓存行情数据 |
-| `/data info --symbol CODE` | 股票/基金快照 |
-| `/factor list` | 查看可用因子 |
-| `/factor analyze --symbol CODE --factor NAME` | 单因子分析 |
-| `/backtest run --symbol CODE --fast 20 --slow 60` | 双均线回测 |
-| `/risk check --symbol CODE` | 风险指标 |
-| `/benchmark run --symbol CODE` | 策略评分 |
-| `/add stock --code CODE --name NAME` | 加入自选 |
-| `/add list` | 查看自选 |
-| `/benchmark dashboard` | 策略跑分看板 |
-| `/config` | 配置向导 |
-| `/mcp connect` | 连接数据源 |
+| `/portfolio` | 本地组合对比面板 |
+| `/resume` | 恢复历史 session |
+| `/compact` | 压缩当前 session |
+| `/config` | 配置面板 |
+| `/clear` | 清空当前对话 |
 | `/help` | 命令参考 |
 
-兼容入口仍可用：`/skill`、`/claw`、`/watch`。
-
-无 `/` 前缀直接输入自然语言 → AI Agent 分析。
+无 `/` 前缀直接输入自然语言 → AI Agent 分析。因子、回测、风险与策略评分由 agent 调用内置 Quant tools（`Quant.Factor`、`Quant.Backtest`、`Quant.Risk`、`Quant.Benchmark`）完成；行情拉取与缓存由 agent 通过已配置的 `Source` 自动处理。
 
 ## Dev
 
@@ -106,6 +105,7 @@ bun run src/index.ts -- --json doctor
 
 ## Docs
 
-- [CLI Manual](./docs/cli-manual.md)
+- [CLI Design & Reference](./docs/interactive-cli-design.md) — slash commands, `src/cli/` module, implementation plan
 - [Agent System Spec](./docs/agent-system-spec.md)
+- [Built-in Tool Registry](./docs/builtin-tool-registry.md) — how future built-in agent tools are registered
 - [Design System (NewForm)](./DESIGN.md)

@@ -4,9 +4,11 @@
 
 ## 1. Overview
 
-The agent system now vendors pi's full `packages/agent/src` core+harness implementation into the repo and wraps it with a thin WhyJ Quant adapter. The runtime uses pi's harness lifecycle, JSONL tree session storage, compaction, and branch-summary machinery, while preserving WhyJ Quant tools, prompting, and TUI behavior.
+The agent system now vendors the minimal pi harness subset needed by WhyJ Quant and wraps it with a thin adapter. The runtime uses pi's harness lifecycle, JSONL tree session storage, compaction, and branch-summary machinery, while preserving WhyJ Quant tools, prompting, and TUI behavior.
 
 **Design references:**
+- `docs/pi-agent-loop-harness.md` — technical blog for pi agent loop, harness phase, session tree, compaction, resume boundaries
+- `docs/builtin-tool-registry.md` — lightweight registry for future built-in agent tools
 - pi `packages/agent/src/harness/agent-harness.ts` — harness lifecycle, hooks, queue management
 - pi `packages/agent/src/harness/compaction/compaction.ts` — token estimation, cut points, summarization
 - pi `packages/agent/src/harness/session/session.ts` — tree-based session storage
@@ -16,12 +18,16 @@ The agent system now vendors pi's full `packages/agent/src` core+harness impleme
 
 ```
 src/agent/
-  pi/                 Vendored pi packages/agent/src (core + harness + session + compaction)
-  session.ts          WhyJ Quant facade over AgentHarness
-  dispatch.ts         prompt/steer/followUp routing against the facade
-  context.ts          Prompt assembly (base template + dynamic injection)
-  session.test.ts     estimateTokens, estimateContextTokens, createAgent
-  context.test.ts     BASE_SYSTEM_PROMPT, injectSessionContext
+  src/
+    pi/               Minimal vendored pi harness subset (harness + loop + session + compaction)
+    session.ts        WhyJ Quant facade over AgentHarness
+    dispatch.ts       prompt/steer/followUp routing against the facade
+    context.ts        Prompt assembly (base template + dynamic injection)
+    skills.ts         Skill discovery and diagnostics
+  test/
+    session.test.ts   estimateTokens, estimateContextTokens, createAgent
+    context.test.ts   BASE_SYSTEM_PROMPT, injectSessionContext
+    dispatch.test.ts  prompt/steer/followUp routing
 
 src/cli/
   catalog.ts          Slash command catalog (help text, autocomplete, one-shot help)
@@ -29,6 +35,7 @@ src/cli/
   registry.test.ts    Parser tests
 
 src/tools/
+  registry.ts        Built-in tool registration, display metadata, CLI lookup, enabled agent tool order
   data-tools.ts       local data fetch tools
   quant-tools.ts      5 computation tools (factor, backtest, risk, benchmark, dashboard)
   bash-tool.ts        Shell tool (pi NodeExecutionEnv + codex-style params)
@@ -82,7 +89,7 @@ Reference: pi `NodeExecutionEnv` + `executeShellWithCapture`; codex `shell` tool
 
 Use for `whyj` CLI, `bun test`, git, file inspection. Market data should still go through data tools.
 
-## 6. Prompt Assembly (src/agent/context.ts)
+## 6. Prompt Assembly (src/agent/src/context.ts)
 
 ### Base template (BASE_SYSTEM_PROMPT)
 - Identity: "quantitative finance analyst in WhyJ Quant terminal"
@@ -97,7 +104,7 @@ Use for `whyj` CLI, `bun test`, git, file inspection. Market data should still g
 
 ## 7. Token Estimation & Compaction
 
-Compaction is no longer a local heuristic in `src/agent/session.ts`. WhyJ Quant now reuses pi harness compaction directly:
+Compaction is no longer a local heuristic in `src/agent/src/session.ts`. WhyJ Quant now reuses pi harness compaction directly:
 
 - token estimation delegates to vendored pi `estimateTokens()` / `estimateContextTokens()`
 - session history is compacted through pi `prepareCompaction()` and `compact()`
