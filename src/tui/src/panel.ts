@@ -5,7 +5,8 @@ import { COMMAND_CATALOG } from "../../cli/catalog.ts";
 import { loadSettings, saveSettings } from "../../storage/index.ts";
 import { listStoredSessions, type StoredSessionSummary } from "../../storage/sessions.ts";
 import { listLocalPortfolios, type LocalPortfolioSummary } from "../../storage/local-portfolios.ts";
-import type { AShareSource, GlobalSource, OhQuantSettings } from "../../types/config.ts";
+import { syncPanelPortfolioFromLocalPortfolio } from "../../storage/portfolio.ts";
+import type { DataSource, OhQuantSettings } from "../../types/config.ts";
 
 export type PanelResult = { command?: string; close?: boolean; refreshPanel?: boolean };
 type PanelMode = "config" | "resume" | "portfolio" | "help";
@@ -46,12 +47,6 @@ type Field = {
 };
 
 type Row = { section: string } | { field: Field; index: number };
-type PortfolioAssessment = {
-  strategy: string;
-  styleTag: string;
-  riskTag: string;
-};
-
 const MODEL_SHORT_NAMES = ["sonnet", "opus", "haiku"];
 
 function resolveModelId(shortName: string): string {
@@ -96,34 +91,9 @@ function currentPortfolioOption(fileName: string, name: string): string {
   return `${name} · ${fileName}`;
 }
 
-function containsCashHolding(portfolio: LocalPortfolioSummary): boolean {
-  return portfolio.holdings.some((fund) => fund.code === "_CASH_" || /现金|货币|cash/i.test(fund.name));
-}
-
-function detectTheme(portfolio: LocalPortfolioSummary): string {
-  const haystack = `${portfolio.name} ${portfolio.focusSectors.join(" ")} ${portfolio.holdings.map((fund) => fund.name).join(" ")}`;
-  if (/半导体|芯片/i.test(haystack)) return "Semiconductor focus";
-  if (/科创50|创业板|成长|AI|机器人|CPO/i.test(haystack)) return "Growth and innovation";
-  if (/指数|宽基|沪深300|中证500|中证1000|中证A500|上证50|创业板指|科创50/i.test(haystack)) return "Broad index allocation";
-  return portfolio.count <= 4 ? "High-conviction selection" : "Thematic allocation";
-}
-
-function assessPortfolio(portfolio: LocalPortfolioSummary): PortfolioAssessment {
-  const theme = detectTheme(portfolio);
-  const sectors = portfolio.focusSectors;
-  const sectorCount = sectors.length;
-  const hasCash = containsCashHolding(portfolio);
-  return {
-    strategy: theme,
-    styleTag: theme.replace(" and ", " & ").replace(" allocation", "").replace(" selection", ""),
-    riskTag: sectorCount <= 1 && !hasCash ? "High" : sectorCount <= 2 ? "Medium" : "Balanced",
-  };
-}
-
 const THINKING_OPTIONS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 const ENABLE_OPTIONS = ["on", "off"];
-const A_SHARE_SOURCE_OPTIONS: AShareSource[] = ["akshare", "tushare"];
-const GLOBAL_SOURCE_OPTIONS: GlobalSource[] = ["llmquant-data", "financial-datasets"];
+const SOURCE_OPTIONS: DataSource[] = ["akshare", "tushare", "llmquant-data", "financial-datasets"];
 const PANEL_W = 96;
 const PANEL_H = 22;
 const PANEL_HEADER_INFO_H = 3;
@@ -236,6 +206,10 @@ export class PanelController {
     if (key.name === "return") {
       const selected = this.filteredResumeSessions()[this.resumeSelection];
       if (!selected) return {};
+      if (selected.format === "markdown") {
+        this.status = "Legacy transcript preview only; select a JSONL session to resume.";
+        return {};
+      }
       this.status = `Resuming ${selected.id}...`;
       return { command: `/resume ${selected.id}`, close: true };
     }
@@ -259,7 +233,8 @@ export class PanelController {
       if (!selected || !this.cfg) return {};
       this.cfg.preferences.currentPortfolioFile = selected.fileName;
       saveSettings(this.cfg);
-      return { close: true };
+      syncPanelPortfolioFromLocalPortfolio(selected.fileName);
+      return { close: true, refreshPanel: true };
     }
     return {};
   }
@@ -363,9 +338,24 @@ export class PanelController {
         buf.text(inner.x, y, truncate(`Msgs ${ec.messages}  Comps ${ec.compactions}  Branches ${ec.branches}`, inner.w), S.dim);
         y++; metaRows++;
       }
-      if (!isCurrent) {
-        buf.text(inner.x, y, truncate(selected.preview, inner.w), S.dim);
+      if (isCurrent && selected.recentMessages.length > 0) {
+        for (const message of selected.recentMessages.slice(-3)) {
+          const role = message.role === "user" ? "U" : "A";
+          buf.text(inner.x, y, truncate(`${role}: ${message.text}`, inner.w), S.dim);
+          y++; metaRows++;
+        }
+      } else if (!isCurrent) {
+        const tag = selected.format === "markdown" ? "Legacy transcript" : "JSONL session";
+        buf.text(inner.x, y, truncate(`${tag} · ${selected.messageCount} messages`, inner.w), selected.format === "markdown" ? S.gold : S.dim);
         y++; metaRows++;
+        const previewRows = selected.recentMessages.length > 0
+          ? selected.recentMessages
+          : [{ role: "user" as const, text: selected.preview }];
+        for (const message of previewRows.slice(-3)) {
+          const role = message.role === "user" ? "U" : "A";
+          buf.text(inner.x, y, truncate(`${role}: ${message.text}`, inner.w), S.dim);
+          y++; metaRows++;
+        }
       }
       y++;
       metaRows++;
@@ -391,7 +381,8 @@ export class PanelController {
       const prefix = selected ? "❯ " : "  ";
       const divider = " ─ ";
       const secondary = this.resumeFilter === "all" ? ` · ${session.cwd}` : "";
-      const text = `${prefix}${age}${divider}${session.preview}${secondary}`;
+      const marker = session.format === "markdown" ? "[legacy] " : "";
+      const text = `${prefix}${age}${divider}${marker}${session.preview}${secondary}`;
       buf.text(inner.x, y++, truncate(text, inner.w), selected ? S.goldB : S.cream);
     }
 
@@ -414,14 +405,13 @@ export class PanelController {
 
     let metaRows = 0;
     if (selected) {
-      const a = assessPortfolio(selected);
       const label = selected.fileName === activeFile ? "Active" : "Selected";
       buf.text(inner.x, y, truncate(`${label}: ${selected.name}`, inner.w), S.code);
       y++; metaRows++;
       const sectors = selected.focusSectors.length > 0
         ? selected.focusSectors.join(", ")
         : "No sector tags";
-      buf.text(inner.x, y, truncate(`${a.styleTag}  Risk: ${a.riskTag}  ·  ${selected.count} holdings`, inner.w), S.dim);
+      buf.text(inner.x, y, truncate(`${selected.strategy}  Risk: ${selected.riskTag}  ·  ${selected.count} holdings`, inner.w), S.dim);
       y++; metaRows++;
       buf.text(inner.x, y, truncate(`${sectors}  ·  ${selected.updated ? formatRelativeAge(selected.updated) : "-"}`, inner.w), S.dim);
       y++; metaRows++;
@@ -603,7 +593,7 @@ export class PanelController {
     return env[p.envVar] ? "✓ configured" : "○ enter key";
   }
 
-  private dataSourceEnvVar(source: AShareSource | GlobalSource): string | null {
+  private dataSourceEnvVar(source: DataSource): string | null {
     switch (source) {
       case "tushare":
         return "TUSHARE_TOKEN";
@@ -616,19 +606,15 @@ export class PanelController {
     }
   }
 
-  private dataSourceKeyLabel(source: AShareSource | GlobalSource): string {
+  private dataSourceKeyLabel(source: DataSource): string {
     const envVar = this.dataSourceEnvVar(source);
     if (!envVar) return "○ no key needed";
     const env = (this.cfg?.env || {}) as Record<string, string | undefined>;
     return env[envVar] ? "✓ configured" : "○ enter key";
   }
 
-  private currentAShareSource(): AShareSource {
-    return this.cfg?.preferences.aShareSource || "akshare";
-  }
-
-  private currentGlobalSource(): GlobalSource {
-    return this.cfg?.preferences.globalSource || "llmquant-data";
+  private currentSource(): DataSource {
+    return this.cfg?.preferences.source || "llmquant-data";
   }
 
   private currentPortfolioLabel(): string {
@@ -652,6 +638,7 @@ export class PanelController {
     if (!this.cfg) return;
     const fileName = value.split(" · ")[1] || value;
     this.cfg.preferences.currentPortfolioFile = fileName;
+    syncPanelPortfolioFromLocalPortfolio(fileName);
   }
 
   private saveProviderKey(raw: string): string {
@@ -664,7 +651,7 @@ export class PanelController {
     return `Saved ${p.envVar}.`;
   }
 
-  private saveDataSourceKey(source: AShareSource | GlobalSource, raw: string): string {
+  private saveDataSourceKey(source: DataSource, raw: string): string {
     const envVar = this.dataSourceEnvVar(source);
     if (!envVar) return `${source} does not require a key.`;
     const key = raw.trim();
@@ -684,39 +671,28 @@ export class PanelController {
           { label: "Model", get: () => this.cfg?.model || "sonnet", set: (v) => { if (this.cfg) this.cfg.model = v; }, optionsFn: buildModelOptions },
           { label: "Thinking", get: () => this.cfg?.thinkingLevel || "high", set: (v) => { if (this.cfg) this.cfg.thinkingLevel = v; }, options: THINKING_OPTIONS },
           {
-            label: "Set active portfolio",
+            label: "Portfolio",
             get: () => this.currentPortfolioLabel(),
             set: (v) => this.setCurrentPortfolio(v),
             optionsFn: () => this.currentPortfolioOptions(),
           },
           {
-            label: "API Key",
+            label: "Key",
             get: () => this.providerKeyLabel(),
             apply: (v) => this.saveProviderKey(v),
           },
           {
-            label: "A Source",
-            get: () => this.currentAShareSource(),
-            set: (v) => { if (this.cfg) this.cfg.preferences.aShareSource = v as AShareSource; },
-            options: [...A_SHARE_SOURCE_OPTIONS],
+            label: "Source",
+            get: () => this.currentSource(),
+            set: (v) => { if (this.cfg) this.cfg.preferences.source = v as DataSource; },
+            options: [...SOURCE_OPTIONS],
           },
           {
-            label: "A Key",
-            get: () => this.dataSourceKeyLabel(this.currentAShareSource()),
-            apply: (v) => this.saveDataSourceKey(this.currentAShareSource(), v),
+            label: "Token",
+            get: () => this.dataSourceKeyLabel(this.currentSource()),
+            apply: (v) => this.saveDataSourceKey(this.currentSource(), v),
           },
-          {
-            label: "US/HK Source",
-            get: () => this.currentGlobalSource(),
-            set: (v) => { if (this.cfg) this.cfg.preferences.globalSource = v as GlobalSource; },
-            options: [...GLOBAL_SOURCE_OPTIONS],
-          },
-          {
-            label: "US/HK Key",
-            get: () => this.dataSourceKeyLabel(this.currentGlobalSource()),
-            apply: (v) => this.saveDataSourceKey(this.currentGlobalSource(), v),
-          },
-          { label: "Portfolio Panel", get: () => this.cfg?.showPortfolioPanel === false ? "off" : "on", set: (v) => { if (this.cfg) this.cfg.showPortfolioPanel = v !== "off"; }, options: ENABLE_OPTIONS },
+          { label: "Panel", get: () => this.cfg?.showPortfolioPanel === false ? "off" : "on", set: (v) => { if (this.cfg) this.cfg.showPortfolioPanel = v !== "off"; }, options: ENABLE_OPTIONS },
           { label: "Insight", get: () => this.cfg?.insightEnabled === false ? "off" : "on", set: (v) => { if (this.cfg) this.cfg.insightEnabled = v !== "off"; }, options: ENABLE_OPTIONS },
         ],
       },
