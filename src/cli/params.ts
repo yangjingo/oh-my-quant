@@ -50,10 +50,8 @@ export async function runQuantTool(
   defaults: Record<string, unknown> = {},
 ): Promise<CommandResult> {
   try {
-    const { MCP_TOOLS } = await import("../tools/mcp-tools.ts");
-    const { COMPUTE_TOOLS } = await import("../tools/quant-tools.ts");
-    const { SYSTEM_TOOLS } = await import("../tools/bash-tool.ts");
-    const tool = [...MCP_TOOLS, ...COMPUTE_TOOLS, ...SYSTEM_TOOLS].find((t) => t.name === name);
+    const { findBuiltinTool } = await import("../tools/registry.ts");
+    const tool = findBuiltinTool(name);
     if (!tool) return { success: false, message: `Tool "${name}" not registered.` };
 
     const params = normalizeToolParams(flags, defaults);
