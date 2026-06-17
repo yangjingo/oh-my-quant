@@ -12,25 +12,6 @@ export const helpHandler: CommandHandler = async (_flags, _positional, ctx) => {
   return { success: true, message: buildCommandHelpText() };
 };
 
-export const hotkeysHandler: CommandHandler = async (_flags, _positional, ctx) => {
-  if (ctx.openHotkeys) {
-    return { success: true, message: "", effects: [{ type: "openHotkeys" }] };
-  }
-  return {
-    success: true,
-    message: [
-      "Hotkeys",
-      "  Ctrl+P     Open settings",
-      "  Enter      Submit input",
-      "  Tab        Accept slash suggestion",
-      "  Esc        Clear input / close panel",
-      "  Ctrl+C     Clear input or quit",
-      "  PgUp/Down  Scroll conversation",
-      "  Shift+PgUp/PgDown  Scroll overview",
-    ].join("\n"),
-  };
-};
-
 export const clearHandler: CommandHandler = async () => ({
   success: true,
   message: "",
@@ -44,7 +25,26 @@ export const compactHandler: CommandHandler = async (_flags, positional, ctx) =>
     return { success: false, message: "Agent session is not initialized yet." };
   }
   const customInstructions = positional.join(" ").trim() || undefined;
-  const result = await agent.compact(customInstructions);
+  let result: Awaited<ReturnType<typeof agent.compact>>;
+  try {
+    await agent.waitForIdle();
+    result = await agent.compact(customInstructions);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("Nothing to compact")) {
+      return {
+        success: true,
+        message: "Nothing to compact. The current session is already within the compaction window.",
+      };
+    }
+    if (message.includes("requires idle harness") || message.includes("AgentHarness is busy")) {
+      return {
+        success: false,
+        message: "Agent is still finalizing the current turn. Try /compact again after the tool/result output settles.",
+      };
+    }
+    throw error;
+  }
   return {
     success: true,
     message: [
@@ -54,6 +54,7 @@ export const compactHandler: CommandHandler = async (_flags, positional, ctx) =>
       "",
       result.summary,
     ].join("\n"),
+    effects: [{ type: "compactSession" }, { type: "sessionChanged" }],
   };
 };
 
@@ -86,10 +87,31 @@ export const portfolioHandler: CommandHandler = async (_flags, positional, ctx) 
   if (positional.length === 0 && ctx.openPortfolio) {
     return { success: true, message: "", effects: [{ type: "openPortfolio" }] };
   }
+  if (positional[0] === "use" || positional[0] === "select") {
+    const identifier = positional.slice(1).join(" ").trim();
+    if (!identifier) return { success: false, message: "Use /portfolio use <name|file|index>" };
+    const { loadSettings, saveSettings } = await import("../../storage/index.ts");
+    const { syncPanelPortfolioFromLocalPortfolio } = await import("../../storage/portfolio.ts");
+    const synced = syncPanelPortfolioFromLocalPortfolio(identifier);
+    if (!synced) return { success: false, message: `Local portfolio not found: ${identifier}` };
+    const cfg = loadSettings();
+    cfg.preferences.currentPortfolioFile = synced.portfolio.fileName;
+    saveSettings(cfg);
+    return {
+      success: true,
+      message: [
+        "Portfolio selected",
+        `  name     ${synced.portfolio.name}`,
+        `  file     ${synced.portfolio.fileName}`,
+        `  symbols  ${synced.symbols.length}`,
+      ].join("\n"),
+      effects: [{ type: "portfolioChanged" }],
+    };
+  }
   if (positional.length > 0) {
     return {
       success: false,
-      message: "Portfolio panel is read-only. Ask the agent to read/write local portfolio files instead.",
+      message: "Portfolio panel is read-only. Use /portfolio use <name|file|index> to switch local portfolios.",
     };
   }
   const { listLocalPortfolios } = await import("../../storage/local-portfolios.ts");
@@ -152,6 +174,7 @@ export const resumeHandler: CommandHandler = async (_flags, positional, ctx) => 
       `cwd: ${metadata.cwd}`,
       `file: ${metadata.path}`,
     ].join("\n"),
+    effects: [{ type: "sessionChanged" }],
   };
 };
 

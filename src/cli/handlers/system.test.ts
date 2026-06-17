@@ -2,9 +2,11 @@ import { describe, expect, it, mock } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { configHandler, hotkeysHandler, portfolioHandler, resumeHandler, sessionHandler } from "./system.ts";
+import { loadPanelPortfolio } from "../../storage/panel-portfolio.ts";
+import { loadSettings } from "../../storage/index.ts";
+import { configHandler, portfolioHandler, resumeHandler, sessionHandler } from "./system.ts";
 import { skillHandler } from "./skill.ts";
-import type { QuantAgentSession } from "../../agent/session.ts";
+import type { QuantAgentSession } from "../../agent/src/session.ts";
 
 const OHQ = join(tmpdir(), `whyj-portfolio-handler-${Date.now()}`);
 
@@ -134,16 +136,6 @@ describe("sessionHandler", () => {
   });
 });
 
-describe("hotkeysHandler", () => {
-  it("renders core TUI shortcuts", async () => {
-    const result = await hotkeysHandler({}, [], {});
-    expect(result.success).toBe(true);
-    expect(result.message).toContain("Hotkeys");
-    expect(result.message).toContain("Ctrl+P");
-    expect(result.message).toContain("Tab");
-  });
-});
-
 describe("portfolioHandler", () => {
   it("opens the portfolio panel in TUI for bare portfolio", async () => {
     const result = await portfolioHandler({}, [], { openPortfolio: () => {} });
@@ -187,7 +179,28 @@ describe("portfolioHandler", () => {
   it("rejects legacy portfolio edit subcommands", async () => {
     const result = await portfolioHandler({}, ["add"], {});
     expect(result.success).toBe(false);
-    expect(result.message).toContain("read/write local portfolio files");
+    expect(result.message).toContain("/portfolio use");
+  });
+
+  it("selects a local portfolio and syncs panel portfolio storage", async () => {
+    await withTempOhq(async () => {
+      mkdirSync(join(OHQ, "portfolio"), { recursive: true });
+      await Bun.write(join(OHQ, "portfolio", "holdings_kc50.json"), JSON.stringify({
+        name: "科创50宽基",
+        updated: "2026-05-30T00:00:00+08:00",
+        funds: [
+          { code: "588000", name: "科创50ETF" },
+          { code: "011613", name: "华夏科创50ETF联接C" },
+        ],
+      }, null, 2));
+      const result = await portfolioHandler({}, ["use", "科创50宽基"], {});
+      expect(result.success).toBe(true);
+      expect(result.effects).toEqual([{ type: "portfolioChanged" }]);
+      expect(loadSettings().preferences.currentPortfolioFile).toBe("holdings_kc50.json");
+      const panel = loadPanelPortfolio();
+      expect(panel.symbols.map((item) => item.code)).toEqual(["588000", "011613"]);
+      expect(panel.groups[0]?.name).toBe("科创50宽基");
+    });
   });
 });
 
