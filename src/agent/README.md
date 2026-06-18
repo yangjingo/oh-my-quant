@@ -20,7 +20,7 @@ src/agent/
 
 - `createAgent()` in `src/session.ts`
 - `dispatchUserMessage()` and `isAgentTurnActive()` in `src/dispatch.ts`
-- `buildSystemPrompt()` and `injectSessionContext()` in `src/context.ts`
+- `buildSystemPrompt()`, `injectTurnContext()`, and `injectSkillContext()` in `src/context.ts`
 - `discoverSkills()` in `src/skills.ts`
 
 Other app layers should import only from these files. `src/pi/` is intentionally treated as an internal runtime dependency.
@@ -42,7 +42,7 @@ Other app layers should import only from these files. `src/pi/` is intentionally
 - streaming without pending tools: `followUp()`
 - streaming with pending tools: `steer()`
 
-`context.ts` builds the quant-specific system prompt and injects lightweight symbol context.
+`context.ts` builds the quant-specific system prompt, injects session context, and conditionally injects lightweight structured-output guidance for table/chart-heavy requests.
 
 `skills.ts` discovers local skill files from project and user directories.
 

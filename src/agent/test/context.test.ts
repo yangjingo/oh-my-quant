@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { BASE_SYSTEM_PROMPT, buildSystemPrompt, injectSessionContext } from "../src/context.ts";
+import { BASE_SYSTEM_PROMPT, buildSystemPrompt, injectSessionContext, injectSkillContext, injectTurnContext } from "../src/context.ts";
 
 describe("BASE_SYSTEM_PROMPT", () => {
   it("contains quant analyst identity", () => {
@@ -40,6 +40,16 @@ describe("BASE_SYSTEM_PROMPT", () => {
   it("contains workflow rules", () => {
     expect(BASE_SYSTEM_PROMPT).toContain("Fetch price data first");
     expect(BASE_SYSTEM_PROMPT).toContain("data → factor → backtest → risk → benchmark");
+  });
+
+  it("contains structured tool-result preservation guidance", () => {
+    expect(BASE_SYSTEM_PROMPT).toContain("Structured Tool Result Handling");
+    expect(BASE_SYSTEM_PROMPT).toContain("run_backtest");
+    expect(BASE_SYSTEM_PROMPT).toContain("Total return, CAGR, Sharpe, Max DD, Win rate, P/L ratio");
+    expect(BASE_SYSTEM_PROMPT).toContain("check_risk");
+    expect(BASE_SYSTEM_PROMPT).toContain("VaR, CVaR, Max DD, Skew/Kurt");
+    expect(BASE_SYSTEM_PROMPT).toContain("show_dashboard");
+    expect(BASE_SYSTEM_PROMPT).toContain("do not replace the leaderboard with a one-line summary");
   });
 
   it("lists shell tool", () => {
@@ -102,5 +112,50 @@ describe("injectSessionContext", () => {
       lastEndDate: null,
     });
     expect(result).toBe("hello");
+  });
+});
+
+describe("injectTurnContext", () => {
+  it("adds lightweight render guidance for comparison-heavy requests", () => {
+    const result = injectTurnContext("compare top 5 holdings and show a table", {
+      lastSymbol: "510300.SH",
+      lastMarket: "A",
+      lastStartDate: null,
+      lastEndDate: null,
+    });
+    expect(result).toContain("<!-- render guidance -->");
+    expect(result).toContain("compact aligned plain-text table");
+    expect(result).toContain("last_symbol: 510300.SH");
+  });
+
+  it("adds tool-family-specific guidance for backtest and risk style requests", () => {
+    const result = injectTurnContext("run backtest and compare risk with a chart", {
+      lastSymbol: null,
+      lastMarket: null,
+      lastStartDate: null,
+      lastEndDate: null,
+    });
+    expect(result).toContain("total return, CAGR, Sharpe, max drawdown, win rate, P/L ratio");
+    expect(result).toContain("preserve VaR/CVaR and drawdown lines explicitly");
+  });
+
+  it("stays lightweight for ordinary chat requests", () => {
+    const result = injectTurnContext("hello", {
+      lastSymbol: null,
+      lastMarket: null,
+      lastStartDate: null,
+      lastEndDate: null,
+    });
+    expect(result).toBe("hello");
+  });
+});
+
+describe("injectSkillContext", () => {
+  it("adds compact structured-output guidance to skill instructions", () => {
+    const result = injectSkillContext("whyj-quant", "focus on benchmark drift");
+    expect(result).toContain("focus on benchmark drift");
+    expect(result).toContain("structured rows visible");
+    expect(result).toContain("3 short lines");
+    expect(result).toContain("Preserve score rows, ranking rows, risk rows, and backtest metric rows");
   });
 });

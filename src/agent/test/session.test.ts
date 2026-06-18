@@ -308,4 +308,45 @@ describe("createAgent", () => {
     expect(skills.some((skill) => skill.name === "whyj-quant")).toBe(true);
     expect(skills[0]?.filePath).toContain("SKILL.md");
   });
+
+  it("injects lightweight render guidance into prompt/followUp/skill assembly", async () => {
+    const agent = createAgent({
+      cwd: TEST_DIR,
+      sessionsRoot: TEST_SESSIONS_DIR,
+      settings: {
+        env: {},
+        model: "gpt-5.5",
+        thinkingLevel: "off",
+      },
+      skillPaths: [TEST_SKILLS_DIR],
+    }) as any;
+    await agent.waitForIdle();
+
+    const captured: Record<string, string> = {};
+    agent.harness = {
+      prompt: async (text: string) => { captured.prompt = text; },
+      followUp: async (text: string) => { captured.followUp = text; },
+      skill: async (name: string, text?: string) => {
+        captured.skillName = name;
+        captured.skill = text ?? "";
+      },
+    };
+    agent.ready = Promise.resolve();
+
+    await agent.prompt("compare top 5 holdings and show a table");
+    await agent.followUp({
+      role: "user",
+      content: [{ type: "text", text: "show ranking chart too" }],
+      timestamp: Date.now(),
+    } as any);
+    await agent.skill("whyj-quant", "focus on benchmark drift");
+
+    expect(captured.prompt).toContain("<!-- render guidance -->");
+    expect(captured.prompt).toContain("compact aligned plain-text table");
+    expect(captured.followUp).toContain("<!-- render guidance -->");
+    expect(captured.followUp).toContain("chart-style block");
+    expect(captured.skillName).toBe("whyj-quant");
+    expect(captured.skill).toContain("focus on benchmark drift");
+    expect(captured.skill).toContain("structured rows visible");
+  });
 });
