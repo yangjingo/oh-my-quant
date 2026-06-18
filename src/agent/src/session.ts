@@ -22,7 +22,7 @@ import {
   type Model,
 } from "@earendil-works/pi-ai";
 import { BUILTIN_TOOLS } from "../../tools/registry.ts";
-import { buildSystemPrompt, injectSessionContext, type SessionCtx } from "./context.ts";
+import { buildSystemPrompt, injectSkillContext, injectTurnContext, type SessionCtx } from "./context.ts";
 import { SESSIONS_DIR, ensureDirs, loadSettings } from "../../storage/index.ts";
 import type { OhQuantSettings } from "../../types/config.ts";
 import { discoverSkills, type QuantSkill } from "./skills.ts";
@@ -33,6 +33,15 @@ export interface QuantAgentContextUsage {
   contextWindow: number;
   percent: number | null;
 }
+
+export interface QuantAgentQueueUpdateEvent {
+  type: "queue_update";
+  steer: AgentMessage[];
+  followUp: AgentMessage[];
+  nextTurn: AgentMessage[];
+}
+
+export type QuantAgentEvent = AgentEvent | QuantAgentQueueUpdateEvent;
 
 export interface QuantAgentState {
   systemPrompt: string;
@@ -50,8 +59,8 @@ export interface QuantAgentState {
 
 export interface QuantAgentSession {
   readonly state: QuantAgentState;
-  subscribe(listener: (event: AgentEvent, signal?: AbortSignal) => Promise<void> | void): () => void;
-  prompt(input: string): Promise<void>;
+  subscribe(listener: (event: QuantAgentEvent, signal?: AbortSignal) => Promise<void> | void): () => void;
+  prompt(input: string, options?: { displayText?: string }): Promise<void>;
   waitForIdle(): Promise<void>;
   steer(message: AgentMessage): Promise<void>;
   followUp(message: AgentMessage): Promise<void>;
@@ -112,7 +121,7 @@ function createEmptyState(): QuantAgentState {
 class QuantAgentHarnessSession implements QuantAgentSession {
   readonly state: QuantAgentState = createEmptyState();
 
-  private readonly listeners = new Set<(event: AgentEvent, signal?: AbortSignal) => Promise<void> | void>();
+  private readonly listeners = new Set<(event: QuantAgentEvent, signal?: AbortSignal) => Promise<void> | void>();
   private readonly cwd: string;
   private readonly sessionsRoot: string;
   private readonly settingsOverride?: QuantAgentOptions["settings"];
@@ -136,38 +145,38 @@ class QuantAgentHarnessSession implements QuantAgentSession {
     this.ready = this.initialize({ forceNewSession: false });
   }
 
-  subscribe(listener: (event: AgentEvent, signal?: AbortSignal) => Promise<void> | void): () => void {
+  subscribe(listener: (event: QuantAgentEvent, signal?: AbortSignal) => Promise<void> | void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
 
-  async prompt(input: string): Promise<void> {
+  async prompt(input: string, options?: { displayText?: string }): Promise<void> {
     const readyStartedAt = perfNow();
     await this.ready;
     perfLog("agent.ready.wait", readyStartedAt, { phase: "prompt" });
     if (!this.harness) throw new Error("Agent harness not initialized");
-    const prompt = injectSessionContext(input, sessionCtx);
+    const prompt = injectTurnContext(input, sessionCtx);
     const promptStartedAt = perfNow();
-    await this.harness.prompt(prompt);
+    await this.harness.prompt(prompt, { displayText: options?.displayText });
     perfLog("agent.prompt", promptStartedAt);
   }
 
   async steer(message: AgentMessage): Promise<void> {
     await this.ready;
     if (!this.harness) throw new Error("Agent harness not initialized");
-    await this.harness.steer(extractMessageText(message));
+    await this.harness.steer(injectTurnContext(extractMessageText(message), sessionCtx), { displayText: extractMessageDisplayText(message) });
   }
 
   async followUp(message: AgentMessage): Promise<void> {
     await this.ready;
     if (!this.harness) throw new Error("Agent harness not initialized");
-    await this.harness.followUp(extractMessageText(message));
+    await this.harness.followUp(injectTurnContext(extractMessageText(message), sessionCtx), { displayText: extractMessageDisplayText(message) });
   }
 
   async skill(name: string, additionalInstructions?: string): Promise<void> {
     await this.ready;
     if (!this.harness) throw new Error("Agent harness not initialized");
-    await this.harness.skill(name, additionalInstructions);
+    await this.harness.skill(name, injectSkillContext(name, additionalInstructions));
   }
 
   async waitForIdle(): Promise<void> {
@@ -346,7 +355,7 @@ class QuantAgentHarnessSession implements QuantAgentSession {
 
     harness.subscribe(async (event, signal) => {
       this.reduceState(event);
-      if (!isCoreAgentEvent(event)) return;
+      if (!isForwardedAgentEvent(event)) return;
       for (const listener of this.listeners) {
         await listener(event, signal);
       }
@@ -449,6 +458,10 @@ function isCoreAgentEvent(event: AgentHarnessEvent): event is AgentEvent {
     || event.type === "agent_end";
 }
 
+function isForwardedAgentEvent(event: AgentHarnessEvent): event is QuantAgentEvent {
+  return isCoreAgentEvent(event) || event.type === "queue_update";
+}
+
 function applySessionContextState(
   state: QuantAgentState,
   context: SessionContext,
@@ -493,6 +506,13 @@ function extractMessageText(message: AgentMessage): string {
   return "";
 }
 
+function extractMessageDisplayText(message: AgentMessage): string | undefined {
+  const value = (message as { role?: string; displayText?: unknown }).role === "displayUser"
+    ? (message as { displayText?: unknown }).displayText
+    : undefined;
+  return typeof value === "string" ? value : undefined;
+}
+
 export function createAgent(options: QuantAgentOptions = {}): QuantAgentSession {
   return new QuantAgentHarnessSession(options);
 }
@@ -506,7 +526,7 @@ export function getSessionCtx(): Readonly<SessionCtx> {
 }
 
 export function injectContext(input: string): string {
-  return injectSessionContext(input, sessionCtx);
+  return injectTurnContext(input, sessionCtx);
 }
 
 export function estimateTokens(message: AgentMessage): number {
