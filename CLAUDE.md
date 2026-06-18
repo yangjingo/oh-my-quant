@@ -56,7 +56,7 @@ oh-my-quant/
 
 - **Bun** 作为运行时和包管理，不要用 npm/yarn 安装依赖
 - `DESIGN.md` 是项目唯一的 UI 设计系统来源
-- `docs/notes.md` 是投资原则和知识体系的唯一真源
+- `notes/quant/` 是投资原则和知识体系的唯一真源
 - `docs/reference.md` 是量化资源索引
 - `.ohquant/` 下所有数据为本地存储，不提交 git；存储策略见 `docs/ohquant-storage-policy.md`
 - `.ohquant/data/` 与 `.ohquant/cache/` 只缓存可重取的市场公开数据或派生结果
