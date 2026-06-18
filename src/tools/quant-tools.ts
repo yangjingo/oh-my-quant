@@ -1,7 +1,6 @@
 /**
  * Quant computation tool definitions — pi AgentTool format.
- * These depend on MCP data tools (tushare_daily, llmquant_price, etc.)
- * having cached the price data first.
+ * These depend on local data tools having cached the price data first.
  */
 import { Type } from "typebox";
 import type { Static } from "typebox";
@@ -54,7 +53,7 @@ function err(code: ErrorCode, detail?: string): AgentToolResult<unknown> {
 /** Load bars from any available cache source. Returns null if nothing cached. */
 async function loadCachedBars(symbol: string) {
   const { loadBars } = await import("../storage/bars.ts");
-  for (const src of ["tushare", "akshare", "llmquant-data", "financial-datasets"]) {
+  for (const src of ["akshare", "tushare", "llmquant-data", "financial-datasets"]) {
     const bars = await loadBars(symbol, src);
     if (bars.length > 0) return { bars, source: src };
   }
@@ -65,15 +64,15 @@ async function loadCachedBars(symbol: string) {
 
 export const computeFactorTool: AgentTool<typeof S.ComputeFactor> = {
   name: "compute_factor",
-  description: "Compute technical factor (momentum, reversal, volatility, volume_ratio, rsi, sma_deviation). Requires price data cached first — use tushare_daily or llmquant_price first.",
+  description: "Compute technical factor (momentum, reversal, volatility, volume_ratio, rsi, sma_deviation). Requires cached price data.",
   label: "Factor",
   parameters: S.ComputeFactor,
   executionMode: "sequential",
   async execute(_id: string, args: ComputeFactorArgs): Promise<AgentToolResult<unknown>> {
     const cached = await loadCachedBars(args.symbol);
-    if (!cached) return err("DATA_NO_CACHE", `${args.symbol}. Call tushare_daily or llmquant_price first.`);
+    if (!cached) return err("DATA_NO_CACHE", `${args.symbol}. Call fetch_bars first.`);
 
-    const { computeFactor: compute } = await import("../services/factor.ts");
+    const { computeFactor: compute } = await import("../quant/factor.ts");
     const close = cached.bars.map((b) => b.close);
     const volume = cached.bars.map((b) => b.volume);
     const values = compute(args.factor, close, volume, args.period);
@@ -85,9 +84,11 @@ export const computeFactorTool: AgentTool<typeof S.ComputeFactor> = {
       ? sorted.filter((v) => v <= last).length / sorted.length : 0;
 
     return ok([
-      `Factor: ${args.factor}_${args.period} — ${args.symbol} (via ${cached.source})`,
-      `Latest: ${last?.toFixed(4) ?? "N/A"}  |  Mean: ${mean.toFixed(4)}`,
-      `Percentile: ${(pctRank * 100).toFixed(0)}%`,
+      `Factor  ${args.symbol}  ${args.factor}_${args.period}`,
+      `Source      ${cached.source}`,
+      `Latest      ${last?.toFixed(4) ?? "N/A"}`,
+      `Mean        ${mean.toFixed(4)}`,
+      `Percentile  ${(pctRank * 100).toFixed(0)}%`,
     ].join("\n"),
     { symbol: args.symbol, factor: args.factor, period: args.period, last, mean, percentile: pctRank });
   },
@@ -97,28 +98,31 @@ export const computeFactorTool: AgentTool<typeof S.ComputeFactor> = {
 
 export const runBacktestTool: AgentTool<typeof S.RunBacktest> = {
   name: "run_backtest",
-  description: "Run SMA crossover backtest. Requires price data cached via tushare_daily or llmquant_price first.",
+  description: "Run SMA crossover backtest. Requires cached price data.",
   label: "Backtest",
   parameters: S.RunBacktest,
   executionMode: "sequential",
   async execute(_id: string, args: RunBacktestArgs): Promise<AgentToolResult<unknown>> {
     const cached = await loadCachedBars(args.symbol);
-    if (!cached) return err("DATA_NO_CACHE", `${args.symbol}. Call tushare_daily or llmquant_price first.`);
+    if (!cached) return err("DATA_NO_CACHE", `${args.symbol}. Call fetch_bars first.`);
     if (cached.bars.length < args.slow + 10)
       return err("DATA_NOT_ENOUGH", `Need ${args.slow + 10}+ bars for SMA(${args.fast},${args.slow}), got ${cached.bars.length}.`);
 
-    const { smaSignals, vectorizedBacktest, report } = await import("../services/backtest.ts");
+    const { smaSignals, vectorizedBacktest, report } = await import("../quant/backtest.ts");
     const close = cached.bars.map((b) => b.close);
     const signals = smaSignals(close, args.fast, args.slow);
     const { returns } = vectorizedBacktest(signals, close, args.cash);
     const r = report(returns);
 
     return ok([
-      `SMA(${args.fast},${args.slow}) Backtest — ${args.symbol} (via ${cached.source})`,
-      `──────────────────────────────────────`,
-      `Total Return:  ${(r.totalReturn * 100).toFixed(2)}%    CAGR: ${(r.cagr * 100).toFixed(2)}%`,
-      `Sharpe:        ${r.sharpe.toFixed(2)}         Max DD: ${(r.maxDrawdown * 100).toFixed(2)}%`,
-      `Win Rate:      ${(r.winRate * 100).toFixed(1)}%        P/L Ratio: ${r.pnlRatio.toFixed(2)}`,
+      `Backtest  ${args.symbol}  SMA(${args.fast},${args.slow})`,
+      `Source        ${cached.source}`,
+      `Total return  ${(r.totalReturn * 100).toFixed(2)}%`,
+      `CAGR          ${(r.cagr * 100).toFixed(2)}%`,
+      `Sharpe        ${r.sharpe.toFixed(2)}`,
+      `Max DD        ${(r.maxDrawdown * 100).toFixed(2)}%`,
+      `Win rate      ${(r.winRate * 100).toFixed(1)}%`,
+      `P/L ratio     ${r.pnlRatio.toFixed(2)}`,
     ].join("\n"), { symbol: args.symbol, ...r });
   },
 };
@@ -133,21 +137,23 @@ export const checkRiskTool: AgentTool<typeof S.CheckRisk> = {
   executionMode: "sequential",
   async execute(_id: string, args: CheckRiskArgs): Promise<AgentToolResult<unknown>> {
     const cached = await loadCachedBars(args.symbol);
-    if (!cached) return err("DATA_NO_CACHE", `${args.symbol}. Call tushare_daily or llmquant_price first.`);
+    if (!cached) return err("DATA_NO_CACHE", `${args.symbol}. Call fetch_bars first.`);
 
-    const { metrics } = await import("../services/risk.ts");
+    const { metrics } = await import("../quant/risk.ts");
     const close = cached.bars.map((b) => b.close);
     const returns = close.slice(1).map((v, i) => v / close[i] - 1);
     const m = metrics(returns);
 
     return ok([
-      `Risk Metrics — ${args.symbol} (via ${cached.source})`,
-      `─────────────────────────────────────`,
-      `Annual Vol:    ${(m.annualVol * 100).toFixed(2)}%    Downside Vol: ${(m.downsideVol * 100).toFixed(2)}%`,
-      `VaR 95%:       ${(m.var95 * 100).toFixed(2)}% (hist) / ${(m.var95Parametric * 100).toFixed(2)}% (normal)`,
-      `VaR 99%:       ${(m.var99 * 100).toFixed(2)}%     CVaR 95%:    ${(m.cvar95 * 100).toFixed(2)}%`,
-      `Max Drawdown:  ${(m.maxDrawdown * 100).toFixed(2)}%  (${m.maxDdDays} days)`,
-      `Skewness:      ${m.skewness.toFixed(3)}      Kurtosis:    ${m.kurtosis.toFixed(3)}`,
+      `Risk  ${args.symbol}`,
+      `Source        ${cached.source}`,
+      `Annual vol    ${(m.annualVol * 100).toFixed(2)}%`,
+      `Downside vol  ${(m.downsideVol * 100).toFixed(2)}%`,
+      `VaR 95        ${(m.var95 * 100).toFixed(2)}% hist  /  ${(m.var95Parametric * 100).toFixed(2)}% norm`,
+      `VaR 99        ${(m.var99 * 100).toFixed(2)}%`,
+      `CVaR 95       ${(m.cvar95 * 100).toFixed(2)}%`,
+      `Max DD        ${(m.maxDrawdown * 100).toFixed(2)}%  (${m.maxDdDays} days)`,
+      `Skew/Kurt     ${m.skewness.toFixed(3)} / ${m.kurtosis.toFixed(3)}`,
     ].join("\n"), { symbol: args.symbol, ...m });
   },
 };
@@ -156,41 +162,32 @@ export const checkRiskTool: AgentTool<typeof S.CheckRisk> = {
 
 export const scoreBenchmarkTool: AgentTool<typeof S.ScoreBenchmark> = {
   name: "score_benchmark",
-  description: "Run 3-dimension strategy evaluation (Return 40 + Risk 40 + Robustness 20 = 100). Fetches both strategy and benchmark data via MCP, runs backtest, scores, saves to .ohquant/.",
+  description: "Run 3-dimension strategy evaluation (Return 40 + Risk 40 + Robustness 20 = 100). Fetches local bars, runs backtest, scores, saves to .ohquant/.",
   label: "Score",
   parameters: S.ScoreBenchmark,
   executionMode: "sequential",
   async execute(_id: string, args: ScoreBenchmarkArgs): Promise<AgentToolResult<unknown>> {
-    const { evaluate } = await import("../services/benchmark.ts");
-    const { smaSignals, vectorizedBacktest } = await import("../services/backtest.ts");
-    const { callTool } = await import("../data/mcp-client.ts");
-    const { saveBars } = await import("../storage/bars.ts");
+    const { evaluate } = await import("../quant/benchmark.ts");
+    const { smaSignals, vectorizedBacktest } = await import("../quant/backtest.ts");
+    const { fetchBars } = await import("../source/index.ts");
     const { emitFileEvent } = await import("../storage/fs-events.ts");
     const { writeFileSync, mkdirSync } = await import("node:fs");
     const { join } = await import("node:path");
 
-    // Fetch both via MCP directly
     const fetchPrices = async (symbol: string) => {
-      // Try tushare first for A-shares
-      const result = await callTool("tushare", "daily", { ts_code: symbol });
-      if (Array.isArray(result) && result.length > 0) {
-        const bars = (result as Array<Record<string, string>>).map((r) => ({
-          date: r.trade_date.length === 8 ? `${r.trade_date.slice(0, 4)}-${r.trade_date.slice(4, 6)}-${r.trade_date.slice(6, 8)}` : r.trade_date,
-          open: Number(r.open), high: Number(r.high), low: Number(r.low),
-          close: Number(r.close), volume: Number(r.vol), amount: Number(r.amount || 0),
-        }));
-        await saveBars(symbol, "tushare", bars);
-        return bars;
-      }
-      return [] as Array<{ date: string; open: number; high: number; low: number; close: number; volume: number; amount: number }>;
+      const cached = await loadCachedBars(symbol);
+      if (cached) return cached.bars;
+      const market = inferMarket(symbol);
+      const result = await fetchBars(symbol, market, undefined, undefined, market === "A" ? "akshare" : undefined);
+      return result.bars;
     };
 
     const [stratBars, benchBars] = await Promise.all([
       fetchPrices(args.symbol),
       fetchPrices(args.benchmark_symbol),
     ]);
-    if (stratBars.length === 0) return err("MCP_TOOL_FAILED", `No data for ${args.symbol}`);
-    if (benchBars.length === 0) return err("MCP_TOOL_FAILED", `No data for ${args.benchmark_symbol}`);
+    if (stratBars.length === 0) return err("DATA_REQUEST_FAILED", `No local data for ${args.symbol}`);
+    if (benchBars.length === 0) return err("DATA_REQUEST_FAILED", `No local data for ${args.benchmark_symbol}`);
 
     // Align dates
     const benchDates = new Set(benchBars.map((b) => b.date));
@@ -216,7 +213,8 @@ export const scoreBenchmarkTool: AgentTool<typeof S.ScoreBenchmark> = {
       { returns: testR.slice(1) },
     );
 
-    const dir = join(process.cwd(), ".ohquant", "benchmark", "results");
+    const root = process.env.OHQUANT_DIR || join(process.cwd(), ".ohquant");
+    const dir = join(root, "benchmark", "results");
     try {
       mkdirSync(dir, { recursive: true });
       emitFileEvent({ operation: "MKDIR", path: dir, detail: "benchmark results" });
@@ -228,19 +226,25 @@ export const scoreBenchmarkTool: AgentTool<typeof S.ScoreBenchmark> = {
     const outText = JSON.stringify({
       strategy: name, date: now, symbol: args.symbol, benchmark_symbol: args.benchmark_symbol,
       window: { fast: args.fast, slow: args.slow },
-      source: { strategy: { market: "A", fetcher: "tushare" }, benchmark: { market: "A", fetcher: "tushare" } },
+      source: {
+        strategy: { market: inferMarket(args.symbol), fetcher: "local" },
+        benchmark: { market: inferMarket(args.benchmark_symbol), fetcher: "local" },
+      },
       ...score,
     }, null, 2);
     writeFileSync(outPath, outText, "utf-8");
     emitFileEvent({ operation: "WRITE", path: outPath, bytes: outText.length, detail: "benchmark result" });
 
     return ok([
-      `Benchmark — ${name}`,
-      `─────────────────────────────────────`,
-      `Grade: ${score.grade}  |  Score: ${score.totalScore}/100`,
-      `Return: ${score.returnScore}/40 | Risk: ${score.riskScore}/40 | Robust: ${score.robustnessScore}/20`,
-      `CAGR: ${(score.details.cagr * 100).toFixed(2)}%  |  Sharpe: ${score.details.sharpe}  |  Max DD: ${(score.details.maxDrawdown * 100).toFixed(2)}%`,
-      `Saved: .ohquant/benchmark/results/${filename}`,
+      `Benchmark  ${name}`,
+      `Grade         ${score.grade}`,
+      `Score         ${score.totalScore}/100`,
+      `Return/Risk   ${score.returnScore}/40  ·  ${score.riskScore}/40`,
+      `Robustness    ${score.robustnessScore}/20`,
+      `CAGR          ${(score.details.cagr * 100).toFixed(2)}%`,
+      `Sharpe        ${score.details.sharpe}`,
+      `Max DD        ${(score.details.maxDrawdown * 100).toFixed(2)}%`,
+      `Saved         .ohquant/benchmark/results/${filename}`,
     ].join("\n"), { filename, ...score });
   },
 };
@@ -256,10 +260,11 @@ export const showDashboardTool: AgentTool<typeof S.ShowDashboard> = {
   async execute(_id: string, _args: ShowDashboardArgs): Promise<AgentToolResult<unknown>> {
     const { readdirSync, readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
-    const { collectResults, dashboardSummary } = await import("../services/dashboard.ts");
+    const { collectResults, dashboardSummary } = await import("../quant/dashboard.ts");
     const { emitFileEvent } = await import("../storage/fs-events.ts");
 
-    const dir = join(process.cwd(), ".ohquant", "benchmark", "results");
+    const root = process.env.OHQUANT_DIR || join(process.cwd(), ".ohquant");
+    const dir = join(root, "benchmark", "results");
     let files: string[] = [];
     try {
       files = readdirSync(dir).filter((f: string) => f.endsWith(".json"));
@@ -280,16 +285,22 @@ export const showDashboardTool: AgentTool<typeof S.ShowDashboard> = {
     const sorted = [...rows].sort((a, b) => b.totalScore - a.totalScore).slice(0, 10);
 
     return ok([
-      `Dashboard — ${s.totalEvals} evaluations`,
-      `Avg: ${s.avgScore}  Median: ${s.medianScore}  Best: ${s.bestStrategy} (${s.bestScore})`,
-      `Grades: ${Object.entries(s.gradeDistribution).map(([g, n]) => `${g}:${n}`).join("  ")}`,
+      `Dashboard  ${s.totalEvals} evaluations`,
+      `Avg ${s.avgScore}  Median ${s.medianScore}  Best ${s.bestStrategy} (${s.bestScore})`,
+      `Grades  ${Object.entries(s.gradeDistribution).map(([g, n]) => `${g}:${n}`).join("  ")}`,
       "",
-      ...sorted.map((r) => `  ${r.grade.padEnd(2)} ${r.strategy.padEnd(28)} score=${String(r.totalScore).padEnd(5)} sharpe=${r.sharpe}  dd=${(r.maxDrawdown * 100).toFixed(1)}%`),
+      ...sorted.map((r) => `  ${r.grade.padEnd(2)} ${r.strategy.padEnd(28)} score=${String(r.totalScore).padEnd(5)} sharpe=${r.sharpe} dd=${(r.maxDrawdown * 100).toFixed(1)}%`),
     ].join("\n"), { summary: s });
   },
 };
 
-/** Computation tools (require cached data from MCP tools). */
+function inferMarket(symbol: string): "A" | "US" | "HK" {
+  if (/\.HK$/i.test(symbol)) return "HK";
+  if (/^[A-Z][A-Z0-9.-]*$/i.test(symbol) && !/^\d{6}/.test(symbol)) return "US";
+  return "A";
+}
+
+/** Computation tools (require cached data from local tools). */
 export const COMPUTE_TOOLS: AgentTool[] = [
   computeFactorTool,
   runBacktestTool,

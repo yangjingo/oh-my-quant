@@ -8,7 +8,7 @@ import {
   deleteComparison,
   generateComparisonId,
 } from "./comparison.ts";
-import type { GroupComparisonResult } from "../services/group-comparison.ts";
+import type { GroupComparisonResult } from "../quant/group-comparison.ts";
 
 const OHQ = join(process.cwd(), ".ohquant-test-comparison");
 

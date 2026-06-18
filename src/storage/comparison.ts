@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFile
 import { join } from "node:path";
 import { emitFileEvent } from "./fs-events.ts";
 import { OHQUANT_DIR, ensureDirs } from "./index.ts";
-import type { GroupComparisonResult } from "../services/group-comparison.ts";
+import type { GroupComparisonResult } from "../quant/group-comparison.ts";
 
 export interface ComparisonArtifact {
   id: string;
