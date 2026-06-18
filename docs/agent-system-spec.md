@@ -94,6 +94,7 @@ Use for `whyj` CLI, `bun test`, git, file inspection. Market data should still g
 ### Base template (BASE_SYSTEM_PROMPT)
 - Identity: "quantitative finance analyst in WhyJ Quant terminal"
 - Lists local data, quant, and shell tools with one-line descriptions
+- Shell/tool discipline: repository-local temp scripts and ad-hoc demo folders are forbidden during investigation; use one-shot commands or OS temp paths and clean them up
 - Workflow: data → factor → backtest → risk → benchmark
 - **Output constraints**: NO markdown, NO emoji, plain ASCII, SI suffixes, financial terminology
 - Financial terms: annualized return, momentum premium, tail risk, tracking error, info ratio, etc.
