@@ -37,6 +37,13 @@ export interface CustomMessage<T = unknown> {
 	timestamp: number;
 }
 
+export interface DisplayUserMessage {
+	role: "displayUser";
+	content: (TextContent | ImageContent)[];
+	displayText: string;
+	timestamp: number;
+}
+
 export interface BranchSummaryMessage {
 	role: "branchSummary";
 	summary: string;
@@ -55,9 +62,29 @@ declare module "../types.ts" {
 	interface CustomAgentMessages {
 		bashExecution: BashExecutionMessage;
 		custom: CustomMessage;
+		displayUser: DisplayUserMessage;
 		branchSummary: BranchSummaryMessage;
 		compactionSummary: CompactionSummaryMessage;
 	}
+}
+
+export function createDisplayUserMessage(
+	text: string,
+	displayText = text,
+	images?: ImageContent[],
+): DisplayUserMessage {
+	const content: (TextContent | ImageContent)[] = [{ type: "text", text }];
+	if (images) content.push(...images);
+	return {
+		role: "displayUser",
+		content,
+		displayText,
+		timestamp: Date.now(),
+	};
+}
+
+export function isUserLikeRole(role: string | undefined): boolean {
+	return role === "user" || role === "displayUser";
 }
 
 export function bashExecutionToText(msg: BashExecutionMessage): string {
@@ -150,6 +177,12 @@ export function convertToLlm(messages: AgentMessage[]): Message[] {
 						content: [
 							{ type: "text" as const, text: COMPACTION_SUMMARY_PREFIX + m.summary + COMPACTION_SUMMARY_SUFFIX },
 						],
+						timestamp: m.timestamp,
+					};
+				case "displayUser":
+					return {
+						role: "user",
+						content: m.content,
 						timestamp: m.timestamp,
 					};
 				case "user":

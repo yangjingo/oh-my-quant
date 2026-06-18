@@ -6,6 +6,7 @@ import {
 	createBranchSummaryMessage,
 	createCompactionSummaryMessage,
 	createCustomMessage,
+	isUserLikeRole,
 } from "../messages.ts";
 import { buildSessionContext } from "../session/session.ts";
 import { type CompactionEntry, CompactionError, err, ok, type Result, type SessionTreeEntry } from "../types.ts";
@@ -227,6 +228,12 @@ export function estimateTokens(message: AgentMessage): number {
 			);
 			return Math.ceil(chars / 4);
 		}
+		case "displayUser": {
+			chars = estimateTextAndImageContentChars(
+				(message as { content: string | Array<{ type: string; text?: string }> }).content,
+			);
+			return Math.ceil(chars / 4);
+		}
 		case "assistant": {
 			const assistant = message as AssistantMessage;
 			for (const block of assistant.content) {
@@ -271,6 +278,7 @@ function findValidCutPoints(entries: SessionTreeEntry[], startIndex: number, end
 					case "branchSummary":
 					case "compactionSummary":
 					case "user":
+					case "displayUser":
 					case "assistant":
 						cutPoints.push(i);
 						break;
@@ -307,7 +315,7 @@ export function findTurnStartIndex(entries: SessionTreeEntry[], entryIndex: numb
 		}
 		if (entry.type === "message") {
 			const role = entry.message.role;
-			if (role === "user" || role === "bashExecution") {
+			if (isUserLikeRole(role) || role === "bashExecution") {
 				return i;
 			}
 		}
@@ -366,7 +374,7 @@ export function findCutPoint(
 		cutIndex--;
 	}
 	const cutEntry = entries[cutIndex];
-	const isUserMessage = cutEntry.type === "message" && cutEntry.message.role === "user";
+	const isUserMessage = cutEntry.type === "message" && isUserLikeRole(cutEntry.message.role);
 	const turnStartIndex = isUserMessage ? -1 : findTurnStartIndex(entries, cutIndex, startIndex);
 
 	return {

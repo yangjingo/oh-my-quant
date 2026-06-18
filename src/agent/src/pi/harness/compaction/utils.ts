@@ -1,5 +1,6 @@
 import type { Message } from "@earendil-works/pi-ai";
 import type { AgentMessage } from "../../types.ts";
+import { isUserLikeRole } from "../messages.ts";
 
 /** File paths touched by a session branch or compaction range. */
 export interface FileOperations {
@@ -92,7 +93,7 @@ export function serializeConversation(messages: Message[]): string {
 	const parts: string[] = [];
 
 	for (const msg of messages) {
-		if (msg.role === "user") {
+		if (isUserLikeRole(msg.role)) {
 			const content =
 				typeof msg.content === "string"
 					? msg.content

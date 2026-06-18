@@ -3,7 +3,6 @@ import {
 	type ImageContent,
 	type Model,
 	streamSimple,
-	type UserMessage,
 } from "@earendil-works/pi-ai";
 import { runAgentLoop } from "../agent-loop.ts";
 import type {
@@ -18,7 +17,7 @@ import type {
 } from "../types.ts";
 import { collectEntriesForBranchSummary, generateBranchSummary } from "./compaction/branch-summarization.ts";
 import { compact, DEFAULT_COMPACTION_SETTINGS, prepareCompaction } from "./compaction/compaction.ts";
-import { convertToLlm } from "./messages.ts";
+import { convertToLlm, createDisplayUserMessage, isUserLikeRole } from "./messages.ts";
 import { formatPromptTemplateInvocation } from "./prompt-templates.ts";
 import { formatSkillInvocation } from "./skills.ts";
 import type {
@@ -40,10 +39,8 @@ import type {
 } from "./types.ts";
 import { AgentHarnessError, BranchSummaryError, CompactionError, SessionError, toError } from "./types.ts";
 
-function createUserMessage(text: string, images?: ImageContent[]): UserMessage {
-	const content: Array<{ type: "text"; text: string } | ImageContent> = [{ type: "text", text }];
-	if (images) content.push(...images);
-	return { role: "user", content, timestamp: Date.now() };
+function createUserMessage(text: string, images?: ImageContent[], displayText = text): AgentMessage {
+	return createDisplayUserMessage(text, displayText, images);
 }
 
 function createFailureMessage(model: Model<any>, error: unknown, aborted: boolean): AssistantMessage {
@@ -190,9 +187,9 @@ export class AgentHarness<
 	private resources: AgentHarnessResources<TSkill, TPromptTemplate>;
 	private tools = new Map<string, TTool>();
 	private activeToolNames: string[];
-	private steerQueue: UserMessage[] = [];
+	private steerQueue: AgentMessage[] = [];
 	private steeringQueueMode: QueueMode;
-	private followUpQueue: UserMessage[] = [];
+	private followUpQueue: AgentMessage[] = [];
 	private followUpQueueMode: QueueMode;
 	private nextTurnQueue: AgentMessage[] = [];
 	private handlers = new Map<string, Set<AgentHarnessHandler>>();
@@ -553,10 +550,10 @@ export class AgentHarness<
 	private async executeTurn(
 		turnState: AgentHarnessTurnState<TSkill, TPromptTemplate, TTool>,
 		text: string,
-		options?: { images?: ImageContent[] },
+		options?: { images?: ImageContent[]; displayText?: string },
 	): Promise<AssistantMessage> {
 		let activeTurnState = turnState;
-		let messages: AgentMessage[] = [createUserMessage(text, options?.images)];
+		let messages: AgentMessage[] = [createUserMessage(text, options?.images, options?.displayText ?? text)];
 		if (this.nextTurnQueue.length > 0) {
 			const queuedMessages = this.nextTurnQueue.splice(0);
 			try {
@@ -627,7 +624,7 @@ export class AgentHarness<
 		}
 	}
 
-	async prompt(text: string, options?: { images?: ImageContent[] }): Promise<AssistantMessage> {
+	async prompt(text: string, options?: { images?: ImageContent[]; displayText?: string }): Promise<AssistantMessage> {
 		if (this.phase !== "idle") throw new AgentHarnessError("busy", "AgentHarness is busy");
 		this.phase = "turn";
 		const finishRunPromise = this.startRunPromise();
@@ -676,15 +673,15 @@ export class AgentHarness<
 		}
 	}
 
-	async steer(text: string, options?: { images?: ImageContent[] }): Promise<void> {
+	async steer(text: string, options?: { images?: ImageContent[]; displayText?: string }): Promise<void> {
 		if (this.phase === "idle") throw new AgentHarnessError("invalid_state", "Cannot steer while idle");
-		this.steerQueue.push(createUserMessage(text, options?.images));
+		this.steerQueue.push(createUserMessage(text, options?.images, options?.displayText ?? text));
 		await this.emitQueueUpdate();
 	}
 
-	async followUp(text: string, options?: { images?: ImageContent[] }): Promise<void> {
+	async followUp(text: string, options?: { images?: ImageContent[]; displayText?: string }): Promise<void> {
 		if (this.phase === "idle") throw new AgentHarnessError("invalid_state", "Cannot follow up while idle");
-		this.followUpQueue.push(createUserMessage(text, options?.images));
+		this.followUpQueue.push(createUserMessage(text, options?.images, options?.displayText ?? text));
 		await this.emitQueueUpdate();
 	}
 
@@ -814,9 +811,9 @@ export class AgentHarness<
 			}
 			let editorText: string | undefined;
 			let newLeafId: string | null;
-			if (targetEntry.type === "message" && targetEntry.message.role === "user") {
+			if (targetEntry.type === "message" && isUserLikeRole(targetEntry.message.role)) {
 				newLeafId = targetEntry.parentId;
-				const content = targetEntry.message.content;
+				const content = (targetEntry.message as { content: string | Array<{ readonly type: string; readonly text?: string }> }).content;
 				editorText =
 					typeof content === "string"
 						? content
