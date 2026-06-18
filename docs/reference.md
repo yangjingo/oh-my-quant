@@ -8,7 +8,10 @@ description: 量化金融资源索引 — Agent Skills、Python 库、AI Trading
 ## WhyJ Quant Docs
 
 - [Agent System Spec](./agent-system-spec.md) — agent loop, harness, compaction, resume
+- [Module Architecture](./module-architecture.md) — repo module boundaries and dependency direction
 - [Built-in Tool Registry](./builtin-tool-registry.md) — unified registration path for future built-in tools
+- [Source Providers](./source-data-providers.md) — provider interfaces, priority, agent injection
+- [Source Module](../src/source/README.md) — market source adapters and fallback orchestration
 
 ## Agent Skills
 

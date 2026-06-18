@@ -107,5 +107,8 @@ bun run src/index.ts -- --json doctor
 
 - [CLI Design & Reference](./docs/interactive-cli-design.md) — slash commands, `src/cli/` module, implementation plan
 - [Agent System Spec](./docs/agent-system-spec.md)
+- [Module Architecture](./docs/module-architecture.md) — repo-level module boundaries and dependency direction
 - [Built-in Tool Registry](./docs/builtin-tool-registry.md) — how future built-in agent tools are registered
+- [Source Providers](./docs/source-data-providers.md) — official interfaces, source priority, and agent/runtime injection path
+- [Source Module](./src/source/README.md) — provider adapters, fallback rules, module test layout
 - [Design System (NewForm)](./DESIGN.md)
