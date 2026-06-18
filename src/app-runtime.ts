@@ -4,7 +4,7 @@ import { executeCommand, isLocalSlashCommand, parseCommand } from "./cli/registr
 import type { CommandEffect, CommandResult } from "./cli/types.ts";
 import { fetchLiveBars, formatRefreshMinute, formatSourceLabels, type PullSource } from "./source/index.ts";
 import { dispatchUserMessage, isAgentTurnActive } from "./agent/src/dispatch.ts";
-import { createAgent, injectContext, updateSessionCtx, type QuantAgentSession } from "./agent/src/session.ts";
+import { createAgent, updateSessionCtx, type QuantAgentSession } from "./agent/src/session.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
 import { listLocalPortfolios } from "./storage/local-portfolios.ts";
 import { loadPanelPortfolio, loadPortfolioSymbols } from "./storage/portfolio.ts";
@@ -65,8 +65,6 @@ export class AppRuntime {
   private agent: QuantAgentSession | null = null;
   /** Slash command in flight (panel refresh). Agent concurrency uses agent.state.isStreaming. */
   private slashRunning = false;
-  /** Raw user text waiting in Composer until agent message_start(user). */
-  private composerQueue: string[] = [];
   private messages: UIMessage[] = [];
   /** After first successful Overview fetch, later refreshes stay in-place (no spinner wipe). */
   private overviewReady = false;
@@ -104,9 +102,8 @@ export class AppRuntime {
       switch (event.type) {
         case "message_start": {
           const m = event.message;
-          if (m.role === "user") {
-            const raw = this.dequeueComposer();
-            if (raw) this.addUserMessage(raw);
+          if (m.role === "user" || m.role === "displayUser") {
+            this.addUserMessage(extractDisplayText(m));
             break;
           }
           if (m.role === "assistant") {
@@ -172,7 +169,16 @@ export class AppRuntime {
           }
           break;
         }
+        case "queue_update": {
+          this.emitComposerQueue([
+            ...event.steer.map((message) => extractAgentMessageText(message)),
+            ...event.followUp.map((message) => extractAgentMessageText(message)),
+            ...event.nextTurn.map((message) => extractAgentMessageText(message)),
+          ]);
+          break;
+        }
         case "agent_end": {
+          this.emitComposerQueue([]);
           this.scheduleMarketRefresh();
           this.setActivity("ready");
           break;
@@ -311,7 +317,7 @@ export class AppRuntime {
     switch (effect.type) {
       case "clearConversation":
         this.messages = [];
-        this.clearComposerQueue();
+        this.emitComposerQueue([]);
         this.emitMessages();
         this.setStatus(null);
         this.syncOverviewPanel();
@@ -320,7 +326,7 @@ export class AppRuntime {
         this.agent?.abort();
         this.agent?.clearAllQueues();
         this.agent?.reset();
-        this.clearComposerQueue();
+        this.emitComposerQueue([]);
         this.syncOverviewPanel();
         break;
       case "openConfig":
@@ -369,23 +375,18 @@ export class AppRuntime {
 
   private async runAgentPrompt(input: string): Promise<void> {
     if (!this.agent) {
-      this.enqueueComposer(input);
+      this.emitComposerQueue([input]);
       this.setActivity("thinking");
       this.setStatus({ kind: "error", text: "Initializing... please wait a moment." });
       this.setActivity("ready");
       return;
     }
-    const text = injectContext(input);
-    this.enqueueComposer(input);
     try {
       const startedAt = perfNow();
-      await dispatchUserMessage(this.agent, text);
+      await dispatchUserMessage(this.agent, input, input);
       perfLog("runtime.agent.dispatch", startedAt);
     } catch (err) {
-      if (this.composerQueue.at(-1) === input) {
-        this.composerQueue.pop();
-        this.emitComposerQueue();
-      }
+      this.emitComposerQueue([]);
       this.messages.push({ role: "error", text: formatAgentError("Agent", errorText(err)) });
       this.emitMessages();
       this.setStatus({ kind: "error", text: errorText(err) });
@@ -393,24 +394,8 @@ export class AppRuntime {
     }
   }
 
-  private enqueueComposer(text: string): void {
-    this.composerQueue.push(text);
-    this.emitComposerQueue();
-  }
-
-  private dequeueComposer(): string | undefined {
-    const next = this.composerQueue.shift();
-    this.emitComposerQueue();
-    return next;
-  }
-
-  private clearComposerQueue(): void {
-    this.composerQueue = [];
-    this.emitComposerQueue();
-  }
-
-  private emitComposerQueue(): void {
-    this.callbacks.onComposerQueue?.([...this.composerQueue]);
+  private emitComposerQueue(queue: string[]): void {
+    this.callbacks.onComposerQueue?.([...queue]);
   }
 
   private addUserMessage(text: string): void {
@@ -659,12 +644,14 @@ function shouldRenderCommandResultAsMessage(text: string): boolean {
 function toUiMessage(message: unknown): UIMessage | null {
   const role = (message as { role?: string }).role;
   const text = extractAgentMessageText(message);
-  if (role === "user") return { role: "user", text };
+  if (role === "user" || role === "displayUser") return { role: "user", text };
   if (role === "assistant") return { role: "assistant", text };
   return null;
 }
 
 function extractAgentMessageText(message: unknown): string {
+  const displayText = extractMessageDisplayText(message);
+  if (displayText) return displayText;
   const content = (message as { content?: unknown }).content;
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
@@ -715,6 +702,17 @@ function extractText(m: { content: unknown[] }): string {
     .filter((c) => c.type === "text" && c.text)
     .map((c) => c.text!)
     .join("");
+}
+
+function extractMessageDisplayText(message: unknown): string | undefined {
+  const displayText = (message as { role?: string; displayText?: unknown }).role === "displayUser"
+    ? (message as { displayText?: unknown }).displayText
+    : undefined;
+  return typeof displayText === "string" ? displayText : undefined;
+}
+
+function extractDisplayText(message: unknown): string {
+  return extractAgentMessageText(message);
 }
 
 function extractTextFromResult(result: unknown): string {

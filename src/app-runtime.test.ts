@@ -143,6 +143,27 @@ describe("AppRuntime.submit", () => {
     expect(h.activities.at(-1)).toBe("ready");
   });
 
+  it("drives composer queue from agent queue_update events", async () => {
+    const fakeAgent = makeFakeAgent(async (agent) => {
+      agent.state.isStreaming = true;
+    });
+    fakeAgent.followUp = async () => {
+      await fakeAgent.emit({
+        type: "queue_update",
+        steer: [],
+        followUp: [{ role: "user", content: [{ type: "text", text: "queued from harness" }], timestamp: Date.now() }],
+        nextTurn: [],
+      });
+    };
+    const h = harness(async () => [], async () => [], async () => [], () => fakeAgent as never);
+
+    await h.runtime.bootstrap();
+    (fakeAgent.state as { isStreaming: boolean }).isStreaming = true;
+    await h.runtime.submit("raw text");
+
+    expect(h.queues.at(-1)).toEqual(["queued from harness"]);
+  });
+
   it("executes unknown slash command through deterministic command path", async () => {
     const h = harness();
     await h.runtime.submit("/does-not-exist");
@@ -199,7 +220,10 @@ describe("AppRuntime.submit", () => {
     const fakeAgent = makeFakeAgent(async (agent, input) => {
       promptInput = input;
       agent.state.isStreaming = true;
-      await agent.emit({ type: "message_start", message: { role: "user", content: "ignored by runtime" } });
+      await agent.emit({
+        type: "message_start",
+        message: { role: "displayUser", content: [{ type: "text", text: "ignored by runtime" }], displayText: "read the runtime bridge" },
+      });
       await agent.emit({ type: "message_start", message: { role: "assistant", content: [] } });
       agent.state.thinkingText = "Need to inspect the file.";
       await agent.emit({
@@ -271,7 +295,10 @@ describe("AppRuntime.submit", () => {
   it("bridges agent quant tool errors into polite conversation output", async () => {
     const fakeAgent = makeFakeAgent(async (agent) => {
       agent.state.isStreaming = true;
-      await agent.emit({ type: "message_start", message: { role: "user", content: "" } });
+      await agent.emit({
+        type: "message_start",
+        message: { role: "displayUser", content: [{ type: "text", text: "" }], displayText: "check 000300 risk" },
+      });
       await agent.emit({ type: "message_start", message: { role: "assistant", content: [] } });
       await agent.emit({
         type: "tool_execution_start",
@@ -320,7 +347,10 @@ describe("AppRuntime.submit", () => {
   it("updates completed write tool labels to an edit summary", async () => {
     const fakeAgent = makeFakeAgent(async (agent) => {
       agent.state.isStreaming = true;
-      await agent.emit({ type: "message_start", message: { role: "user", content: "" } });
+      await agent.emit({
+        type: "message_start",
+        message: { role: "displayUser", content: [{ type: "text", text: "" }], displayText: "update the catalog" },
+      });
       await agent.emit({ type: "message_start", message: { role: "assistant", content: [] } });
       await agent.emit({
         type: "tool_execution_start",
@@ -378,7 +408,10 @@ describe("AppRuntime.submit", () => {
   it("clears active animation as soon as assistant output ends", async () => {
     const fakeAgent = makeFakeAgent(async (agent) => {
       agent.state.isStreaming = true;
-      await agent.emit({ type: "message_start", message: { role: "user", content: "" } });
+      await agent.emit({
+        type: "message_start",
+        message: { role: "displayUser", content: [{ type: "text", text: "" }], displayText: "finish without agent_end" },
+      });
       await agent.emit({ type: "message_start", message: { role: "assistant", content: [] } });
       agent.state.thinkingText = "Need to answer directly.";
       await agent.emit({
@@ -581,4 +614,3 @@ describe("AppRuntime.submit", () => {
     expect(marketSeen.length).toBeGreaterThan(0);
   });
 });
-
