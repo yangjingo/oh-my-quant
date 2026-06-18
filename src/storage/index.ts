@@ -5,14 +5,14 @@ import { DEFAULT_SETTINGS } from "../types/config.ts";
 import { emitFileEvent } from "./fs-events.ts";
 export { STORAGE_POLICY, assertPortfolioCacheDisabled, isPortfolioCachePath } from "./policy.ts";
 
-export const OHQUANT_DIR = join(process.cwd(), ".ohquant");
+export const OHQUANT_DIR = process.env.OHQUANT_DIR || join(process.cwd(), ".ohquant");
 export const DATA_DIR = join(OHQUANT_DIR, "data");
 export const SESSIONS_DIR = join(OHQUANT_DIR, "sessions");
 export const BENCHMARK_DIR = join(OHQUANT_DIR, "benchmark");
 export const CACHE_DIR = join(OHQUANT_DIR, "cache");
 export const WATCHLIST_PATH = join(OHQUANT_DIR, "watchlist.json");
 
-const SETTINGS_PATH = join(OHQUANT_DIR, "settings.json");
+export const SETTINGS_PATH = join(OHQUANT_DIR, "settings.json");
 
 // ── Watchlist ──
 
@@ -60,17 +60,22 @@ export function ensureDirs(): void {
 
 export function loadSettings(): OhQuantSettings {
   ensureDirs();
-  if (!existsSync(SETTINGS_PATH)) {
+  const sp = join(process.env.OHQUANT_DIR || OHQUANT_DIR, "settings.json");
+  if (!existsSync(sp)) {
     const text = JSON.stringify(DEFAULT_SETTINGS, null, 2);
-    writeFileSync(SETTINGS_PATH, text, "utf-8");
-    emitFileEvent({ operation: "WRITE", path: SETTINGS_PATH, bytes: text.length, detail: "default settings" });
+    writeFileSync(sp, text, "utf-8");
+    emitFileEvent({ operation: "WRITE", path: sp, bytes: text.length, detail: "default settings" });
     return cloneSettings(DEFAULT_SETTINGS);
   }
   try {
-    const text = readFileSync(SETTINGS_PATH, "utf-8");
-    emitFileEvent({ operation: "READ", path: SETTINGS_PATH, bytes: text.length, detail: "settings" });
+    const text = readFileSync(sp, "utf-8");
+    emitFileEvent({ operation: "READ", path: sp, bytes: text.length, detail: "settings" });
     const raw = JSON.parse(text);
-    return normalizeSettings(raw);
+    const settings = normalizeSettings(raw);
+    if (JSON.stringify(raw) !== JSON.stringify(settings)) {
+      saveSettings(settings);
+    }
+    return settings;
   } catch {
     return cloneSettings(DEFAULT_SETTINGS);
   }
@@ -79,8 +84,9 @@ export function loadSettings(): OhQuantSettings {
 export function saveSettings(s: OhQuantSettings): void {
   ensureDirs();
   const text = JSON.stringify(normalizeSettings(s), null, 2);
-  writeFileSync(SETTINGS_PATH, text, "utf-8");
-  emitFileEvent({ operation: "WRITE", path: SETTINGS_PATH, bytes: text.length, detail: "settings" });
+  const sp = join(process.env.OHQUANT_DIR || OHQUANT_DIR, "settings.json");
+  writeFileSync(sp, text, "utf-8");
+  emitFileEvent({ operation: "WRITE", path: sp, bytes: text.length, detail: "settings" });
 }
 
 export function migrateOldConfig(): void {
@@ -92,7 +98,6 @@ export function migrateOldConfig(): void {
       const oldData = JSON.parse(oldText);
       const settings = loadSettings();
       if (oldData.preferences) settings.preferences = { ...settings.preferences, ...oldData.preferences };
-      if (oldData.mcp) settings.mcp = { ...settings.mcp, ...oldData.mcp };
       saveSettings(settings);
       try {
         unlinkSync(old);
@@ -111,11 +116,17 @@ function normalizeSettings(raw: Partial<OhQuantSettings>): OhQuantSettings {
     version: raw.version ?? DEFAULT_SETTINGS.version,
     env: { ...DEFAULT_SETTINGS.env, ...(raw.env ?? {}) },
     model: raw.model || DEFAULT_SETTINGS.model,
-    thinkingLevel: raw.thinkingLevel || DEFAULT_SETTINGS.thinkingLevel,
+    thinkingLevel: raw.thinkingLevel && raw.thinkingLevel !== "off" ? raw.thinkingLevel : DEFAULT_SETTINGS.thinkingLevel,
+    insightEnabled: raw.insightEnabled ?? DEFAULT_SETTINGS.insightEnabled,
+    showPortfolioPanel: raw.showPortfolioPanel ?? DEFAULT_SETTINGS.showPortfolioPanel,
     permissions: { ...DEFAULT_SETTINGS.permissions, ...(raw.permissions ?? {}) },
     preferences: normalizePreferences(raw.preferences),
-    mcp: { ...DEFAULT_SETTINGS.mcp, ...(raw.mcp ?? {}) },
   };
+}
+
+const VALID_SOURCES = new Set(["akshare", "tushare", "llmquant-data", "financial-datasets"]);
+function isValidSource(s: unknown): boolean {
+  return typeof s === "string" && VALID_SOURCES.has(s);
 }
 
 function normalizePreferences(raw: Partial<OhQuantSettings["preferences"]> | undefined): OhQuantSettings["preferences"] {
@@ -125,5 +136,7 @@ function normalizePreferences(raw: Partial<OhQuantSettings["preferences"]> | und
     defaultCash: raw?.defaultCash ?? DEFAULT_SETTINGS.preferences.defaultCash,
     defaultFast: raw?.defaultFast ?? DEFAULT_SETTINGS.preferences.defaultFast,
     defaultSlow: raw?.defaultSlow ?? DEFAULT_SETTINGS.preferences.defaultSlow,
+    currentPortfolioFile: raw?.currentPortfolioFile ?? DEFAULT_SETTINGS.preferences.currentPortfolioFile,
+    source: isValidSource(raw?.source) ? raw!.source! : DEFAULT_SETTINGS.preferences.source,
   };
 }

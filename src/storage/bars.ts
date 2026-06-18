@@ -5,13 +5,17 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DATA_DIR } from "./index.ts";
+import { OHQUANT_DIR } from "./index.ts";
 import { emitFileEvent } from "./fs-events.ts";
 import type { Bar, SymbolMeta } from "../types/data.ts";
 
+function dataDir(): string {
+  return join(process.env.OHQUANT_DIR || OHQUANT_DIR, "data");
+}
+
 /** Load cached bars for a symbol. Returns empty array if not cached. */
 export async function loadBars(symbol: string, source: string): Promise<Bar[]> {
-  const jsonPath = join(DATA_DIR, source, symbol, "daily.json");
+  const jsonPath = join(dataDir(), source, symbol, "daily.json");
   if (existsSync(jsonPath)) {
     try {
       const text = readFileSync(jsonPath, "utf-8");
@@ -26,7 +30,7 @@ export async function loadBars(symbol: string, source: string): Promise<Bar[]> {
 
 /** Save bars, merging with existing and deduplicating by date */
 export async function saveBars(symbol: string, source: string, bars: Bar[]): Promise<void> {
-  const dir = join(DATA_DIR, source, symbol);
+  const dir = join(dataDir(), source, symbol);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
     emitFileEvent({ operation: "MKDIR", path: dir, detail: "bars cache" });
@@ -67,7 +71,7 @@ export async function saveBars(symbol: string, source: string, bars: Bar[]): Pro
 
 /** Check if cached bars are fresh (fetched today) */
 export async function isCacheFresh(symbol: string, source: string): Promise<boolean> {
-  const metaPath = join(DATA_DIR, source, symbol, "meta.json");
+  const metaPath = join(dataDir(), source, symbol, "meta.json");
   if (!existsSync(metaPath)) return false;
   try {
     const text = readFileSync(metaPath, "utf-8");
@@ -82,7 +86,7 @@ export async function isCacheFresh(symbol: string, source: string): Promise<bool
 
 /** Get meta info for a cached symbol */
 export async function getMeta(symbol: string, source: string): Promise<SymbolMeta | null> {
-  const metaPath = join(DATA_DIR, source, symbol, "meta.json");
+  const metaPath = join(dataDir(), source, symbol, "meta.json");
   if (!existsSync(metaPath)) return null;
   try {
     const text = readFileSync(metaPath, "utf-8");
@@ -95,7 +99,7 @@ export async function getMeta(symbol: string, source: string): Promise<SymbolMet
 
 /** List all cached symbols for a source */
 export function listCachedSymbols(source: string): string[] {
-  const dir = join(DATA_DIR, source);
+  const dir = join(dataDir(), source);
   if (!existsSync(dir)) return [];
   const { readdirSync } = require("node:fs") as typeof import("node:fs");
   const entries = readdirSync(dir, { withFileTypes: true });

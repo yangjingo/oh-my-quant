@@ -19,13 +19,19 @@ export const STORAGE_POLICY: StoragePolicyEntry[] = [
     path: ".ohquant/settings.json",
     class: "durable",
     cacheable: false,
-    description: "User configuration, model preferences, MCP toggles, and redacted auth references.",
+    description: "User configuration, model preferences, direct data adapter settings, and redacted auth references.",
   },
   {
     path: ".ohquant/watchlist.json",
     class: "durable",
     cacheable: false,
-    description: "User-authored symbol watchlist. This is preference state, not portfolio holdings.",
+    description: "User-authored watchlist. Composer autocomplete only; not Overview Portfolio.",
+  },
+  {
+    path: ".ohquant/panel-portfolio.json",
+    class: "durable",
+    cacheable: false,
+    description: "User-authored Overview Portfolio symbol list (code/name). Live quotes fetched at refresh.",
   },
   {
     path: ".ohquant/data/{source}/{symbol}/",
