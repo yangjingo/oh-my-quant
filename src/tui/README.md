@@ -4,7 +4,7 @@ WhyJ Quant's TUI is a zero-dependency frame-buffer terminal UI. It renders a fix
 
 - Header: animated WhyJ Quant mark and version.
 - Main: `◉ Analyzing` message stream, with an optional right-side `◫ Overview` dock.
-- Composer: natural-language input and slash-command suggestions.
+- Composer: natural-language input and a compact slash-command suggestion list rendered inside Composer.
 - Status: active model, A-share source, global source, and active local portfolio.
 
 The layout spec lives in `docs/tui-layout-design.md`. This README is the code map for working in `src/tui`.
@@ -70,10 +70,10 @@ Thinking content is preserved after finalization when non-empty, but empty think
 
 - Header: fixed top rows.
 - Main pane: left analyzing area plus optional right overview dock.
-- Composer: fixed bottom input surface with floating suggestions above it.
+- Composer: fixed bottom input surface; slash suggestions open inside Composer, below the input row, as a compact inline list.
 - Status: final row with a divider above.
 
-The Overview dock is hidden when the terminal is narrower than 78 columns or when settings disable it. Text is sanitized, wrapped, and clipped to region boundaries so streamed thinking cannot bleed into the dock.
+The Overview dock is hidden when the terminal is narrower than 78 columns or when settings disable it. Text is sanitized, wrapped, and clipped to region boundaries so streamed thinking cannot bleed into the dock. Slash suggestions stay inside Composer so they do not overlap the `◉ Analyzing` panel or the TUI activity rows above it. In compact density, Composer is tall enough to show 5 slash suggestion rows by default.
 
 ## Input Model
 
@@ -91,7 +91,7 @@ Important interactions:
 - `Ctrl+P` or `/config`: open the config panel.
 - `Esc`: clear input/suggestions or close active panel.
 
-Slash suggestions come from `src/cli/catalog.ts`; symbol/name suggestions come from the local watchlist.
+Slash suggestions come from `src/cli/catalog.ts`; top-level command matches use the longer `help` text rather than the short label. Symbol/name suggestions come from the local watchlist.
 
 ## Panels
 

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { Buffer, sanitizeTerminalText, wrap } from "../src/buffer.ts";
-import { capSections, conversationMaxScrollUp, drawComposer, drawConversation, drawPortfolio, drawStatus, layout, overviewMaxScrollTop, buildOverviewView } from "../src/render.ts";
+import { capSections, conversationMaxScrollUp, drawComposer, drawConversation, drawPortfolio, drawStatus, layout, overviewMaxScrollTop, buildOverviewView, buildConversationView } from "../src/render.ts";
 import { extractConversationSelection } from "../src/selection.ts";
 import { shellDisplayName } from "../../tools/catalog.ts";
+import { GOLD, POSITIVE } from "../src/styles.ts";
 import type { AppState } from "../src/types.ts";
 import type { PanelSection, UIMessage } from "../src/types.ts";
 
@@ -18,6 +19,11 @@ describe("layout", () => {
     expect(L.showPanel).toBe(true);
     expect(L.portfolio.x).toBe(L.mainPane.w);
     expect(L.mainPane.w + L.portfolio.w).toBe(120);
+  });
+
+  it("gives composer enough height for five slash suggestion rows in compact mode", () => {
+    const L = layout(120, 32);
+    expect(L.composer.h).toBe(8);
   });
 });
 
@@ -220,7 +226,7 @@ describe("panel isolation", () => {
 
     const x = rows[y].indexOf("Need");
     const cell = buf.cells[y * buf.w + x];
-    expect(cell.fg).toBe("#8A8A8A");
+    expect(cell.fg).toBe("#7F807D");
     expect(cell.dim).toBe(true);
   });
 
@@ -242,7 +248,7 @@ describe("panel isolation", () => {
 
     const x = rows[y].indexOf("Need");
     const cell = buf.cells[y * buf.w + x];
-    expect(cell.fg).toBe("#8A8A8A");
+    expect(cell.fg).toBe("#7F807D");
     expect(cell.dim).toBe(true);
   });
 
@@ -267,6 +273,58 @@ describe("panel isolation", () => {
     const statusCell = buf.cells[statusRow * buf.w + statusX];
     expect(statusCell.bold).toBe(true);
     expect(statusCell.fg).not.toBe("#8A8A8A");
+  });
+
+  it("renders compacting status with the same animated banner treatment", () => {
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+    const msgs: UIMessage[] = [
+      { role: "assistant", text: "Compacted summary preview" },
+    ];
+
+    drawConversation(buf, L.conversation, msgs, "compacting", L.mainPane);
+
+    const rows = buf.toPlain();
+    const statusRow = L.conversation.y + L.conversation.h - 3;
+    expect(rows[statusRow]).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Compacting\.\.\. \(\d+ tokens\)/);
+
+    const statusX = rows[statusRow].indexOf("Compacting");
+    const statusCell = buf.cells[statusRow * buf.w + statusX];
+    expect(statusCell.bold).toBe(true);
+    expect(statusCell.fg).not.toBe("#8A8A8A");
+  });
+
+  it("renders compact receipt tables and retention map with fintech semantic colors", () => {
+    const L = layout(120, 32);
+    const msgs: UIMessage[] = [
+      {
+        role: "assistant",
+        text: [
+          "Compacted",
+          "",
+          "metric           value             note",
+          "---------------  ----------------  ----------------------",
+          "retained fields  4/4               quant summary coverage",
+          "",
+          "quant context kept",
+          "",
+          "field         status  detail",
+          "------------  ------  ------------------------------------------------------------------------",
+          "scope         kept    symbols: 510300.SH, 510500.SH; benchmark: 000300.SH",
+          "",
+          "retention map",
+          "",
+          "retained      ████████  4/4",
+          "scope         ████████  kept",
+        ].join("\n"),
+      },
+    ];
+
+    const view = buildConversationView(msgs, L.conversation, 0, L.mainPane);
+    const keptLine = view.lines.find((line) => line.text.includes("scope") && line.text.includes("kept"));
+
+    expect(keptLine?.segments?.some((seg) => seg.text.includes("kept") && seg.style?.fg === POSITIVE)).toBe(true);
+    expect(view.lines.some((line) => line.segments?.some((seg) => seg.text.includes("█") && seg.style?.fg === GOLD))).toBe(true);
   });
 
   it("quotes the original error in the active bottom tip", () => {
@@ -426,8 +484,8 @@ describe("panel isolation", () => {
     expect(addedY).toBeGreaterThanOrEqual(0);
     const removedX = rows[removedY].indexOf("-old value");
     const addedX = rows[addedY].indexOf("+new value");
-    expect(buf.cells[removedY * buf.w + removedX].fg).toBe("#CF5B4A");
-    expect(buf.cells[addedY * buf.w + addedX].fg).toBe("#6FB06A");
+    expect(buf.cells[removedY * buf.w + removedX].fg).toBe("#E5494D");
+    expect(buf.cells[addedY * buf.w + addedX].fg).toBe("#1E9F4D");
   });
 
   it("shows portfolio fund count and scroll position in the overview title", () => {
@@ -493,6 +551,43 @@ describe("drawComposer queue", () => {
     expect(inputLine).toContain("11");
     expect(queueLine).toContain("[1]");
     expect(queueLine).toContain("查看你缓存队列");
+  });
+
+  it("renders slash suggestions below the input inside composer, not above it", () => {
+    const buf = new Buffer(120, 32);
+    const L = layout(120, 32);
+
+    drawComposer(buf, L.composer, base, "/re", [
+      { kind: "command", label: "/resume  Resume", fill: "/resume" },
+      { kind: "command", label: "/reset  Reset", fill: "/reset" },
+      { kind: "command", label: "/retry  Retry", fill: "/retry" },
+    ], 0, L.conversation);
+
+    const rows = buf.toPlain();
+    const composerTop = L.composer.y;
+    const composerBottom = L.composer.y + L.composer.h - 1;
+    const activeRow = rows.findIndex((row) => row.includes("> /resume  Resume"));
+
+    expect(activeRow).toBeGreaterThan(composerTop);
+    expect(activeRow).toBeLessThanOrEqual(composerBottom);
+
+    const rowsAboveComposer = rows.slice(0, composerTop).join("\n");
+    expect(rows.join("\n")).not.toContain("/ Commands (1/3)");
+    expect(rowsAboveComposer).not.toContain("/resume  Resume");
+  });
+
+  it("renders a single slash suggestion compactly without a nested box", () => {
+    const buf = new Buffer(120, 32);
+    const L = layout(120, 32);
+
+    drawComposer(buf, L.composer, base, "/he", [
+      { kind: "command", label: "/help  Show commands and hotkeys", fill: "/help" },
+    ], 0, L.conversation);
+
+    const text = buf.toPlain().join("\n");
+    expect(text).toContain("> /help  Show commands and hotkeys");
+    expect(text).not.toContain("/ Commands");
+    expect(text).not.toContain("▶ /help  Help");
   });
 });
 
@@ -617,6 +712,16 @@ describe("portfolio display", () => {
     drawPortfolio(buf, L.portfolio, [], true);
     const rows = buf.toPlain().map(r => r.slice(L.portfolio.x));
     expect(rows.some(r => r.includes("Waiting for market data"))).toBe(true);
+  });
+
+  it("shows compacting overlay copy for an empty conversation", () => {
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+
+    drawConversation(buf, L.conversation, [], "compacting", L.mainPane);
+
+    const text = buf.toPlain().join("\n");
+    expect(text).toContain("WhyJ is compacting");
   });
 
   it("shows title when sections present", () => {

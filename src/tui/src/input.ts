@@ -192,5 +192,5 @@ export function buildSuggestions(value: string, watchlist: CodeEntry[], skills: 
   if (catalogMatches.length === 1 && catalogMatches[0].name === "/skill") {
     return skills.map(skillSuggestion);
   }
-  return catalogMatches.map((c) => ({ label: `${c.name}  ${c.desc}`, fill: c.name }));
+  return catalogMatches.map((c) => ({ label: `${c.name}  ${c.help}`, fill: c.name }));
 }

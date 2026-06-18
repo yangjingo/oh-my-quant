@@ -4,7 +4,7 @@
  */
 import { Buffer, wrap, strWidth, truncate, sanitizeTerminalText, charWidth } from "./buffer.ts";
 import type { Style } from "./buffer.ts";
-import { S, pctStyle, fmtPct, HEADER_H, COMPOSER_H, STATUS_H, DIVIDER_CHAR, CANVAS, UI_DENSITY, OVERVIEW_ROW_H, OVERVIEW_SECTION_H, GOLD_HIGHLIGHT } from "./styles.ts";
+import { S, pctStyle, fmtPct, HEADER_H, COMPOSER_H, STATUS_H, DIVIDER_CHAR, CANVAS, UI_DENSITY, OVERVIEW_ROW_H, OVERVIEW_SECTION_H, GOLD_HIGHLIGHT, GOLD, CASH_DARK, CASH_WARM, STEP_DIM, BODY_COPY, AUTHOR_COPY, mixHex } from "./styles.ts";
 import type { ComposerSuggestion } from "./input.ts";
 import type { AppState, Layout, UIMessage, PanelSection, Holding, Quote } from "./types.ts";
 import { formatToolLine } from "../../tools/catalog.ts";
@@ -238,36 +238,25 @@ export function layout(C: number, R: number, showPortfolioPanel?: boolean): Layo
 // ── Header ──
 
 const STEPS = "▁▃▅▇█";
-const GOLD_DARK: [number, number, number] = [212, 175, 55];
-const GOLD_LIGHT: [number, number, number] = [240, 215, 122];
-const GOLD_WARM: [number, number, number] = [226, 190, 77];
-
-const DIM_STEP: [number, number, number] = [60, 55, 48];
-
-function stepColor(activity: string, i: number, n: number): [number, number, number] {
+function stepColor(activity: string, i: number, n: number): string {
   if (activity === "ready") {
     const t = n > 0 ? i / n : 0;
-    return [
-      Math.round(GOLD_DARK[0] + (GOLD_LIGHT[0] - GOLD_DARK[0]) * t),
-      Math.round(GOLD_DARK[1] + (GOLD_LIGHT[1] - GOLD_DARK[1]) * t),
-      Math.round(GOLD_DARK[2] + (GOLD_LIGHT[2] - GOLD_DARK[2]) * t),
-    ];
+    return mixHex(CASH_DARK, GOLD, t);
   }
   // Animated wave: one lit step sweeps across, ora-style
   const speed = activity === "starting" ? 500 : activity === "thinking" || activity === "compacting" ? 300 : 200;
   const pos = Math.floor(Date.now() / speed) % (n * 2);
   const wave = pos < n ? pos : n * 2 - pos; // bounce back
-  if (i === wave) return GOLD_LIGHT;
-  if (i === wave - 1 || i === wave + 1) return GOLD_WARM;
-  return DIM_STEP;
+  if (i === wave) return GOLD;
+  if (i === wave - 1 || i === wave + 1) return CASH_WARM;
+  return STEP_DIM;
 }
 
 export function drawHeader(buf: Buffer, st: AppState): void {
   const C = buf.w;
   const n = STEPS.length - 1;
   for (let i = 0; i < STEPS.length; i++) {
-    const [r, g, b] = stepColor(st.activity, i, n);
-    buf.set(2 + i, 0, STEPS[i], { fg: `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}` });
+    buf.set(2 + i, 0, STEPS[i], { fg: stepColor(st.activity, i, n) });
   }
   const logoX = 2 + STEPS.length + 1;
   buf.text(logoX, 0, "WhyJ Quant", UI_DENSITY === "compact" ? S.cream : S.creamB);
@@ -305,7 +294,7 @@ export function buildConversationView(
   return { inner, clipEnd: conversationClipEnd(panelRect), lines, startLineIdx, topPadding, visibleH };
 }
 
-const SELECTION_STYLE: Style = { fg: "#0D0B0A", bg: "#C9A227", bold: true };
+const SELECTION_STYLE: Style = S.selection;
 
 function drawSelectableLine(
   buf: Buffer,
@@ -492,10 +481,7 @@ function activityVerb(activity: string): string {
 
 function stepHex(phase: number): string {
   const t = (Math.sin(phase) + 1) / 2;
-  const r = Math.round(212 + (240 - 212) * t).toString(16).padStart(2, "0");
-  const g = Math.round(175 + (215 - 175) * t).toString(16).padStart(2, "0");
-  const b = Math.round(55 + (122 - 55) * t).toString(16).padStart(2, "0");
-  return `#${r}${g}${b}`;
+  return mixHex(CASH_DARK, CASH_WARM, t);
 }
 
 function centerInMain(main: { x: number; w: number }, text: string): number {
@@ -559,12 +545,12 @@ function drawLoadingOverlay(
   // English quote
   for (let i = 0; i < enLines.length; i++) {
     if (row > maxY) break;
-    buf.text(centerInMain(main, enLines[i]), row, enLines[i], { fg: "#A09880" }, main.w, clipEnd);
+    buf.text(centerInMain(main, enLines[i]), row, enLines[i], { fg: BODY_COPY }, main.w, clipEnd);
     row++;
   }
   // Author
   if (row <= maxY) {
-    buf.text(centerInMain(main, authorText), row, authorText, { fg: "#8A8478", dim: true }, main.w, clipEnd);
+    buf.text(centerInMain(main, authorText), row, authorText, { fg: AUTHOR_COPY, dim: true }, main.w, clipEnd);
   }
 }
 
@@ -624,12 +610,178 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
       lines.push({ text: `${prefix}${line}`, style: S.gold });
     }
   } else if (msg.role === "assistant") {
-    const prefix = "▏ ";
-    for (const line of wrap(msg.text ?? "", Math.max(1, w - strWidth(prefix)))) {
-      lines.push({ text: `▏ ${line}`, style: S.cream });
+    lines.push(...renderAssistantMessage(msg.text ?? "", w));
+  }
+  return lines;
+}
+
+function renderAssistantMessage(text: string, width: number): RenderLine[] {
+  if (looksLikeCompactReceipt(text)) {
+    return renderCompactReceipt(text, width);
+  }
+  const prefix = "▏ ";
+  return wrap(text, Math.max(1, width - strWidth(prefix))).map((line) => ({ text: `▏ ${line}`, style: S.cream }));
+}
+
+function looksLikeCompactReceipt(text: string): boolean {
+  return text.startsWith("Compacted\n") && text.includes("retention map");
+}
+
+function renderCompactReceipt(text: string, width: number): RenderLine[] {
+  const lines: RenderLine[] = [];
+  const prefix = "▏ ";
+  const bodyWidth = Math.max(1, width - strWidth(prefix));
+  let mode: "metrics" | "quant" | "retention" | "summary" = "metrics";
+  for (const rawLine of sanitizeTerminalText(text).replace(/\r\n/g, "\n").split("\n")) {
+    if (rawLine.startsWith("## ")) mode = "summary";
+    else if (rawLine === "quant context kept") mode = "quant";
+    else if (rawLine === "retention map") mode = "retention";
+    const rendered = renderCompactReceiptLine(rawLine, mode);
+    for (const row of wrapRenderLine(rendered, bodyWidth)) {
+      lines.push({
+        text: `${prefix}${row.text}`,
+        segments: [
+          { text: prefix, style: S.cream },
+          ...(row.segments ?? [{ text: row.text, style: row.style ?? S.cream }]),
+        ],
+      });
     }
   }
   return lines;
+}
+
+function wrapRenderLine(line: RenderLine, maxWidth: number): RenderLine[] {
+  const plain = line.text;
+  if (strWidth(plain) <= maxWidth || !line.segments || line.segments.length === 0) return [line];
+  const wrapped = wrap(plain, maxWidth);
+  const out: RenderLine[] = [];
+  let offset = 0;
+  for (const chunk of wrapped) {
+    const chunkWidth = strWidth(chunk);
+    out.push({ text: chunk, segments: sliceSegmentsByWidth(line.segments, offset, chunkWidth) });
+    offset += chunkWidth;
+  }
+  return out;
+}
+
+function sliceSegmentsByWidth(
+  segments: { text: string; style?: Style }[],
+  startWidth: number,
+  takeWidth: number,
+): { text: string; style?: Style }[] {
+  let skipped = 0;
+  let taken = 0;
+  const out: { text: string; style?: Style }[] = [];
+  for (const seg of segments) {
+    let segText = "";
+    let segWidth = 0;
+    for (const ch of seg.text) {
+      const cw = charWidth(ch);
+      if (skipped + segWidth + cw <= startWidth) {
+        segWidth += cw;
+        continue;
+      }
+      if (taken + cw > takeWidth) break;
+      segText += ch;
+      segWidth += cw;
+      taken += cw;
+    }
+    skipped += strWidth(seg.text);
+    if (segText) out.push({ text: segText, style: seg.style });
+    if (taken >= takeWidth) break;
+  }
+  return out;
+}
+
+function renderCompactReceiptLine(
+  rawLine: string,
+  mode: "metrics" | "quant" | "retention" | "summary",
+): RenderLine {
+  if (!rawLine) return { text: "", style: S.cream };
+  if (rawLine === "Compacted" || rawLine === "quant context kept" || rawLine === "retention map") {
+    return { text: rawLine, style: S.goldB };
+  }
+  if (/^-{3,}(  -{3,})*$/.test(rawLine)) {
+    return { text: rawLine, style: S.rule };
+  }
+  if (rawLine.startsWith("## ")) {
+    return { text: rawLine, style: S.goldB };
+  }
+  if (rawLine.startsWith("### ")) {
+    return { text: rawLine, style: S.gold };
+  }
+  if (mode === "retention" && rawLine.includes("█")) {
+    return renderRetentionMapLine(rawLine);
+  }
+  if (rawLine.includes("  ")) {
+    if (rawLine.trimStart().startsWith("metric") || rawLine.trimStart().startsWith("field")) {
+      return renderHeaderTableLine(rawLine);
+    }
+    if (mode === "metrics") return renderMetricTableLine(rawLine);
+    if (mode === "quant") return renderQuantTableLine(rawLine);
+  }
+  if (/^- /.test(rawLine) || /^\d+\./.test(rawLine)) {
+    return { text: rawLine, style: S.cream };
+  }
+  return { text: rawLine, style: mode === "summary" ? S.cream : S.cream };
+}
+
+function renderHeaderTableLine(line: string): RenderLine {
+  const parts = line.split(/\s{2,}/);
+  return joinStyledColumns(parts.map((part) => ({ text: part, style: S.goldB })));
+}
+
+function renderMetricTableLine(line: string): RenderLine {
+  const parts = line.split(/\s{2,}/);
+  const [label = "", value = "", note = ""] = parts;
+  return joinStyledColumns([
+    { text: label, style: S.gold },
+    { text: value, style: /K|M|\d+\/\d+/.test(value) ? S.creamB : S.cream },
+    { text: note, style: S.dim },
+  ]);
+}
+
+function renderQuantTableLine(line: string): RenderLine {
+  const parts = line.split(/\s{2,}/);
+  const [field = "", status = "", detail = ""] = parts;
+  const statusStyle = status.trim() === "kept" ? S.positive : S.negative;
+  return joinStyledColumns([
+    { text: field, style: S.gold },
+    { text: status, style: statusStyle },
+    { text: detail, style: S.cream },
+  ]);
+}
+
+function renderRetentionMapLine(line: string): RenderLine {
+  const match = /^(.+?)\s{2,}([█░]+)\s{2,}(.+)$/.exec(line);
+  if (!match) return { text: line, style: S.cream };
+  const [, label, meter, status] = match;
+  const lower = status.toLowerCase();
+  const meterStyle =
+    lower.includes("missing") ? S.negative
+      : lower.includes("kept") ? S.positive
+        : S.gold;
+  const statusStyle =
+    lower.includes("missing") ? S.negative
+      : lower.includes("kept") ? S.positive
+        : S.goldB;
+  return joinStyledColumns([
+    { text: label, style: S.gold },
+    { text: meter, style: meterStyle },
+    { text: status, style: statusStyle },
+  ]);
+}
+
+function joinStyledColumns(columns: { text: string; style?: Style }[]): RenderLine {
+  const segments: { text: string; style?: Style }[] = [];
+  columns.forEach((column, idx) => {
+    segments.push({ text: column.text, style: column.style });
+    if (idx < columns.length - 1) segments.push({ text: "  ", style: S.dim });
+  });
+  return {
+    text: columns.map((column) => column.text).join("  "),
+    segments,
+  };
 }
 
 function renderToolResultPreview(result: string, width: number): RenderLine[] {
@@ -761,9 +913,33 @@ export function drawComposer(
   }
   row++;
 
+  const remainingRows = Math.max(0, inner.y + inner.h - row);
+
+  // Compact suggestions list inside Composer, below the input row.
+  if (suggestions.length > 0) {
+    const visibleRows = Math.min(suggestions.length, remainingRows, 8);
+    if (visibleRows >= 1) {
+      // Scroll window to keep selectedIdx visible
+      const start = Math.max(0, Math.min(selectedIdx - Math.floor(visibleRows / 2), suggestions.length - visibleRows));
+      const visible = suggestions.slice(start, start + visibleRows);
+      for (let i = 0; i < visible.length; i++) {
+        const globalIdx = start + i;
+        const active = globalIdx === selectedIdx;
+        const item = visible[i];
+        const prefix = active ? "> " : "  ";
+        const style = active ? { fg: GOLD_HIGHLIGHT, bold: true } : S.dim;
+        buf.text(inner.x, row + i, truncate(`${prefix}${item.label}`, inner.w), style);
+      }
+      const overflow = suggestions.length - visibleRows;
+      if (overflow > 0 && row + visibleRows < inner.y + inner.h) {
+        buf.text(inner.x, row + visibleRows, truncate(`  … ${overflow} more`, inner.w), S.dim);
+      }
+      return;
+    }
+  }
+
   // Queue rows
-  const maxQueueRows = Math.max(0, inner.y + inner.h - row);
-  const showQueueRows = Math.min(queueCount, maxQueueRows);
+  const showQueueRows = Math.min(queueCount, remainingRows);
   const queueOverflow = queueCount - showQueueRows;
 
   for (let i = 0; i < showQueueRows; i++) {
@@ -772,35 +948,8 @@ export function drawComposer(
     buf.text(inner.x, row, truncate(`${prefix}${item}`, inner.w), i === 0 ? S.cream : S.dim);
     row++;
   }
-  if (queueOverflow > 0) {
+  if (queueOverflow > 0 && row < inner.y + inner.h) {
     buf.text(inner.x, row, truncate(`… +${queueOverflow} more`, inner.w), S.dim);
-  }
-
-  // Dropdown panel above composer
-  if (suggestions.length > 0) {
-    const availAbove = r.y;
-    const ddH = Math.min(suggestions.length + 2, availAbove, 12);
-    if (ddH >= 3) {
-      const visibleRows = ddH - 2;
-      // Scroll window to keep selectedIdx visible
-      const start = Math.max(0, Math.min(selectedIdx - Math.floor(visibleRows / 2), suggestions.length - visibleRows));
-      const visible = suggestions.slice(start, start + visibleRows);
-      const ddX = conversation ? conversation.x : r.x + 2;
-      const ddW = conversation ? conversation.w : r.w - 2;
-      const ddY = r.y - ddH;
-      const dd = buf.box({ x: ddX, y: ddY, w: ddW, h: ddH }, {
-        title: `/ Commands (${selectedIdx + 1}/${suggestions.length})`,
-        titleStyle: S.code,
-        border: { fg: GOLD_HIGHLIGHT },
-      });
-      for (let i = 0; i < visible.length; i++) {
-        const globalIdx = start + i;
-        const active = globalIdx === selectedIdx;
-        const item = visible[i];
-        buf.text(dd.x, dd.y + i, truncate(active ? `▶ ${item.label}` : `  ${item.label}`, dd.w - 1),
-          active ? { fg: GOLD_HIGHLIGHT } : S.cream);
-      }
-    }
   }
 }
 
@@ -810,18 +959,10 @@ export function drawStatus(buf: Buffer, row: number, width: number, st: AppState
   buf.hline(0, row - 1, width, DIVIDER_CHAR, S.rule);
   const source = st.source || "";
   const portfolio = st.activePortfolio ? ` · ${st.activePortfolio}` : "";
-  buf.text(
-    0,
-    row,
-    `\x1b[38;2;212;175;55m◆ ${st.model}\x1b[0m\x1b[2m · ${source}${portfolio}\x1b[0m`,
-  );
-}
-
-// ── Helpers ──
-
-function hexRgb(hex: string): string {
-  const n = hex.replace("#", "");
-  return `${parseInt(n.slice(0, 2), 16)};${parseInt(n.slice(2, 4), 16)};${parseInt(n.slice(4, 6), 16)}`;
+  const lead = `◆ ${st.model}`;
+  const tail = ` · ${source}${portfolio}`;
+  buf.text(0, row, lead, S.gold);
+  buf.text(strWidth(lead), row, tail, S.dim);
 }
 
 export function fmtElapsed(ms: number): string {

@@ -1,14 +1,24 @@
 /** Style presets matching DESIGN.md palette. */
 import type { Style } from "./buffer.ts";
 
-export const GOLD = "#D4AF37";
-export const GOLD_HIGHLIGHT = "#E2BE4D";
-export const CREAM = "#F5F5F5";
-export const MUTED = "#A6A6A6";
-export const HAIRLINE = "#242424";
-export const POSITIVE = "#6FB06A";
-export const NEGATIVE = "#CF5B4A";
-export const CODE_DIM = "#6E6A60";
+export const GOLD = "#E8B339";
+export const GOLD_HIGHLIGHT = "#F2C95A";
+export const CASH = "#E8B339";
+export const CASH_DARK = "#947618";
+export const CASH_WARM = "#F4CD68";
+export const CREAM = "#F2EEE6";
+export const MUTED = "#9B968C";
+export const BODY_COPY = "#A09880";
+export const AUTHOR_COPY = "#8A8478";
+export const HAIRLINE = "#2B2722";
+export const STEP_DIM = "#3C3730";
+export const POSITIVE = "#1E9F4D";
+export const NEGATIVE = "#E5494D";
+export const CODE_DIM = "#7A7368";
+export const THINKING = "#7F807D";
+export const SHADOW = "#000000";
+export const SELECTION_FG = "#0D0B0A";
+export const SELECTION_BG = "#C9A227";
 export const CANVAS = "#0B0B0C";
 
 // ── Layout ──
@@ -18,7 +28,7 @@ export const UI_DENSITY: UiDensity =
   process.env.WHYJ_UI_DENSITY === "comfortable" ? "comfortable" : "compact";
 
 export const HEADER_H = UI_DENSITY === "compact" ? 2 : 3;
-export const COMPOSER_H = UI_DENSITY === "compact" ? 6 : 8;
+export const COMPOSER_H = UI_DENSITY === "compact" ? 8 : 10;
 export const STATUS_H = 2;
 export const OVERVIEW_ROW_H = UI_DENSITY === "compact" ? 1 : 2;
 export const OVERVIEW_SECTION_H = UI_DENSITY === "compact" ? 2 : 3;
@@ -28,6 +38,7 @@ export const S = {
   gold:     { fg: GOLD } as Style,
   goldB:    { fg: GOLD, bold: true } as Style,
   goldDim:  { fg: GOLD, dim: true } as Style,
+  cash:     { fg: CASH } as Style,
   cream:    { fg: CREAM } as Style,
   creamB:   { fg: CREAM, bold: true } as Style,
   dim:      { fg: MUTED, dim: true } as Style,
@@ -37,9 +48,26 @@ export const S = {
   positive: { fg: POSITIVE } as Style,
   negative: { fg: NEGATIVE } as Style,
   code:     { fg: CODE_DIM } as Style,
-  thinking: { fg: "#8A8A8A", dim: true } as Style,
+  thinking: { fg: THINKING, dim: true } as Style,
   canvas:   { fg: CANVAS } as Style,
+  selection:{ fg: SELECTION_FG, bg: SELECTION_BG, bold: true } as Style,
 };
+
+export function hexToRgb(hex: string): [number, number, number] {
+  const n = hex.replace("#", "");
+  return [
+    parseInt(n.slice(0, 2), 16),
+    parseInt(n.slice(2, 4), 16),
+    parseInt(n.slice(4, 6), 16),
+  ];
+}
+
+export function mixHex(from: string, to: string, t: number): string {
+  const [fr, fg, fb] = hexToRgb(from);
+  const [tr, tg, tb] = hexToRgb(to);
+  const lerp = (a: number, b: number) => Math.round(a + (b - a) * t).toString(16).padStart(2, "0");
+  return `#${lerp(fr, tr)}${lerp(fg, tg)}${lerp(fb, tb)}`;
+}
 
 export function pctStyle(pct: number): Style {
   if (pct > 0.001) return { fg: NEGATIVE };

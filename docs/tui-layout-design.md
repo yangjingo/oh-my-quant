@@ -33,11 +33,11 @@ Modal panels are separate overlays owned by `PanelController` in `src/tui/src/pa
 │ │   Tip: "..." — Author                     │ │ ╰──────────────────────╯ │
 │ ╰────────────────────────────────────────────╯ │                            │
 ├────────────────────────────────────────────────────────────────────────────┤
-│ ┌─ / Commands ───────────────────────────────────────────────────────────┐ │
-│ │ ▶ /config  Settings panel                                             │ │
-│ └────────────────────────────────────────────────────────────────────────┘ │
 │ ╭ ⌘ Composer ─────────────────────────── ↑↓ select · ↹ accept ─────────╮ │
 │ │ /co▏                                                                 │ │
+│ │ > /config  Show or open config panel                               │ │
+│ │   /resume  List or restore saved sessions                          │ │
+│ │   /portfolio  List, compare, and switch local portfolios           │ │
 │ ╰────────────────────────────────────────────────────────────────────────╯ │
 ├────────────────────────────────────────────────────────────────────────────┤
 │ ◆ deepseek-v4-pro · llmquant-data · Core                   │
@@ -53,7 +53,7 @@ Default density is `compact`:
 | Constant | Compact | Comfortable | Source |
 |----------|---------|-------------|--------|
 | `HEADER_H` | `2` | `3` | `src/tui/src/styles.ts` |
-| `COMPOSER_H` | `6` | `8` | `src/tui/src/styles.ts` |
+| `COMPOSER_H` | `8` | `10` | `src/tui/src/styles.ts` |
 | `STATUS_H` | `2` | `2` | `src/tui/src/styles.ts` |
 
 Region formulas:
@@ -250,16 +250,14 @@ Composer never owns command execution. It only returns submitted text to `AppRun
 
 ### Suggestions Popup
 
-Slash suggestions are drawn as a floating panel above Composer, not inside Composer.
+Slash suggestions are drawn inside Composer, below the input row, as a compact inline list. They do not float into the `◉ Analyzing` panel above.
 
 ```text
-┌─ / Commands ─────────────────────────┐
-│ ▶ /config     Settings panel         │
-│   /resume     Resume session         │
-│   /portfolio  Local portfolios       │
-└──────────────────────────────────────┘
 ╭ ⌘ Composer ──────────────────────────╮
 │ /co▏                                 │
+│ > /config  Show or open config panel│
+│   /resume  List or restore sessions │
+│   /help    Show commands and hotkeys│
 ╰──────────────────────────────────────╯
 ```
 
@@ -267,8 +265,12 @@ Rules:
 
 - Top-level slash metadata comes from `src/cli/catalog.ts`.
 - Watchlist code/name completions come from `src/tui/src/watchlist.ts`.
-- Up to 10 suggestion rows are visible.
-- If there is not enough vertical space (`ddH < 3`), the popup is hidden.
+- Active suggestion uses a `> ` prefix; inactive rows are plain indented text.
+- No nested popup border, title row, or `1/N` index suffix is rendered.
+- Up to 8 suggestion rows are visible when space allows.
+- Suggestions consume Composer's remaining inner rows first; when visible, they take precedence over queued-message rows.
+- In compact density, Composer height is sized so slash suggestions can show 5 rows by default.
+- If there is not enough Composer vertical space for even one row, suggestions are hidden.
 - `Enter` autocompletes only partial commands; exact commands submit.
 - Bare `/` is never submitted.
 
@@ -388,7 +390,7 @@ bun run typecheck
 | Tool result is long | Result preview is truncated |
 | Assistant output completes | Bottom ora is cleared before final repaint |
 | Overview overflow | Dock scrolls; Analyze cannot bleed into it |
-| Small terminal | Overview hidden; suggestion popup hidden if no space |
+| Small terminal | Overview hidden; Composer suggestions hidden if no Composer space |
 | CJK text | `strWidth()` counts wide glyphs correctly |
 | Bare `/` + Enter | Autocomplete, never submit |
 | Windows `\r\n` | No double submit |
