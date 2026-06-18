@@ -66,20 +66,19 @@ This is the single source of truth for model-facing augmentation.
 
 File: [src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/context.ts)
 
-`injectSessionContext()` can append these fields:
+`injectSessionContext()` appends a lightweight metadata block:
 
 - `last_symbol`
 - `last_market`
 - `last_start`
 - `last_end`
-- `last_tool`
-- `last_result_shape`
+- `recent_tool_state`
 
 ### Meaning
 
 - `last_symbol` / `last_market` help resolve follow-up references like “it”
-- `last_tool` stores the latest tool family, such as `check_risk` or `show_dashboard`
-- `last_result_shape` stores a more stable shape hint, such as:
+- `recent_tool_state.tool` stores the latest tool family, such as `check_risk` or `show_dashboard`
+- `recent_tool_state.result_shape` stores a more stable shape hint, such as:
   - `risk_metrics`
   - `backtest_metrics`
   - `dashboard_ranking`
@@ -89,7 +88,18 @@ File: [src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant
   - `symbol_list`
   - `bars_summary`
 
-`last_result_shape` is preferred over `last_tool` when recovering how a generic follow-up should stay structured.
+`recent_tool_state.result_shape` is preferred over `recent_tool_state.tool` when recovering how a generic follow-up should stay structured.
+
+The injected shape is now intentionally object-like instead of growing more flat fields:
+
+```text
+<!-- session context -->
+last_symbol: 000300.SH
+last_market: A
+recent_tool_state:
+  tool: show_dashboard
+  result_shape: dashboard_ranking
+```
 
 ## System Prompt Path
 
@@ -147,16 +157,16 @@ It also triggers for generic follow-ups such as:
 - `继续`
 - `展开讲一下`
 
-but only when `last_tool` or `last_result_shape` is available.
+but only when `recent_tool_state.tool` or `recent_tool_state.result_shape` is available.
 
-### Why `last_result_shape` exists
+### Why `recent_tool_state.result_shape` exists
 
 If the user says only `继续`, the new turn may contain no tool keywords at all.
 
 In that case:
 
-- `last_tool=check_risk` is useful
-- `last_result_shape=risk_metrics` is better
+- `recent_tool_state.tool=check_risk` is useful
+- `recent_tool_state.result_shape=risk_metrics` is better
 
 because the second value directly tells the prompt layer which row family to preserve.
 
@@ -167,11 +177,11 @@ File: [src/agent/src/session.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant
 During tool lifecycle events:
 
 - `tool_execution_start` stores:
-  - `sessionCtx.lastToolName`
-  - an initial `sessionCtx.lastResultShape`
+  - `sessionCtx.recentToolState.toolName`
+  - an initial `sessionCtx.recentToolState.resultShape`
 - `tool_execution_end` stores:
-  - final `sessionCtx.lastToolName`
-  - final `sessionCtx.lastResultShape`
+  - final `sessionCtx.recentToolState.toolName`
+  - final `sessionCtx.recentToolState.resultShape`
 
 Current shape recovery is lightweight:
 
@@ -244,10 +254,10 @@ Runtime queue UI remains clean because it uses display text extraction, not inje
 ### Generic follow-up after a tool result
 
 previous tool ends
--> session stores `last_tool` and `last_result_shape`
+-> session stores `recent_tool_state.tool` and `recent_tool_state.result_shape`
 -> user says `继续`
 -> `injectTurnContext()` sees generic follow-up language
--> recovers the proper row family from `last_result_shape`
+-> recovers the proper row family from `recent_tool_state.result_shape`
 -> model stays aligned to the previous structured result
 
 ## Verification

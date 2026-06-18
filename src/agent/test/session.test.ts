@@ -334,7 +334,12 @@ describe("createAgent", () => {
     agent.ready = Promise.resolve();
 
     await agent.prompt("compare top 5 holdings and show a table");
-    updateSessionCtx({ lastToolName: "check_risk", lastResultShape: "risk_metrics" });
+    updateSessionCtx({
+      recentToolState: {
+        toolName: "check_risk",
+        resultShape: "risk_metrics",
+      },
+    });
     await agent.followUp({
       role: "user",
       content: [{ type: "text", text: "继续，展开讲一下" }],
@@ -347,7 +352,8 @@ describe("createAgent", () => {
     expect(captured.followUp).toContain("<!-- render guidance -->");
     expect(captured.followUp).toContain("chart-style block");
     expect(captured.followUp).toContain("preserve VaR/CVaR and drawdown lines explicitly");
-    expect(captured.followUp).toContain("last_result_shape: risk_metrics");
+    expect(captured.followUp).toContain("recent_tool_state:");
+    expect(captured.followUp).toContain("result_shape: risk_metrics");
     expect(captured.skillName).toBe("whyj-quant");
     expect(captured.skill).toContain("focus on benchmark drift");
     expect(captured.skill).toContain("structured rows visible");
@@ -389,8 +395,9 @@ describe("createAgent", () => {
       timestamp: Date.now(),
     } as any);
 
-    expect(followCaptured.text).toContain("last_tool: show_dashboard");
-    expect(followCaptured.text).toContain("last_result_shape: dashboard_ranking");
+    expect(followCaptured.text).toContain("recent_tool_state:");
+    expect(followCaptured.text).toContain("tool: show_dashboard");
+    expect(followCaptured.text).toContain("result_shape: dashboard_ranking");
     expect(followCaptured.text).toContain("preserve ranking rows and scores instead of summarizing only the top name");
   });
 });

@@ -56,6 +56,13 @@ describe("BASE_SYSTEM_PROMPT", () => {
     expect(BASE_SYSTEM_PROMPT).toContain("bash:");
   });
 
+  it("requires temporary shell artifacts to use system temp directories", () => {
+    expect(BASE_SYSTEM_PROMPT).toContain("Never place temporary scripts or scratch outputs in the current working directory");
+    expect(BASE_SYSTEM_PROMPT).toContain("$env:TEMP");
+    expect(BASE_SYSTEM_PROMPT).toContain("$env:TMP");
+    expect(BASE_SYSTEM_PROMPT).toContain("/tmp");
+  });
+
   it("constrains Windows shell calls to PowerShell syntax", () => {
     expect(BASE_SYSTEM_PROMPT).toContain("PowerShell.*");
     expect(BASE_SYSTEM_PROMPT).toContain("ls -la");
@@ -98,8 +105,10 @@ describe("injectSessionContext", () => {
       lastMarket: "A",
       lastStartDate: null,
       lastEndDate: null,
-      lastToolName: null,
-      lastResultShape: null,
+      recentToolState: {
+        toolName: null,
+        resultShape: null,
+      },
     });
     expect(result).toContain("analyze AAPL");
     expect(result).toContain("last_symbol: 000001.SZ");
@@ -112,8 +121,10 @@ describe("injectSessionContext", () => {
       lastMarket: null,
       lastStartDate: null,
       lastEndDate: null,
-      lastToolName: null,
-      lastResultShape: null,
+      recentToolState: {
+        toolName: null,
+        resultShape: null,
+      },
     });
     expect(result).toBe("hello");
   });
@@ -126,9 +137,13 @@ describe("injectTurnContext", () => {
       lastMarket: "A",
       lastStartDate: null,
       lastEndDate: null,
-      lastToolName: null,
-      lastResultShape: null,
+      recentToolState: {
+        toolName: null,
+        resultShape: null,
+      },
     });
+    expect(result).toContain("<!-- tool execution guidance -->");
+    expect(result).toContain("never write temp_*.py");
     expect(result).toContain("<!-- render guidance -->");
     expect(result).toContain("compact aligned plain-text table");
     expect(result).toContain("last_symbol: 510300.SH");
@@ -140,8 +155,10 @@ describe("injectTurnContext", () => {
       lastMarket: null,
       lastStartDate: null,
       lastEndDate: null,
-      lastToolName: null,
-      lastResultShape: null,
+      recentToolState: {
+        toolName: null,
+        resultShape: null,
+      },
     });
     expect(result).toContain("total return, CAGR, Sharpe, max drawdown, win rate, P/L ratio");
     expect(result).toContain("preserve VaR/CVaR and drawdown lines explicitly");
@@ -153,10 +170,13 @@ describe("injectTurnContext", () => {
       lastMarket: "A",
       lastStartDate: null,
       lastEndDate: null,
-      lastToolName: "check_risk",
-      lastResultShape: null,
+      recentToolState: {
+        toolName: "check_risk",
+        resultShape: null,
+      },
     });
-    expect(result).toContain("last_tool: check_risk");
+    expect(result).toContain("recent_tool_state:");
+    expect(result).toContain("tool: check_risk");
     expect(result).toContain("<!-- render guidance -->");
     expect(result).toContain("preserve VaR/CVaR and drawdown lines explicitly");
   });
@@ -167,10 +187,13 @@ describe("injectTurnContext", () => {
       lastMarket: "A",
       lastStartDate: null,
       lastEndDate: null,
-      lastToolName: null,
-      lastResultShape: "dashboard_ranking",
+      recentToolState: {
+        toolName: null,
+        resultShape: "dashboard_ranking",
+      },
     });
-    expect(result).toContain("last_result_shape: dashboard_ranking");
+    expect(result).toContain("recent_tool_state:");
+    expect(result).toContain("result_shape: dashboard_ranking");
     expect(result).toContain("<!-- render guidance -->");
     expect(result).toContain("preserve ranking rows and scores instead of summarizing only the top name");
   });
@@ -181,10 +204,14 @@ describe("injectTurnContext", () => {
       lastMarket: null,
       lastStartDate: null,
       lastEndDate: null,
-      lastToolName: null,
-      lastResultShape: null,
+      recentToolState: {
+        toolName: null,
+        resultShape: null,
+      },
     });
-    expect(result).toBe("hello");
+    expect(result).toContain("hello");
+    expect(result).toContain("<!-- tool execution guidance -->");
+    expect(result).not.toContain("<!-- render guidance -->");
   });
 });
 
@@ -192,6 +219,8 @@ describe("injectSkillContext", () => {
   it("adds compact structured-output guidance to skill instructions", () => {
     const result = injectSkillContext("whyj-quant", "focus on benchmark drift");
     expect(result).toContain("focus on benchmark drift");
+    expect(result).toContain("<!-- tool execution guidance -->");
+    expect(result).toContain("$env:TEMP");
     expect(result).toContain("structured rows visible");
     expect(result).toContain("3 short lines");
     expect(result).toContain("Preserve score rows, ranking rows, risk rows, and backtest metric rows");

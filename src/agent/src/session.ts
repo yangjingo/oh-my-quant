@@ -95,8 +95,10 @@ const sessionCtx: SessionCtx = {
   lastMarket: null,
   lastStartDate: null,
   lastEndDate: null,
-  lastToolName: null,
-  lastResultShape: null,
+  recentToolState: {
+    toolName: null,
+    resultShape: null,
+  },
 };
 
 const TOOLSET = [...BUILTIN_TOOLS] as AgentTool[];
@@ -293,8 +295,8 @@ class QuantAgentHarnessSession implements QuantAgentSession {
     sessionCtx.lastMarket = null;
     sessionCtx.lastStartDate = null;
     sessionCtx.lastEndDate = null;
-    sessionCtx.lastToolName = null;
-    sessionCtx.lastResultShape = null;
+    sessionCtx.recentToolState.toolName = null;
+    sessionCtx.recentToolState.resultShape = null;
   }
 
   private async initialize(options: { forceNewSession: boolean; resumeSessionId?: string }): Promise<void> {
@@ -395,16 +397,16 @@ class QuantAgentHarnessSession implements QuantAgentSession {
         const pending = new Set(this.state.pendingToolCalls);
         pending.add(event.toolCallId);
         this.state.pendingToolCalls = pending;
-        sessionCtx.lastToolName = event.toolName;
-        sessionCtx.lastResultShape = inferResultShape(event.toolName);
+        sessionCtx.recentToolState.toolName = event.toolName;
+        sessionCtx.recentToolState.resultShape = inferResultShape(event.toolName);
         break;
       }
       case "tool_execution_end": {
         const pending = new Set(this.state.pendingToolCalls);
         pending.delete(event.toolCallId);
         this.state.pendingToolCalls = pending;
-        sessionCtx.lastToolName = event.toolName;
-        sessionCtx.lastResultShape = inferResultShape(event.toolName, event.result);
+        sessionCtx.recentToolState.toolName = event.toolName;
+        sessionCtx.recentToolState.resultShape = inferResultShape(event.toolName, event.result);
         break;
       }
       case "agent_end":
@@ -526,7 +528,10 @@ export function createAgent(options: QuantAgentOptions = {}): QuantAgentSession 
 }
 
 export function updateSessionCtx(update: Partial<SessionCtx>): void {
-  Object.assign(sessionCtx, update);
+  if (update.recentToolState) {
+    Object.assign(sessionCtx.recentToolState, update.recentToolState);
+  }
+  Object.assign(sessionCtx, { ...update, recentToolState: sessionCtx.recentToolState });
 }
 
 export function getSessionCtx(): Readonly<SessionCtx> {

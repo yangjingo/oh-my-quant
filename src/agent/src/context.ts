@@ -29,6 +29,9 @@ export const BASE_SYSTEM_PROMPT = `You are a quantitative finance analyst in Why
 - Do not create throwaway scripts, temp_*.py files, ad-hoc demo directories, or other intermediate artifacts in the repository during tool use.
 - Prefer direct one-shot shell commands, existing test files, or in-memory pipelines for investigation.
 - If a temporary file is truly required, use the system temp directory outside the repository and clean it up after the command finishes.
+- Never place temporary scripts or scratch outputs in the current working directory just because the shell started there.
+- Put ephemeral files in the platform temp location: on Windows use $env:TEMP or $env:TMP (or another OS temp directory such as C:\\tmp); on Unix/macOS use /tmp.
+- If a tool needs both a temporary script and a temporary output file, both paths must live under the system temp directory, not the repository.
 - Only write files into the repository when they are part of the requested deliverable: a real source file, a maintained test, or a documented project script.
 - Before every shell tool call, choose syntax from the active platform. If the tool is displayed as PowerShell.*, the command must be valid PowerShell, not Bash.
 - On Windows/PowerShell, use PowerShell syntax: Get-Content, Get-ChildItem, Select-String, ForEach-Object, ";" between statements, "$name" variables, and arrays like @("000300.SH","000905.SH").
@@ -102,8 +105,10 @@ export interface SessionCtx {
   lastMarket: string | null;
   lastStartDate: string | null;
   lastEndDate: string | null;
-  lastToolName: string | null;
-  lastResultShape: string | null;
+  recentToolState: {
+    toolName: string | null;
+    resultShape: string | null;
+  };
 }
 
 export function injectSessionContext(input: string, ctx: SessionCtx): string {
@@ -113,8 +118,11 @@ export function injectSessionContext(input: string, ctx: SessionCtx): string {
   if (ctx.lastMarket) meta.push(`last_market: ${ctx.lastMarket}`);
   if (ctx.lastStartDate) meta.push(`last_start: ${ctx.lastStartDate}`);
   if (ctx.lastEndDate) meta.push(`last_end: ${ctx.lastEndDate}`);
-  if (ctx.lastToolName) meta.push(`last_tool: ${ctx.lastToolName}`);
-  if (ctx.lastResultShape) meta.push(`last_result_shape: ${ctx.lastResultShape}`);
+  if (ctx.recentToolState.toolName || ctx.recentToolState.resultShape) {
+    meta.push("recent_tool_state:");
+    if (ctx.recentToolState.toolName) meta.push(`  tool: ${ctx.recentToolState.toolName}`);
+    if (ctx.recentToolState.resultShape) meta.push(`  result_shape: ${ctx.recentToolState.resultShape}`);
+  }
 
   if (meta.length > 0) {
     parts.push("", "<!-- session context -->", meta.join("\n"));
@@ -124,15 +132,22 @@ export function injectSessionContext(input: string, ctx: SessionCtx): string {
 
 export function injectTurnContext(input: string, ctx: SessionCtx): string {
   const withSession = injectSessionContext(input, ctx);
-  const renderHint = buildRenderGuidance(input, ctx);
-  if (!renderHint) return withSession;
-  return `${withSession}\n\n<!-- render guidance -->\n${renderHint}`;
+  const turnHints = [
+    buildToolExecutionGuidance(),
+    buildRenderGuidance(input, ctx),
+  ].filter((value): value is string => Boolean(value));
+  if (turnHints.length === 0) return withSession;
+  return `${withSession}\n\n${turnHints.join("\n\n")}`;
 }
 
 export function injectSkillContext(skillName: string, additionalInstructions?: string): string {
   const base = (additionalInstructions ?? "").trim();
-  const renderHint = buildSkillRenderGuidance(skillName);
-  return base ? `${base}\n\n${renderHint}` : renderHint;
+  const hints = [
+    buildToolExecutionGuidance(),
+    buildSkillRenderGuidance(skillName),
+  ];
+  const appended = hints.join("\n\n");
+  return base ? `${base}\n\n${appended}` : appended;
 }
 
 // ── Helpers ──
@@ -167,6 +182,7 @@ function listCachedSymbols(): CachedInfo[] {
 function buildRenderGuidance(input: string, ctx: SessionCtx): string | null {
   if (!needsStructuredRenderGuidance(input, ctx)) return null;
   const guidance = [
+    "<!-- render guidance -->",
     "If the answer contains multiple comparable rows or a time-series summary:",
     "- prefer a compact aligned plain-text table or chart-style block",
     "- keep commentary to 3 short lines before or after the structured block",
@@ -175,6 +191,17 @@ function buildRenderGuidance(input: string, ctx: SessionCtx): string | null {
   const toolSpecific = buildToolSpecificRenderGuidance(input, ctx);
   if (toolSpecific.length > 0) guidance.push(...toolSpecific);
   return guidance.join("\n");
+}
+
+function buildToolExecutionGuidance(): string {
+  return [
+    "<!-- tool execution guidance -->",
+    "When a shell or skill needs temporary files:",
+    "- never write temp_*.py, scratch JSON, or ad-hoc outputs into the repository",
+    "- use the system temp directory for every ephemeral input/output path",
+    "- on Windows/PowerShell prefer $env:TEMP or $env:TMP; on Unix/macOS prefer /tmp",
+    "- if a repository file must be updated intentionally, write only the final maintained artifact into the repository",
+  ].join("\n");
 }
 
 function buildSkillRenderGuidance(skillName: string): string {
@@ -198,15 +225,15 @@ function needsStructuredRenderGuidance(input: string, ctx: SessionCtx): boolean 
   if (/(table|chart|compare|comparison|rank|ranking|top\s+\d+|holdings|portfolio|signal|trade log|backtest|bar chart|line chart|表格|图表|走势图|曲线|对比|比较|排行|排名|持仓|交易记录|回测)/i.test(input)) {
     return true;
   }
-  if (!ctx.lastToolName && !ctx.lastResultShape) return false;
+  if (!ctx.recentToolState.toolName && !ctx.recentToolState.resultShape) return false;
   return /(expand|elaborate|detail|details|explain more|drill down|break down|show more|continue|go on|展开|细说|详细|继续|深入|展开讲|再讲|多说点)/i.test(input);
 }
 
 function buildToolSpecificRenderGuidance(input: string, ctx: SessionCtx): string[] {
   const lower = input.toLowerCase();
   const lines: string[] = [];
-  const toolName = ctx.lastToolName?.toLowerCase() ?? "";
-  const shape = ctx.lastResultShape?.toLowerCase() ?? "";
+  const toolName = ctx.recentToolState.toolName?.toLowerCase() ?? "";
+  const shape = ctx.recentToolState.resultShape?.toLowerCase() ?? "";
 
   if (/(run_backtest|backtest|回测)/i.test(lower) || toolName === "run_backtest" || shape === "backtest_metrics") {
     lines.push("- for backtest output, keep key metrics on separate aligned rows: total return, CAGR, Sharpe, max drawdown, win rate, P/L ratio");
