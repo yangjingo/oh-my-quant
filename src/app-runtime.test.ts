@@ -538,10 +538,44 @@ describe("AppRuntime.submit", () => {
 
     expect(waitForIdle).toHaveBeenCalled();
     expect(compact).toHaveBeenCalledWith(undefined);
+    expect(h.activities).toContain("compacting");
     expect(h.messages.at(-1)?.at(-1)).toEqual(expect.objectContaining({
       role: "assistant",
       text: expect.stringContaining("Compacted"),
     }));
+  });
+
+  it("shows compacting status while the slash command is running", async () => {
+    const h = harness();
+    let release = () => {};
+    const compact = mock(async () => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return { summary: "summary after compact", firstKeptEntryId: "e2", tokensBefore: 42 };
+    });
+    const agent = {
+      state: {
+        isStreaming: false,
+        messages: [] as Array<{ role: string; content: string }>,
+        pendingToolCalls: new Set<string>(),
+      },
+      waitForIdle: mock(async () => {}),
+      compact,
+    };
+    (h.runtime as unknown as { agent: object }).agent = agent;
+
+    const submitPromise = h.runtime.submit("/compact keep quant context");
+    await Promise.resolve();
+
+    expect(h.activities).toContain("compacting");
+    expect(h.statuses.at(-1)).toEqual({
+      kind: "info",
+      text: "Compacting the current session context...",
+    });
+
+    release();
+    await submitPromise;
   });
 
   it("shows nothing-to-compact as an info status", async () => {

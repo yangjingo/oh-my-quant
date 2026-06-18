@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { estimateTokens, estimateContextTokens, createAgent } from "../src/session.ts";
+import { estimateTokens, estimateContextTokens, createAgent, updateSessionCtx } from "../src/session.ts";
 import { JsonlSessionRepo } from "../src/pi/index.ts";
 import { NodeExecutionEnv } from "../src/pi/node.ts";
 
@@ -334,9 +334,10 @@ describe("createAgent", () => {
     agent.ready = Promise.resolve();
 
     await agent.prompt("compare top 5 holdings and show a table");
+    updateSessionCtx({ lastToolName: "check_risk", lastResultShape: "risk_metrics" });
     await agent.followUp({
       role: "user",
-      content: [{ type: "text", text: "show ranking chart too" }],
+      content: [{ type: "text", text: "继续，展开讲一下" }],
       timestamp: Date.now(),
     } as any);
     await agent.skill("whyj-quant", "focus on benchmark drift");
@@ -345,8 +346,51 @@ describe("createAgent", () => {
     expect(captured.prompt).toContain("compact aligned plain-text table");
     expect(captured.followUp).toContain("<!-- render guidance -->");
     expect(captured.followUp).toContain("chart-style block");
+    expect(captured.followUp).toContain("preserve VaR/CVaR and drawdown lines explicitly");
+    expect(captured.followUp).toContain("last_result_shape: risk_metrics");
     expect(captured.skillName).toBe("whyj-quant");
     expect(captured.skill).toContain("focus on benchmark drift");
     expect(captured.skill).toContain("structured rows visible");
+  });
+
+  it("stores last result shape from structured tool-result details", async () => {
+    const agent = createAgent({
+      cwd: TEST_DIR,
+      sessionsRoot: TEST_SESSIONS_DIR,
+      settings: {
+        env: {},
+        model: "gpt-5.5",
+        thinkingLevel: "off",
+      },
+      skillPaths: [TEST_SKILLS_DIR],
+    }) as any;
+    await agent.waitForIdle();
+
+    agent.reduceState({
+      type: "tool_execution_end",
+      toolCallId: "dash-1",
+      toolName: "show_dashboard",
+      result: {
+        content: [{ type: "text", text: "Dashboard  3 evaluations" }],
+        details: { summary: { totalEvals: 3, bestStrategy: "alpha" } },
+      },
+      isError: false,
+    });
+
+    const followCaptured: Record<string, string> = {};
+    agent.harness = {
+      followUp: async (text: string) => { followCaptured.text = text; },
+    };
+    agent.ready = Promise.resolve();
+
+    await agent.followUp({
+      role: "user",
+      content: [{ type: "text", text: "继续" }],
+      timestamp: Date.now(),
+    } as any);
+
+    expect(followCaptured.text).toContain("last_tool: show_dashboard");
+    expect(followCaptured.text).toContain("last_result_shape: dashboard_ranking");
+    expect(followCaptured.text).toContain("preserve ranking rows and scores instead of summarizing only the top name");
   });
 });

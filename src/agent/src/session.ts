@@ -95,6 +95,8 @@ const sessionCtx: SessionCtx = {
   lastMarket: null,
   lastStartDate: null,
   lastEndDate: null,
+  lastToolName: null,
+  lastResultShape: null,
 };
 
 const TOOLSET = [...BUILTIN_TOOLS] as AgentTool[];
@@ -291,6 +293,8 @@ class QuantAgentHarnessSession implements QuantAgentSession {
     sessionCtx.lastMarket = null;
     sessionCtx.lastStartDate = null;
     sessionCtx.lastEndDate = null;
+    sessionCtx.lastToolName = null;
+    sessionCtx.lastResultShape = null;
   }
 
   private async initialize(options: { forceNewSession: boolean; resumeSessionId?: string }): Promise<void> {
@@ -391,12 +395,16 @@ class QuantAgentHarnessSession implements QuantAgentSession {
         const pending = new Set(this.state.pendingToolCalls);
         pending.add(event.toolCallId);
         this.state.pendingToolCalls = pending;
+        sessionCtx.lastToolName = event.toolName;
+        sessionCtx.lastResultShape = inferResultShape(event.toolName);
         break;
       }
       case "tool_execution_end": {
         const pending = new Set(this.state.pendingToolCalls);
         pending.delete(event.toolCallId);
         this.state.pendingToolCalls = pending;
+        sessionCtx.lastToolName = event.toolName;
+        sessionCtx.lastResultShape = inferResultShape(event.toolName, event.result);
         break;
       }
       case "agent_end":
@@ -580,4 +588,84 @@ function extractThinkingFromMessage(m: { role?: string; content?: unknown[] }): 
     .filter((c) => c.type === "thinking" && c.thinking)
     .map((c) => c.thinking!)
     .join("\n");
+}
+
+function inferResultShape(toolName: string, result?: unknown): string | null {
+  const fromDetails = inferResultShapeFromDetails(toolName, result);
+  if (fromDetails) return fromDetails;
+
+  switch (toolName) {
+    case "fetch_bars":
+      return "bars_summary";
+    case "search_symbols":
+      return "symbol_list";
+    case "fetch_snapshot":
+      return "snapshot_kv";
+    case "compute_factor":
+      return "factor_metrics";
+    case "run_backtest":
+      return "backtest_metrics";
+    case "check_risk":
+      return "risk_metrics";
+    case "score_benchmark":
+      return "benchmark_score";
+    case "show_dashboard":
+      return "dashboard_ranking";
+  }
+
+  const text = extractToolResultText(result).toLowerCase();
+  if (!text) return null;
+  if (text.includes("total return") && text.includes("sharpe")) return "backtest_metrics";
+  if (text.includes("var 95") && text.includes("cvar 95")) return "risk_metrics";
+  if (text.includes("percentile") && text.includes("latest")) return "factor_metrics";
+  if (text.includes("dashboard") && text.includes("evaluations")) return "dashboard_ranking";
+  if (text.includes("score") && text.includes("grade")) return "benchmark_score";
+  if (text.includes("snapshot")) return "snapshot_kv";
+  return null;
+}
+
+function inferResultShapeFromDetails(toolName: string, result?: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const details = (result as { details?: unknown }).details;
+  if (!details || typeof details !== "object") return null;
+  const record = details as Record<string, unknown>;
+
+  if (toolName === "show_dashboard" && record.summary && typeof record.summary === "object") {
+    return "dashboard_ranking";
+  }
+  if (toolName === "score_benchmark" && typeof record.filename === "string") {
+    return "benchmark_score";
+  }
+  if (toolName === "check_risk" && typeof record.annualVol === "number") {
+    return "risk_metrics";
+  }
+  if (toolName === "run_backtest" && typeof record.totalReturn === "number") {
+    return "backtest_metrics";
+  }
+  if (toolName === "compute_factor" && typeof record.percentile === "number") {
+    return "factor_metrics";
+  }
+  if (toolName === "search_symbols" && Array.isArray(record.rows)) {
+    return "symbol_list";
+  }
+  if (toolName === "fetch_snapshot" && record.snapshot && typeof record.snapshot === "object") {
+    return "snapshot_kv";
+  }
+  if (toolName === "fetch_bars" && typeof record.barCount === "number") {
+    return "bars_summary";
+  }
+
+  return null;
+}
+
+function extractToolResultText(result: unknown): string {
+  if (!result || typeof result !== "object") return "";
+  const content = (result as { content?: Array<{ type?: string; text?: string }> }).content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((part) => part?.type === "text" && typeof part.text === "string")
+      .map((part) => part.text!)
+      .join("\n");
+  }
+  return "";
 }

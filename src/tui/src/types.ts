@@ -55,7 +55,7 @@ export interface AppState {
   modelLabel: string;
   version: string;
   user: string;
-  activity: "starting" | "thinking" | "running tool" | "ready";
+  activity: "starting" | "thinking" | "running tool" | "compacting" | "ready";
   cost: number;
   cacheHit: number;
   messages: UIMessage[];

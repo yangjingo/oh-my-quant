@@ -98,6 +98,8 @@ describe("injectSessionContext", () => {
       lastMarket: "A",
       lastStartDate: null,
       lastEndDate: null,
+      lastToolName: null,
+      lastResultShape: null,
     });
     expect(result).toContain("analyze AAPL");
     expect(result).toContain("last_symbol: 000001.SZ");
@@ -110,6 +112,8 @@ describe("injectSessionContext", () => {
       lastMarket: null,
       lastStartDate: null,
       lastEndDate: null,
+      lastToolName: null,
+      lastResultShape: null,
     });
     expect(result).toBe("hello");
   });
@@ -122,6 +126,8 @@ describe("injectTurnContext", () => {
       lastMarket: "A",
       lastStartDate: null,
       lastEndDate: null,
+      lastToolName: null,
+      lastResultShape: null,
     });
     expect(result).toContain("<!-- render guidance -->");
     expect(result).toContain("compact aligned plain-text table");
@@ -134,9 +140,39 @@ describe("injectTurnContext", () => {
       lastMarket: null,
       lastStartDate: null,
       lastEndDate: null,
+      lastToolName: null,
+      lastResultShape: null,
     });
     expect(result).toContain("total return, CAGR, Sharpe, max drawdown, win rate, P/L ratio");
     expect(result).toContain("preserve VaR/CVaR and drawdown lines explicitly");
+  });
+
+  it("uses last tool name to shape a generic follow-up", () => {
+    const result = injectTurnContext("继续，展开讲一下", {
+      lastSymbol: "000300.SH",
+      lastMarket: "A",
+      lastStartDate: null,
+      lastEndDate: null,
+      lastToolName: "check_risk",
+      lastResultShape: null,
+    });
+    expect(result).toContain("last_tool: check_risk");
+    expect(result).toContain("<!-- render guidance -->");
+    expect(result).toContain("preserve VaR/CVaR and drawdown lines explicitly");
+  });
+
+  it("uses last result shape to shape a generic follow-up", () => {
+    const result = injectTurnContext("继续", {
+      lastSymbol: "000300.SH",
+      lastMarket: "A",
+      lastStartDate: null,
+      lastEndDate: null,
+      lastToolName: null,
+      lastResultShape: "dashboard_ranking",
+    });
+    expect(result).toContain("last_result_shape: dashboard_ranking");
+    expect(result).toContain("<!-- render guidance -->");
+    expect(result).toContain("preserve ranking rows and scores instead of summarizing only the top name");
   });
 
   it("stays lightweight for ordinary chat requests", () => {
@@ -145,6 +181,8 @@ describe("injectTurnContext", () => {
       lastMarket: null,
       lastStartDate: null,
       lastEndDate: null,
+      lastToolName: null,
+      lastResultShape: null,
     });
     expect(result).toBe("hello");
   });

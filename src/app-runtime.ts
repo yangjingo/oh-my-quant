@@ -257,6 +257,7 @@ export class AppRuntime {
     localOnly: boolean,
   ): Promise<void> {
     const isSkillInvoke = parsed.command === "skill" && parsed.positional[0] && !["list", "info"].includes(parsed.positional[0]);
+    const isCompactCommand = parsed.command === "compact";
     const skillName = isSkillInvoke ? parsed.positional[0] : "";
     if (isSkillInvoke) {
       this.messages.push({
@@ -265,6 +266,15 @@ export class AppRuntime {
       });
       this.emitMessages();
       this.setActivity("running tool");
+    }
+    if (isCompactCommand) {
+      this.setActivity("compacting");
+      this.setStatus({
+        kind: "info",
+        text: isAgentTurnActive(this.agent)
+          ? "Waiting for the active turn to settle before compacting the session context..."
+          : "Compacting the current session context...",
+      });
     }
 
     try {

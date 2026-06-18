@@ -1,6 +1,11 @@
 # WhyJ Quant — AI Agent System Spec (v3, implemented)
 
-> last-updated: 2026-06-10
+> last-updated: 2026-06-18
+
+**Recommended reading order**
+- Start here for the system-level architecture and ownership boundaries.
+- Then read `docs/pi-agent-loop-harness.md` for loop/harness lifecycle and queue semantics.
+- Then read `docs/agent-loop-context.md` for prompt assembly, `displayUser`, and model-vs-UI text flow.
 
 ## 1. Overview
 
@@ -20,7 +25,7 @@ The agent system now vendors the minimal pi harness subset needed by WhyJ Quant 
 src/agent/
   src/
     pi/               Minimal vendored pi harness subset (harness + loop + session + compaction)
-    session.ts        WhyJ Quant facade over AgentHarness
+    session.ts        WhyJ Quant facade over AgentHarness; owns prompt/turn context injection and queue forwarding
     dispatch.ts       prompt/steer/followUp routing against the facade
     context.ts        Prompt assembly (base template + dynamic injection)
     skills.ts         Skill discovery and diagnostics
@@ -53,7 +58,23 @@ src/storage/
 - opens or creates a pi `JsonlSessionRepo` session under `.ohquant/sessions/`
 - instantiates pi `AgentHarness` with WhyJ Quant tools and system prompt callback
 - mirrors core `AgentEvent` state (`isStreaming`, `pendingToolCalls`, `messages`) so the existing TUI runtime can keep its event-driven UI flow
+- forwards harness `queue_update` events so Composer queue state comes from the real harness queues, not a runtime-side shadow queue
 - preserves lightweight per-turn symbol memory via `injectSessionContext()`
+
+### 3.1 Message model split: model text vs display text
+
+WhyJ now distinguishes between:
+
+- model-facing user text: what the LLM should actually see after session/turn context injection
+- UI-facing user text: the raw string the human typed in Composer
+
+To keep those two concerns separate without reintroducing a runtime-side pending-input ledger, the harness uses a custom `displayUser` message type in `src/agent/src/pi/harness/messages.ts`.
+
+- `displayUser.displayText` is the raw user input shown in Composer / Conversation
+- `displayUser.content` is the model-facing text payload
+- `convertToLlm()` converts `displayUser` back into a standard provider `user` message before the model request
+
+This keeps UI rendering, queue state, session persistence, and compaction aligned while still allowing prompt/turn context injection in the session layer.
 
 ## 4. Data Tools (src/tools/data-tools.ts)
 
@@ -101,7 +122,10 @@ Use for `whyj` CLI, `bun test`, git, file inspection. Market data should still g
 
 ### Dynamic injection
 - `buildSystemPrompt(extra?)` appends cached symbols (up to 15) with source + bar count
-- `injectSessionContext(input, ctx)` wraps input with `last_symbol`, `last_market` etc.
+- `injectSessionContext(input, ctx)` wraps the first prompt turn with `last_symbol`, `last_market` etc.
+- `injectTurnContext(input, ctx)` wraps queued follow-up / steering turns with the same session memory
+
+Important boundary: `AppRuntime` no longer injects prompt text itself. Raw Composer input is forwarded into `dispatchUserMessage(agent, input, input)`, and the session facade is the only layer allowed to augment user text before it reaches the harness.
 
 ## 7. Token Estimation & Compaction
 
@@ -110,6 +134,7 @@ Compaction is no longer a local heuristic in `src/agent/src/session.ts`. WhyJ Qu
 - token estimation delegates to vendored pi `estimateTokens()` / `estimateContextTokens()`
 - session history is compacted through pi `prepareCompaction()` and `compact()`
 - compaction summaries and branch summaries are stored as explicit session-tree entries
+- `displayUser` is treated as a user-equivalent message during token estimation, cut-point selection, turn-start discovery, summary serialization, and branch navigation/editor restore
 - the current adapter exposes token estimation helpers for tests and small utilities, but the authoritative compaction behavior lives in vendored pi code
 
 ## 8. Session Persistence
@@ -131,13 +156,18 @@ App mount
 User message
   → src/cli/registry.ts: parseCommand(input)
     → /slash → executeCommand()
-    → NL text → injectContext(input) → agent.prompt()
-      → pi harness session context build
+    → NL text → dispatchUserMessage(agent, input, input)
+      → idle           → session.prompt()      → injectSessionContext()
+      → active + tools → session.steer()       → injectTurnContext()
+      → active + no tools → session.followUp() → injectTurnContext()
+      → harness queue_update drives Composer queue
       → pi compaction / branch-summary hooks when needed
       → streamFn → LLM API
       → tool_execution_start/update/end → UI updates
       → agent_end → session already persisted by harness
 ```
+
+The key architectural change is that the Composer queue shown in TUI is now derived from harness `steer/followUp/nextTurn` queues via `queue_update`. `AppRuntime` no longer owns a parallel `composerQueue` source of truth.
 
 ## 10. Configuration
 

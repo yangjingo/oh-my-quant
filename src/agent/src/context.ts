@@ -102,6 +102,8 @@ export interface SessionCtx {
   lastMarket: string | null;
   lastStartDate: string | null;
   lastEndDate: string | null;
+  lastToolName: string | null;
+  lastResultShape: string | null;
 }
 
 export function injectSessionContext(input: string, ctx: SessionCtx): string {
@@ -111,6 +113,8 @@ export function injectSessionContext(input: string, ctx: SessionCtx): string {
   if (ctx.lastMarket) meta.push(`last_market: ${ctx.lastMarket}`);
   if (ctx.lastStartDate) meta.push(`last_start: ${ctx.lastStartDate}`);
   if (ctx.lastEndDate) meta.push(`last_end: ${ctx.lastEndDate}`);
+  if (ctx.lastToolName) meta.push(`last_tool: ${ctx.lastToolName}`);
+  if (ctx.lastResultShape) meta.push(`last_result_shape: ${ctx.lastResultShape}`);
 
   if (meta.length > 0) {
     parts.push("", "<!-- session context -->", meta.join("\n"));
@@ -120,7 +124,7 @@ export function injectSessionContext(input: string, ctx: SessionCtx): string {
 
 export function injectTurnContext(input: string, ctx: SessionCtx): string {
   const withSession = injectSessionContext(input, ctx);
-  const renderHint = buildRenderGuidance(input);
+  const renderHint = buildRenderGuidance(input, ctx);
   if (!renderHint) return withSession;
   return `${withSession}\n\n<!-- render guidance -->\n${renderHint}`;
 }
@@ -160,15 +164,15 @@ function listCachedSymbols(): CachedInfo[] {
   return result.slice(0, 15);
 }
 
-function buildRenderGuidance(input: string): string | null {
-  if (!needsStructuredRenderGuidance(input)) return null;
+function buildRenderGuidance(input: string, ctx: SessionCtx): string | null {
+  if (!needsStructuredRenderGuidance(input, ctx)) return null;
   const guidance = [
     "If the answer contains multiple comparable rows or a time-series summary:",
     "- prefer a compact aligned plain-text table or chart-style block",
     "- keep commentary to 3 short lines before or after the structured block",
     "- do not flatten the structured result into bullets unless the user asked for prose only",
   ];
-  const toolSpecific = buildToolSpecificRenderGuidance(input);
+  const toolSpecific = buildToolSpecificRenderGuidance(input, ctx);
   if (toolSpecific.length > 0) guidance.push(...toolSpecific);
   return guidance.join("\n");
 }
@@ -190,31 +194,40 @@ function buildSkillRenderGuidance(skillName: string): string {
   return lines.join("\n");
 }
 
-function needsStructuredRenderGuidance(input: string): boolean {
-  return /(table|chart|compare|comparison|rank|ranking|top\s+\d+|holdings|portfolio|signal|trade log|backtest|bar chart|line chart|表格|图表|走势图|曲线|对比|比较|排行|排名|持仓|交易记录|回测)/i.test(input);
+function needsStructuredRenderGuidance(input: string, ctx: SessionCtx): boolean {
+  if (/(table|chart|compare|comparison|rank|ranking|top\s+\d+|holdings|portfolio|signal|trade log|backtest|bar chart|line chart|表格|图表|走势图|曲线|对比|比较|排行|排名|持仓|交易记录|回测)/i.test(input)) {
+    return true;
+  }
+  if (!ctx.lastToolName && !ctx.lastResultShape) return false;
+  return /(expand|elaborate|detail|details|explain more|drill down|break down|show more|continue|go on|展开|细说|详细|继续|深入|展开讲|再讲|多说点)/i.test(input);
 }
 
-function buildToolSpecificRenderGuidance(input: string): string[] {
+function buildToolSpecificRenderGuidance(input: string, ctx: SessionCtx): string[] {
   const lower = input.toLowerCase();
   const lines: string[] = [];
+  const toolName = ctx.lastToolName?.toLowerCase() ?? "";
+  const shape = ctx.lastResultShape?.toLowerCase() ?? "";
 
-  if (/(run_backtest|backtest|回测)/i.test(lower)) {
+  if (/(run_backtest|backtest|回测)/i.test(lower) || toolName === "run_backtest" || shape === "backtest_metrics") {
     lines.push("- for backtest output, keep key metrics on separate aligned rows: total return, CAGR, Sharpe, max drawdown, win rate, P/L ratio");
   }
-  if (/(check_risk|risk|var|cvar|drawdown|风险)/i.test(lower)) {
+  if (/(check_risk|risk|var|cvar|drawdown|风险)/i.test(lower) || toolName === "check_risk" || shape === "risk_metrics") {
     lines.push("- for risk output, keep metrics row-oriented and preserve VaR/CVaR and drawdown lines explicitly");
   }
-  if (/(score_benchmark|benchmark|show_dashboard|dashboard|ranking|rank|排行|排名|基准)/i.test(lower)) {
+  if (/(score_benchmark|benchmark|show_dashboard|dashboard|ranking|rank|排行|排名|基准)/i.test(lower) || toolName === "score_benchmark" || toolName === "show_dashboard" || shape === "benchmark_score" || shape === "dashboard_ranking") {
     lines.push("- for benchmark or dashboard output, preserve ranking rows and scores instead of summarizing only the top name");
   }
-  if (/(compute_factor|factor|momentum|rsi|volatility|因子)/i.test(lower)) {
+  if (/(compute_factor|factor|momentum|rsi|volatility|因子)/i.test(lower) || toolName === "compute_factor" || shape === "factor_metrics") {
     lines.push("- for factor output, keep the latest value, mean, and percentile visible as labeled rows");
   }
-  if (/(search_symbols|symbol search|代码搜索|symbol|ticker search)/i.test(lower)) {
+  if (/(search_symbols|symbol search|代码搜索|symbol|ticker search)/i.test(lower) || toolName === "search_symbols" || shape === "symbol_list") {
     lines.push("- for symbol search results, keep code and name in a compact two-column list");
   }
-  if (/(fetch_snapshot|snapshot|快照)/i.test(lower)) {
+  if (/(fetch_snapshot|snapshot|快照)/i.test(lower) || toolName === "fetch_snapshot" || shape === "snapshot_kv") {
     lines.push("- for snapshot output, keep fields in a labeled key-value block rather than prose");
+  }
+  if (toolName === "fetch_bars" || shape === "bars_summary") {
+    lines.push("- for fetched bar summaries, keep Source, Bars, Range, and Latest visible as labeled rows");
   }
 
   return lines;

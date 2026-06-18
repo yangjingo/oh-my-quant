@@ -390,6 +390,14 @@ Do NOT continue the conversation. Do NOT respond to any questions in the convers
 
 const SUMMARIZATION_PROMPT = `The messages above are a conversation to summarize. Create a structured context checkpoint summary that another LLM will use to continue the work.
 
+If the conversation involves quantitative research, trading, backtests, market data, holdings, or portfolio analysis, preserve the live research state explicitly. In particular, carry forward:
+- symbols, benchmarks, universes, exchanges, and portfolio names
+- date ranges, rebalance cadence, lookback windows, and timeframe assumptions
+- factor definitions, signal rules, strategy parameters, and risk limits
+- data providers, cache/local file paths, and any caveats about data quality
+- conclusions already validated, hypotheses still open, and metrics that matter for the next step
+- any user preferences about output shape such as compact tables, ranked lists, or risk dashboards
+
 Use this EXACT format:
 
 ## Goal
@@ -417,6 +425,7 @@ Use this EXACT format:
 
 ## Critical Context
 - [Any data, examples, or references needed to continue]
+- [For quant work, include the exact symbols, dates, portfolio/benchmark names, strategy parameters, and risk constraints that must survive compaction]
 - [Or "(none)" if not applicable]
 
 Keep each section concise. Preserve exact file paths, function names, and error messages.`;
@@ -429,6 +438,7 @@ Update the existing structured summary with new information. RULES:
 - UPDATE the Progress section: move items from "In Progress" to "Done" when completed
 - UPDATE "Next Steps" based on what was accomplished
 - PRESERVE exact file paths, function names, and error messages
+- For quant work, PRESERVE live research state: symbols, dates, benchmarks, holdings, strategy/risk parameters, validated findings, and unresolved hypotheses
 - If something is no longer relevant, you may remove it
 
 Use this EXACT format:

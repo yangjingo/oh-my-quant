@@ -254,7 +254,7 @@ function stepColor(activity: string, i: number, n: number): [number, number, num
     ];
   }
   // Animated wave: one lit step sweeps across, ora-style
-  const speed = activity === "starting" ? 500 : activity === "thinking" ? 300 : 200;
+  const speed = activity === "starting" ? 500 : activity === "thinking" || activity === "compacting" ? 300 : 200;
   const pos = Math.floor(Date.now() / speed) % (n * 2);
   const wave = pos < n ? pos : n * 2 - pos; // bounce back
   if (i === wave) return GOLD_LIGHT;
@@ -474,8 +474,19 @@ function activityLabel(activity: string): string {
   switch (activity) {
     case "starting": return "Starting";
     case "running tool": return "Running tool";
+    case "compacting": return "Compacting";
     case "thinking": return "Thinking";
     default: return "Working";
+  }
+}
+
+function activityVerb(activity: string): string {
+  switch (activity) {
+    case "compacting": return "compacting";
+    case "running tool": return "running tools";
+    case "starting": return "starting";
+    case "thinking": return "thinking";
+    default: return "working";
   }
 }
 
@@ -499,7 +510,7 @@ function centerInMain(main: { x: number; w: number }, text: string): number {
 function drawLoadingOverlay(
   buf: Buffer,
   main: { x: number; y: number; w: number; h: number },
-  _activity: string,
+  activity: string,
   clipEnd: number,
 ): void {
   const t = Date.now() / 1000;
@@ -512,7 +523,7 @@ function drawLoadingOverlay(
   const cnLines = wrap(`"${insight.quote}"`, maxLineW);
   const enLines = wrap(insight.en, maxLineW);
   const authorText = `— ${insight.author}`;
-  const spinnerLine = ` ${oraFrame()} WhyJ is thinking…`;
+  const spinnerLine = ` ${oraFrame()} WhyJ is ${activityVerb(activity)}…`;
   const blockH = 1 + 1 + cnLines.length + enLines.length + 1; // spinner + cn quote + en quote + author
 
   const minY = main.y;
