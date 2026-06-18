@@ -20,49 +20,49 @@ afterEach(() => {
 describe("compareHandler", () => {
   it("rejects when no rule specified", async () => {
     savePanelPortfolio({ updated: "", symbols: [{ code: "000001", name: "Test", added: "2024-01-01" }], groups: [] });
-    const result = await compareHandler({}, ["run"]);
+    const result = await compareHandler({}, ["run"], {});
     expect(result.success).toBe(false);
     expect(result.message).toContain("--rule");
   });
 
   it("rejects when portfolio is empty", async () => {
     savePanelPortfolio({ updated: "", symbols: [], groups: [] });
-    const result = await compareHandler({ rule: "volatility", threshold: "0.25" }, ["run"]);
+    const result = await compareHandler({ rule: "volatility", threshold: "0.25" }, ["run"], {});
     expect(result.success).toBe(false);
     expect(result.message).toContain("No symbols");
   });
 
   it("rejects volatility rule without threshold", async () => {
     savePanelPortfolio({ updated: "", symbols: [{ code: "000001", name: "Test", added: "2024-01-01" }], groups: [] });
-    const result = await compareHandler({ rule: "volatility" }, ["run"]);
+    const result = await compareHandler({ rule: "volatility" }, ["run"], {});
     expect(result.success).toBe(false);
     expect(result.message).toContain("--threshold");
   });
 
   it("rejects drawdown rule without threshold", async () => {
     savePanelPortfolio({ updated: "", symbols: [{ code: "000001", name: "Test", added: "2024-01-01" }], groups: [] });
-    const result = await compareHandler({ rule: "drawdown" }, ["run"]);
+    const result = await compareHandler({ rule: "drawdown" }, ["run"], {});
     expect(result.success).toBe(false);
     expect(result.message).toContain("--threshold");
   });
 
   it("rejects sector rule without name", async () => {
     savePanelPortfolio({ updated: "", symbols: [{ code: "000001", name: "Test", added: "2024-01-01" }], groups: [] });
-    const result = await compareHandler({ rule: "sector" }, ["run"]);
+    const result = await compareHandler({ rule: "sector" }, ["run"], {});
     expect(result.success).toBe(false);
     expect(result.message).toContain("--name");
   });
 
   it("rejects unknown rule type", async () => {
     savePanelPortfolio({ updated: "", symbols: [{ code: "000001", name: "Test", added: "2024-01-01" }], groups: [] });
-    const result = await compareHandler({ rule: "unknown", threshold: "0.25" }, ["run"]);
+    const result = await compareHandler({ rule: "unknown", threshold: "0.25" }, ["run"], {});
     expect(result.success).toBe(false);
     expect(result.message).toContain("Unknown rule type");
   });
 
   it("rejects invalid action", async () => {
-    const result = await compareHandler({}, ["invalid"]);
+    const result = await compareHandler({}, ["invalid"], {});
     expect(result.success).toBe(false);
-    expect(result.message).toContain("Usage");
+    expect(result.message).toContain("/compare run");
   });
 });

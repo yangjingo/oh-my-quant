@@ -37,7 +37,7 @@ export const S = {
   positive: { fg: POSITIVE } as Style,
   negative: { fg: NEGATIVE } as Style,
   code:     { fg: CODE_DIM } as Style,
-  thinking: { fg: CODE_DIM, dim: true } as Style,
+  thinking: { fg: "#8A8A8A", dim: true } as Style,
   canvas:   { fg: CANVAS } as Style,
 };
 

@@ -4,12 +4,15 @@
  */
 import type * as readline from "node:readline";
 import { Buffer, Screen } from "./buffer.ts";
-import { layout, drawHeader, drawConversation, drawPortfolio, drawComposer, drawStatus, conversationMaxScrollUp, overviewMaxScrollTop, buildConversationView, buildOverviewView } from "./render.ts";
+import { layout, drawHeader, drawConversation, drawPortfolio, drawComposer, drawStatus, conversationMaxScrollUp, overviewMaxScrollTop, buildConversationView, buildOverviewView, activeConversationStatusRows } from "./render.ts";
 import { CANVAS } from "./styles.ts";
 import type { AppState } from "./types.ts";
 import { loadWatchlistEntries, type CodeEntry } from "./watchlist.ts";
 import { PanelController, type CurrentSessionMeta } from "./panel.ts";
-import { buildSuggestions, hitTestScrollRegion, nextInputAction, type InputAction, type MouseEvent, type ScrollRegion } from "./input.ts";
+import { buildSuggestions, hitTestScrollRegion, nextInputAction, type InputAction, type MouseEvent, type ScrollRegion, type SkillEntry } from "./input.ts";
+import { discoverSkills } from "../../agent/src/skills.ts";
+import { NodeExecutionEnv } from "../../agent/src/pi/node.ts";
+import { SKILLS_DIR } from "../../skill/index.ts";
 import { copyToClipboard } from "./clipboard.ts";
 import {
   conversationPointFromScreen,
@@ -32,6 +35,7 @@ export class QuantTui {
   private animTimer: ReturnType<typeof setInterval> | null = null;
   private suggestionIdx = 0;
   private watchlist: CodeEntry[] = [];
+  private skills: SkillEntry[] = [];
   private panel = new PanelController();
   /** Conversation: lines scrolled up from bottom (0 = latest). */
   private convScrollUp = 0;
@@ -61,6 +65,7 @@ export class QuantTui {
       this.watchlist = entries;
       this.paint();
     });
+    void this.loadSkills();
     process.stdout.on("resize", () => { this.screen.resize(); this.paint(); });
     this.animTimer = setInterval(() => {
       if (this.state.activity !== "ready") this.paint();
@@ -119,7 +124,7 @@ export class QuantTui {
         this.selectionRegion === "overview" ? this.textSelection : null,
       );
     }
-    const suggestions = buildSuggestions(this.inputBuf, this.watchlist);
+    const suggestions = buildSuggestions(this.inputBuf, this.watchlist, this.skills);
     const selectedIdx = suggestions.length === 0 ? -1 : Math.min(this.suggestionIdx, suggestions.length - 1);
     drawComposer(this.screen.buf, L.composer, st, st.input, suggestions, selectedIdx, L.conversation);
     drawStatus(this.screen.buf, L.statusRow, this.screen.cols, st);
@@ -132,7 +137,7 @@ export class QuantTui {
     const convInnerW = L.mainPane.w - 4;
     this.convScrollUp = Math.min(
       this.convScrollUp,
-      conversationMaxScrollUp(this.state.messages, convInnerW, convInnerH),
+      conversationMaxScrollUp(this.state.messages, convInnerW, convInnerH, this.conversationReservedRows(convInnerH)),
     );
     if (L.showPanel) {
       const ovInnerH = L.portfolio.h - 2;
@@ -148,7 +153,13 @@ export class QuantTui {
   private scroll(region: ScrollRegion, delta: number): void {
     const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
     if (region === "conversation") {
-      const max = conversationMaxScrollUp(this.state.messages, L.mainPane.w - 4, L.mainPane.h - 2);
+      const convInnerH = L.mainPane.h - 2;
+      const max = conversationMaxScrollUp(
+        this.state.messages,
+        L.mainPane.w - 4,
+        convInnerH,
+        this.conversationReservedRows(convInnerH),
+      );
       this.convScrollUp = Math.min(max, Math.max(0, this.convScrollUp + delta));
     } else if (region === "overview" && L.showPanel) {
       const max = overviewMaxScrollTop(this.state.panel, L.portfolio.h - 2);
@@ -226,7 +237,13 @@ export class QuantTui {
     this.scrollRegion = region;
 
     if (region === "conversation") {
-      const view = buildConversationView(this.state.messages, L.conversation, this.convScrollUp, L.mainPane);
+      const view = buildConversationView(
+        this.state.messages,
+        L.conversation,
+        this.convScrollUp,
+        L.mainPane,
+        this.conversationReservedRows(L.mainPane.h - 2),
+      );
       if (this.handlePanelSelect("conversation", view, evt)) return true;
     } else if (region === "overview" && L.showPanel) {
       const view = buildOverviewView(this.state.panel, L.portfolio, this.overviewScrollTop);
@@ -300,8 +317,18 @@ export class QuantTui {
 
   private async copyConversationSelection(): Promise<void> {
     const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
-    const view = buildConversationView(this.state.messages, L.conversation, this.convScrollUp, L.mainPane);
+    const view = buildConversationView(
+      this.state.messages,
+      L.conversation,
+      this.convScrollUp,
+      L.mainPane,
+      this.conversationReservedRows(L.mainPane.h - 2),
+    );
     await this.copyPanelSelection("conversation", view);
+  }
+
+  private conversationReservedRows(innerH: number): number {
+    return activeConversationStatusRows(this.state.activity, this.state.messages, innerH);
   }
 
   private flashCopyStatus(text: string, error = false): void {
@@ -374,8 +401,8 @@ export class QuantTui {
       if (hasSuggestions) {
         const idx = Math.min(this.suggestionIdx, suggestions.length - 1);
         const fill = suggestions[idx].fill;
-        // Auto-complete only when fill is a different command (e.g. /r → /resume).
-        // When fill is a subcommand/arg of current input (e.g. /factor → /factor analyze),
+        // Auto-complete only when fill is a different command (e.g. /r -> /resume).
+        // When fill is a subcommand/arg of current input,
         // submit the current input and let the user pick subcommands via Tab.
         const trimInput = input.trim();
         if (fill !== input && !fill.startsWith(trimInput + " ")) {
@@ -450,8 +477,16 @@ export class QuantTui {
     }
   }
 
+  private async loadSkills(): Promise<void> {
+    try {
+      const env = new NodeExecutionEnv({ cwd: process.cwd() });
+      const discovered = await discoverSkills({ cwd: process.cwd(), env, extraPaths: [SKILLS_DIR] });
+      this.skills = discovered.skills.map((s) => ({ name: s.name, description: s.description, scope: s.scope }));
+    } catch { /* skills are optional */ }
+  }
+
   private currentSuggestions() {
-    return buildSuggestions(this.inputBuf, this.watchlist);
+    return buildSuggestions(this.inputBuf, this.watchlist, this.skills);
   }
 
   private applySuggestion(fill: string): void {

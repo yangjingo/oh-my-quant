@@ -272,12 +272,11 @@ export function drawHeader(buf: Buffer, st: AppState): void {
   const logoX = 2 + STEPS.length + 1;
   buf.text(logoX, 0, "WhyJ Quant", UI_DENSITY === "compact" ? S.cream : S.creamB);
   if (UI_DENSITY === "compact") {
-    const tag = `  Research. Backtest. Invest.  v${st.version}`;
-    buf.text(logoX + 11, 0, truncate(tag, Math.max(0, C - logoX - 12)), S.dim);
+    buf.text(logoX + 11, 0, `v${st.version}`, S.dim);
     buf.hline(0, 1, C, DIVIDER_CHAR, S.rule);
     return;
   }
-  buf.text(2 + STEPS.length + 2, 1, `Research. Backtest. Invest.  v${st.version}`, S.dim);
+  buf.text(2 + STEPS.length + 2, 1, `v${st.version}`, S.dim);
   buf.hline(0, 2, C, DIVIDER_CHAR, S.rule);
 }
 
@@ -365,7 +364,7 @@ export function drawConversation(
   const view = buildConversationView(msgs, r, scrollUpFromBottom, mainPane, thinkBarH);
   const scrollHint = scrollUpFromBottom > 0 ? "···" : undefined;
   const inner = buf.box(panelRect, {
-    title: "◉ Conversation",
+    title: "◉ Analyzing",
     titleStyle: S.creamB,
     titleRight: scrollHint,
     titleRightStyle: S.dim,
@@ -389,7 +388,11 @@ export function drawConversation(
   if (thinkBarH > 0) {
     const statusY = inner.y + inner.h - thinkBarH;
     const elapsed = latestThinkingStartedAt(msgs);
-    const meta = elapsed ? `${fmtShortElapsed(Date.now() - elapsed)} · ${activity}` : activity;
+    const tokenCount = activeThinkingTokenCount(msgs);
+    const meta = [
+      elapsed ? fmtShortElapsed(Date.now() - elapsed) : undefined,
+      `${tokenCount.toLocaleString()} tokens`,
+    ].filter(Boolean).join(" · ");
     const status = truncate(`${oraFrame()} ${activityLabel(activity)}... (${meta})`, inner.w - 2);
     buf.text(inner.x + 1, statusY, status, thinkingBannerStyle(), inner.w - 2, inner.x + inner.w);
     if (thinkBarH > 1) {
@@ -435,6 +438,20 @@ function latestThinkingStartedAt(msgs: UIMessage[]): number | undefined {
     if (msg.role === "thinking" && msg.thinkingLive && msg.startedAt) return msg.startedAt;
   }
   return undefined;
+}
+
+function activeThinkingTokenCount(msgs: UIMessage[]): number {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const msg = msgs[i];
+    if (msg.role === "thinking" && msg.thinkingLive) return estimateTokens(msg.text ?? "");
+  }
+  return 0;
+}
+
+function estimateTokens(text: string): number {
+  const compact = text.trim();
+  if (!compact) return 0;
+  return Math.max(1, Math.ceil(compact.length / 4));
 }
 
 function thinkingBannerStyle(): Style {
@@ -550,7 +567,6 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
     }
   } else if (msg.role === "thinking") {
     const bodyPrefix = "  ";
-    lines.push({ text: "✻ Thinking", style: S.thinking });
     const body = sanitizeTerminalText(msg.text ?? "").trim();
     if (body) {
       for (const line of wrap(body, Math.max(1, w - strWidth(bodyPrefix)))) {
@@ -574,14 +590,22 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
       lines.push({ text: prefix.trimEnd(), style: S.gold });
     }
     if (t.result) {
-      const preview = t.result.length > 120 ? t.result.slice(0, 120) + "..." : t.result;
-      const resultPrefix = "  ⎿ ";
-      const continuationPrefix = "    ";
-      const resultLines = wrap(preview, Math.max(1, w - strWidth(resultPrefix)));
-      for (let i = 0; i < resultLines.length; i++) {
-        const prefixForLine = i === 0 ? resultPrefix : continuationPrefix;
-        lines.push({ text: `${prefixForLine}${resultLines[i]}`, style: S.dim });
+      lines.push(...renderToolResultPreview(t.result, w));
+    }
+  } else if (msg.role === "skill") {
+    const sk = msg.skill!;
+    const status = sk.status === "running" ? "⚡" : sk.status === "done" ? "⚡" : "✗";
+    const elapsed = sk.status === "running" ? `  ${fmtElapsed(Date.now() - sk.startedAt)}` : "";
+    const prefix = `${status} `;
+    const body = `${sk.label}${elapsed}`;
+    const wrapped = wrap(body, Math.max(1, w - strWidth(prefix)));
+    if (wrapped.length > 0) {
+      lines.push({ text: `${prefix}${wrapped[0]}`, style: S.gold });
+      for (let i = 1; i < wrapped.length; i++) {
+        lines.push({ text: `${" ".repeat(strWidth(prefix))}${wrapped[i]}`, style: S.gold });
       }
+    } else {
+      lines.push({ text: prefix.trimEnd(), style: S.gold });
     }
   } else if (msg.role === "error") {
     const prefix = "▏ ERR ";
@@ -595,6 +619,45 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
     }
   }
   return lines;
+}
+
+function renderToolResultPreview(result: string, width: number): RenderLine[] {
+  const maxLines = 8;
+  const maxChars = 900;
+  const clipped = result.length > maxChars ? `${result.slice(0, maxChars)}...` : result;
+  const rawLines = sanitizeTerminalText(clipped).replace(/\r\n/g, "\n").split("\n");
+  const diffLike = rawLines.some(isDiffLine);
+  const visible = rawLines.slice(0, maxLines);
+  const out: RenderLine[] = [];
+  for (let i = 0; i < visible.length; i++) {
+    const raw = visible[i] || "";
+    const prefix = i === 0 ? "  ⎿ " : "    ";
+    const style = diffLike ? diffLineStyle(raw) : S.dim;
+    const wrapped = wrap(raw, Math.max(1, width - strWidth(prefix)));
+    if (wrapped.length === 0) {
+      out.push({ text: prefix.trimEnd(), style });
+      continue;
+    }
+    for (let j = 0; j < wrapped.length; j++) {
+      out.push({ text: `${j === 0 ? prefix : "    "}${wrapped[j]}`, style });
+    }
+  }
+  if (rawLines.length > maxLines) {
+    out.push({ text: `    ... ${rawLines.length - maxLines} more lines`, style: S.dim });
+  }
+  return out;
+}
+
+function isDiffLine(line: string): boolean {
+  return /^(diff --git|index |--- |\+\+\+ |@@ |[+-])/.test(line);
+}
+
+function diffLineStyle(line: string): Style {
+  if (/^\+/.test(line) && !/^\+\+\+ /.test(line)) return S.positive;
+  if (/^-/.test(line) && !/^--- /.test(line)) return S.negative;
+  if (/^@@ /.test(line)) return S.gold;
+  if (/^(diff --git|index |--- |\+\+\+ )/.test(line)) return S.goldDim;
+  return S.dim;
 }
 
 // ── Portfolio dock ──
@@ -704,21 +767,24 @@ export function drawComposer(
 
   // Dropdown panel above composer
   if (suggestions.length > 0) {
-    const visible = suggestions.slice(0, 10);
-    const contentH = visible.length + 2;
     const availAbove = r.y;
-    const ddH = Math.min(contentH, availAbove, 12);
+    const ddH = Math.min(suggestions.length + 2, availAbove, 12);
     if (ddH >= 3) {
+      const visibleRows = ddH - 2;
+      // Scroll window to keep selectedIdx visible
+      const start = Math.max(0, Math.min(selectedIdx - Math.floor(visibleRows / 2), suggestions.length - visibleRows));
+      const visible = suggestions.slice(start, start + visibleRows);
       const ddX = conversation ? conversation.x : r.x + 2;
       const ddW = conversation ? conversation.w : r.w - 2;
       const ddY = r.y - ddH;
       const dd = buf.box({ x: ddX, y: ddY, w: ddW, h: ddH }, {
-        title: "/ Commands",
+        title: `/ Commands (${selectedIdx + 1}/${suggestions.length})`,
         titleStyle: S.code,
         border: { fg: GOLD_HIGHLIGHT },
       });
-      for (let i = 0; i < Math.min(visible.length, dd.h); i++) {
-        const active = i === selectedIdx;
+      for (let i = 0; i < visible.length; i++) {
+        const globalIdx = start + i;
+        const active = globalIdx === selectedIdx;
         const item = visible[i];
         buf.text(dd.x, dd.y + i, truncate(active ? `▶ ${item.label}` : `  ${item.label}`, dd.w - 1),
           active ? { fg: GOLD_HIGHLIGHT } : S.cream);
@@ -731,10 +797,7 @@ export function drawComposer(
 
 export function drawStatus(buf: Buffer, row: number, width: number, st: AppState): void {
   buf.hline(0, row - 1, width, DIVIDER_CHAR, S.rule);
-  const source = [
-    st.aShareSource ? `A:${st.aShareSource}` : "",
-    st.globalSource ? `G:${st.globalSource}` : "",
-  ].filter(Boolean).join(" · ");
+  const source = st.source || "";
   const portfolio = st.activePortfolio ? ` · ${st.activePortfolio}` : "";
   buf.text(
     0,

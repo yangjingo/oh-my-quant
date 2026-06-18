@@ -14,6 +14,10 @@ export interface Quote {
   pct: number;
 }
 
+import type { SkillState } from "../../skill/types.ts";
+
+export type { SkillState };
+
 export interface ToolState {
   name: string;
   /** Human-readable label with data provider, e.g. "Tushare · Daily OHLCV". */
@@ -25,11 +29,14 @@ export interface ToolState {
 }
 
 export interface UIMessage {
-  role: "user" | "assistant" | "thinking" | "tool" | "error";
+  role: "user" | "assistant" | "thinking" | "tool" | "skill" | "error";
   text?: string;
   /** When true, thinking text is still streaming (show cursor dots). */
   thinkingLive?: boolean;
+  /** Timestamp used to show elapsed thinking time while the turn is active. */
+  startedAt?: number;
   tool?: ToolState;
+  skill?: SkillState;
 }
 
 export type PanelSection =
@@ -60,9 +67,8 @@ export interface AppState {
   composerStatus: ComposerStatus | null;
   /** Name of the currently active local portfolio (shown in status line). */
   activePortfolio: string;
-  /** Active data source labels (shown in status line). */
-  aShareSource: string;
-  globalSource: string;
+  /** Active data source label (shown in status line). */
+  source: string;
   /** Whether the right-side overview panel is visible. */
   showPortfolioPanel: boolean;
 }

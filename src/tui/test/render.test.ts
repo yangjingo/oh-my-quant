@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { Buffer, sanitizeTerminalText, wrap } from "../src/buffer.ts";
 import { capSections, conversationMaxScrollUp, drawComposer, drawConversation, drawPortfolio, drawStatus, layout, overviewMaxScrollTop, buildOverviewView } from "../src/render.ts";
 import { extractConversationSelection } from "../src/selection.ts";
+import { shellDisplayName } from "../../tools/catalog.ts";
 import type { AppState } from "../src/types.ts";
 import type { PanelSection, UIMessage } from "../src/types.ts";
 
@@ -138,6 +139,17 @@ describe("capSections", () => {
 });
 
 describe("panel isolation", () => {
+  it("uses analyzing as the conversation panel title", () => {
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+
+    drawConversation(buf, L.conversation, [{ role: "assistant", text: "Done" }], "ready", L.mainPane);
+
+    const topRow = buf.toPlain()[L.mainPane.y];
+    expect(topRow).toContain("◉ Analyzing");
+    expect(topRow).not.toContain("◉ Conversation");
+  });
+
   it("conversation does not write into overview columns", () => {
     const buf = new Buffer(100, 24);
     const L = layout(100, 24);
@@ -178,7 +190,41 @@ describe("panel isolation", () => {
     expect(rows.some(r => r.includes("让我分析一下这个数据"))).toBe(true);
   });
 
-  it("keeps finalized thinking visible in gray instead of collapsing it", () => {
+  it("anchors short conversation output to the bottom of the panel", () => {
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+    const msgs: UIMessage[] = [{ role: "assistant", text: "bottom anchored output" }];
+
+    drawConversation(buf, L.conversation, msgs, "ready", L.mainPane);
+
+    const rows = buf.toPlain();
+    const outputRow = rows.findIndex((row) => row.includes("bottom anchored output"));
+    expect(outputRow).toBe(L.conversation.y + L.conversation.h - 3);
+  });
+
+  it("renders active thinking in gray while streaming", () => {
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+    const msgs: UIMessage[] = [
+      { role: "thinking", text: "Need to inspect source quality first.", thinkingLive: true },
+      { role: "assistant", text: "The data source is ready." },
+    ];
+
+    drawConversation(buf, L.conversation, msgs, "ready", L.mainPane);
+
+    const rows = buf.toPlain();
+    const y = rows.findIndex((row) => row.includes("Need to inspect source quality first."));
+    expect(y).toBeGreaterThanOrEqual(0);
+    expect(rows.join("\n")).not.toContain("✻ Thinking");
+    expect(rows.some((row) => row.includes("The data source is ready."))).toBe(true);
+
+    const x = rows[y].indexOf("Need");
+    const cell = buf.cells[y * buf.w + x];
+    expect(cell.fg).toBe("#8A8A8A");
+    expect(cell.dim).toBe(true);
+  });
+
+  it("keeps finalized thinking content without a polite heading", () => {
     const buf = new Buffer(100, 24);
     const L = layout(100, 24);
     const msgs: UIMessage[] = [
@@ -191,11 +237,75 @@ describe("panel isolation", () => {
     const rows = buf.toPlain();
     const y = rows.findIndex((row) => row.includes("Need to inspect source quality first."));
     expect(y).toBeGreaterThanOrEqual(0);
+    expect(rows.join("\n")).not.toContain("✻ Thinking");
     expect(rows.some((row) => row.includes("The data source is ready."))).toBe(true);
 
     const x = rows[y].indexOf("Need");
     const cell = buf.cells[y * buf.w + x];
-    expect(cell.fg).toBe("#C8C8C8");
+    expect(cell.fg).toBe("#8A8A8A");
+    expect(cell.dim).toBe(true);
+  });
+
+  it("renders active thinking status and tips on separate bottom lines", () => {
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+    const msgs: UIMessage[] = [
+      { role: "thinking", text: "Reviewing market data before answering.", thinkingLive: true, startedAt: Date.now() - 10_000 },
+    ];
+
+    drawConversation(buf, L.conversation, msgs, "thinking", L.mainPane);
+
+    const rows = buf.toPlain();
+    const statusRow = L.conversation.y + L.conversation.h - 3;
+    const tipRow = L.conversation.y + L.conversation.h - 2;
+    expect(rows.some((row) => row.includes("Reviewing market data before answering."))).toBe(true);
+    expect(rows[statusRow]).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Thinking\.\.\. \(1\d?s · \d+ tokens\)/);
+    expect(rows[tipRow]).toContain("Tip:");
+    expect(rows[tipRow]).not.toContain("Reviewing market data before answering.");
+
+    const statusX = rows[statusRow].indexOf("Thinking");
+    const statusCell = buf.cells[statusRow * buf.w + statusX];
+    expect(statusCell.bold).toBe(true);
+    expect(statusCell.fg).not.toBe("#8A8A8A");
+  });
+
+  it("quotes the original error in the active bottom tip", () => {
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+    const msgs: UIMessage[] = [
+      { role: "error", text: "Fetch failed:\nupstream timeout from tushare" },
+      { role: "thinking", text: "Recovering with fallback source.", thinkingLive: true },
+    ];
+
+    drawConversation(buf, L.conversation, msgs, "thinking", L.mainPane);
+
+    const rows = buf.toPlain();
+    const tipRow = L.conversation.y + L.conversation.h - 2;
+    expect(rows[tipRow]).toContain("Tip: Error: Fetch failed: upstream timeout from tushare");
+  });
+
+  it("quotes the original tool error result in the active bottom tip", () => {
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+    const msgs: UIMessage[] = [
+      {
+        role: "tool",
+        tool: {
+          name: "fetch_bars",
+          label: "AKShare · Daily Bars",
+          status: "error",
+          startedAt: Date.now() - 1000,
+          result: "HTTP 502 from akshare gateway",
+        },
+      },
+      { role: "thinking", text: "Trying another provider.", thinkingLive: true },
+    ];
+
+    drawConversation(buf, L.conversation, msgs, "running tool", L.mainPane);
+
+    const rows = buf.toPlain();
+    const tipRow = L.conversation.y + L.conversation.h - 2;
+    expect(rows[tipRow]).toContain("Tip: Error: HTTP 502 from akshare gateway");
   });
 
   it("renders tool calls with a polite label, status, and result preview", () => {
@@ -216,9 +326,108 @@ describe("panel isolation", () => {
     drawConversation(buf, L.conversation, msgs, "ready", L.mainPane);
 
     const text = buf.toPlain().join("\n");
-    expect(text).toContain("✓ AKShare · Daily Bars");
+    expect(text).toContain("● AKShare · Daily Bars");
+    expect(text).toContain("⎿ Downloaded 2 rows from AKShare");
     expect(text).toContain("Downloaded 2 rows from AKShare");
     expect(text).not.toContain("fetch_bars");
+  });
+
+  it("renders bash and quant tool calls with pi-style namespaces", () => {
+    const shell = shellDisplayName();
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+    const msgs: UIMessage[] = [
+      {
+        role: "tool",
+        tool: {
+          name: "bash",
+          label: `${shell}.Read · Get-Content src/tools/catalog.ts`,
+          args: "Get-Content src/tools/catalog.ts",
+          status: "done",
+          startedAt: Date.now() - 1000,
+        },
+      },
+      {
+        role: "tool",
+        tool: {
+          name: "bash",
+          label: `${shell}.Write · Set-Content out.txt value`,
+          args: "Set-Content out.txt value",
+          status: "done",
+          startedAt: Date.now() - 1000,
+        },
+      },
+      {
+        role: "tool",
+        tool: {
+          name: "bash",
+          label: `${shell}.Update · Get-Content a.ts | Set-Content b.ts`,
+          args: "Get-Content a.ts | Set-Content b.ts",
+          status: "done",
+          startedAt: Date.now() - 1000,
+        },
+      },
+      {
+        role: "tool",
+        tool: {
+          name: "bash",
+          label: `${shell}.Shell · node script.js`,
+          args: "node script.js",
+          status: "done",
+          startedAt: Date.now() - 1000,
+        },
+      },
+      {
+        role: "tool",
+        tool: {
+          name: "check_risk",
+          label: "Quant.Risk · 000300.SH",
+          args: "000300.SH",
+          status: "done",
+          startedAt: Date.now() - 1000,
+        },
+      },
+    ];
+
+    drawConversation(buf, L.conversation, msgs, "ready", L.mainPane);
+
+    const text = buf.toPlain().join("\n");
+    expect(text).toContain(`● ${shell}.Read · Get-Content src/tools/catalog.ts`);
+    expect(text).toContain(`● ${shell}.Write · Set-Content out.txt value`);
+    expect(text).toContain(`● ${shell}.Update · Get-Content a.ts | Set-Content b.ts`);
+    expect(text).toContain(`● ${shell}.Shell · node script.js`);
+    expect(text).toContain("● Quant.Risk · 000300.SH");
+    expect(text).not.toContain("Bash / bash");
+    expect(text).not.toContain("Quant / risk");
+  });
+
+  it("renders diff-like tool result previews with added and removed line styles", () => {
+    const shell = shellDisplayName();
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+    const msgs: UIMessage[] = [{
+      role: "tool",
+      tool: {
+        name: "bash",
+        label: `${shell}.Update · git diff -- src/app-runtime.ts`,
+        args: "git diff -- src/app-runtime.ts",
+        status: "done",
+        startedAt: Date.now() - 1000,
+        result: "@@ -1,2 +1,2 @@\n-old value\n+new value\n context",
+      },
+    }];
+
+    drawConversation(buf, L.conversation, msgs, "ready", L.mainPane);
+
+    const rows = buf.toPlain();
+    const removedY = rows.findIndex((row) => row.includes("-old value"));
+    const addedY = rows.findIndex((row) => row.includes("+new value"));
+    expect(removedY).toBeGreaterThanOrEqual(0);
+    expect(addedY).toBeGreaterThanOrEqual(0);
+    const removedX = rows[removedY].indexOf("-old value");
+    const addedX = rows[addedY].indexOf("+new value");
+    expect(buf.cells[removedY * buf.w + removedX].fg).toBe("#CF5B4A");
+    expect(buf.cells[addedY * buf.w + addedX].fg).toBe("#6FB06A");
   });
 
   it("shows portfolio fund count and scroll position in the overview title", () => {
@@ -265,8 +474,7 @@ describe("drawComposer queue", () => {
     composerQueue: [],
     composerStatus: null,
     activePortfolio: "holdings.json",
-    aShareSource: "akshare",
-    globalSource: "llmquant-data",
+    source: "llmquant-data",
     showPortfolioPanel: true,
   };
 
@@ -306,14 +514,13 @@ describe("drawStatus", () => {
       composerQueue: [],
       composerStatus: null,
       activePortfolio: "core.json",
-      aShareSource: "tushare",
-      globalSource: "financial-datasets",
+      source: "financial-datasets",
       showPortfolioPanel: true,
     });
 
     const statusLine = buf.toPlain()[3];
     expect(statusLine).toContain("openai/gpt-5.5");
-    expect(statusLine).toContain("tushare");
+    expect(statusLine).toContain("financial-datasets");
     expect(statusLine).toContain("core.json");
   });
 });

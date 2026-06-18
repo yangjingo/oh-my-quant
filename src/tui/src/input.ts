@@ -1,6 +1,7 @@
 import type { Layout } from "./types.ts";
 import type { CodeEntry } from "./watchlist.ts";
 import { COMMAND_CATALOG } from "../../cli/catalog.ts";
+import type { SkillEntry } from "../../skill/types.ts";
 
 export type ScrollRegion = "composer" | "conversation" | "overview";
 
@@ -8,6 +9,8 @@ export interface ComposerSuggestion {
   label: string;
   fill: string;
 }
+
+export type { SkillEntry };
 
 export interface MouseEvent {
   col: number;
@@ -115,8 +118,27 @@ function key(name: string, opts: Partial<Omit<Extract<InputAction, { type: "key"
   return { type: "key", name, shift: false, ctrl: false, meta: false, ...opts };
 }
 
-export function buildSuggestions(value: string, watchlist: CodeEntry[]): ComposerSuggestion[] {
+export function buildSuggestions(value: string, watchlist: CodeEntry[], skills: SkillEntry[] = []): ComposerSuggestion[] {
   if (!value || value.startsWith(" ")) return [];
+
+  function skillSuggestion(s: SkillEntry): ComposerSuggestion {
+    const scope = s.scope === "user" ? "[u]" : "[p]";
+    return { label: `skill:${s.name}  ${scope} ${s.description}`, fill: `/skill:${s.name} ` };
+  }
+
+  // /skill:name suggestions (before catalog check — /skill: doesn't match any catalog entry)
+  const skillMatch = value.match(/^\/skill:(\S*)$/);
+  if (skillMatch) {
+    const partial = skillMatch[1].toLowerCase();
+    return skills
+      .filter((s) => !partial || s.name.toLowerCase().includes(partial))
+      .map(skillSuggestion);
+  }
+
+  if (value.startsWith("/")) {
+    const command = value.match(/^\/\S+/)?.[0] ?? "";
+    if (command && !COMMAND_CATALOG.some((c) => c.name === command || c.name.startsWith(command))) return [];
+  }
 
   const codeMatch = value.match(/^(.+--(code|symbol)\s+)(\S*)$/i);
   if (codeMatch) {
@@ -158,10 +180,17 @@ export function buildSuggestions(value: string, watchlist: CodeEntry[]): Compose
         .slice(0, 8)
         .map((sub) => ({ label: sub, fill: `${exact.name} ${sub} ` }));
     }
+    // /skill — show all skills as suggestions
+    if (exact.name === "/skill") {
+      return skills.map(skillSuggestion);
+    }
     return [];
   }
   const lower = value.toLowerCase();
-  return COMMAND_CATALOG
-    .filter((c) => c.name.toLowerCase().startsWith(lower))
-    .map((c) => ({ label: `${c.name}  ${c.desc}`, fill: c.name }));
+  const catalogMatches = COMMAND_CATALOG.filter((c) => c.name.toLowerCase().startsWith(lower));
+  // When partial-matching /skill, show skill suggestions
+  if (catalogMatches.length === 1 && catalogMatches[0].name === "/skill") {
+    return skills.map(skillSuggestion);
+  }
+  return catalogMatches.map((c) => ({ label: `${c.name}  ${c.desc}`, fill: c.name }));
 }

@@ -80,10 +80,14 @@ describe("buildSuggestions", () => {
     expect(buildSuggestions("/config", watchlist)).toEqual([]);
   });
 
-  it("suggests watchlist codes and names inside flags", () => {
-    expect(buildSuggestions("/factor analyze --symbol 000", watchlist)[0]).toEqual({
+  it("does not suggest removed quant slash command arguments", () => {
+    expect(buildSuggestions("/factor analyze --symbol 000", watchlist)).toEqual([]);
+  });
+
+  it("suggests watchlist codes and names inside natural-language flags", () => {
+    expect(buildSuggestions("analyze --symbol 000", watchlist)[0]).toEqual({
       label: "000001  平安银行",
-      fill: "/factor analyze --symbol 000001.SZ",
+      fill: "analyze --symbol 000001.SZ",
     });
   });
 });

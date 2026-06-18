@@ -1,7 +1,6 @@
 import type { Market } from "./data.ts";
 
-export type AShareSource = "akshare" | "tushare";
-export type GlobalSource = "llmquant-data" | "financial-datasets";
+export type DataSource = "akshare" | "tushare" | "llmquant-data" | "financial-datasets";
 
 export interface UserPreferences {
   defaultMarket: Market;
@@ -10,8 +9,7 @@ export interface UserPreferences {
   defaultFast: number;
   defaultSlow: number;
   currentPortfolioFile: string;
-  aShareSource: AShareSource;
-  globalSource: GlobalSource;
+  source: DataSource;
 }
 
 export interface OhQuantSettings {
@@ -47,7 +45,6 @@ export const DEFAULT_SETTINGS: OhQuantSettings = {
     defaultFast: 20,
     defaultSlow: 60,
     currentPortfolioFile: "holdings.json",
-    aShareSource: "akshare",
-    globalSource: "llmquant-data",
+    source: "llmquant-data",
   },
 };

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Buffer } from "../src/buffer.ts";
 import { PanelController } from "../src/panel.ts";
@@ -50,11 +50,9 @@ describe("PanelController portfolio UI", () => {
     const configBuf = new Buffer(120, 28);
     configPanel.render(configBuf);
     expect(configBuf.toPlain().join("\n")).toContain("Active portfolio: 当前主组合");
-    expect(configBuf.toPlain().join("\n")).toContain("Set active portfolio");
-    expect(configBuf.toPlain().join("\n")).toContain("A Source");
-    expect(configBuf.toPlain().join("\n")).toContain("A Key");
-    expect(configBuf.toPlain().join("\n")).toContain("US/HK Source");
-    expect(configBuf.toPlain().join("\n")).toContain("US/HK Key");
+    expect(configBuf.toPlain().join("\n")).toContain("Portfolio");
+    expect(configBuf.toPlain().join("\n")).toContain("Source");
+    expect(configBuf.toPlain().join("\n")).toContain("Token");
     expect(configBuf.toPlain().join("\n")).toContain("Local settings panel.");
     expect(configBuf.toPlain().join("\n")).not.toContain("-- Basic --");
     expect(configBuf.toPlain().join("\n")).toContain("↑↓ move  ↵ toggle/edit  esc close");
@@ -123,20 +121,19 @@ describe("PanelController portfolio UI", () => {
     panel.handleKey("", key("down"));
     panel.handleKey("", key("down"));
     panel.handleKey("", key("down"));
-    panel.handleKey("", key("return"));
     panel.handleKey("", key("down"));
     panel.handleKey("", key("return"));
-    for (const ch of "test-tushare-token") {
+    for (const ch of "test-llmquant-key") {
       panel.handleKey(ch, key("", ch));
     }
     panel.handleKey("", key("return"));
     panel.close();
 
     const settings = loadSettings();
-    expect(settings.env.TUSHARE_TOKEN).toBe("test-tushare-token");
+    expect(settings.env.LLMQUANT_API_KEY).toBe("test-llmquant-key");
   });
 
-  it("lets config distinguish A-share and US/HK sources", () => {
+  it("lets config cycle through data sources", () => {
     const panel = new PanelController();
     panel.open("config");
     panel.handleKey("", key("down"));
@@ -144,14 +141,10 @@ describe("PanelController portfolio UI", () => {
     panel.handleKey("", key("down"));
     panel.handleKey("", key("down"));
     panel.handleKey("", key("return"));
-    panel.handleKey("", key("down"));
-    panel.handleKey("", key("down"));
-    panel.handleKey("", key("return"));
     panel.close();
 
     const settings = loadSettings();
-    expect(settings.preferences.aShareSource).toBe("tushare");
-    expect(settings.preferences.globalSource).toBe("financial-datasets");
+    expect(settings.preferences.source).toBe("financial-datasets");
   });
 
   it("renders a dedicated resume selector and returns a resume command", () => {
@@ -181,6 +174,12 @@ describe("PanelController portfolio UI", () => {
 
     const panel = new PanelController();
     panel.open("resume");
+    panel.setCurrentSessionMeta({
+      id: activeId,
+      createdAt: "2026-06-13T08:00:00.000Z",
+      usage: { tokens: 100, contextWindow: 1000, percent: 10 },
+      entryCount: { messages: 1, compactions: 0, branches: 0 },
+    });
     expect((panel as any)["mode"]).toBe("resume");
 
     const buf = new Buffer(120, 28);
@@ -188,10 +187,61 @@ describe("PanelController portfolio UI", () => {
     const plain = buf.toPlain().join("\n");
     expect(plain).toContain("Resume a previous session");
     expect(plain).toContain("↑↓ move  ↵ resume  esc close");
+    expect(plain).toContain("U: 请你参考");
 
     const result = panel.handleKey("", key("return"));
     expect(result?.command).toContain("/resume ");
     expect(result?.close).toBe(true);
+    panel.close();
+  });
+
+  it("shows legacy markdown session history as preview-only in resume panel", () => {
+    const legacyDir = join(OHQ, "sessions", "2026-06-10");
+    const cwdDir = join(OHQ, "sessions", encodeCwd(process.cwd()));
+    mkdirSync(legacyDir, { recursive: true });
+    mkdirSync(cwdDir, { recursive: true });
+
+    const legacyPath = join(legacyDir, "session-031036.md");
+    writeFileSync(
+      legacyPath,
+      [
+        "# Session 2026-06-10 031036",
+        "",
+        "## 03:08:19 · User",
+        "股票代码 — 比如 000001.SZ 或 AAPL",
+        "",
+        "## 03:08:24 · Assistant",
+        "数据拉取遇到点问题，加日期参数再试。",
+      ].join("\n"),
+      "utf-8",
+    );
+    const activeId = "019eaf98-85f6-7ddc-96c1-1a32a2389963";
+    writeFileSync(
+      join(cwdDir, `2026-06-13T08-00-00-000Z_${activeId}.jsonl`),
+      [
+        JSON.stringify({ type: "session", version: 3, id: activeId, timestamp: "2026-06-13T08:00:00.000Z", cwd: process.cwd() }),
+        JSON.stringify({ type: "message", id: "m1", timestamp: "2026-06-13T08:03:00.000Z", message: { role: "user", content: "新的 JSONL 会话" } }),
+      ].join("\n"),
+      "utf-8",
+    );
+    const future = new Date("2026-06-14T00:00:00.000Z");
+    utimesSync(legacyPath, future, future);
+
+    const panel = new PanelController();
+    panel.open("resume");
+    const buf = new Buffer(120, 28);
+    panel.render(buf);
+    const plain = buf.toPlain().join("\n");
+    expect(plain).toContain("[legacy]");
+    expect(plain).toContain("Legacy transcript");
+    expect(plain).toContain("U: 股票代码");
+    expect(plain).toContain("A: 数据拉取遇到点问题");
+
+    const result = panel.handleKey("", key("return"));
+    expect(result?.command).toBeUndefined();
+    const after = new Buffer(120, 28);
+    panel.render(after);
+    expect(after.toPlain().join("\n")).toContain("preview only");
     panel.close();
   });
 

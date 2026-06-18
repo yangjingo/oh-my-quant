@@ -65,8 +65,7 @@ export function buildBanner(opts: BannerOptions = {}): string {
   const tagline =
     lead +
     textIndent +
-    muted("Research. Backtest. Invest.") +
-    muted("  v" + version);
+    muted("v" + version);
 
   return [
     ...Array(Math.max(0, marginTop)).fill(""),
