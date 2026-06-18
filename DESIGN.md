@@ -235,7 +235,7 @@ Research over excitement.
 
 Research.
 Backtest.
-Invest.
+Analyze.
 
 Alternative:
 

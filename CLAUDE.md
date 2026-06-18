@@ -1,6 +1,6 @@
 ---
 name: oh-my-quant
-description: WhyJ Quant — 量化分析交互终端 (Bun + TypeScript + Ink TUI + AI Agent)
+description: WhyJ Quant — 量化分析交互终端 (Bun + TypeScript + frame-buffer TUI + AI Agent)
 ---
 
 # oh-my-quant
@@ -9,12 +9,21 @@ description: WhyJ Quant — 量化分析交互终端 (Bun + TypeScript + Ink TUI
 
 `whyj` 是一个交互式量化分析终端，提供：
 
-- 股票/基金数据抓取（MCP：tushare / financial-datasets / llmquant-data）
+- 股票/基金数据抓取（直连数据源：tushare / financial-datasets / llmquant-data）
 - 技术因子计算（动量、反转、波动率、RSI、均线偏离、成交量比）
 - 双均线策略回测 + 风险指标（VaR、CVaR、夏普、最大回撤）
 - Benchmark 三维度评分（收益/风险/稳健性 100分制）
 - AI Agent（自然语言驱动分析，基于 pi agent core + Anthropic SDK）
 - 个人投资组合看板
+
+- ## Conversational Style
+
+- Keep answers short and concise
+- No emojis in commits, issues, PR comments, or code
+- No fluff or cheerful filler text (e.g., "Thanks @user" not "Thanks so much @user!")
+- Technical prose only, be direct
+- When the user asks a question, answer it first before making edits or running implementation commands.
+- When responding to user feedback or an analysis, explicitly say whether you agree or disagree before saying what you changed.
 
 ## 结构
 
@@ -22,13 +31,14 @@ description: WhyJ Quant — 量化分析交互终端 (Bun + TypeScript + Ink TUI
 oh-my-quant/
 ├── src/
 │   ├── index.ts              # 入口 (interactive REPL 或 one-shot)
-│   ├── app.tsx               # Ink TUI 根组件
-│   ├── components/           # Ink UI 组件
+│   ├── app.ts                # TUI 启动编排
+│   ├── tui/                  # frame-buffer TUI (src/ + test/)
 │   ├── agent/                # AI Agent (pi core + Anthropic shim + session)
 │   ├── tools/                # AgentTool 定义 (TypeBox schemas)
-│   ├── commands/             # Slash command parser + dispatcher
-│   ├── services/             # 纯计算: factor, backtest, risk, benchmark
-│   ├── data/                 # MCP client + cache-first sources
+│   ├── cli/                  # Slash command parser + dispatcher
+│   ├── skill/                # Skill 模块 (安装/发现/调用)
+│   ├── quant/                # 计算 + 分组对比: factor, backtest, risk, benchmark, comparison
+│   ├── source/               # AKShare + direct market data adapters
 │   ├── storage/              # .ohquant/ 本地文件读写
 │   └── types/                # 共享类型 + 错误系统
 ├── .ohquant/
@@ -56,7 +66,21 @@ oh-my-quant/
 - 未实现的功能列在 `ROADMAP.md`
 - Push 前先做代码审查
 - import 用 `.ts` 扩展名 (verbatimModuleSyntax)
-- 文件命名: 源码用 kebab-case (`mcp-client.ts`)，React 组件用 PascalCase (`Sidebar.tsx`)，测试用 `*.test.ts`，文档用 kebab-case `.md`
+- 文件命名: 源码用 kebab-case，测试用 `*.test.ts`，文档用 kebab-case `.md`
+
+
+- Read files in full before wide-ranging changes, before editing files you have not fully inspected, and when asked to investigate or audit. Do not rely on search snippets for broad changes.
+- No `any` unless absolutely necessary.
+- Inline single-line helpers that have only one call site.
+- Check node_modules for external API types; don't guess.
+- **No inline imports** (`await import()`, `import("pkg").Type`, dynamic type imports). Top-level imports only.
+- Never remove or downgrade code to fix type errors from outdated deps; upgrade the dep instead.
+- Use only erasable TypeScript syntax (Node strip-only mode) in code checked by the root config (`packages/*/src`, `packages/*/test`, `packages/coding-agent/examples`): no parameter properties, `enum`, `namespace`/`module`, `import =`, `export =`, or other constructs needing JS emit. Use explicit fields with constructor assignments.
+- Always ask before removing functionality or code that appears intentional.
+- Do not preserve backward compatibility unless the user asks for it.
+- Never hardcode key checks (e.g. `matchesKey(keyData, "ctrl+x")`). Add defaults to `DEFAULT_EDITOR_KEYBINDINGS` or `DEFAULT_APP_KEYBINDINGS` so they stay configurable.
+- Never modify `packages/ai/src/models.generated.ts` directly; update `packages/ai/scripts/generate-models.ts` instead, then regenerate. Including the resulting `models.generated.ts` diff is always OK, even if regeneration includes unrelated upstream model metadata changes.
+
 
 ### 实现时先读参考设计
 
@@ -64,11 +88,10 @@ oh-my-quant/
 
 | 实现领域 | 必须先读的参考文档 |
 |---------|-------------------|
-| CLI 架构、组件树、命令格式、MCP 集成、Session 上下文 | `docs/interactive-cli-design.md` |
+| CLI 架构、slash 命令参考、`src/cli/` 模块、数据流、实施计划 | `docs/interactive-cli-design.md` |
 | AI Agent 架构、Tool 系统、System Prompt、数据存储、Session 管理 | `docs/agent-system-spec.md` |
-| Slash 命令定义、参数格式、数据流、目录结构 | `docs/cli-manual.md` |
 | 颜色、字体、间距、组件样式、品牌规则 | `DESIGN.md` |
-| MCP server 能力、数据源 API、Python 库速记 | `docs/reference.md` |
+| 数据源 API、Python 库速记 | `docs/reference.md` |
 
 **Why:** 这些文档包含了完整的架构决策、组件树、事件流、数据格式和接口签名。绕过它们直接写代码会导致与设计不一致的 API 签名、错误的组件结构、不匹配的颜色方案，以及遗漏关键的架构约束（如双队列系统、缓存优先数据源、事件驱动 UI 更新）。
 
@@ -77,9 +100,9 @@ oh-my-quant/
 | 层 | 选型 |
 |---|------|
 | Runtime | Bun + TypeScript (strict) |
-| TUI | Ink 5 + React 18 (详见 docs/tui-layout-design.md) |
+| TUI | Custom frame-buffer cell grid (详见 docs/tui-layout-design.md) |
 | AI Agent | @anthropic-ai/sdk + pi agent core (vendor) |
-| 数据 | MCP (@modelcontextprotocol/sdk) + 本地文件 |
+| 数据 | direct adapters + 本地文件 |
 | Schema | TypeBox (agent tools) + Zod |
 | 构建 | bun build |
 
