@@ -21,17 +21,17 @@ describe("parseCommand", () => {
   });
 
   it("parses boolean flags", () => {
-    const cmd = parseCommand("/benchmark --force");
+    const cmd = parseCommand("/portfolio --force");
     expect(cmd).not.toBeNull();
-    expect(cmd!.command).toBe("benchmark");
+    expect(cmd!.command).toBe("portfolio");
     expect(cmd!.flags.force).toBe(true);
   });
 
   it("parses command with numeric flag", () => {
-    const cmd = parseCommand("/backtest run --symbol 000001.SZ --fast 20 --slow 60");
+    const cmd = parseCommand("/portfolio use --index 2 --limit 60");
     expect(cmd).not.toBeNull();
-    expect(cmd!.flags.fast).toBe("20");
-    expect(cmd!.flags.slow).toBe("60");
+    expect(cmd!.flags.index).toBe("2");
+    expect(cmd!.flags.limit).toBe("60");
   });
 
   it("parses /exit", () => {
@@ -70,6 +70,14 @@ describe("executeCommand", () => {
   it("returns clear effects", async () => {
     const result = await executeCommand(parseCommand("/clear")!);
     expect(result.effects).toEqual([{ type: "clearConversation" }, { type: "resetAgent" }]);
+  });
+
+  it("does not expose quant tools as slash commands", async () => {
+    for (const command of ["/factor list", "/backtest run --symbol 000001.SZ", "/risk check --symbol 000001.SZ", "/benchmark dashboard"]) {
+      const result = await executeCommand(parseCommand(command)!);
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("Unknown");
+    }
   });
 
   it("routes compact to the agent session when available", async () => {
@@ -116,6 +124,93 @@ describe("executeCommand", () => {
     expect(result.message).toContain("Compacted");
   });
 
+  it("waits for the agent before compacting while active", async () => {
+    const waitForIdle = mock(async () => {});
+    const compact = mock(async () => ({
+      summary: "Compacted after idle",
+      firstKeptEntryId: "e3",
+      tokensBefore: 2345,
+    }));
+    const result = await executeCommand(parseCommand("/compact")!, {
+      agentSession: {
+        state: {
+          systemPrompt: "",
+          model: { id: "openai/gpt-5.5", name: "gpt-5.5", api: "responses", provider: "openai", baseUrl: "", reasoning: false, input: [], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200_000, maxTokens: 8_000 },
+          thinkingLevel: "off",
+          tools: [],
+          messages: [],
+          isStreaming: true,
+          thinkingText: "",
+          pendingToolCalls: new Set<string>(),
+        },
+        subscribe: mock(() => () => {}),
+        prompt: mock(async () => {}),
+        waitForIdle,
+        steer: mock(async () => {}),
+        followUp: mock(async () => {}),
+        skill: mock(async () => {}),
+        compact,
+        navigateTree: mock(async () => ({ cancelled: false })),
+        getContextUsage: mock(() => ({ tokens: 1200, contextWindow: 200_000, percent: 0.6 })),
+        getSessionMetadata: mock(async () => null),
+        getSessionEntries: mock(async () => []),
+        getSessionBranch: mock(async () => []),
+        getLeafId: mock(async () => null),
+        listSessions: mock(async () => []),
+        resumeSession: mock(async () => ({ id: "s1", createdAt: "2026-06-10T00:00:00.000Z", cwd: "C:/tmp", path: "C:/tmp/s1.jsonl" })),
+        getSkills: mock(async () => []),
+        abort: mock(() => {}),
+        clearAllQueues: mock(() => {}),
+        reset: mock(() => {}),
+      },
+    });
+    expect(result.success).toBe(true);
+    expect(waitForIdle).toHaveBeenCalled();
+    expect(compact).toHaveBeenCalledWith(undefined);
+    expect(result.message).toContain("Compacted");
+  });
+
+  it("treats nothing-to-compact as a non-error status", async () => {
+    const compact = mock(async () => {
+      throw new Error("Nothing to compact");
+    });
+    const result = await executeCommand(parseCommand("/compact")!, {
+      agentSession: {
+        state: {
+          systemPrompt: "",
+          model: { id: "openai/gpt-5.5", name: "gpt-5.5", api: "responses", provider: "openai", baseUrl: "", reasoning: false, input: [], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200_000, maxTokens: 8_000 },
+          thinkingLevel: "off",
+          tools: [],
+          messages: [],
+          isStreaming: false,
+          thinkingText: "",
+          pendingToolCalls: new Set<string>(),
+        },
+        subscribe: mock(() => () => {}),
+        prompt: mock(async () => {}),
+        waitForIdle: mock(async () => {}),
+        steer: mock(async () => {}),
+        followUp: mock(async () => {}),
+        skill: mock(async () => {}),
+        compact,
+        navigateTree: mock(async () => ({ cancelled: false })),
+        getContextUsage: mock(() => ({ tokens: 1200, contextWindow: 200_000, percent: 0.6 })),
+        getSessionMetadata: mock(async () => null),
+        getSessionEntries: mock(async () => []),
+        getSessionBranch: mock(async () => []),
+        getLeafId: mock(async () => null),
+        listSessions: mock(async () => []),
+        resumeSession: mock(async () => ({ id: "s1", createdAt: "2026-06-10T00:00:00.000Z", cwd: "C:/tmp", path: "C:/tmp/s1.jsonl" })),
+        getSkills: mock(async () => []),
+        abort: mock(() => {}),
+        clearAllQueues: mock(() => {}),
+        reset: mock(() => {}),
+      },
+    });
+    expect(result.success).toBe(true);
+    expect(result.message).toContain("Nothing to compact");
+  });
+
   it("returns openConfig effect when callback provided", async () => {
     const result = await executeCommand(parseCommand("/config")!, {
       openConfig: () => {},
@@ -136,6 +231,10 @@ describe("catalog", () => {
     const help = buildCommandHelpText();
     expect(help).toContain("Commands");
     expect(help).toContain("/config");
+    expect(help).not.toContain("/factor");
+    expect(help).not.toContain("/backtest");
+    expect(help).not.toContain("/risk");
+    expect(help).not.toContain("/benchmark");
     expect(help).toContain("No / prefix");
     expect(help).not.toContain("Commands:");
   });

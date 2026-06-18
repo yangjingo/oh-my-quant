@@ -1,8 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { loadPanelPortfolio } from "./storage/panel-portfolio.ts";
 import { savePanelPortfolio } from "./storage/panel-portfolio.ts";
 import { AppRuntime } from "./app-runtime.ts";
+import { shellDisplayName } from "./tools/catalog.ts";
 import type { AppState, PanelSection, UIMessage } from "./tui/src/types.ts";
 
 const OHQ = join(process.cwd(), ".ohquant-test-app-runtime");
@@ -27,12 +29,14 @@ function harness(
   quoteFetcher: ConstructorParameters<typeof AppRuntime>[1] = async () => [],
   symbolProvider: ConstructorParameters<typeof AppRuntime>[2] = async () => [],
   holdingFetcher: ConstructorParameters<typeof AppRuntime>[3] = async () => [],
+  agentFactory: ConstructorParameters<typeof AppRuntime>[4] | undefined = undefined,
 ) {
   const messages: UIMessage[][] = [];
   const activities: AppState["activity"][] = [];
   const statuses: AppState["composerStatus"][] = [];
   const panels: Array<{ panel: PanelSection[]; loading: boolean }> = [];
   const queues: string[][] = [];
+  const localStates: Array<Pick<AppState, "activePortfolio" | "source" | "showPortfolioPanel">> = [];
   let configOpened = 0;
   let resumeOpened = 0;
   let portfolioOpened = 0;
@@ -40,6 +44,7 @@ function harness(
     {
       onMessages: (m) => messages.push(m),
       onActivity: (a) => activities.push(a),
+      onLocalState: (s) => localStates.push(s),
       onComposerStatus: (s) => statuses.push(s),
       onComposerQueue: (q) => queues.push(q),
       onConfigRequest: () => { configOpened++; },
@@ -50,8 +55,47 @@ function harness(
     quoteFetcher,
     symbolProvider,
     holdingFetcher,
+    agentFactory,
   );
-  return { runtime, messages, activities, statuses, panels, queues, get configOpened() { return configOpened; }, get resumeOpened() { return resumeOpened; }, get portfolioOpened() { return portfolioOpened; } };
+  return { runtime, messages, activities, statuses, panels, queues, localStates, get configOpened() { return configOpened; }, get resumeOpened() { return resumeOpened; }, get portfolioOpened() { return portfolioOpened; } };
+}
+
+type RuntimeAgentEvent = { type: string; [key: string]: unknown };
+
+function textResult(text: string) {
+  return { content: [{ type: "text" as const, text }], details: {} };
+}
+
+function makeFakeAgent(promptImpl: (agent: any, input: string) => Promise<void>) {
+  const listeners: Array<(event: RuntimeAgentEvent) => void | Promise<void>> = [];
+  const agent = {
+    state: {
+      isStreaming: false,
+      pendingToolCalls: new Set<string>(),
+      messages: [] as unknown[],
+      thinkingText: "",
+    },
+    subscribe(listener: (event: RuntimeAgentEvent) => void | Promise<void>) {
+      listeners.push(listener);
+      return () => {
+        const idx = listeners.indexOf(listener);
+        if (idx >= 0) listeners.splice(idx, 1);
+      };
+    },
+    async emit(event: RuntimeAgentEvent) {
+      for (const listener of listeners) await listener(event);
+    },
+    async prompt(input: string) {
+      await promptImpl(agent, input);
+    },
+    steer() {},
+    followUp() {},
+    abort() {},
+    clearAllQueues() {},
+    reset() {},
+    waitForIdle: async () => {},
+  };
+  return agent;
 }
 
 describe("AppRuntime.submit", () => {
@@ -128,6 +172,234 @@ describe("AppRuntime.submit", () => {
     expect(runtime.messages[2]?.role).toBe("assistant");
   });
 
+  it("keeps non-empty thinking content when the turn finalizes", () => {
+    const h = harness();
+    const runtime = h.runtime as unknown as {
+      messages: UIMessage[];
+      finalizeThinking: () => void;
+    };
+    runtime.messages = [
+      { role: "user", text: "hi" },
+      { role: "thinking", text: "temporary reasoning", thinkingLive: true, startedAt: Date.now() - 1000 },
+      { role: "assistant", text: "hello" },
+    ];
+
+    runtime.finalizeThinking();
+
+    expect(runtime.messages.map((m) => m.role)).toEqual(["user", "thinking", "assistant"]);
+    expect(runtime.messages[1]).toMatchObject({
+      role: "thinking",
+      text: "temporary reasoning",
+      thinkingLive: false,
+    });
+  });
+
+  it("bridges agent prompt, bash tool call, and assistant output into conversation messages", async () => {
+    let promptInput = "";
+    const fakeAgent = makeFakeAgent(async (agent, input) => {
+      promptInput = input;
+      agent.state.isStreaming = true;
+      await agent.emit({ type: "message_start", message: { role: "user", content: "ignored by runtime" } });
+      await agent.emit({ type: "message_start", message: { role: "assistant", content: [] } });
+      agent.state.thinkingText = "Need to inspect the file.";
+      await agent.emit({
+        type: "message_update",
+        message: { role: "assistant", content: [{ type: "text", text: "" }] },
+      });
+      await agent.emit({
+        type: "tool_execution_start",
+        toolCallId: "bash-1",
+        toolName: "bash",
+        args: { command: "Get-Content src/app-runtime.ts" },
+      });
+      await agent.emit({
+        type: "tool_execution_update",
+        toolCallId: "bash-1",
+        toolName: "bash",
+        args: { command: "Get-Content src/app-runtime.ts" },
+        partialResult: textResult("reading app-runtime"),
+      });
+      await agent.emit({
+        type: "tool_execution_end",
+        toolCallId: "bash-1",
+        toolName: "bash",
+        result: textResult("read app-runtime successfully"),
+        isError: false,
+      });
+      await agent.emit({
+        type: "message_update",
+        message: { role: "assistant", content: [{ type: "text", text: "I read the runtime bridge." }] },
+      });
+      await agent.emit({
+        type: "message_end",
+        message: { role: "assistant", content: [{ type: "text", text: "I read the runtime bridge." }] },
+      });
+      agent.state.isStreaming = false;
+      await agent.emit({ type: "agent_end", messages: [] });
+    });
+    const h = harness(async () => [], async () => [], async () => [], () => fakeAgent as never);
+
+    await h.runtime.bootstrap();
+    await h.runtime.submit("read the runtime bridge");
+
+    expect(promptInput).toContain("read the runtime bridge");
+    const latest = h.messages.at(-1) ?? [];
+    expect(latest).toEqual([
+      { role: "user", text: "read the runtime bridge" },
+      expect.objectContaining({
+        role: "thinking",
+        text: "Need to inspect the file.",
+        thinkingLive: false,
+      }),
+      { role: "assistant", text: "I read the runtime bridge." },
+      expect.objectContaining({
+        role: "tool",
+        tool: expect.objectContaining({
+          name: "bash",
+          label: `${shellDisplayName()}.Read · Get-Content src/app-runtime.ts`,
+          args: "Get-Content src/app-runtime.ts",
+          status: "done",
+          result: "read app-runtime successfully",
+        }),
+      }),
+    ]);
+    expect(h.activities).toContain("thinking");
+    expect(h.activities).toContain("running tool");
+    expect(h.activities.at(-1)).toBe("ready");
+  });
+
+  it("bridges agent quant tool errors into polite conversation output", async () => {
+    const fakeAgent = makeFakeAgent(async (agent) => {
+      agent.state.isStreaming = true;
+      await agent.emit({ type: "message_start", message: { role: "user", content: "" } });
+      await agent.emit({ type: "message_start", message: { role: "assistant", content: [] } });
+      await agent.emit({
+        type: "tool_execution_start",
+        toolCallId: "risk-1",
+        toolName: "check_risk",
+        args: { symbol: "000300.SH" },
+      });
+      await agent.emit({
+        type: "tool_execution_end",
+        toolCallId: "risk-1",
+        toolName: "check_risk",
+        result: textResult("No cached data for this symbol"),
+        isError: true,
+      });
+      await agent.emit({
+        type: "message_end",
+        message: { role: "assistant", content: [{ type: "text", text: "I could not compute risk from cache." }] },
+      });
+      agent.state.isStreaming = false;
+      await agent.emit({ type: "agent_end", messages: [] });
+    });
+    const h = harness(async () => [], async () => [], async () => [], () => fakeAgent as never);
+
+    await h.runtime.bootstrap();
+    await h.runtime.submit("check 000300 risk");
+
+    const latest = h.messages.at(-1) ?? [];
+    expect(latest).toEqual([
+      { role: "user", text: "check 000300 risk" },
+      { role: "assistant", text: "I could not compute risk from cache." },
+      expect.objectContaining({
+        role: "tool",
+        tool: expect.objectContaining({
+          name: "check_risk",
+          label: "Quant.Risk · 000300.SH",
+          args: "000300.SH",
+          status: "error",
+          result: "No cached data for this symbol",
+        }),
+      }),
+    ]);
+    expect(h.activities).toContain("running tool");
+    expect(h.activities.at(-1)).toBe("ready");
+  });
+
+  it("updates completed write tool labels to an edit summary", async () => {
+    const fakeAgent = makeFakeAgent(async (agent) => {
+      agent.state.isStreaming = true;
+      await agent.emit({ type: "message_start", message: { role: "user", content: "" } });
+      await agent.emit({ type: "message_start", message: { role: "assistant", content: [] } });
+      await agent.emit({
+        type: "tool_execution_start",
+        toolCallId: "bash-write-1",
+        toolName: "bash",
+        args: { command: "Set-Content src/tools/catalog.ts value" },
+      });
+      await agent.emit({
+        type: "tool_execution_end",
+        toolCallId: "bash-write-1",
+        toolName: "bash",
+        result: textResult("@@ -1,2 +1,2 @@\n-old value\n+new value"),
+        isError: false,
+      });
+      await agent.emit({
+        type: "message_end",
+        message: { role: "assistant", content: [{ type: "text", text: "Updated catalog." }] },
+      });
+      agent.state.isStreaming = false;
+      await agent.emit({ type: "agent_end", messages: [] });
+    });
+    const h = harness(async () => [], async () => [], async () => [], () => fakeAgent as never);
+
+    await h.runtime.bootstrap();
+    await h.runtime.submit("update the catalog");
+
+    const latest = h.messages.at(-1) ?? [];
+    const tool = latest.find((message) => message.role === "tool");
+    expect(tool).toEqual(expect.objectContaining({
+      role: "tool",
+      tool: expect.objectContaining({
+        label: "Edited src/tools/catalog.ts (+1 -1)",
+        args: "Set-Content src/tools/catalog.ts value",
+        status: "done",
+      }),
+    }));
+  });
+
+  it("adds a specific hint below agent API endpoint errors", async () => {
+    const fakeAgent = makeFakeAgent(async () => {
+      throw new Error("fetch failed: connect ECONNREFUSED 127.0.0.1:11434");
+    });
+    const h = harness(async () => [], async () => [], async () => [], () => fakeAgent as never);
+
+    await h.runtime.bootstrap();
+    await h.runtime.submit("hello");
+
+    const latest = h.messages.at(-1) ?? [];
+    expect(latest.at(-1)).toEqual({
+      role: "error",
+      text: expect.stringContaining("Hint: Agent API endpoint is unreachable."),
+    });
+  });
+
+  it("clears active animation as soon as assistant output ends", async () => {
+    const fakeAgent = makeFakeAgent(async (agent) => {
+      agent.state.isStreaming = true;
+      await agent.emit({ type: "message_start", message: { role: "user", content: "" } });
+      await agent.emit({ type: "message_start", message: { role: "assistant", content: [] } });
+      agent.state.thinkingText = "Need to answer directly.";
+      await agent.emit({
+        type: "message_end",
+        message: { role: "assistant", content: [{ type: "text", text: "Done." }] },
+      });
+    });
+    const h = harness(async () => [], async () => [], async () => [], () => fakeAgent as never);
+
+    await h.runtime.bootstrap();
+    await h.runtime.submit("finish without agent_end");
+
+    expect(h.messages.at(-1)).toEqual([
+      { role: "user", text: "finish without agent_end" },
+      expect.objectContaining({ role: "thinking", text: "Need to answer directly.", thinkingLive: false }),
+      { role: "assistant", text: "Done." },
+    ]);
+    expect(h.activities).toContain("thinking");
+    expect(h.activities.at(-1)).toBe("ready");
+  });
+
   it("refreshes overview panel after successful command result", async () => {
     const marketSeen: string[][] = [];
     const portfolioSeen: string[][] = [];
@@ -142,7 +414,7 @@ describe("AppRuntime.submit", () => {
         return [{ code: "510300", name: "沪深300ETF", price: 4.2, pct: -0.5 }];
       },
     );
-    await h.runtime.submit("/factor list");
+    await h.runtime.submit("/help");
     expect(marketSeen[0]).toContain("000300.SH");
     expect(portfolioSeen[0]).toEqual(["510300.SH"]);
     expect(h.panels[0]).toMatchObject({ loading: true });
@@ -185,6 +457,83 @@ describe("AppRuntime.submit", () => {
     expect(h.statuses.at(-1)).toBeNull();
   });
 
+  it("syncs compacted session messages into conversation", async () => {
+    const h = harness();
+    const agent = {
+      state: {
+        isStreaming: false,
+        messages: [
+          { role: "user", content: "old question" },
+          { role: "assistant", content: "kept summary" },
+        ] as Array<{ role: string; content: string }>,
+        pendingToolCalls: new Set<string>(),
+      },
+      compact: async () => {
+        agent.state.messages = [
+          { role: "user", content: "new compacted context" },
+          { role: "assistant", content: "summary after compact" },
+        ];
+        return { summary: "summary after compact", firstKeptEntryId: "e2", tokensBefore: 42 };
+      },
+      waitForIdle: async () => {},
+    };
+    (h.runtime as unknown as { agent: object }).agent = agent;
+    await h.runtime.submit("/compact keep portfolio facts");
+    expect(h.messages.at(-1)).toEqual([
+      { role: "user", text: "new compacted context" },
+      { role: "assistant", text: "summary after compact" },
+      expect.objectContaining({ role: "assistant", text: expect.stringContaining("Compacted") }),
+    ]);
+  });
+
+  it("waits for active agent turns before compacting", async () => {
+    const h = harness();
+    const waitForIdle = mock(async () => {});
+    const compact = mock(async () => ({ summary: "summary after idle", firstKeptEntryId: "e2", tokensBefore: 42 }));
+    const agent = {
+      state: {
+        isStreaming: true,
+        messages: [] as Array<{ role: string; content: string }>,
+        pendingToolCalls: new Set<string>(),
+      },
+      waitForIdle,
+      compact,
+    };
+    (h.runtime as unknown as { agent: object }).agent = agent;
+
+    await h.runtime.submit("/compact");
+
+    expect(waitForIdle).toHaveBeenCalled();
+    expect(compact).toHaveBeenCalledWith(undefined);
+    expect(h.messages.at(-1)?.at(-1)).toEqual(expect.objectContaining({
+      role: "assistant",
+      text: expect.stringContaining("Compacted"),
+    }));
+  });
+
+  it("shows nothing-to-compact as an info status", async () => {
+    const h = harness();
+    const agent = {
+      state: {
+        isStreaming: false,
+        messages: [] as Array<{ role: string; content: string }>,
+        pendingToolCalls: new Set<string>(),
+      },
+      waitForIdle: mock(async () => {}),
+      compact: mock(async () => {
+        throw new Error("Nothing to compact");
+      }),
+    };
+    (h.runtime as unknown as { agent: object }).agent = agent;
+
+    await h.runtime.submit("/compact");
+
+    expect(h.statuses.at(-1)).toEqual({
+      kind: "info",
+      text: "Nothing to compact. The current session is already within the compaction window.",
+    });
+  });
+
   it("opens resume panel for bare resume command before agent initialization", async () => {
     const h = harness();
     expect(await h.runtime.submit("/resume")).toBe("continue");
@@ -197,6 +546,25 @@ describe("AppRuntime.submit", () => {
     expect(await h.runtime.submit("/portfolio")).toBe("continue");
     expect(h.portfolioOpened).toBe(1);
     expect(h.activities.at(-1)).toBe("ready");
+  });
+
+  it("selects local portfolio storage and refreshes overview state", async () => {
+    mkdirSync(join(OHQ, "portfolio"), { recursive: true });
+    await Bun.write(join(OHQ, "portfolio", "holdings_alpha.json"), JSON.stringify({
+      name: "Alpha组合",
+      updated: "2026-06-01",
+      funds: [{ code: "510300", name: "沪深300ETF" }],
+    }, null, 2));
+    const h = harness(
+      async () => [],
+      async () => [],
+      async (entries) => entries.map((entry) => ({ code: entry.code, name: entry.name, price: 1, pct: 0 })),
+    );
+    await h.runtime.submit("/portfolio use Alpha组合");
+    expect(h.localStates.at(-1)?.activePortfolio).toBe("Alpha组合");
+    expect(loadPanelPortfolio().symbols.map((item) => item.code)).toEqual(["510300"]);
+    const latestPanel = h.panels.at(-1)?.panel ?? [];
+    expect(latestPanel.some((section) => section.title === "Alpha组合")).toBe(true);
   });
 
   it("refreshes overview panel after /clear", async () => {

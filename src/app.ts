@@ -2,20 +2,24 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { AppRuntime, createInitialAppState } from "./app-runtime.ts";
 import { QuantTui } from "./tui/src/tui.ts";
+import { ensureDefaultSkills } from "./skill/index.ts";
 
 export async function startApp(): Promise<void> {
+  ensureDefaultSkills();
   const initial = createInitialAppState(getPkgVersion());
   let tui: QuantTui | null = null;
 
   const runtime = new AppRuntime({
     onMessages: (messages) => tui?.update({ messages }),
     onActivity: (activity) => tui?.update({ activity }),
+    onLocalState: (partial) => tui?.update(partial),
     onComposerStatus: (composerStatus) => tui?.update({ composerStatus }),
     onComposerQueue: (composerQueue) => tui?.update({ composerQueue }),
     onConfigRequest: () => tui?.openConfig(),
     onResumeRequest: (meta) => tui?.openResume(meta),
     onPortfolioRequest: () => tui?.openPortfolio(),
     onHelpRequest: () => tui?.openHelp(),
+    onSessionRequest: (meta) => tui?.openResume(meta),
     onPanel: (panel, panelLoading = false) => tui?.update({ panel, panelLoading }),
   });
 

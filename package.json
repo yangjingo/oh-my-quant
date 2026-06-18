@@ -36,21 +36,16 @@
     "build": "bun build src/index.ts --outdir dist --target node",
     "start": "bun run dist/index.js",
     "typecheck": "bun run tsc --noEmit",
+    "gen:insights": "bun run scripts/generate-insights.ts",
     "test": "bun test src/",
     "test:watch": "bun test --watch",
-    "prepublishOnly": "bun run build && bun run typecheck"
+    "prepublishOnly": "bun run gen:insights && bun run build && bun run typecheck"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^0.78.0",
-    "@earendil-works/pi-ai": "^0.78.0",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "ink": "^5.1.0",
-    "react": "^18.3.1",
-    "react-devtools-core": "^7.0.1",
     "typebox": "^1.1.39"
   },
   "devDependencies": {
-    "@types/react": "^18.3.0",
     "@types/bun": "^1.2.0",
     "typescript": "^5.7.0"
   }

@@ -1,10 +1,10 @@
-import { formatToolArgs, formatToolLine, toolDisplayLabel } from "./tools/catalog.ts";
+import { formatCompletedToolLine, formatToolArgs, formatToolLine, toolDisplayLabel } from "./tools/catalog.ts";
 import { buildCommandHelpText } from "./cli/catalog.ts";
 import { executeCommand, isLocalSlashCommand, parseCommand } from "./cli/registry.ts";
 import type { CommandEffect, CommandResult } from "./cli/types.ts";
-import { fetchLiveBars, formatRefreshMinute, formatSourceLabels, type PullSource } from "./source/sources.ts";
-import { dispatchUserMessage, isAgentTurnActive } from "./agent/dispatch.ts";
-import { createAgent, injectContext, updateSessionCtx, type QuantAgentSession } from "./agent/session.ts";
+import { fetchLiveBars, formatRefreshMinute, formatSourceLabels, type PullSource } from "./source/index.ts";
+import { dispatchUserMessage, isAgentTurnActive } from "./agent/src/dispatch.ts";
+import { createAgent, injectContext, updateSessionCtx, type QuantAgentSession } from "./agent/src/session.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
 import { listLocalPortfolios } from "./storage/local-portfolios.ts";
 import { loadPanelPortfolio, loadPortfolioSymbols } from "./storage/portfolio.ts";
@@ -12,6 +12,7 @@ import type { AppState, PanelSection, UIMessage } from "./tui/src/types.ts";
 import type { CodeEntry } from "./tui/src/watchlist.ts";
 import type { Bar, Market } from "./types/data.ts";
 import type { CurrentSessionMeta } from "./tui/src/panel.ts";
+import { perfLog, perfNow } from "./perf.ts";
 
 export interface AppRuntimeSnapshot {
   model: string;
@@ -21,12 +22,14 @@ export interface AppRuntimeSnapshot {
 interface AppRuntimeCallbacks {
   onMessages: (messages: UIMessage[]) => void;
   onActivity: (activity: AppState["activity"]) => void;
+  onLocalState?: (state: Pick<AppState, "activePortfolio" | "source" | "showPortfolioPanel">) => void;
   onComposerStatus?: (status: AppState["composerStatus"]) => void;
   onComposerQueue?: (queue: string[]) => void;
   onConfigRequest?: () => void;
   onResumeRequest?: (meta?: CurrentSessionMeta) => void;
   onPortfolioRequest?: () => void;
   onHelpRequest?: () => void;
+  onSessionRequest?: (meta?: CurrentSessionMeta) => void;
   onPanel?: (panel: PanelSection[], loading?: boolean) => void;
 }
 
@@ -35,6 +38,7 @@ type Holding = { code: string; name: string; price: number; pct: number };
 type QuoteFetcher = (entries: CodeEntry[], meta: PullMeta) => Promise<Quote[]>;
 type HoldingFetcher = (entries: CodeEntry[], meta: PullMeta) => Promise<Holding[]>;
 type SymbolProvider = () => Promise<CodeEntry[]>;
+type AgentFactory = () => QuantAgentSession;
 
 interface PullMeta {
   sources: PullSource[];
@@ -67,12 +71,14 @@ export class AppRuntime {
   /** After first successful Overview fetch, later refreshes stay in-place (no spinner wipe). */
   private overviewReady = false;
   private marketSections: PanelSection[] = [];
+  private marketRefreshPromise: Promise<void> | null = null;
 
   constructor(
     private readonly callbacks: AppRuntimeCallbacks,
     private readonly quoteFetcher: QuoteFetcher = fetchQuotes,
     private readonly symbolProvider: SymbolProvider = loadPortfolioSymbols,
     private readonly holdingFetcher: HoldingFetcher = fetchHoldings,
+    private readonly agentFactory: AgentFactory = createAgent,
   ) {}
 
   async refreshOverviewPanel(): Promise<void> {
@@ -81,6 +87,7 @@ export class AppRuntime {
 
   /** Startup agent, then enter ready before blocking on market quotes. */
   async bootstrap(): Promise<AppRuntimeSnapshot> {
+    const startedAt = perfNow();
     ensureDirs();
     const settings = loadSettings();
 
@@ -90,7 +97,9 @@ export class AppRuntime {
 
     this.setActivity("starting");
 
-    this.agent = createAgent();
+    const agentStartedAt = perfNow();
+    this.agent = this.agentFactory();
+    perfLog("runtime.agent.create", agentStartedAt);
     this.agent.subscribe(async (event) => {
       switch (event.type) {
         case "message_start": {
@@ -106,7 +115,7 @@ export class AppRuntime {
             if (last?.role === "assistant" && prev?.role === "thinking" && prev.thinkingLive) {
               break;
             }
-            this.messages.push({ role: "thinking", text: "", thinkingLive: true });
+            this.messages.push({ role: "thinking", text: "", thinkingLive: true, startedAt: Date.now() });
             this.messages.push({ role: "assistant", text: "" });
             this.emitMessages();
             this.setActivity("thinking");
@@ -125,12 +134,13 @@ export class AppRuntime {
         }
         case "tool_execution_start": {
           this.finalizeThinking();
+          const args = formatToolArgs(event.args, { truncate: false });
           this.messages.push({
             role: "tool",
             tool: {
               name: event.toolName,
-              label: formatToolLine(event.toolName, formatToolArgs(event.args)),
-              args: formatToolArgs(event.args) ?? "",
+              label: formatToolLine(event.toolName, args),
+              args: args ?? "",
               status: "running",
               startedAt: Date.now(),
             },
@@ -152,20 +162,31 @@ export class AppRuntime {
           if (last?.role === "tool" && last.tool) {
             last.tool.status = event.isError ? "error" : "done";
             last.tool.result = event.isError ? extractToolError(event.result) : extractTextFromResult(event.result);
+            last.tool.label = formatCompletedToolLine(
+              last.tool.name,
+              last.tool.args,
+              last.tool.result,
+              event.isError,
+            );
             this.emitMessages();
           }
           break;
         }
         case "agent_end": {
-          await this.refreshMarketPanel();
+          this.scheduleMarketRefresh();
           this.setActivity("ready");
           break;
         }
       }
     });
 
+    void this.agent.waitForIdle()
+      .then(() => perfLog("runtime.agent.warmup", agentStartedAt))
+      .catch(() => {});
+
     this.setActivity("ready");
-    void this.refreshMarketPanel().catch(() => this.setMarketUnavailable());
+    this.scheduleMarketRefresh();
+    perfLog("runtime.bootstrap", startedAt);
 
     return {
       model: readModel(settings.env),
@@ -201,6 +222,12 @@ export class AppRuntime {
 
   private async collectCurrentSessionMeta(): Promise<CurrentSessionMeta | undefined> {
     if (!this.agent) return undefined;
+    if (
+      typeof this.agent.getSessionMetadata !== "function"
+      || typeof this.agent.getSessionEntries !== "function"
+    ) {
+      return undefined;
+    }
     const [metadata, usage, entries] = await Promise.all([
       this.agent.getSessionMetadata(),
       Promise.resolve(this.agent.getContextUsage()),
@@ -223,6 +250,17 @@ export class AppRuntime {
     parsed: NonNullable<ReturnType<typeof parseCommand>>,
     localOnly: boolean,
   ): Promise<void> {
+    const isSkillInvoke = parsed.command === "skill" && parsed.positional[0] && !["list", "info"].includes(parsed.positional[0]);
+    const skillName = isSkillInvoke ? parsed.positional[0] : "";
+    if (isSkillInvoke) {
+      this.messages.push({
+        role: "skill",
+        skill: { name: skillName, label: `skill:${skillName}`, status: "running", startedAt: Date.now() },
+      });
+      this.emitMessages();
+      this.setActivity("running tool");
+    }
+
     try {
       const result = await executeCommand(parsed, {
         openConfig: this.callbacks.onConfigRequest
@@ -237,17 +275,19 @@ export class AppRuntime {
         openHelp: this.callbacks.onHelpRequest
           ? () => { this.callbacks.onHelpRequest!(); }
           : undefined,
+        openSession: (this.callbacks.onSessionRequest || this.callbacks.onResumeRequest)
+          ? () => { void this.collectCurrentSessionMeta().then(meta => (this.callbacks.onSessionRequest ?? this.callbacks.onResumeRequest)?.(meta)); }
+          : undefined,
         agentSession: this.agent,
       });
-      if (parsed.command === "resume" && result.success && parsed.positional[0]) {
-        this.syncMessagesFromAgentState();
-      }
       this.applyCommandResult(result);
+      if (isSkillInvoke) this.finalizeSkillMessage(!result.success);
       updateLastSymbol(parsed.flags);
     } catch (err) {
+      if (isSkillInvoke) this.finalizeSkillMessage(true);
       this.setStatus({ kind: "error", text: errorText(err) });
     } finally {
-      await this.refreshMarketPanel();
+      this.scheduleMarketRefresh();
       if (!localOnly) this.slashRunning = false;
       if (!isAgentTurnActive(this.agent)) this.setActivity("ready");
     }
@@ -289,13 +329,42 @@ export class AppRuntime {
       case "openResume":
         void this.collectCurrentSessionMeta().then(meta => this.callbacks.onResumeRequest?.(meta));
         break;
+      case "openSession":
+        void this.collectCurrentSessionMeta()
+          .then(meta => (this.callbacks.onSessionRequest ?? this.callbacks.onResumeRequest)?.(meta));
+        break;
       case "openPortfolio":
         this.callbacks.onPortfolioRequest?.();
         break;
       case "openHelp":
         this.callbacks.onHelpRequest?.();
         break;
+      case "compactSession":
+        this.syncMessagesFromAgentState();
+        break;
+      case "sessionChanged":
+        this.syncMessagesFromAgentState();
+        void this.collectCurrentSessionMeta()
+          .then(meta => this.callbacks.onSessionRequest?.(meta))
+          .catch(() => {});
+        break;
+      case "portfolioChanged":
+        this.emitLocalStorageState();
+        void this.refreshMarketPanel().catch(() => this.setMarketUnavailable());
+        break;
     }
+  }
+
+  private emitLocalStorageState(): void {
+    const settings = loadSettings();
+    const portfolioFile = settings.preferences.currentPortfolioFile || "holdings.json";
+    const portfolios = listLocalPortfolios();
+    const activePortfolio = portfolios.find((p) => p.fileName === portfolioFile)?.name || portfolioFile;
+    this.callbacks.onLocalState?.({
+      activePortfolio,
+      source: settings.preferences.source || "llmquant-data",
+      showPortfolioPanel: settings.showPortfolioPanel !== false,
+    });
   }
 
   private async runAgentPrompt(input: string): Promise<void> {
@@ -309,13 +378,15 @@ export class AppRuntime {
     const text = injectContext(input);
     this.enqueueComposer(input);
     try {
+      const startedAt = perfNow();
       await dispatchUserMessage(this.agent, text);
+      perfLog("runtime.agent.dispatch", startedAt);
     } catch (err) {
       if (this.composerQueue.at(-1) === input) {
         this.composerQueue.pop();
         this.emitComposerQueue();
       }
-      this.messages.push({ role: "error", text: `Agent: ${errorText(err)}` });
+      this.messages.push({ role: "error", text: formatAgentError("Agent", errorText(err)) });
       this.emitMessages();
       this.setStatus({ kind: "error", text: errorText(err) });
       if (!isAgentTurnActive(this.agent)) this.setActivity("ready");
@@ -389,6 +460,18 @@ export class AppRuntime {
   }
 
   private static readonly MARKET_REFRESH_TIMEOUT_MS = 30_000;
+
+  private scheduleMarketRefresh(): void {
+    if (this.marketRefreshPromise) return;
+    if (!this.overviewReady) this.syncOverviewPanel(true);
+    const startedAt = perfNow();
+    this.marketRefreshPromise = this.refreshMarketPanel()
+      .then(() => perfLog("runtime.market.refresh", startedAt, { background: true }))
+      .catch(() => this.setMarketUnavailable())
+      .finally(() => {
+        this.marketRefreshPromise = null;
+      });
+  }
 
   private async refreshMarketPanel(): Promise<void> {
     if (!this.overviewReady) this.syncOverviewPanel(true);
@@ -493,11 +576,12 @@ export class AppRuntime {
     const assistant = this.findLatestMessage("assistant");
     const errText = errorMessage || text || `API call failed (${stopReason})`;
     if (assistant) {
-      assistant.text = isError ? `Agent error: ${errText}` : text;
+      assistant.text = isError ? formatAgentError("Agent error", errText) : text;
       if (isError) assistant.role = "error";
     } else if (isError) {
-      this.messages.push({ role: "error", text: `Agent error: ${errText}` });
+      this.messages.push({ role: "error", text: formatAgentError("Agent error", errText) });
     }
+    this.setActivity("ready");
     this.emitMessages();
   }
 
@@ -526,10 +610,10 @@ export class AppRuntime {
     const assistant = this.findLatestMessage("assistant");
     if (assistant) {
       const idx = this.messages.indexOf(assistant);
-      this.messages.splice(idx, 0, { role: "thinking", text, thinkingLive: true });
+      this.messages.splice(idx, 0, { role: "thinking", text, thinkingLive: true, startedAt: Date.now() });
       return;
     }
-    this.messages.push({ role: "thinking", text, thinkingLive: true });
+    this.messages.push({ role: "thinking", text, thinkingLive: true, startedAt: Date.now() });
   }
 
   private finalizeThinking(): void {
@@ -538,6 +622,16 @@ export class AppRuntime {
       if (msg.role !== "thinking" || !msg.thinkingLive) continue;
       msg.thinkingLive = false;
       if (!msg.text?.trim()) this.messages.splice(i, 1);
+      return;
+    }
+  }
+
+  private finalizeSkillMessage(isError: boolean): void {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      const msg = this.messages[i];
+      if (msg.role !== "skill" || msg.skill?.status !== "running") continue;
+      if (msg.skill) msg.skill.status = isError ? "error" : "done";
+      this.emitMessages();
       return;
     }
   }
@@ -602,8 +696,7 @@ export function createInitialAppState(version: string): AppState {
     composerQueue: [],
     composerStatus: null,
     activePortfolio,
-    aShareSource: settings.preferences.aShareSource || "akshare",
-    globalSource: settings.preferences.globalSource || "llmquant-data",
+    source: settings.preferences.source || "llmquant-data",
     showPortfolioPanel: settings.showPortfolioPanel !== false,
   };
 }
@@ -658,6 +751,37 @@ function updateLastSymbol(flags: Record<string, unknown>): void {
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function formatAgentError(prefix: string, message: string): string {
+  const hint = agentErrorHint(message);
+  return hint ? `${prefix}: ${message}\nHint: ${hint}` : `${prefix}: ${message}`;
+}
+
+function agentErrorHint(message: string): string | null {
+  const text = message.toLowerCase();
+  if (
+    /\b(econnrefused|econnreset|etimedout|enotfound|socket hang up|fetch failed)\b/i.test(message)
+    || /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?/i.test(message)
+  ) {
+    return "Agent API endpoint is unreachable. Check the local API service/port, proxy settings, and the configured base URL.";
+  }
+  if (/\b(401|403|unauthorized|forbidden|invalid api key|missing api key)\b/i.test(message)) {
+    return "Check WHYJ_AUTH_TOKEN or WHYJ_API_KEY in /config; the token may be missing, expired, or rejected by the provider.";
+  }
+  if (/\b(404|model not found|not_found)\b/i.test(message)) {
+    return "Check the configured model and provider base URL; the selected model may not exist on this endpoint.";
+  }
+  if (/\b(429|rate limit|too many requests)\b/i.test(message)) {
+    return "The provider is rate limiting requests. Wait briefly or switch to another configured model/provider.";
+  }
+  if (/\b(500|502|503|504|bad gateway|service unavailable|gateway timeout)\b/i.test(message)) {
+    return "The provider returned a server-side error. Retry later or switch the Agent API endpoint/provider.";
+  }
+  if (text.includes("api") && (text.includes("port") || text.includes("endpoint") || text.includes("base url"))) {
+    return "Verify the Agent API base URL, port, and provider configuration in /config.";
+  }
+  return null;
 }
 
 
@@ -753,6 +877,7 @@ function inferMarket(symbol: string): Market {
 export const helpText = buildCommandHelpText();
 
 function isPureLocalCommand(parsed: NonNullable<ReturnType<typeof parseCommand>>): boolean {
-  if (parsed.command === "skill" && ["run", "trigger"].includes(parsed.positional[0] || "")) return false;
+  // skill list/info are local; skill:name, skill run, skill trigger need agent
+  if (parsed.command === "skill" && parsed.positional[0] && !["list", "info"].includes(parsed.positional[0])) return false;
   return isLocalSlashCommand(parsed.command);
 }

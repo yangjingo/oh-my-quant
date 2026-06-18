@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { loadPanelPortfolio } from "../../storage/panel-portfolio.ts";
 import { loadSettings } from "../../storage/index.ts";
 import { configHandler, portfolioHandler, resumeHandler, sessionHandler } from "./system.ts";
-import { skillHandler } from "./skill.ts";
+import { skillHandler } from "../../skill/handler.ts";
 import type { QuantAgentSession } from "../../agent/src/session.ts";
 
 const OHQ = join(tmpdir(), `whyj-portfolio-handler-${Date.now()}`);

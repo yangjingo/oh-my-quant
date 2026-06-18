@@ -5,20 +5,17 @@
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { DATA_DIR } from "../storage/index.ts";
+import { DATA_DIR } from "../../storage/index.ts";
+import { formatSkillsForSystemPrompt, type Skill } from "./pi/index.ts";
 
 // ── Base system prompt ──
 
 export const BASE_SYSTEM_PROMPT = `You are a quantitative finance analyst in WhyJ Quant — an interactive quant research terminal.
 
-## Data Tools (MCP-backed, call directly)
-- tushare_daily: A-share daily OHLCV bars (e.g. 000001.SZ). Caches locally.
-- tushare_stock_basic: Search A-share stocks by name/code/industry
-- tushare_fina_indicator: A-share financial indicators (EPS, ROE, ROA, gross margin, debt ratio, PE, PB)
-- llmquant_price: US equity daily OHLCV (e.g. AAPL, MSFT). Caches locally.
-- fd_price: US equity prices via Financial Datasets
-- fd_snapshot: US stock financial snapshot (PE, PB, ROE, market cap, dividend yield)
-- fd_company: US company facts (sector, industry, employees, exchange, market cap)
+## Data Tools (local, call directly)
+- fetch_bars: A-share / index / fund daily bars through AKShare. Caches locally.
+- search_symbols: Search A-share symbols through Tushare direct API.
+- fetch_snapshot: Pull compact symbol snapshot through direct data adapters.
 
 ## Quant Tools (require cached price data)
 - compute_factor: momentum / reversal / volatility / volume_ratio / rsi / sma_deviation
@@ -27,10 +24,20 @@ export const BASE_SYSTEM_PROMPT = `You are a quantitative finance analyst in Why
 - score_benchmark: 3-dimension strategy scoring (Return 40 + Risk 40 + Robustness 20 = 100), saves to .ohquant/
 - show_dashboard: aggregated benchmark results ranking
 
+## Shell Tool (pi/codex-style)
+- bash: run shell commands (whyj CLI, bun test, git, file inspection). Params: command, optional workdir, optional timeout_ms. Prefer local data / quant tools for market data.
+- Before every shell tool call, choose syntax from the active platform. If the tool is displayed as PowerShell.*, the command must be valid PowerShell, not Bash.
+- On Windows/PowerShell, use PowerShell syntax: Get-Content, Get-ChildItem, Select-String, ForEach-Object, ";" between statements, "$name" variables, and arrays like @("000300.SH","000905.SH").
+- Windows/PowerShell forbidden Bash patterns: "cmd1 && cmd2", "ls -la", "tail -n", "cat file | head", "for x in ...; do ...; done", "VAR=value cmd", "$(cmd)" for shell substitution, WSL/Linux paths like /mnt/c/ unless the user explicitly asks for WSL.
+- Windows/PowerShell replacements: use "cmd1; cmd2" instead of "cmd1 && cmd2"; "Get-ChildItem -Force" instead of "ls -la"; "Get-Content path -Tail N" instead of "tail -n N path"; "Get-Content path | Select-Object -First N" instead of "head"; "foreach ($x in @(...)) { ... }" instead of Bash for loops; "Write-Output" instead of echo when printing labels.
+- Windows/PowerShell UTF-8 rule: when reading local JSON/Markdown/text that may contain Chinese, prefer "Get-Content path -Encoding utf8". The shell is preconfigured for UTF-8 output, but explicit encoding is safer.
+- On Unix/macOS, use Bash/sh syntax: cat, ls, grep, for loops, pipes, and "&&".
+- For local cache fallback on Windows, prefer PowerShell one-liners such as: Write-Output "=== .ohquant directory ==="; Get-ChildItem -Force .ohquant; Get-Content .ohquant/data/tushare/000300.SH/daily.json -Tail 3
+
 ## Workflow
-1. Fetch price data first: tushare_daily (A-share) or llmquant_price (US)
+1. Fetch price data first: use fetch_bars
 2. Proceed stepwise: data → factor → backtest → risk → benchmark
-3. If a tool errors, read the error message and adapt (different source, different symbol format, wider date range)
+3. If a tool errors, read the error message and adapt (different symbol format, wider date range, local cache fallback)
 4. Reuse last symbol when user says "it" or omits the code
 
 ## Output Constraints
@@ -50,13 +57,18 @@ export const BASE_SYSTEM_PROMPT = `You are a quantitative finance analyst in Why
 
 // ── Dynamic context injection (from pi: agent-harness.ts createTurnState) ──
 
-export function buildSystemPrompt(extra?: string): string {
+export function buildSystemPrompt(extra?: string, skills: Skill[] = []): string {
   const parts = [BASE_SYSTEM_PROMPT];
 
   // Inject available cached data
   const cached = listCachedSymbols();
   if (cached.length > 0) {
     parts.push(`\n## Available cached data\n${cached.map((s) => `- ${s.symbol} (${s.source}, ${s.bars} bars)`).join("\n")}`);
+  }
+
+  const skillsBlock = formatSkillsForSystemPrompt(skills);
+  if (skillsBlock) {
+    parts.push(`\n${skillsBlock}`);
   }
 
   if (extra) {

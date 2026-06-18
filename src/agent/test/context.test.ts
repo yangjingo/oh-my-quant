@@ -1,15 +1,16 @@
 import { describe, it, expect } from "bun:test";
-import { BASE_SYSTEM_PROMPT, buildSystemPrompt, injectSessionContext } from "./context.ts";
+import { BASE_SYSTEM_PROMPT, buildSystemPrompt, injectSessionContext } from "../src/context.ts";
 
 describe("BASE_SYSTEM_PROMPT", () => {
   it("contains quant analyst identity", () => {
     expect(BASE_SYSTEM_PROMPT).toContain("quantitative finance analyst");
   });
 
-  it("lists MCP data tools", () => {
-    expect(BASE_SYSTEM_PROMPT).toContain("tushare_daily");
-    expect(BASE_SYSTEM_PROMPT).toContain("llmquant_price");
-    expect(BASE_SYSTEM_PROMPT).toContain("fd_snapshot");
+  it("lists local data tools", () => {
+    expect(BASE_SYSTEM_PROMPT).toContain("fetch_bars");
+    expect(BASE_SYSTEM_PROMPT).toContain("AKShare");
+    expect(BASE_SYSTEM_PROMPT).toContain("search_symbols");
+    expect(BASE_SYSTEM_PROMPT).toContain("fetch_snapshot");
   });
 
   it("lists computation tools", () => {
@@ -40,6 +41,21 @@ describe("BASE_SYSTEM_PROMPT", () => {
     expect(BASE_SYSTEM_PROMPT).toContain("Fetch price data first");
     expect(BASE_SYSTEM_PROMPT).toContain("data → factor → backtest → risk → benchmark");
   });
+
+  it("lists shell tool", () => {
+    expect(BASE_SYSTEM_PROMPT).toContain("bash:");
+  });
+
+  it("constrains Windows shell calls to PowerShell syntax", () => {
+    expect(BASE_SYSTEM_PROMPT).toContain("PowerShell.*");
+    expect(BASE_SYSTEM_PROMPT).toContain("ls -la");
+    expect(BASE_SYSTEM_PROMPT).toContain("Get-ChildItem -Force");
+    expect(BASE_SYSTEM_PROMPT).toContain("cmd1 && cmd2");
+    expect(BASE_SYSTEM_PROMPT).toContain("cmd1; cmd2");
+    expect(BASE_SYSTEM_PROMPT).toContain("Get-Content path -Tail N");
+    expect(BASE_SYSTEM_PROMPT).toContain("Get-Content path -Encoding utf8");
+    expect(BASE_SYSTEM_PROMPT).toContain("foreach ($x in @(...))");
+  });
 });
 
 describe("buildSystemPrompt", () => {
@@ -51,6 +67,17 @@ describe("buildSystemPrompt", () => {
   it("appends extra content", () => {
     const p = buildSystemPrompt("Extra instructions here");
     expect(p).toContain("Extra instructions here");
+  });
+
+  it("appends available skills in pi XML format", () => {
+    const p = buildSystemPrompt(undefined, [{
+      name: "whyj-quant",
+      description: "Use for benchmark interpretation.",
+      content: "# WhyJ Quant",
+      filePath: "C:/tmp/whyj-quant/SKILL.md",
+    }]);
+    expect(p).toContain("<available_skills>");
+    expect(p).toContain("<name>whyj-quant</name>");
   });
 });
 

@@ -11,14 +11,15 @@ import {
   helpHandler,
   portfolioHandler,
   resumeHandler,
+  sessionHandler,
 } from "./handlers/system.ts";
-import { backtestHandler, benchmarkHandler, factorHandler, riskHandler } from "./handlers/workflow.ts";
+import { skillHandler } from "../skill/handler.ts";
 import type { CommandContext, CommandHandler, CommandResult, ParsedCommand } from "./types.ts";
 
 export { SLASH_COMMANDS };
 export type { CommandContext, CommandResult, ParsedCommand } from "./types.ts";
 
-const LOCAL_COMMANDS = new Set(["help", "clear", "config", "portfolio", "resume", "compact"]);
+const LOCAL_COMMANDS = new Set(["help", "session", "clear", "config", "portfolio", "resume", "compact", "skill"]);
 
 export function isLocalSlashCommand(command: string): boolean {
   return LOCAL_COMMANDS.has(command);
@@ -29,9 +30,15 @@ export function parseCommand(input: string): ParsedCommand | null {
   if (!trimmed.startsWith("/")) return null;
   const parts = trimmed.slice(1).split(/\s+/);
   if (parts.length === 0 || !parts[0]) return null;
-  const command = parts[0];
+  let command = parts[0];
+  let colonArg = "";
+  const colonIdx = command.indexOf(":");
+  if (colonIdx > 0) {
+    colonArg = command.slice(colonIdx + 1);
+    command = command.slice(0, colonIdx);
+  }
   const flags: Record<string, string | number | boolean> = {};
-  const positional: string[] = [];
+  const positional: string[] = colonArg ? [colonArg] : [];
   let i = 1;
   while (i < parts.length) {
     const part = parts[i];
@@ -54,14 +61,12 @@ export function parseCommand(input: string): ParsedCommand | null {
 }
 
 const HANDLERS: Record<string, CommandHandler> = {
-  factor: factorHandler,
-  backtest: backtestHandler,
-  risk: riskHandler,
   config: configHandler,
   portfolio: portfolioHandler,
   compact: compactHandler,
-  benchmark: benchmarkHandler,
   resume: resumeHandler,
+  session: sessionHandler,
+  skill: skillHandler,
   help: helpHandler,
   clear: clearHandler,
 };

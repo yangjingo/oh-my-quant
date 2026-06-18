@@ -6,7 +6,8 @@
  *   bun run src/index.ts -- -c "/help"   One-shot command
  */
 import { migrateOldConfig, loadSettings } from "./storage/index.ts";
-import { parseCommand, executeCommand } from "./commands/registry.ts";
+import { parseCommand, executeCommand } from "./cli/registry.ts";
+import { COMMAND_CATALOG } from "./cli/catalog.ts";
 import { printBanner } from "./tui/src/banner.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -27,7 +28,7 @@ interface CliEnvelope {
 migrateOldConfig();
 const settings = loadSettings();
 
-// 2. Inject API keys from settings into process.env (so MCP client can find them)
+// 2. Inject API keys from settings into process.env for data adapters and tools.
 for (const [key, value] of Object.entries(settings.env)) {
   if (value && !process.env[key]) process.env[key] = value;
 }
@@ -128,11 +129,6 @@ function runDoctor() {
       thinkingLevel: settings.thinkingLevel,
     },
     auth,
-    mcp: {
-      configFiles: [join(process.cwd(), ".claude", "mcp.json"), join(process.cwd(), ".mcp.json")]
-        .filter((path) => existsSync(path)),
-      note: "Run /mcp connect from the TUI or one-shot command to verify endpoint reachability.",
-    },
     ready,
   };
 }
@@ -147,22 +143,23 @@ function writeDoctorText(doctor: ReturnType<typeof runDoctor>) {
     `model: ${doctor.config.model}`,
     `auth:`,
     ...authLines,
-    `mcp config files: ${doctor.mcp.configFiles.length ? doctor.mcp.configFiles.join(", ") : "none"}`,
   ].join("\n"));
 }
 
 function writeHelp(json: boolean) {
+  const slashCommands = COMMAND_CATALOG.filter((command) => !command.compatibility).map((command) => command.name);
+  const compatibility = COMMAND_CATALOG.filter((command) => command.compatibility).map((command) => command.name);
   const help = {
     name: "whyj",
     description: "WhyJ Quant interactive AI-powered quantitative analysis terminal",
     commands: [
-      { command: "whyj", description: "Start the interactive Ink REPL" },
-      { command: "whyj --json doctor", description: "Check config, auth sources, runtime, and MCP config discovery" },
+      { command: "whyj", description: "Start the interactive frame-buffer TUI" },
+      { command: "whyj --json doctor", description: "Check config, auth sources, and runtime readiness" },
       { command: "whyj -c \"/help\"", description: "Run one slash command and exit" },
       { command: "whyj --json -c \"/factor list\"", description: "Run one slash command and emit a stable JSON envelope" },
     ],
-    slashCommands: ["/data", "/factor", "/backtest", "/risk", "/benchmark", "/add", "/config", "/mcp", "/portfolio", "/help", "/clear", "/exit"],
-    compatibility: ["/skill", "/claw", "/watch"],
+    slashCommands,
+    compatibility,
   };
   if (json) writeJson({ ok: true, command: "help", data: help });
   else console.log([

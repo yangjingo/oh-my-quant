@@ -14,17 +14,15 @@ export interface CommandCatalogEntry {
 }
 
 export const COMMAND_CATALOG: readonly CommandCatalogEntry[] = [
-  { name: "/factor", desc: "Factor analysis", help: "List or compute factors", example: "/factor analyze --symbol CODE --factor momentum", subcommands: ["list", "analyze"] },
-  { name: "/backtest", desc: "SMA backtest", help: "Run SMA backtests", example: "/backtest run --symbol CODE --fast 20 --slow 60", subcommands: ["run"] },
-  { name: "/risk", desc: "Risk metrics", help: "Check risk metrics", example: "/risk check --symbol CODE", subcommands: ["check"] },
-  { name: "/benchmark", desc: "Score/dashboard", help: "Run scoring or show dashboard", example: "/benchmark run --symbol CODE", subcommands: ["run", "dashboard"] },
-  { name: "/compact", desc: "Compact session", help: "Compact the active harness-backed session", example: "/compact focus on signals" },
-  { name: "/resume", desc: "Resume session", help: "Open the resume panel or restore a previous harness-backed session", example: "/resume" },
-  { name: "/portfolio", desc: "Local portfolios", help: "Open the local portfolio comparison panel", example: "/portfolio" },
-  { name: "/config", desc: "Settings", help: "Show config status", example: "/config" },
-  { name: "/help", desc: "Show all commands", help: "Show all commands" },
-  { name: "/clear", desc: "Clear conversation", help: "Clear conversation" },
-  { name: "/exit", desc: "Exit WhyJ Quant", help: "Exit WhyJ Quant" },
+  { name: "/compact", desc: "Compact", help: "Compact session with optional focus instructions", example: "/compact focus on signals" },
+  { name: "/session", desc: "Session", help: "Show current session metadata", example: "/session" },
+  { name: "/resume", desc: "Resume", help: "List or restore saved sessions", example: "/resume" },
+  { name: "/portfolio", desc: "Portfolio", help: "List, compare, and switch local portfolios", example: "/portfolio" },
+  { name: "/config", desc: "Config", help: "Show or open config panel", example: "/config" },
+  { name: "/skill", desc: "Skill", help: "List, inspect, and run skills", example: "/skill" },
+  { name: "/help", desc: "Help", help: "Show commands and hotkeys" },
+  { name: "/clear", desc: "Clear", help: "Clear conversation and reset agent" },
+  { name: "/exit", desc: "Exit", help: "Exit WhyJ Quant" },
 ];
 
 export const SLASH_COMMANDS = COMMAND_CATALOG.map((command) => command.name);
@@ -33,6 +31,16 @@ export function buildCommandHelpText(): string {
   const lines = [
     "Commands",
     ...COMMAND_CATALOG.map((command) => `  ${command.name.padEnd(10)} ${command.desc}`.trimEnd()),
+    "",
+    "Hotkeys",
+    "  Ctrl+P     Open settings",
+    "  Enter      Submit input",
+    "  Tab        Accept slash suggestion",
+    "  Esc        Clear input / close panel",
+    "  Ctrl+C     Clear input or quit",
+    "  PgUp/Down  Scroll conversation",
+    "  Shift+PgUp/PgDown  Scroll overview",
+    "",
     "No / prefix → AI analysis",
   ];
   return lines.join("\n");

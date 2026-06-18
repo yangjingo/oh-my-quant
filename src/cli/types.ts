@@ -1,4 +1,4 @@
-import type { QuantAgentSession } from "../agent/session.ts";
+import type { QuantAgentSession } from "../agent/src/session.ts";
 
 export interface ParsedCommand {
   command: string;
@@ -12,8 +12,12 @@ export type CommandEffect =
   | { type: "resetAgent" }
   | { type: "openConfig" }
   | { type: "openResume" }
+  | { type: "openSession" }
   | { type: "openPortfolio" }
-  | { type: "openHelp" };
+  | { type: "openHelp" }
+  | { type: "compactSession" }
+  | { type: "sessionChanged" }
+  | { type: "portfolioChanged" };
 
 export interface CommandContext {
   /** When set, /config opens the settings panel. */
@@ -24,6 +28,7 @@ export interface CommandContext {
   openPortfolio?: () => void;
   /** When set, /help opens the help panel. */
   openHelp?: () => void;
+  openSession?: () => void;
   /** Active agent session for session/harness commands. */
   agentSession?: QuantAgentSession | null;
 }
