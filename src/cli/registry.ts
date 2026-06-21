@@ -11,7 +11,6 @@ import {
   helpHandler,
   portfolioHandler,
   resumeHandler,
-  sessionHandler,
 } from "./handlers/system.ts";
 import { skillHandler } from "../skill/handler.ts";
 import type { CommandContext, CommandHandler, CommandResult, ParsedCommand } from "./types.ts";
@@ -19,7 +18,7 @@ import type { CommandContext, CommandHandler, CommandResult, ParsedCommand } fro
 export { SLASH_COMMANDS };
 export type { CommandContext, CommandResult, ParsedCommand } from "./types.ts";
 
-const LOCAL_COMMANDS = new Set(["help", "session", "clear", "config", "portfolio", "resume", "compact", "skill"]);
+const LOCAL_COMMANDS = new Set(["help", "clear", "config", "portfolio", "resume", "compact", "skill"]);
 
 export function isLocalSlashCommand(command: string): boolean {
   return LOCAL_COMMANDS.has(command);
@@ -37,6 +36,7 @@ export function parseCommand(input: string): ParsedCommand | null {
     colonArg = command.slice(colonIdx + 1);
     command = command.slice(0, colonIdx);
   }
+  if (command === "session") command = "resume";
   const flags: Record<string, string | number | boolean> = {};
   const positional: string[] = colonArg ? [colonArg] : [];
   let i = 1;
@@ -65,7 +65,6 @@ const HANDLERS: Record<string, CommandHandler> = {
   portfolio: portfolioHandler,
   compact: compactHandler,
   resume: resumeHandler,
-  session: sessionHandler,
   skill: skillHandler,
   help: helpHandler,
   clear: clearHandler,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { Buffer, sanitizeTerminalText, wrap } from "../src/buffer.ts";
 import { capSections, conversationMaxScrollUp, drawComposer, drawConversation, drawPortfolio, drawStatus, layout, overviewMaxScrollTop, buildOverviewView, buildConversationView } from "../src/render.ts";
+import { buildConversationLines } from "../src/render-lines.ts";
 import { extractConversationSelection } from "../src/selection.ts";
 import { shellDisplayName } from "../../tools/catalog.ts";
 import { GOLD, POSITIVE } from "../src/styles.ts";
@@ -591,6 +592,21 @@ describe("drawComposer queue", () => {
   });
 });
 
+describe("render lines", () => {
+  it("formats compact receipts and tool previews through the shared line renderer", () => {
+    const lines = buildConversationLines([
+      { role: "assistant", text: "Compacted\nmetric  value  note\nturns  12  kept\nretention map\nfacts  ███░  kept" },
+      { role: "tool", tool: { name: "bash", args: "git diff", label: "bash git diff", status: "done", startedAt: Date.now(), result: "+ added line\n- removed line" } },
+    ] as UIMessage[], 48);
+
+    expect(lines.some((line) => line.text.includes("Compacted"))).toBe(true);
+    expect(lines.some((line) => line.text.includes("retention map"))).toBe(true);
+    expect(lines.some((line) => line.text.includes("bash git diff"))).toBe(true);
+    expect(lines.some((line) => line.text.includes("added line"))).toBe(true);
+    expect(lines.some((line) => line.text.includes("removed line"))).toBe(true);
+  });
+});
+
 describe("drawStatus", () => {
   it("renders the active model, data sources, and portfolio", () => {
     const buf = new Buffer(140, 4);
@@ -714,14 +730,18 @@ describe("portfolio display", () => {
     expect(rows.some(r => r.includes("Waiting for market data"))).toBe(true);
   });
 
-  it("shows compacting overlay copy for an empty conversation", () => {
+  it("shows compacting as a bottom status banner for an empty conversation", () => {
     const buf = new Buffer(100, 24);
     const L = layout(100, 24);
 
     drawConversation(buf, L.conversation, [], "compacting", L.mainPane);
 
-    const text = buf.toPlain().join("\n");
-    expect(text).toContain("WhyJ is compacting");
+    const rows = buf.toPlain();
+    const statusRow = L.conversation.y + L.conversation.h - 3;
+    const tipRow = L.conversation.y + L.conversation.h - 2;
+    expect(rows[statusRow]).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Compacting\.\.\. \(0 tokens\)/);
+    expect(rows[tipRow]).toContain("Tip:");
+    expect(rows.join("\n")).not.toContain("WhyJ is compacting");
   });
 
   it("shows title when sections present", () => {

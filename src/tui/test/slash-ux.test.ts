@@ -3,7 +3,7 @@
  * Directly exercises handleKeyAction to verify auto-complete / submit behavior.
  */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { QuantTui } from "../src/tui.ts";
 import { savePanelPortfolio } from "../../storage/panel-portfolio.ts";
@@ -117,10 +117,10 @@ describe("slash command UX simulation", () => {
     expect(submitted).toBe("/settings");
   });
 
-  it("supports PI-style session commands", () => {
+  it("normalizes legacy /session input to /resume", () => {
     type("/session");
     pressEnter();
-    expect(submitted).toBe("/session");
+    expect(submitted).toBe("/resume");
   });
 
   it("submits directly when no suggestions exist", () => {
@@ -262,5 +262,59 @@ describe("slash command UX simulation", () => {
     (tui as any).panel.close();
     type("/");
     expect(getInput()).toBe("/");
+  });
+
+  it("syncs session metadata without reopening the resume panel", () => {
+    expect((tui as any).panel.isOpen()).toBe(false);
+
+    tui.syncCurrentSessionMeta({
+      id: "sess-1",
+      createdAt: "2026-06-20T00:00:00.000Z",
+      usage: { tokens: 512, contextWindow: 2000, percent: 25.6 },
+      entryCount: { messages: 8, compactions: 1, branches: 0 },
+    });
+
+    expect((tui as any).panel.isOpen()).toBe(false);
+  });
+
+  it("keeps the resume panel closed after selecting a session and syncing resumed metadata", () => {
+    const encodeCwd = (cwd: string) => `--${cwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
+    const cwdDir = join(OHQ, "sessions", encodeCwd(process.cwd()));
+    mkdirSync(cwdDir, { recursive: true });
+    const sessionId = "019eaf98-85f6-7ddc-96c1-1a32a2387777";
+    writeFileSync(
+      join(cwdDir, `2026-06-20T08-00-00-000Z_${sessionId}.jsonl`),
+      [
+        JSON.stringify({ type: "session", version: 3, id: sessionId, timestamp: "2026-06-20T08:00:00.000Z", cwd: process.cwd() }),
+        JSON.stringify({ type: "message", id: "m1", timestamp: "2026-06-20T08:03:00.000Z", message: { role: "user", content: "恢复这个会话" } }),
+      ].join("\n"),
+      "utf-8",
+    );
+
+    let resumeCommand: string | null = null;
+    tui.onSubmit((text: string) => { resumeCommand = text; });
+
+    tui.openResume({
+      id: "current-session",
+      createdAt: "2026-06-20T07:00:00.000Z",
+      usage: { tokens: 128, contextWindow: 2000, percent: 6.4 },
+      entryCount: { messages: 2, compactions: 0, branches: 0 },
+    });
+
+    expect((tui as any).panel.isOpen()).toBe(true);
+
+    (tui as any).handleKeyAction(keyAction("return"));
+
+    expect(resumeCommand).toBe(`/resume ${sessionId}`);
+    expect((tui as any).panel.isOpen()).toBe(false);
+
+    tui.syncCurrentSessionMeta({
+      id: sessionId,
+      createdAt: "2026-06-20T08:00:00.000Z",
+      usage: { tokens: 512, contextWindow: 2000, percent: 25.6 },
+      entryCount: { messages: 8, compactions: 1, branches: 0 },
+    });
+
+    expect((tui as any).panel.isOpen()).toBe(false);
   });
 });

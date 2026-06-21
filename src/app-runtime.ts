@@ -5,6 +5,7 @@ import type { CommandEffect, CommandResult } from "./cli/types.ts";
 import { fetchLiveBars, formatRefreshMinute, formatSourceLabels, type PullSource } from "./source/index.ts";
 import { dispatchUserMessage, isAgentTurnActive } from "./agent/src/dispatch.ts";
 import { createAgent, updateSessionCtx, type QuantAgentSession } from "./agent/src/session.ts";
+import { skillPaths } from "./skill/index.ts";
 import { ensureDirs, loadSettings } from "./storage/index.ts";
 import { listLocalPortfolios } from "./storage/local-portfolios.ts";
 import { loadPanelPortfolio, loadPortfolioSymbols } from "./storage/portfolio.ts";
@@ -61,6 +62,10 @@ const MARKET_INDICES: CodeEntry[] = [
   { code: "399006.SZ", name: "创业板指" },
 ];
 
+export function createRuntimeAgent(): QuantAgentSession {
+  return createAgent({ skillPaths: skillPaths() });
+}
+
 export class AppRuntime {
   private agent: QuantAgentSession | null = null;
   /** Slash command in flight (panel refresh). Agent concurrency uses agent.state.isStreaming. */
@@ -76,7 +81,7 @@ export class AppRuntime {
     private readonly quoteFetcher: QuoteFetcher = fetchQuotes,
     private readonly symbolProvider: SymbolProvider = loadPortfolioSymbols,
     private readonly holdingFetcher: HoldingFetcher = fetchHoldings,
-    private readonly agentFactory: AgentFactory = createAgent,
+    private readonly agentFactory: AgentFactory = createRuntimeAgent,
   ) {}
 
   async refreshOverviewPanel(): Promise<void> {

@@ -53,35 +53,8 @@ export const S = {
   selection:{ fg: SELECTION_FG, bg: SELECTION_BG, bold: true } as Style,
 };
 
-export function hexToRgb(hex: string): [number, number, number] {
-  const n = hex.replace("#", "");
-  return [
-    parseInt(n.slice(0, 2), 16),
-    parseInt(n.slice(2, 4), 16),
-    parseInt(n.slice(4, 6), 16),
-  ];
-}
-
-export function mixHex(from: string, to: string, t: number): string {
-  const [fr, fg, fb] = hexToRgb(from);
-  const [tr, tg, tb] = hexToRgb(to);
-  const lerp = (a: number, b: number) => Math.round(a + (b - a) * t).toString(16).padStart(2, "0");
-  return `#${lerp(fr, tr)}${lerp(fg, tg)}${lerp(fb, tb)}`;
-}
-
 export function pctStyle(pct: number): Style {
   if (pct > 0.001) return { fg: NEGATIVE };
   if (pct < -0.001) return { fg: POSITIVE };
   return S.muted;
-}
-
-export function fmtPrice(p: number): string {
-  if (p >= 10000) return p.toLocaleString("en-US", { maximumFractionDigits: 2 });
-  if (p >= 1) return p.toFixed(2);
-  return p.toFixed(2);
-}
-
-export function fmtPct(p: number): string {
-  if (Math.abs(p) < 0.001) return "0.00%";
-  return `${p > 0 ? "+" : ""}${p.toFixed(2)}%`;
 }

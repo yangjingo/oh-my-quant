@@ -355,7 +355,13 @@ type
 
 ### 5.3 为什么 resume 要读 JSONL tree
 
-恢复会打开对应 session metadata，然后 `session.buildContext()` 从 leaf 重建上下文。TUI 的历史预览可以显示 Markdown legacy transcript，但真正可 resume 的是 JSONL session tree，因为只有它包含 leaf、parent、compaction、branch summary 等结构。
+恢复会打开对应 session metadata，然后 `session.buildContext()` 从 leaf 重建上下文。WhyJ Quant 当前正常的 `/resume` 面板只面向 JSONL session tree，因为只有它包含 leaf、parent、compaction、branch summary 等结构。
+
+仓库里早期曾存在 Markdown transcript 形式的历史存档，但那类文件不包含可恢复的 session-tree 结构。当前策略是：
+
+- 正常 resume 只支持 JSONL session
+- 旧 Markdown 存档不再作为可恢复会话保留
+- 如果本地残留了旧档案，UI 只把它识别为不受支持的 legacy archive，而不会把它当成正常 resume 目标
 
 ---
 
@@ -642,7 +648,7 @@ compact()
 
 排查：
 
-- 是否打开的是 JSONL session，而不是 legacy Markdown transcript
+- 是否打开的是 JSONL session，而不是不受支持的 legacy archive
 - `JsonlSessionRepo.list({ cwd })` 是否能列出当前 cwd 的 session
 - `session.buildContext()` 是否从 leaf 得到消息
 - TUI preview 是否只显示 recentMessages，而不是完整 branch

@@ -169,12 +169,86 @@ Covered by:
 - [src/agent/test/session.test.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/test/session.test.ts)
   - `prompt()`, `followUp()`, and `skill()` all pass through the injected guidance
 
+## Fintech Color Plan
+
+The next rendering increment should not use generic CLI red/green defaults. The target is a more institutional fintech terminal look:
+
+- use restrained saturation for semantic red/green instead of neon terminal colors
+- treat amber / cash gold as the primary accent family for selection, focus, headers, and key emphasis
+- keep neutral text warm and slightly desaturated so the screen reads closer to a market terminal than a developer console
+
+Recommended semantic palette:
+
+- accent amber: Bloomberg-like amber for focus, selected state, active meters, and header motion
+- cash gold: `#E8B339` for cash / liquidity / money-tone semantics when needed
+- warning red: restrained red for negative / drawdown / breach / removal states
+- warm neutrals: cream, muted taupe, charcoal separators, dim code gray
+
+Important semantic note:
+
+- color is not the only signal
+- tables and figures must still read correctly in monochrome via labels, alignment, arrows, bar length, and explicit status words
+
+## Rollout Plan
+
+The rollout should stay incremental and text-native.
+
+### Phase 1: Palette foundation
+
+- centralize the terminal palette in `src/tui/src/styles.ts`
+- align animated amber ranges in `src/tui/src/render.ts` with the same accent family
+- update existing tests that pin exact color hex values
+
+### Phase 2: Structured text coloring
+
+- add one small helper for color-aware plain-text tables
+- add one small helper for color-aware compact figures such as bar blocks or sparklines
+- support cell-level semantic styling for:
+  - headers
+  - positive / negative values
+  - selected or highlighted rows
+  - secondary notes / muted metadata
+
+### Phase 3: `/compact` as the first mockup
+
+Use `/compact` as the pilot surface before wider rollout.
+
+Why `/compact` first:
+
+- it already returns a dense summary with stable fields
+- it already combines metrics and quant context
+- it is a local slash-command path, so formatting can be iterated without disturbing the agent generation flow
+
+The `/compact` mockup should combine:
+
+- one aligned metric table
+- one `quant context kept` table
+- one small retention figure or meter block
+
+Color plan for the `/compact` mockup:
+
+- metric headers and section titles -> amber
+- retained / healthy rows -> restrained green
+- missing / risk / drop rows -> restrained red
+- secondary explanation and notes -> muted neutral
+
+### Phase 4: Expand to agent outputs
+
+After `/compact` feels right, apply the same text helpers to:
+
+- benchmark leaderboards
+- holdings comparisons
+- backtest metric summaries
+- risk dashboards
+
+Keep the same semantic palette and avoid per-feature one-off color systems.
+
 ## Next Step If Needed
 
 If prompt shaping is not enough, the next increment should still stay incremental:
 
-1. Add one structured text helper for slash-command tables.
-2. Add one chart-style helper for compact bar or sparkline output.
-3. Reuse the same prompt contract so the agent knows when to ask for those helpers.
+1. Implement the fintech palette foundation in `src/tui/src/styles.ts` and `src/tui/src/render.ts`.
+2. Use `/compact` to prototype one colored structured table and one colored compact figure.
+3. Reuse the same helpers for leaderboard, holdings, and risk output.
 
 Do not jump straight to a separate renderer package unless the current TUI text path proves insufficient.

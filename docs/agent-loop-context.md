@@ -197,6 +197,91 @@ Example mappings:
 - `show_dashboard` -> `dashboard_ranking`
 - `fetch_snapshot` -> `snapshot_kv`
 
+## Compaction Context Design
+
+`/compact` is not only a session-control slash command. In WhyJ Quant it is also part of the context design, because the output of compaction becomes future model-facing context.
+
+Files:
+
+- [src/cli/handlers/system.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/cli/handlers/system.ts)
+- [src/agent/src/pi/harness/compaction/compaction.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/pi/harness/compaction/compaction.ts)
+- [src/app-runtime.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/app-runtime.ts)
+- [src/tui/src/render.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/tui/src/render.ts)
+
+### Runtime path
+
+The current `/compact` flow is:
+
+`AppRuntime.submit("/compact ...")`
+-> `compactHandler()`
+-> `agent.waitForIdle()`
+-> `agent.compact(customInstructions)`
+-> pi harness `compact()`
+-> append compaction entry to session tree
+-> rebuild `agent.state.messages`
+-> runtime syncs conversation from session state
+
+Important boundary:
+
+- `waitForIdle()` is required before `compact()`
+- `compact()` is phase-owned by the harness, not by TUI state
+- the resulting summary is persisted as a session-tree compaction entry, not just shown once in the UI
+
+### Why this is a context-layer concern
+
+Future turns do not re-read the old raw history once that history has been compacted.
+
+Instead, `buildSessionContext()` reconstructs context using:
+
+- retained recent messages after `firstKeptEntryId`
+- the synthetic `compactionSummary` message generated from the compaction entry
+
+So the quality of the compaction summary directly affects:
+
+- what the model still remembers
+- whether generic follow-ups like `继续` remain grounded
+- whether quant output stays attached to the right symbols, date ranges, and strategy assumptions
+
+### Quant-specific compaction requirements
+
+WhyJ Quant now adds quant-aware instructions to the compaction summarization prompt. When a session involves quant research, the summary should preserve:
+
+- symbols, benchmarks, universes, exchanges, and portfolio names
+- date ranges, lookback windows, rebalance cadence, and timeframe assumptions
+- factor definitions, signal rules, strategy parameters, and risk limits
+- data providers, cache/local file paths, and any data-quality caveats
+- validated findings, open hypotheses, and the metrics that matter for the next step
+- output-shape preferences such as compact tables, rankings, and risk dashboards
+
+This is intentionally stricter than generic coding-session compaction. The design goal is to preserve research state, not just implementation progress.
+
+### `/compact` completion receipt
+
+The slash-command receipt is also quant-aware now. On success it still shows:
+
+- `first kept`
+- `tokens before`
+
+but it also extracts a compact research-state receipt from the generated summary:
+
+- `scope`
+- `dates/window`
+- `params/risk`
+- `open threads`
+
+This receipt is not the authoritative context store. The authoritative store is still the compaction entry in the session tree. The receipt exists to let the user verify that the most important research state survived compaction.
+
+### TUI visibility during compaction
+
+The TUI now exposes compaction as an explicit activity, not just a silent slash command:
+
+- runtime sets activity to `compacting` before the command runs
+- if the agent is still finishing a turn, status first says that compaction is waiting for idle
+- while compacting, the conversation panel uses the same ora-style spinner and animated gold banner treatment as `thinking`
+- when the conversation is empty, the loading overlay copy changes from `WhyJ is thinking...` to `WhyJ is compacting...`
+
+This matters because compaction can take long enough to feel broken if there is no visible progress, especially when the runtime is still draining the previous turn.
+
 ## Skill Path
 
 File: [src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/context.ts)

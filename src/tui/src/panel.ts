@@ -1,6 +1,9 @@
 import type * as readline from "node:readline";
-import { Buffer, strWidth, truncate } from "./buffer.ts";
-import { S, GOLD, GOLD_HIGHLIGHT } from "./styles.ts";
+import { Buffer } from "./buffer.ts";
+import { S } from "./styles.ts";
+import { drawPanelFrame, renderConfigHeaderInfo, type PanelFrame } from "./panel-chrome.ts";
+import { renderConfigPanelView, renderHelpPanelView, renderPortfolioPanelView, renderResumePanelView, type ConfigRowView } from "./panel-views.ts";
+import { buildConfigRowViews, buildHelpPanelData, buildPortfolioPanelData, buildResumePanelData } from "./panel-models.ts";
 import { COMMAND_CATALOG } from "../../cli/catalog.ts";
 import { loadSettings, saveSettings } from "../../storage/index.ts";
 import { listStoredSessions, type StoredSessionSummary } from "../../storage/sessions.ts";
@@ -21,16 +24,6 @@ type ResumeFilter = "cwd" | "all";
 type ResumeSort = "updated" | "created";
 type PortfolioFilter = "current" | "all";
 type PortfolioSort = "updated" | "name";
-type PanelFrame = {
-  boxX: number;
-  boxY: number;
-  boxW: number;
-  boxH: number;
-  inner: { x: number; y: number; w: number; h: number };
-  contentY: number;
-  contentH: number;
-  footerY: number;
-};
 
 type Field = {
   label: string;
@@ -83,10 +76,6 @@ function normalizeSearch(text: string): string {
   return text.trim().toLowerCase();
 }
 
-function wrapLine(text: string, width: number): string {
-  return truncate(text, Math.max(1, width));
-}
-
 function currentPortfolioOption(fileName: string, name: string): string {
   return `${name} · ${fileName}`;
 }
@@ -94,10 +83,6 @@ function currentPortfolioOption(fileName: string, name: string): string {
 const THINKING_OPTIONS = ["off", "minimal", "low", "medium", "high", "xhigh"];
 const ENABLE_OPTIONS = ["on", "off"];
 const SOURCE_OPTIONS: DataSource[] = ["akshare", "tushare", "llmquant-data", "financial-datasets"];
-const PANEL_W = 96;
-const PANEL_H = 22;
-const PANEL_HEADER_INFO_H = 3;
-const PANEL_FOOTER_H = 2;
 
 export class PanelController {
   private mode: PanelMode = "config";
@@ -207,7 +192,7 @@ export class PanelController {
       const selected = this.filteredResumeSessions()[this.resumeSelection];
       if (!selected) return {};
       if (selected.format === "markdown") {
-        this.status = "Legacy transcript preview only; select a JSONL session to resume.";
+        this.status = "Unsupported legacy session archive. Resume uses JSONL sessions only.";
         return {};
       }
       this.status = `Resuming ${selected.id}...`;
@@ -277,31 +262,12 @@ export class PanelController {
     const { inner } = frame;
 
     this.renderConfigHeaderInfo(buf, frame);
-
-    const visible = frame.contentH;
-    const selectedRow = rows.findIndex((row) => "field" in row && row.index === this.cursor);
-    const start = Math.max(0, Math.min(selectedRow - Math.floor(visible / 2), rows.length - visible));
-    let y = frame.contentY;
-
-    for (const row of rows.slice(start, start + visible)) {
-      if ("section" in row) {
-        buf.text(inner.x, y++, truncate(`-- ${row.section} --`, inner.w), S.dim);
-        continue;
-      }
-      const active = row.index === this.cursor;
-      const field = row.field;
-      const value = this.valueText(field, active);
-      buf.text(inner.x, y, truncate(`${active ? "> " : "  "}${field.label}`, Math.max(10, inner.w - 22)), active ? S.goldB : S.cream);
-      buf.textRight(inner.x + inner.w, y++, truncate(value, 20), this.draft !== null && active ? { fg: GOLD_HIGHLIGHT } : field.action ? S.dim : { fg: GOLD });
-    }
-
     const footer = this.status || "↑↓ move  ↵ toggle/edit  esc close";
-    buf.text(inner.x, frame.footerY, truncate(footer, inner.w), S.dim);
-    if (this.draft !== null && fields[this.cursor]) {
-      const hint = fields[this.cursor].apply ? "code or code name" : "";
-      const prefix = hint ? `${fields[this.cursor].label} (${hint}): ` : `${fields[this.cursor].label}: `;
-      buf.text(inner.x, frame.footerY - 1, truncate(`${prefix}${this.draft}|`, inner.w), { fg: GOLD_HIGHLIGHT });
-    }
+    const rowViews: ConfigRowView[] = buildConfigRowViews(rows, this.cursor, this.draft, (field, active) => this.valueText(field as Field, active));
+    const draftLine = this.draft !== null && fields[this.cursor]
+      ? `${fields[this.cursor].label}${fields[this.cursor].apply ? " (code or code name)" : ""}: ${this.draft}|`
+      : undefined;
+    renderConfigPanelView(buf, frame, rowViews, footer, draftLine);
   }
 
   private renderResumePanel(buf: Buffer): void {
@@ -310,83 +276,17 @@ export class PanelController {
       "Resume a previous session",
       "↑↓ move  ↵ resume  esc close",
     );
-    const { inner } = frame;
-
-    let y = inner.y;
-
-    // Selected session preview stats
     const sessions = this.filteredResumeSessions();
-    const selected = sessions[this.resumeSelection];
-    const meta = this.currentSessionMeta;
-    const isCurrent = selected && meta && selected.id === meta.id;
-    let metaRows = 0;
-    if (selected) {
-      const label = isCurrent ? "Current" : "Selected";
-      buf.text(inner.x, y, truncate(`${label}: ${isCurrent ? meta!.id : selected.id}  ·  ${isCurrent ? meta!.createdAt : selected.createdAt}`, inner.w), S.code);
-      y++; metaRows++;
-      if (isCurrent && meta!.usage) {
-        const u = meta!.usage;
-        const pct = u.percent ?? (u.contextWindow > 0 ? (u.tokens / u.contextWindow * 100) : 0);
-        const barW = Math.min(30, inner.w - 25);
-        const filled = Math.round(barW * pct / 100);
-        const bar = "█".repeat(Math.min(filled, barW)) + "░".repeat(Math.max(0, barW - filled));
-        buf.text(inner.x, y, `${bar}  ${u.tokens.toLocaleString()}/${u.contextWindow.toLocaleString()} (${pct.toFixed(0)}%)`, pct > 80 ? S.goldB : S.cream);
-        y++; metaRows++;
-      }
-      if (isCurrent && meta!.entryCount) {
-        const ec = meta!.entryCount;
-        buf.text(inner.x, y, truncate(`Msgs ${ec.messages}  Comps ${ec.compactions}  Branches ${ec.branches}`, inner.w), S.dim);
-        y++; metaRows++;
-      }
-      if (isCurrent && selected.recentMessages.length > 0) {
-        for (const message of selected.recentMessages.slice(-3)) {
-          const role = message.role === "user" ? "U" : "A";
-          buf.text(inner.x, y, truncate(`${role}: ${message.text}`, inner.w), S.dim);
-          y++; metaRows++;
-        }
-      } else if (!isCurrent) {
-        const tag = selected.format === "markdown" ? "Legacy transcript" : "JSONL session";
-        buf.text(inner.x, y, truncate(`${tag} · ${selected.messageCount} messages`, inner.w), selected.format === "markdown" ? S.gold : S.dim);
-        y++; metaRows++;
-        const previewRows = selected.recentMessages.length > 0
-          ? selected.recentMessages
-          : [{ role: "user" as const, text: selected.preview }];
-        for (const message of previewRows.slice(-3)) {
-          const role = message.role === "user" ? "U" : "A";
-          buf.text(inner.x, y, truncate(`${role}: ${message.text}`, inner.w), S.dim);
-          y++; metaRows++;
-        }
-      }
-      y++;
-      metaRows++;
-    }
-    const footerText = this.status
-      || (sessions.length === 0
-        ? "No saved sessions found."
-        : `Showing ${sessions.length} session${sessions.length === 1 ? "" : "s"} · enter to resume`);
-
-    if (sessions.length === 0) {
-      buf.text(inner.x, frame.contentY, "No saved sessions found.", S.dim);
-      buf.text(inner.x, frame.footerY, truncate(footerText, inner.w), S.dim);
-      return;
-    }
-
-    const listHeight = Math.max(1, frame.contentH - metaRows);
-    const start = Math.max(0, Math.min(this.resumeSelection - Math.floor(listHeight / 2), sessions.length - listHeight));
-    y = Math.max(frame.contentY, y);
-    for (const [offset, session] of sessions.slice(start, start + listHeight).entries()) {
-      const index = start + offset;
-      const selected = index === this.resumeSelection;
-      const age = formatRelativeAge(this.resumeSort === "updated" ? session.updatedAt : session.createdAt).padEnd(10);
-      const prefix = selected ? "❯ " : "  ";
-      const divider = " ─ ";
-      const secondary = this.resumeFilter === "all" ? ` · ${session.cwd}` : "";
-      const marker = session.format === "markdown" ? "[legacy] " : "";
-      const text = `${prefix}${age}${divider}${marker}${session.preview}${secondary}`;
-      buf.text(inner.x, y++, truncate(text, inner.w), selected ? S.goldB : S.cream);
-    }
-
-    buf.text(inner.x, frame.footerY, truncate(footerText, inner.w), S.dim);
+    renderResumePanelView(buf, frame, buildResumePanelData({
+      sessions,
+      selection: this.resumeSelection,
+      currentSessionMeta: this.currentSessionMeta,
+      resumeFilter: this.resumeFilter,
+      resumeSort: this.resumeSort,
+      status: this.status,
+      innerWidth: frame.inner.w,
+      formatRelativeAge,
+    }));
   }
 
   private renderPortfolioPanel(buf: Buffer): void {
@@ -396,135 +296,36 @@ export class PanelController {
       "Local portfolios",
       "↑↓ move  esc close",
     );
-    const { inner } = frame;
-
-    let y = inner.y;
     const items = this.filteredPortfolioItems();
-    const selected = items[this.portfolioSelection];
     const activeFile = this.cfg?.preferences.currentPortfolioFile || "holdings.json";
-
-    let metaRows = 0;
-    if (selected) {
-      const label = selected.fileName === activeFile ? "Active" : "Selected";
-      buf.text(inner.x, y, truncate(`${label}: ${selected.name}`, inner.w), S.code);
-      y++; metaRows++;
-      const sectors = selected.focusSectors.length > 0
-        ? selected.focusSectors.join(", ")
-        : "No sector tags";
-      buf.text(inner.x, y, truncate(`${selected.strategy}  Risk: ${selected.riskTag}  ·  ${selected.count} holdings`, inner.w), S.dim);
-      y++; metaRows++;
-      buf.text(inner.x, y, truncate(`${sectors}  ·  ${selected.updated ? formatRelativeAge(selected.updated) : "-"}`, inner.w), S.dim);
-      y++; metaRows++;
-      y++;
-      metaRows++;
-    }
-
-    if (items.length === 0) {
-      buf.text(inner.x, frame.contentY, "No local portfolios found.", S.dim);
-      buf.text(inner.x, frame.footerY, truncate("esc close", inner.w), S.dim);
-      return;
-    }
-
-    const listHeight = Math.max(1, frame.contentH - metaRows);
-    const start = Math.max(0, Math.min(this.portfolioSelection - Math.floor(listHeight / 2), items.length - listHeight));
-    y = Math.max(frame.contentY, y);
-    for (const [offset, item] of items.slice(start, start + listHeight).entries()) {
-      const index = start + offset;
-      const sel = index === this.portfolioSelection;
-      const isActive = item.fileName === activeFile;
-      const age = item.updated ? formatRelativeAge(item.updated).padEnd(8) : "-".padEnd(8);
-      const prefix = sel ? "❯ " : "  ";
-      const marker = isActive ? " ●" : "  ";
-      const text = `${prefix}${age}${marker}  ${item.name}`;
-      buf.text(inner.x, y++, truncate(text, inner.w), sel ? S.goldB : S.cream);
-    }
-
-    const footer = this.status || `↑↓ select  esc close  ·  ${items.length} portfolio${items.length === 1 ? "" : "s"}`;
-    buf.text(inner.x, frame.footerY, truncate(footer, inner.w), S.dim);
+    renderPortfolioPanelView(buf, frame, buildPortfolioPanelData({
+      items,
+      selection: this.portfolioSelection,
+      activeFile,
+      status: this.status,
+      formatRelativeAge,
+    }));
   }
 
   private renderHelpPanel(buf: Buffer): void {
     const frame = this.drawPanelFrame(buf, "Help", "↑↓ select  ↵ run  esc close");
-    const { inner } = frame;
-    const midX = inner.x + Math.floor(inner.w / 2);
-    const leftW = midX - inner.x - 1;
-    const rightW = inner.x + inner.w - midX - 1;
-
-    // Left: Commands
-    buf.text(inner.x, inner.y, "Commands", S.creamB);
-    let y = inner.y + 1;
     const total = COMMAND_CATALOG.length;
     this.helpSelection = Math.min(this.helpSelection, total - 1);
-    for (let i = 0; i < total; i++) {
-      if (y >= frame.footerY) break;
-      const cmd = COMMAND_CATALOG[i];
-      const sel = i === this.helpSelection;
-      const prefix = sel ? "▶" : " ";
-      const nameStyle = sel ? S.goldB : S.goldB;
-      const descStyle = sel ? S.creamB : S.cream;
-      buf.text(inner.x, y, `${prefix}${truncate(cmd.name, 11)}`, nameStyle);
-      buf.text(inner.x + 13, y, truncate(cmd.desc, leftW - 13), descStyle);
-      y++;
-    }
-
-    // Divider
-    for (let r = inner.y; r < frame.footerY; r++) {
-      buf.set(midX, r, "│", S.rule);
-    }
-
-    // Right: Hotkeys
-    buf.text(midX + 1, inner.y, "Hotkeys", S.creamB);
-    y = inner.y + 1;
-    const keys = [
-      ["Ctrl+P", "Open settings"],
-      ["Enter", "Submit input"],
-      ["Tab", "Accept suggestion"],
-      ["Esc", "Clear / close panel"],
-      ["Ctrl+C", "Clear input or quit"],
-      ["PgUp/Down", "Scroll conversation"],
-      ["Shift+PgUp/Down", "Scroll overview"],
-      ["Ctrl+Shift+C", "Copy selection"],
-      ["↑↓", "Navigate / history"],
-      ["1-9", "Quick-select"],
-      ["/", "Slash command mode"],
-    ];
-    for (const [key, desc] of keys) {
-      if (y >= frame.footerY) break;
-      buf.text(midX + 1, y, truncate(key, 16), S.goldB);
-      buf.text(midX + 18, y, truncate(desc, rightW - 18), S.cream);
-      y++;
-    }
-    buf.text(inner.x, frame.footerY, truncate("↑↓ select  ↵ run  esc close", inner.w), S.dim);
+    renderHelpPanelView(buf, frame, buildHelpPanelData(this.helpSelection));
   }
 
   private drawPanelFrame(buf: Buffer, title: string, titleRight: string): PanelFrame {
-    const boxW = Math.min(PANEL_W, buf.w - 4);
-    const boxH = Math.min(PANEL_H, buf.h - 4);
-    const boxX = Math.floor((buf.w - boxW) / 2);
-    const boxY = Math.floor((buf.h - boxH) / 2);
-
-    buf.fillRect({ x: boxX - 1, y: boxY - 1, w: boxW + 2, h: boxH + 2 }, { fg: "#000000", dim: true });
-    const inner = buf.box({ x: boxX, y: boxY, w: boxW, h: boxH }, {
-      title,
-      titleStyle: S.creamB,
-      titleRight,
-      titleRightStyle: S.dim,
-      border: S.rule,
-    });
-    const contentY = inner.y + PANEL_HEADER_INFO_H;
-    const footerY = inner.y + inner.h - 1;
-    const contentH = Math.max(1, footerY - contentY - (PANEL_FOOTER_H - 1));
-    return { boxX, boxY, boxW, boxH, inner, contentY, contentH, footerY };
+    return drawPanelFrame(buf, title, titleRight);
   }
 
   private renderConfigHeaderInfo(buf: Buffer, frame: PanelFrame): void {
     if (!this.cfg) return;
-    const left = `Model: ${this.cfg.model || "sonnet"}    Thinking: ${this.cfg.thinkingLevel || "high"}`;
-    const right = `Panel: ${this.cfg.showPortfolioPanel === false ? "off" : "on"}`;
-    buf.text(frame.inner.x, frame.inner.y, truncate(left, frame.inner.w - Math.min(frame.inner.w - 20, strWidth(right) + 2)), S.cream);
-    buf.textRight(frame.inner.x + frame.inner.w, frame.inner.y, truncate(right, Math.floor(frame.inner.w * 0.4)), S.dim, frame.inner.x + Math.floor(frame.inner.w * 0.45));
-    buf.text(frame.inner.x, frame.inner.y + 1, truncate(`Active portfolio: ${this.currentPortfolioName()}`, frame.inner.w), S.dim);
-    buf.text(frame.inner.x, frame.inner.y + 2, truncate("Local settings panel.", frame.inner.w), S.dim);
+    renderConfigHeaderInfo(buf, frame, {
+      model: this.cfg.model || "sonnet",
+      thinking: this.cfg.thinkingLevel || "high",
+      panel: this.cfg.showPortfolioPanel === false ? "off" : "on",
+      activePortfolio: this.currentPortfolioName(),
+    });
   }
 
   private handleDraft(input: string, key: readline.Key, field: Field | undefined): PanelResult {

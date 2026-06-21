@@ -224,6 +224,13 @@ describe("executeCommand", () => {
     expect(isLocalSlashCommand("compact")).toBe(true);
     expect(isLocalSlashCommand("portfolio")).toBe(true);
   });
+
+  it("normalizes /session to /resume for backward compatibility", () => {
+    const cmd = parseCommand("/session");
+    expect(cmd).not.toBeNull();
+    expect(cmd!.command).toBe("resume");
+    expect(cmd!.raw).toBe("/session");
+  });
 });
 
 describe("catalog", () => {
@@ -247,5 +254,9 @@ describe("catalog", () => {
   it("keeps resume as a direct command without subcommands", () => {
     const resume = COMMAND_CATALOG.find((entry) => entry.name === "/resume");
     expect(resume?.subcommands).toBeUndefined();
+  });
+
+  it("does not list /session in the public slash catalog", () => {
+    expect(COMMAND_CATALOG.some((entry) => entry.name === "/session")).toBe(false);
   });
 });

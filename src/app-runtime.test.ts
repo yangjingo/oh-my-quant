@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { JsonlSessionRepo } from "./agent/src/pi/index.ts";
+import { NodeExecutionEnv } from "./agent/src/pi/node.ts";
 import { loadPanelPortfolio } from "./storage/panel-portfolio.ts";
 import { savePanelPortfolio } from "./storage/panel-portfolio.ts";
-import { AppRuntime } from "./app-runtime.ts";
+import { AppRuntime, createRuntimeAgent } from "./app-runtime.ts";
+import { SKILLS_DIR } from "./skill/index.ts";
 import { shellDisplayName } from "./tools/catalog.ts";
 import type { AppState, PanelSection, UIMessage } from "./tui/src/types.ts";
 
@@ -99,6 +102,28 @@ function makeFakeAgent(promptImpl: (agent: any, input: string) => Promise<void>)
 }
 
 describe("AppRuntime.submit", () => {
+  it("builds the default runtime agent with installed project skill paths", async () => {
+    const skillsDir = join(SKILLS_DIR, "__runtime-test-repo__", "llmquant-crypto");
+    mkdirSync(skillsDir, { recursive: true });
+    try {
+      writeFileSync(join(skillsDir, "SKILL.md"), `---
+name: llmquant-crypto
+description: Use for crypto market analysis.
+---
+
+# LLMQuant Crypto
+`, "utf-8");
+
+      const agent = createRuntimeAgent();
+      await agent.waitForIdle();
+
+      const skills = await agent.getSkills();
+      expect(skills.some((skill) => skill.name === "llmquant-crypto")).toBe(true);
+    } finally {
+      rmSync(join(SKILLS_DIR, "__runtime-test-repo__"), { recursive: true, force: true });
+    }
+  });
+
   it("returns exit for exit commands", async () => {
     const h = harness();
     expect(await h.runtime.submit("/exit")).toBe("exit");
@@ -488,6 +513,76 @@ describe("AppRuntime.submit", () => {
       text: "session s0 restored",
     }));
     expect(h.statuses.at(-1)).toBeNull();
+  });
+
+  it("resumes a real stored JSONL session through the default runtime agent", async () => {
+    const sessionsRoot = join(OHQ, "sessions");
+    const env = new NodeExecutionEnv({ cwd: process.cwd() });
+    const repo = new JsonlSessionRepo({ fs: env, sessionsRoot });
+
+    const older = await repo.create({ cwd: process.cwd() });
+    const olderMeta = await older.getMetadata();
+    await older.appendMessage({
+      role: "user",
+      content: [{ type: "text", text: "older session question" }],
+      timestamp: Date.now(),
+    } as any);
+    await older.appendMessage({
+      role: "assistant",
+      content: [{ type: "text", text: "older session answer" }],
+      provider: "openai",
+      model: "openai/gpt-5.5",
+      api: "responses",
+      usage: {
+        input: 10,
+        output: 10,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 20,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+      stopReason: "end_turn",
+      timestamp: Date.now(),
+    } as any);
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    const newer = await repo.create({ cwd: process.cwd() });
+    await newer.appendMessage({
+      role: "user",
+      content: [{ type: "text", text: "newer session question" }],
+      timestamp: Date.now(),
+    } as any);
+    await newer.appendMessage({
+      role: "assistant",
+      content: [{ type: "text", text: "newer session answer" }],
+      provider: "openai",
+      model: "openai/gpt-5.5",
+      api: "responses",
+      usage: {
+        input: 10,
+        output: 10,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 20,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+      stopReason: "end_turn",
+      timestamp: Date.now(),
+    } as any);
+
+    const h = harness();
+    await h.runtime.bootstrap();
+    await h.runtime.submit(`/resume ${olderMeta.id}`);
+
+    expect(h.messages.at(-1)).toEqual([
+      { role: "user", text: "older session question" },
+      { role: "assistant", text: "older session answer" },
+      expect.objectContaining({
+        role: "assistant",
+        text: expect.stringContaining(`id: ${olderMeta.id}`),
+      }),
+    ]);
   });
 
   it("syncs compacted session messages into conversation", async () => {

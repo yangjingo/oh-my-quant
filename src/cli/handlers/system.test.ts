@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadPanelPortfolio } from "../../storage/panel-portfolio.ts";
 import { loadSettings } from "../../storage/index.ts";
-import { configHandler, portfolioHandler, resumeHandler, sessionHandler } from "./system.ts";
+import { compactHandler, configHandler, portfolioHandler, resumeHandler, sessionHandler } from "./system.ts";
 import { skillHandler } from "../../skill/handler.ts";
 import type { QuantAgentSession } from "../../agent/src/session.ts";
 
@@ -117,6 +117,59 @@ describe("resumeHandler", () => {
     expect(resumeSession).toHaveBeenCalledWith("s0");
     expect(result.message).toContain("Resumed");
     expect(result.message).toContain("id: s0");
+  });
+});
+
+describe("compactHandler", () => {
+  it("renders a quant-aware compact receipt from the summary", async () => {
+    const result = await compactHandler({}, ["focus", "on", "signals"], {
+      agentSession: mockAgent({
+        compact: mock(async () => ({
+          firstKeptEntryId: "e9",
+          tokensBefore: 54321,
+          summary: [
+            "## Goal",
+            "研究沪深300ETF与中证500ETF的轮动策略",
+            "",
+            "## Constraints & Preferences",
+            "- Prefer compact plain-text tables for rankings and risk dashboards",
+            "",
+            "## Progress",
+            "### Done",
+            "- [x] Pulled daily bars and benchmark snapshots",
+            "",
+            "### In Progress",
+            "- [ ] Validate regime filter",
+            "",
+            "## Key Decisions",
+            '- **Risk control**: Keep max drawdown under 15% and track Sharpe/CVaR',
+            "",
+            "## Next Steps",
+            "1. Test 60-day lookback with monthly rebalance on 510300.SH and 510500.SH",
+            "",
+            "## Critical Context",
+            "- symbols: 510300.SH, 510500.SH; benchmark: 000300.SH",
+            "- date range: 2024-01-01 to 2026-06-01; timeframe: daily",
+            "- strategy params: 60-day lookback, monthly rebalance, max drawdown 15%",
+            "- open hypothesis: regime filter may reduce drawdown without hurting CAGR",
+          ].join("\n"),
+        })),
+      }),
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain("Compacted");
+    expect(result.message).toContain("metric");
+    expect(result.message).toContain("retained fields");
+    expect(result.message).toContain("focus            focus on signals");
+    expect(result.message).toContain("quant context kept");
+    expect(result.message).toContain("field         status  detail");
+    expect(result.message).toContain("scope         kept");
+    expect(result.message).toContain("dates/window  kept");
+    expect(result.message).toContain("params/risk   kept");
+    expect(result.message).toContain("open threads  kept");
+    expect(result.message).toContain("retention map");
+    expect(result.message).toContain("retained      ████████  4/4");
   });
 });
 

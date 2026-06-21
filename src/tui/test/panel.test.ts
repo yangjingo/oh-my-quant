@@ -195,7 +195,39 @@ describe("PanelController portfolio UI", () => {
     panel.close();
   });
 
-  it("shows legacy markdown session history as preview-only in resume panel", () => {
+  it("resumes the arrow-key selected JSONL session instead of the first item", () => {
+    const cwdDir = join(OHQ, "sessions", encodeCwd(process.cwd()));
+    mkdirSync(cwdDir, { recursive: true });
+
+    const firstId = "019eaf98-85f6-7ddc-96c1-1a32a2381111";
+    const secondId = "019eaf98-85f6-7ddc-96c1-1a32a2382222";
+    writeFileSync(
+      join(cwdDir, `2026-06-13T08-00-00-000Z_${firstId}.jsonl`),
+      [
+        JSON.stringify({ type: "session", version: 3, id: firstId, timestamp: "2026-06-13T08:00:00.000Z", cwd: process.cwd() }),
+        JSON.stringify({ type: "message", id: "m1", timestamp: "2026-06-13T08:03:00.000Z", message: { role: "user", content: "第一个会话" } }),
+      ].join("\n"),
+      "utf-8",
+    );
+    writeFileSync(
+      join(cwdDir, `2026-06-12T08-00-00-000Z_${secondId}.jsonl`),
+      [
+        JSON.stringify({ type: "session", version: 3, id: secondId, timestamp: "2026-06-12T08:00:00.000Z", cwd: process.cwd() }),
+        JSON.stringify({ type: "message", id: "m2", timestamp: "2026-06-12T08:05:00.000Z", message: { role: "user", content: "第二个会话" } }),
+      ].join("\n"),
+      "utf-8",
+    );
+
+    const panel = new PanelController();
+    panel.open("resume");
+    panel.handleKey("", key("down"));
+
+    const result = panel.handleKey("", key("return"));
+    expect(result).toEqual({ command: `/resume ${secondId}`, close: true });
+    panel.close();
+  });
+
+  it("marks legacy markdown session history as unsupported in resume panel", () => {
     const legacyDir = join(OHQ, "sessions", "2026-06-10");
     const cwdDir = join(OHQ, "sessions", encodeCwd(process.cwd()));
     mkdirSync(legacyDir, { recursive: true });
@@ -241,7 +273,7 @@ describe("PanelController portfolio UI", () => {
     expect(result?.command).toBeUndefined();
     const after = new Buffer(120, 28);
     panel.render(after);
-    expect(after.toPlain().join("\n")).toContain("preview only");
+    expect(after.toPlain().join("\n")).toContain("Unsupported legacy session archive");
     panel.close();
   });
 

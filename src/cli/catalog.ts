@@ -15,7 +15,6 @@ export interface CommandCatalogEntry {
 
 export const COMMAND_CATALOG: readonly CommandCatalogEntry[] = [
   { name: "/compact", desc: "Compact", help: "Compact session with optional focus instructions", example: "/compact focus on signals" },
-  { name: "/session", desc: "Session", help: "Show current session metadata", example: "/session" },
   { name: "/resume", desc: "Resume", help: "List or restore saved sessions", example: "/resume" },
   { name: "/portfolio", desc: "Portfolio", help: "List, compare, and switch local portfolios", example: "/portfolio" },
   { name: "/config", desc: "Config", help: "Show or open config panel", example: "/config" },

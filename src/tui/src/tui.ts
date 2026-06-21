@@ -4,7 +4,7 @@
  */
 import type * as readline from "node:readline";
 import { Buffer, Screen } from "./buffer.ts";
-import { layout, drawHeader, drawConversation, drawPortfolio, drawComposer, drawStatus, conversationMaxScrollUp, overviewMaxScrollTop, buildConversationView, buildOverviewView, activeConversationStatusRows } from "./render.ts";
+import { layout, drawHeader, drawConversation, drawPortfolio, drawComposer, drawStatus, buildConversationView, buildOverviewView, activeConversationStatusRows } from "./render.ts";
 import { CANVAS } from "./styles.ts";
 import type { AppState } from "./types.ts";
 import { loadWatchlistEntries, type CodeEntry } from "./watchlist.ts";
@@ -14,11 +14,16 @@ import { discoverSkills } from "../../agent/src/skills.ts";
 import { NodeExecutionEnv } from "../../agent/src/pi/node.ts";
 import { SKILLS_DIR } from "../../skill/index.ts";
 import { copyToClipboard } from "./clipboard.ts";
+import { resolveCopyText } from "./tui-copy.ts";
+import {
+  applyScrollDelta as applyScrollDeltaToState,
+  clampScrollState as clampScrollStateForLayout,
+  scrollRegionDelta as scrollRegionDeltaForLayout,
+  wheelStep as wheelStepForLayout,
+} from "./tui-scroll.ts";
 import {
   conversationPointFromScreen,
   conversationPointFromScreenClamped,
-  extractConversationSelection,
-  lastAssistantPlainText,
   type ConversationSelection,
   type ConversationView,
 } from "./selection.ts";
@@ -93,6 +98,7 @@ export class QuantTui {
   onPanelRefresh(handler: () => void): void { this.panelRefreshHandler = handler; }
   openConfig(): void { this.panel.open("config"); this.paint(); }
   openResume(meta?: CurrentSessionMeta): void { if (meta) this.panel.setCurrentSessionMeta(meta); this.panel.open("resume"); this.paint(); }
+  syncCurrentSessionMeta(meta?: CurrentSessionMeta): void { if (meta) this.panel.setCurrentSessionMeta(meta); this.paint(); }
   openPortfolio(): void { this.panel.open("portfolio"); this.paint(); }
   openHelp(): void { this.panel.open("help"); this.paint(); }
 
@@ -133,55 +139,32 @@ export class QuantTui {
   }
 
   private clampScroll(L: ReturnType<typeof layout>): void {
-    const convInnerH = L.mainPane.h - 2;
-    const convInnerW = L.mainPane.w - 4;
-    this.convScrollUp = Math.min(
-      this.convScrollUp,
-      conversationMaxScrollUp(this.state.messages, convInnerW, convInnerH, this.conversationReservedRows(convInnerH)),
-    );
-    if (L.showPanel) {
-      const ovInnerH = L.portfolio.h - 2;
-      this.overviewScrollTop = Math.min(
-        this.overviewScrollTop,
-        overviewMaxScrollTop(this.state.panel, ovInnerH),
-      );
-    } else {
-      this.overviewScrollTop = 0;
-    }
+    const next = clampScrollStateForLayout(L, this.state.messages, this.state.panel, this.state.activity, {
+      convScrollUp: this.convScrollUp,
+      overviewScrollTop: this.overviewScrollTop,
+    });
+    this.convScrollUp = next.convScrollUp;
+    this.overviewScrollTop = next.overviewScrollTop;
   }
 
   private scroll(region: ScrollRegion, delta: number): void {
     const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
-    if (region === "conversation") {
-      const convInnerH = L.mainPane.h - 2;
-      const max = conversationMaxScrollUp(
-        this.state.messages,
-        L.mainPane.w - 4,
-        convInnerH,
-        this.conversationReservedRows(convInnerH),
-      );
-      this.convScrollUp = Math.min(max, Math.max(0, this.convScrollUp + delta));
-    } else if (region === "overview" && L.showPanel) {
-      const max = overviewMaxScrollTop(this.state.panel, L.portfolio.h - 2);
-      this.overviewScrollTop = Math.min(max, Math.max(0, this.overviewScrollTop + delta));
-    }
+    const next = applyScrollDeltaToState(L, region, delta, this.state.messages, this.state.panel, this.state.activity, {
+      convScrollUp: this.convScrollUp,
+      overviewScrollTop: this.overviewScrollTop,
+    });
+    this.convScrollUp = next.convScrollUp;
+    this.overviewScrollTop = next.overviewScrollTop;
   }
 
   private wheelStep(L: ReturnType<typeof layout>, region: ScrollRegion): number {
-    const h = region === "overview" ? L.portfolio.h : L.mainPane.h;
-    return Math.max(1, Math.floor((h - 3) / 4));
+    return wheelStepForLayout(L, region);
   }
 
   private scrollRegionPanel(up: boolean, page: boolean): void {
     const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
-    const step = page
-      ? Math.max(1, (this.scrollRegion === "overview" ? L.portfolio.h : L.mainPane.h) - 3)
-      : 1;
-    if (this.scrollRegion === "conversation") {
-      this.scroll("conversation", up ? step : -step);
-    } else if (this.scrollRegion === "overview") {
-      this.scroll("overview", up ? -step : step);
-    }
+    const delta = scrollRegionDeltaForLayout(L, this.scrollRegion, up, page);
+    if (delta !== 0) this.scroll(this.scrollRegion, delta);
   }
 
   private handlePanelSelect(
@@ -197,9 +180,6 @@ export class QuantTui {
       this.textSelection = { anchor: point, cursor: point };
       this.selectDrag = true;
       this.selectionRegion = panel;
-      // #region agent log
-      fetch("http://127.0.0.1:7287/ingest/afac60de-da57-47d2-beed-4b5639b3d1cd", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "33aff1" }, body: JSON.stringify({ sessionId: "33aff1", hypothesisId: "A", location: "tui.ts:selectStart", message: "shift+press selection start", data: { panel, point, inner: view.inner }, timestamp: Date.now() }) }).catch(() => {});
-      // #endregion
       return true;
     }
 
@@ -211,9 +191,6 @@ export class QuantTui {
       }
       if (evt.kind === "release") {
         this.selectDrag = false;
-        // #region agent log
-        fetch("http://127.0.0.1:7287/ingest/afac60de-da57-47d2-beed-4b5639b3d1cd", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "33aff1" }, body: JSON.stringify({ sessionId: "33aff1", hypothesisId: "E", location: "tui.ts:selectRelease", message: "selection release copy", data: { panel, hasSelection: !!this.textSelection }, timestamp: Date.now() }) }).catch(() => {});
-        // #endregion
         void this.copyPanelSelection(panel, view);
         return true;
       }
@@ -295,23 +272,12 @@ export class QuantTui {
     panel: "conversation" | "overview",
     view: ConversationView,
   ): Promise<void> {
-    const fallback = panel === "conversation"
-      ? lastAssistantPlainText(this.state.messages)
-      : "";
-    const text = this.textSelection
-      ? extractConversationSelection(view, this.textSelection)
-      : fallback;
-    // #region agent log
-    fetch("http://127.0.0.1:7287/ingest/afac60de-da57-47d2-beed-4b5639b3d1cd", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "33aff1" }, body: JSON.stringify({ sessionId: "33aff1", hypothesisId: "C", location: "tui.ts:copyPanelSelection", message: "extracted copy text", data: { panel, len: text.length, trimmed: text.trim().length, hasSelection: !!this.textSelection }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
+    const text = resolveCopyText(panel, view, this.textSelection, this.state.messages);
     if (!text.trim()) {
       this.flashCopyStatus("Nothing to copy", true);
       return;
     }
     const ok = await copyToClipboard(text);
-    // #region agent log
-    fetch("http://127.0.0.1:7287/ingest/afac60de-da57-47d2-beed-4b5639b3d1cd", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "33aff1" }, body: JSON.stringify({ sessionId: "33aff1", hypothesisId: "D", location: "tui.ts:copyPanelSelection", message: "clipboard result", data: { panel, ok, len: text.length, platform: process.platform }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
     this.flashCopyStatus(ok ? `Copied ${text.length} chars` : "Copy failed", !ok);
   }
 
@@ -412,13 +378,14 @@ export class QuantTui {
       }
       const text = input.trim();
       if (text && text !== "/") {
-        this.history.unshift(text);
+        const normalized = normalizeSlashInput(text);
+        this.history.unshift(normalized);
         this.histIdx = -1;
         this.inputBuf = "";
         this.suggestionIdx = 0;
         this.convScrollUp = 0;
         this.scrollRegion = "composer";
-        this.submitHandler?.(text);
+        this.submitHandler?.(normalized);
       }
     } else if (key.name === "pageup") {
       const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
@@ -505,4 +472,8 @@ export class QuantTui {
       this.drainInput();
     });
   }
+}
+
+function normalizeSlashInput(input: string): string {
+  return input.replace(/^\/session(?=\s|$)/, "/resume");
 }
