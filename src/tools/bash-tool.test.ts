@@ -96,4 +96,20 @@ describe("bashTool", () => {
   it("throws on empty command", async () => {
     await expect(bashTool.execute("test", { command: "   " })).rejects.toThrow("command is required");
   });
+
+  it("rejects temp scripts in the repository workdir", async () => {
+    await expect(
+      bashTool.execute("test", { command: "python temp_562500.py" }),
+    ).rejects.toThrow("Do not create or use temporary scripts in the repository workdir");
+    expect(executorCalls.length).toBe(0);
+  });
+
+  it("allows temp scripts under the system temp directory", async () => {
+    const tempPath = `$env:TEMP\\temp_562500.py`;
+    const result = await bashTool.execute("test", { command: `python ${tempPath}` });
+    expect(executorCalls[0]?.command).toContain(tempPath);
+    if (result.content[0]?.type === "text") {
+      expect(result.content[0].text).toContain("Exit code: 0");
+    }
+  });
 });

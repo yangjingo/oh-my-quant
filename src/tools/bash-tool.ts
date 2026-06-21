@@ -4,6 +4,8 @@
  */
 import { Type } from "typebox";
 import type { Static } from "typebox";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import type { AgentTool, AgentToolResult } from "../agent/src/pi/index.ts";
 import { executeShellWithCapture } from "../agent/src/pi/index.ts";
 import { NodeExecutionEnv } from "../agent/src/pi/node.ts";
@@ -24,6 +26,16 @@ type BashArgs = Static<typeof BashParams>;
 
 let executionEnv: NodeExecutionEnv | undefined;
 let shellExecutor = executeShellWithCapture;
+const TEMP_ARTIFACT_RE = /temp_[\w.-]+\.(?:py|ps1|sh)\b/gi;
+const TEMP_PREFIX_MARKERS = [
+  "$env:TEMP",
+  "$env:TMP",
+  "%TEMP%",
+  "%TMP%",
+  "/tmp/",
+  "\\tmp\\",
+  "\\temp\\",
+];
 
 export function setBashExecutorForTest(executor?: typeof executeShellWithCapture): void {
   shellExecutor = executor ?? executeShellWithCapture;
@@ -75,6 +87,28 @@ function formatShellResult(result: {
   return lines.join("\n");
 }
 
+function isInsideRepoWorkdir(workdir?: string): boolean {
+  const resolved = resolve(workdir ?? process.cwd());
+  const root = resolve(process.cwd());
+  return resolved === root || resolved.startsWith(`${root}\\`) || resolved.startsWith(`${root}/`);
+}
+
+function hasTempPrefix(command: string, matchIndex: number): boolean {
+  const windowStart = Math.max(0, matchIndex - 48);
+  const prefix = command.slice(windowStart, matchIndex).toLowerCase();
+  return TEMP_PREFIX_MARKERS.some((marker) => prefix.includes(marker.toLowerCase()));
+}
+
+function validateEphemeralCommand(command: string, workdir?: string): string | null {
+  if (!isInsideRepoWorkdir(workdir)) return null;
+  const matches = [...command.matchAll(TEMP_ARTIFACT_RE)];
+  const invalid = matches.find((match) => typeof match.index === "number" && !hasTempPrefix(command, match.index));
+  if (!invalid) return null;
+  const name = invalid[0];
+  const sysTemp = process.platform === "win32" ? (process.env.TEMP || process.env.TMP || tmpdir()) : tmpdir();
+  return `Do not create or use temporary scripts in the repository workdir (${name}). Put ephemeral scripts under the system temp directory instead, for example: ${sysTemp}`;
+}
+
 export const bashTool: AgentTool<typeof BashParams> = {
   name: "bash",
   label: shellDisplayName(),
@@ -86,6 +120,8 @@ export const bashTool: AgentTool<typeof BashParams> = {
   async execute(_id, args, signal, onUpdate): Promise<AgentToolResult<unknown>> {
     const command = args.command.trim();
     if (!command) throw new Error("bash: command is required");
+    const ephemeralError = validateEphemeralCommand(command, args.workdir);
+    if (ephemeralError) throw new Error(ephemeralError);
 
     const timeoutMs = args.timeout_ms ?? DEFAULT_TIMEOUT_MS;
     const env = getExecutionEnv();

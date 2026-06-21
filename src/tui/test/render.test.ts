@@ -489,6 +489,32 @@ describe("panel isolation", () => {
     expect(buf.cells[addedY * buf.w + addedX].fg).toBe("#1E9F4D");
   });
 
+  it("truncates long tool result previews after three lines", () => {
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+    const msgs: UIMessage[] = [{
+      role: "tool",
+      tool: {
+        name: "bash",
+        label: "PowerShell.Read · preview",
+        args: "preview",
+        status: "done",
+        startedAt: Date.now() - 1000,
+        result: "line1\nline2\nline3\nline4\nline5",
+      },
+    }];
+
+    drawConversation(buf, L.conversation, msgs, "ready", L.mainPane);
+
+    const text = buf.toPlain().join("\n");
+    expect(text).toContain("line1");
+    expect(text).toContain("line2");
+    expect(text).toContain("line3");
+    expect(text).toContain("... 2 more lines");
+    expect(text).not.toContain("line4");
+    expect(text).not.toContain("line5");
+  });
+
   it("shows portfolio fund count and scroll position in the overview title", () => {
     const buf = new Buffer(120, 24);
     const L = layout(120, 24);

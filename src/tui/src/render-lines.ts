@@ -251,7 +251,7 @@ function joinStyledColumns(columns: { text: string; style?: Style }[]): RenderLi
 }
 
 function renderToolResultPreview(result: string, width: number): RenderLine[] {
-  const maxLines = 8;
+  const maxLines = 3;
   const maxChars = 900;
   const clipped = result.length > maxChars ? `${result.slice(0, maxChars)}...` : result;
   const rawLines = sanitizeTerminalText(clipped).replace(/\r\n/g, "\n").split("\n");
