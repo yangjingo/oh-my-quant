@@ -3,8 +3,7 @@ import { existsSync, mkdirSync, rmSync, utimesSync, writeFileSync } from "node:f
 import { join } from "node:path";
 import { Buffer } from "../src/buffer.ts";
 import { PanelController } from "../src/panel.ts";
-import { savePanelPortfolio } from "../../storage/panel-portfolio.ts";
-import { loadSettings, saveSettings } from "../../storage/index.ts";
+import { savePanelPortfolio, loadSettings, saveSettings } from "../../storage/index.ts";
 
 const OHQ = join(process.cwd(), ".ohquant-test-panel-ctrl");
 
@@ -53,6 +52,8 @@ describe("PanelController portfolio UI", () => {
     expect(configBuf.toPlain().join("\n")).toContain("Portfolio");
     expect(configBuf.toPlain().join("\n")).toContain("Source");
     expect(configBuf.toPlain().join("\n")).toContain("Token");
+    expect(configBuf.toPlain().join("\n")).toContain("Codex Skills");
+    expect(configBuf.toPlain().join("\n")).toContain("Claude Skills");
     expect(configBuf.toPlain().join("\n")).toContain("Local settings panel.");
     expect(configBuf.toPlain().join("\n")).not.toContain("-- Basic --");
     expect(configBuf.toPlain().join("\n")).toContain("↑↓ move  ↵ toggle/edit  esc close");
@@ -122,6 +123,7 @@ describe("PanelController portfolio UI", () => {
     panel.handleKey("", key("down"));
     panel.handleKey("", key("down"));
     panel.handleKey("", key("down"));
+    panel.handleKey("", key("down"));
     panel.handleKey("", key("return"));
     for (const ch of "test-llmquant-key") {
       panel.handleKey(ch, key("", ch));
@@ -130,7 +132,7 @@ describe("PanelController portfolio UI", () => {
     panel.close();
 
     const settings = loadSettings();
-    expect(settings.env.LLMQUANT_API_KEY).toBe("test-llmquant-key");
+    expect(settings.env.WHYJ_QUANT_LLMQUANT_API_KEY).toBe("test-llmquant-key");
   });
 
   it("lets config cycle through data sources", () => {
@@ -140,11 +142,24 @@ describe("PanelController portfolio UI", () => {
     panel.handleKey("", key("down"));
     panel.handleKey("", key("down"));
     panel.handleKey("", key("down"));
+    panel.handleKey("", key("down"));
     panel.handleKey("", key("return"));
     panel.close();
 
     const settings = loadSettings();
     expect(settings.preferences.source).toBe("financial-datasets");
+  });
+
+  it("lets config toggle user-level skill integrations", () => {
+    const panel = new PanelController();
+    panel.open("config");
+    for (let i = 0; i < 7; i++) panel.handleKey("", key("down"));
+    panel.handleKey("", key("return"));
+    panel.close();
+
+    const settings = loadSettings();
+    expect(settings.skillIntegrations.codex).toBe(true);
+    expect(settings.skillIntegrations.claude).toBe(false);
   });
 
   it("renders a dedicated resume selector and returns a resume command", () => {
@@ -213,7 +228,30 @@ describe("PanelController portfolio UI", () => {
       join(cwdDir, `2026-06-12T08-00-00-000Z_${secondId}.jsonl`),
       [
         JSON.stringify({ type: "session", version: 3, id: secondId, timestamp: "2026-06-12T08:00:00.000Z", cwd: process.cwd() }),
-        JSON.stringify({ type: "message", id: "m2", timestamp: "2026-06-12T08:05:00.000Z", message: { role: "user", content: "第二个会话" } }),
+        JSON.stringify({ type: "message", id: "m2", parentId: null, timestamp: "2026-06-12T08:05:00.000Z", message: { role: "user", content: "第二个会话" } }),
+        JSON.stringify({
+          type: "message",
+          id: "m3",
+          parentId: "m2",
+          timestamp: "2026-06-12T08:06:00.000Z",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "第二个会话回答" }],
+            provider: "openrouter",
+            model: "openai/gpt-5.5",
+            api: "responses",
+            usage: {
+              input: 300,
+              output: 100,
+              cacheRead: 0,
+              cacheWrite: 0,
+              totalTokens: 400,
+              cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+            },
+            stopReason: "end_turn",
+            timestamp: Date.now(),
+          },
+        }),
       ].join("\n"),
       "utf-8",
     );
@@ -221,6 +259,11 @@ describe("PanelController portfolio UI", () => {
     const panel = new PanelController();
     panel.open("resume");
     panel.handleKey("", key("down"));
+    const buf = new Buffer(120, 28);
+    panel.render(buf);
+    const plain = buf.toPlain().join("\n");
+    expect(plain).toContain(`Selected: ${secondId}`);
+    expect(plain).toContain("400/1,050,000");
 
     const result = panel.handleKey("", key("return"));
     expect(result).toEqual({ command: `/resume ${secondId}`, close: true });

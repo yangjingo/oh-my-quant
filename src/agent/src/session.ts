@@ -23,7 +23,8 @@ import {
 } from "@earendil-works/pi-ai";
 import { BUILTIN_TOOLS } from "../../tools/registry.ts";
 import { buildSystemPrompt, injectSkillContext, injectTurnContext, type SessionCtx } from "./context.ts";
-import { SESSIONS_DIR, ensureDirs, loadSettings } from "../../storage/index.ts";
+import { ensureDirs, loadSettings, resolveSessionsDir } from "../../storage/index.ts";
+import { readWhyjEnvValue, stripTerminalControlCodes } from "../../storage/index.ts";
 import type { OhQuantSettings } from "../../types/config.ts";
 import { discoverSkills, type QuantSkill } from "./skills.ts";
 import { perfLog, perfNow } from "../../perf.ts";
@@ -86,7 +87,7 @@ export interface QuantAgentSession {
 export interface QuantAgentOptions {
   cwd?: string;
   sessionsRoot?: string;
-  settings?: Partial<Pick<OhQuantSettings, "env" | "model" | "thinkingLevel">>;
+  settings?: Partial<Pick<OhQuantSettings, "env" | "model" | "thinkingLevel" | "skillIntegrations">>;
   skillPaths?: string[];
 }
 
@@ -106,8 +107,8 @@ const TOOLSET = [...BUILTIN_TOOLS] as AgentTool[];
 function createEmptyState(): QuantAgentState {
   const config = loadSettings();
   const modelId = resolveModelId(config.model || "sonnet", config.env);
-  const provider = inferProvider(modelId);
-  const model = resolveModel(provider, modelId);
+  const provider = inferProvider(modelId, config.env);
+  const model = resolveModel(provider, modelId, config.env);
   return {
     systemPrompt: buildSystemPrompt(),
     model,
@@ -140,13 +141,13 @@ class QuantAgentHarnessSession implements QuantAgentSession {
 
   constructor(options: QuantAgentOptions = {}) {
     this.cwd = options.cwd ?? process.cwd();
-    this.sessionsRoot = options.sessionsRoot ?? SESSIONS_DIR;
+    this.sessionsRoot = options.sessionsRoot ?? resolveSessionsDir();
     this.settingsOverride = options.settings;
     this.skillPaths = options.skillPaths ?? [];
     this.env = new NodeExecutionEnv({ cwd: this.cwd });
     this.repo = new JsonlSessionRepo({ fs: this.env, sessionsRoot: this.sessionsRoot });
     this.applyConfigToState(this.resolveSettings());
-    this.ready = this.initialize({ forceNewSession: false });
+    this.ready = this.initialize();
   }
 
   subscribe(listener: (event: QuantAgentEvent, signal?: AbortSignal) => Promise<void> | void): () => void {
@@ -258,7 +259,7 @@ class QuantAgentHarnessSession implements QuantAgentSession {
   async resumeSession(sessionId: string): Promise<JsonlSessionMetadata> {
     this.abort();
     this.prepareForSessionSwitch();
-    this.ready = this.initialize({ forceNewSession: false, resumeSessionId: sessionId });
+    this.ready = this.initialize({ resumeSessionId: sessionId });
     await this.ready;
     const metadata = await this.getSessionMetadata();
     if (!metadata) throw new Error(`Session not found: ${sessionId}`);
@@ -281,7 +282,7 @@ class QuantAgentHarnessSession implements QuantAgentSession {
   reset(): void {
     this.abort();
     this.prepareForSessionSwitch();
-    this.ready = this.initialize({ forceNewSession: true });
+    this.ready = this.initialize();
   }
 
   private prepareForSessionSwitch(): void {
@@ -299,7 +300,7 @@ class QuantAgentHarnessSession implements QuantAgentSession {
     sessionCtx.recentToolState.resultShape = null;
   }
 
-  private async initialize(options: { forceNewSession: boolean; resumeSessionId?: string }): Promise<void> {
+  private async initialize(options: { resumeSessionId?: string } = {}): Promise<void> {
     const totalStartedAt = perfNow();
     const version = ++this.initVersion;
     ensureDirs();
@@ -307,28 +308,31 @@ class QuantAgentHarnessSession implements QuantAgentSession {
     const configStartedAt = perfNow();
     const config = this.resolveSettings();
     const modelId = resolveModelId(config.model || "sonnet", config.env);
-    const provider = inferProvider(modelId);
-    const model = resolveModel(provider, modelId);
+    const provider = inferProvider(modelId, config.env);
+    const model = resolveModel(provider, modelId, config.env);
     perfLog("agent.init.config", configStartedAt, { model: modelId, provider });
 
     const skillsStartedAt = perfNow();
-    const discovered = await discoverSkills({ cwd: this.cwd, env: this.env, extraPaths: this.skillPaths });
+    const discovered = await discoverSkills({
+      cwd: this.cwd,
+      env: this.env,
+      extraPaths: this.skillPaths,
+      integrations: config.skillIntegrations,
+    });
     perfLog("agent.init.skills", skillsStartedAt, { skills: discovered.skills.length });
     const systemPrompt = buildSystemPrompt(undefined, discovered.skills);
 
     this.applyConfigToState(config, model, systemPrompt);
 
     const sessionStartedAt = perfNow();
-    const existing = options.forceNewSession ? [] : await this.repo.list({ cwd: this.cwd });
+    const existing = options.resumeSessionId ? await this.repo.list({ cwd: this.cwd }) : [];
     let session: Session<JsonlSessionMetadata>;
     if (options.resumeSessionId) {
       const target = existing.find((item) => item.id === options.resumeSessionId);
       if (!target) throw new Error(`Session not found: ${options.resumeSessionId}`);
       session = await this.repo.open(target);
     } else {
-      session = existing.length > 0
-        ? await this.repo.open(existing[0]!)
-        : await this.repo.create({ cwd: this.cwd });
+      session = await this.repo.create({ cwd: this.cwd });
     }
     perfLog("agent.init.session", sessionStartedAt, { existing: existing.length, resume: Boolean(options.resumeSessionId) });
 
@@ -339,7 +343,7 @@ class QuantAgentHarnessSession implements QuantAgentSession {
 
     this.skills = discovered.skills;
     this.session = session;
-    applySessionContextState(this.state, context, model);
+    applySessionContextState(this.state, context, model, config.env);
 
     const harness = new AgentHarness({
       env: this.env,
@@ -352,8 +356,12 @@ class QuantAgentHarnessSession implements QuantAgentSession {
       systemPrompt,
       getApiKeyAndHeaders: async (_activeModel) => {
         const s = this.resolveSettings();
-        const legacy = s.env.WHYJ_AUTH_TOKEN || s.env.WHYJ_API_KEY || process.env.WHYJ_AUTH_TOKEN || process.env.WHYJ_API_KEY;
-        return legacy ? { apiKey: legacy } : undefined;
+        const apiKey =
+          readWhyjEnvValue(s.env, "apiKey")
+          || readWhyjEnvValue(s.env, "authToken")
+          || readWhyjEnvValue(process.env, "apiKey")
+          || readWhyjEnvValue(process.env, "authToken");
+        return apiKey ? { apiKey } : undefined;
       },
       steeringMode: "one-at-a-time",
       followUpMode: "one-at-a-time",
@@ -430,7 +438,7 @@ class QuantAgentHarnessSession implements QuantAgentSession {
   private async refreshStateFromSession(): Promise<void> {
     if (!this.session) return;
     const context = await this.session.buildContext();
-    applySessionContextState(this.state, context, this.state.model);
+    applySessionContextState(this.state, context, this.state.model, this.resolveSettings().env);
   }
 
   private resolveSettings(): OhQuantSettings {
@@ -440,6 +448,7 @@ class QuantAgentHarnessSession implements QuantAgentSession {
       env: { ...base.env, ...(this.settingsOverride?.env ?? {}) },
       model: this.settingsOverride?.model ?? base.model,
       thinkingLevel: this.settingsOverride?.thinkingLevel ?? base.thinkingLevel,
+      skillIntegrations: this.settingsOverride?.skillIntegrations ?? base.skillIntegrations,
     };
   }
 
@@ -449,7 +458,11 @@ class QuantAgentHarnessSession implements QuantAgentSession {
     systemPrompt?: string,
   ): void {
     const resolvedModel = model
-      ?? resolveModel(inferProvider(resolveModelId(config.model || "sonnet", config.env)), resolveModelId(config.model || "sonnet", config.env));
+      ?? resolveModel(
+        inferProvider(resolveModelId(config.model || "sonnet", config.env), config.env),
+        resolveModelId(config.model || "sonnet", config.env),
+        config.env,
+      );
     this.state.model = resolvedModel;
     this.state.systemPrompt = systemPrompt ?? buildSystemPrompt(undefined, this.skills);
     this.state.thinkingLevel = config.thinkingLevel || "high";
@@ -476,12 +489,13 @@ function applySessionContextState(
   state: QuantAgentState,
   context: SessionContext,
   fallbackModel: Model<any>,
+  env: Record<string, string>,
 ): void {
   state.messages = [...context.messages];
   if (context.thinkingLevel !== null) state.thinkingLevel = context.thinkingLevel;
   if (context.model) {
     try {
-      state.model = resolveModel(context.model.provider, context.model.modelId);
+      state.model = resolveModel(context.model.provider, context.model.modelId, env);
     } catch {
       state.model = fallbackModel;
     }
@@ -555,6 +569,25 @@ export function resolveModelId(model: string, env: Record<string, string>): stri
   return env[envKey] || process.env[envKey] || inferModelId(model);
 }
 
+function normalizeModelLookupId(modelId: string): string {
+  return modelId.replace(/\[\d+m\]$/u, "");
+}
+
+function getUrlTail(baseUrl: string): string {
+  try {
+    const url = new URL(baseUrl);
+    const segments = url.pathname.split("/").filter(Boolean);
+    return (segments.at(-1) || "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function isAnthropicStyleEndpoint(baseUrl: string): boolean {
+  const tail = getUrlTail(baseUrl);
+  return tail === "anthropic" || baseUrl.includes("anthropic.com");
+}
+
 export function inferModelId(model: string): string {
   switch (model) {
     case "sonnet": return "deepseek-v4-pro";
@@ -566,25 +599,139 @@ export function inferModelId(model: string): string {
   }
 }
 
-function inferProvider(modelId: string): string {
-  if (modelId.startsWith("openai/")) return "openrouter";
-  if (modelId.startsWith("deepseek-")) return "deepseek";
-  if (modelId.startsWith("claude-")) return "anthropic";
-  if (modelId.startsWith("gpt-") || modelId.startsWith("o")) return "openai";
-  if (modelId.startsWith("gemini-")) return "google";
-  if (modelId.startsWith("mistral-")) return "mistral";
+function inferProvider(modelId: string, env: Record<string, string>): string {
+  const baseUrl = stripTerminalControlCodes(env.WHYJ_QUANT_BASE_URL || process.env.WHYJ_QUANT_BASE_URL || "");
+  const lookupId = normalizeModelLookupId(modelId);
+  if (isAnthropicStyleEndpoint(baseUrl)) return "anthropic";
+  if (baseUrl.includes("open.bigmodel.cn") || baseUrl.includes("api.z.ai")) return "zai";
+  if (baseUrl.includes("api.minimaxi.com") || baseUrl.includes("minimaxi.com")) return "minimax";
+  if (lookupId.startsWith("openai/")) return "openrouter";
+  if (lookupId.startsWith("deepseek-")) return "deepseek";
+  if (lookupId.startsWith("claude-")) return "anthropic";
+  if (lookupId.startsWith("gpt-") || lookupId.startsWith("o")) return "openai";
+  if (lookupId.startsWith("gemini-")) return "google";
+  if (lookupId.startsWith("mistral-")) return "mistral";
   return "deepseek";
 }
 
-function resolveModel(provider: string, id: string): Model<any> {
-  const models = getModels(provider as KnownProvider);
-  const model = models.find((candidate) => candidate.id === id);
-  if (!model) {
-    const prefix = models.find((candidate) => id.startsWith(candidate.id));
-    if (prefix) return prefix;
-    throw new Error(`pi-ai model not found: ${provider}/${id}`);
+function resolveModel(provider: string, id: string, env: Record<string, string>): Model<any> {
+  const baseUrl =
+    stripTerminalControlCodes(env.WHYJ_QUANT_BASE_URL || process.env.WHYJ_QUANT_BASE_URL || "");
+  const lookupId = normalizeModelLookupId(id);
+  const resolvedProvider = isAnthropicStyleEndpoint(baseUrl)
+    ? "anthropic"
+    : provider;
+
+  const models = getModels(resolvedProvider as KnownProvider);
+  const model = models.find((candidate) => candidate.id === lookupId);
+  const resolved = model ? { ...model } : (() => {
+    const prefix = models.find((candidate) => lookupId.startsWith(candidate.id));
+    if (prefix) return { ...prefix };
+    if (resolvedProvider === "anthropic") {
+      const anthropicModel = buildAnthropicFallbackModel(lookupId, baseUrl || undefined);
+      if (anthropicModel) return anthropicModel;
+    }
+    const genericModel = buildGenericFallbackModel(resolvedProvider, lookupId, baseUrl || undefined);
+    if (genericModel) return genericModel;
+    throw new Error(`pi-ai model not found: ${resolvedProvider}/${lookupId}`);
+  })();
+  if (baseUrl) {
+    resolved.baseUrl = baseUrl;
   }
-  return model;
+  return resolved;
+}
+
+function buildGenericFallbackModel(provider: string, id: string, baseUrl?: string): Model<"openai-completions"> | undefined {
+  if (!baseUrl) return undefined;
+  if (provider !== "zai" && provider !== "minimax" && provider !== "minimax-cn") return undefined;
+  return {
+    id,
+    name: id,
+    api: "openai-completions",
+    provider: provider as "zai" | "minimax" | "minimax-cn",
+    baseUrl,
+    reasoning: false,
+    input: ["text", "image"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128000,
+    maxTokens: 128000,
+  };
+}
+
+function buildAnthropicFallbackModel(id: string, baseUrl?: string): Model<any> | undefined {
+  const anthropicBaseUrl = baseUrl || "https://api.anthropic.com";
+  if (id.startsWith("deepseek-")) {
+    const deepseekModels = getModels("deepseek" as KnownProvider);
+    const template = deepseekModels.find((candidate) => candidate.id === id);
+    if (!template) return undefined;
+    return {
+      ...template,
+      provider: "anthropic",
+      api: "anthropic-messages",
+      baseUrl: anthropicBaseUrl,
+    };
+  }
+
+  const genericAnthropicModel: Model<"anthropic-messages"> = {
+    id,
+    name: id,
+    api: "anthropic-messages",
+    provider: "anthropic",
+    baseUrl: anthropicBaseUrl,
+    reasoning: true,
+    thinkingLevelMap: { minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh" },
+    input: ["text", "image"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 200000,
+    maxTokens: 128000,
+  };
+
+  switch (id) {
+    case "claude-opus-4-6":
+      return {
+        id,
+        name: "Claude Opus 4.6",
+        api: "anthropic-messages",
+        provider: "anthropic",
+        baseUrl: anthropicBaseUrl,
+        reasoning: true,
+        thinkingLevelMap: { minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh" },
+        input: ["text", "image"],
+        cost: { input: 5, output: 25, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 200000,
+        maxTokens: 128000,
+      };
+    case "claude-sonnet-4-6":
+      return {
+        id,
+        name: "Claude Sonnet 4.6",
+        api: "anthropic-messages",
+        provider: "anthropic",
+        baseUrl: anthropicBaseUrl,
+        reasoning: true,
+        thinkingLevelMap: { minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh" },
+        input: ["text", "image"],
+        cost: { input: 3, output: 15, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 200000,
+        maxTokens: 128000,
+      };
+    case "claude-haiku-4-5":
+      return {
+        id,
+        name: "Claude Haiku 4.5",
+        api: "anthropic-messages",
+        provider: "anthropic",
+        baseUrl: anthropicBaseUrl,
+        reasoning: true,
+        thinkingLevelMap: { minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh" },
+        input: ["text", "image"],
+        cost: { input: 1, output: 5, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 200000,
+        maxTokens: 128000,
+      };
+    default:
+      return genericAnthropicModel;
+  }
 }
 
 function extractThinkingFromMessage(m: { role?: string; content?: unknown[] }): string {

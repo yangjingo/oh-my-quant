@@ -1,13 +1,29 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
-import { OHQUANT_DIR } from "./index.ts";
-import type { JsonlSessionMetadata } from "../agent/src/pi/index.ts";
+import { getModels } from "../../agent/src/pi/llm-index.ts";
+import { OHQUANT_DIR } from "./dirs.ts";
+import { estimateContextTokens, type AgentMessage, type JsonlSessionMetadata, type SessionTreeEntry } from "../../agent/src/pi/index.ts";
+import { buildSessionContext } from "../../agent/src/pi/harness/session/session.ts";
+
+export interface StoredSessionContextUsage {
+  tokens: number;
+  contextWindow: number;
+  percent: number | null;
+}
+
+export interface StoredSessionEntryCount {
+  messages: number;
+  compactions: number;
+  branches: number;
+}
 
 export interface StoredSessionSummary extends JsonlSessionMetadata {
   format: "jsonl" | "markdown";
   updatedAt: string;
   preview: string;
   messageCount: number;
+  contextUsage?: StoredSessionContextUsage;
+  entryCount?: StoredSessionEntryCount;
   sessionName?: string;
   recentMessages: Array<{ role: "user" | "assistant"; text: string }>;
 }
@@ -50,6 +66,78 @@ function pushRecentMessage(
   if (recentMessages.length > 4) recentMessages.shift();
 }
 
+function leafIdAfterEntry(entry: SessionTreeEntry): string | null {
+  return entry.type === "leaf" ? entry.targetId : entry.id;
+}
+
+function normalizeSessionEntry(parsed: Record<string, unknown>, currentLeafId: string | null): SessionTreeEntry | null {
+  if (typeof parsed.type !== "string" || typeof parsed.id !== "string" || typeof parsed.timestamp !== "string") {
+    return null;
+  }
+  const entry = { ...parsed } as Record<string, unknown>;
+  if (entry.parentId !== null && typeof entry.parentId !== "string") {
+    entry.parentId = currentLeafId;
+  }
+  if (entry.type === "leaf" && entry.targetId !== null && typeof entry.targetId !== "string") {
+    entry.targetId = null;
+  }
+  return entry as unknown as SessionTreeEntry;
+}
+
+function buildCurrentBranch(entries: SessionTreeEntry[], leafId: string | null): SessionTreeEntry[] {
+  if (leafId === null) return [];
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const path: SessionTreeEntry[] = [];
+  let current = byId.get(leafId);
+  while (current) {
+    path.unshift(current);
+    if (!current.parentId) break;
+    current = byId.get(current.parentId);
+  }
+  return path;
+}
+
+function normalizeModelLookupId(modelId: string): string {
+  return modelId.replace(/\[\d+m\]$/u, "");
+}
+
+function inferContextProviderCandidates(provider: string, modelId: string): string[] {
+  const lookupId = normalizeModelLookupId(modelId);
+  const candidates = [provider];
+  if (provider === "anthropic" && lookupId.startsWith("deepseek-")) candidates.push("deepseek");
+  if (lookupId.startsWith("openai/")) candidates.push("openrouter");
+  if (lookupId.startsWith("deepseek-")) candidates.push("deepseek");
+  if (lookupId.startsWith("gpt-") || lookupId.startsWith("o")) candidates.push("openai", "openrouter");
+  if (lookupId.startsWith("claude-")) candidates.push("anthropic");
+  return [...new Set(candidates)];
+}
+
+function inferContextWindow(model: { provider: string; modelId: string } | null): number {
+  if (!model) return 200_000;
+  const lookupId = normalizeModelLookupId(model.modelId);
+  for (const provider of inferContextProviderCandidates(model.provider, lookupId)) {
+    const exact = getModels(provider).find((candidate) => candidate.id === lookupId);
+    if (exact?.contextWindow) return exact.contextWindow;
+    const prefix = getModels(provider).find((candidate) => lookupId.startsWith(candidate.id));
+    if (prefix?.contextWindow) return prefix.contextWindow;
+  }
+  if (model.provider === "zai" || model.provider === "minimax" || model.provider === "minimax-cn") return 128_000;
+  return 200_000;
+}
+
+function buildContextUsage(entries: SessionTreeEntry[], leafId: string | null): StoredSessionContextUsage {
+  const branch = buildCurrentBranch(entries, leafId);
+  const context = buildSessionContext(branch);
+  const estimatedTokens = estimateContextTokens(context.messages as AgentMessage[]).tokens;
+  const tokens = Number.isFinite(estimatedTokens) ? estimatedTokens : 0;
+  const contextWindow = inferContextWindow(context.model);
+  return {
+    tokens,
+    contextWindow,
+    percent: contextWindow > 0 ? tokens / contextWindow * 100 : null,
+  };
+}
+
 function parseSessionFile(filePath: string): StoredSessionSummary | null {
   try {
     const raw = readFileSync(filePath, "utf-8");
@@ -67,6 +155,8 @@ function parseSessionFile(filePath: string): StoredSessionSummary | null {
     let sessionName: string | undefined;
     let messageCount = 0;
     const recentMessages: StoredSessionSummary["recentMessages"] = [];
+    const entries: SessionTreeEntry[] = [];
+    let leafId: string | null = null;
 
     for (const line of lines.slice(1)) {
       let parsed: Record<string, unknown>;
@@ -74,6 +164,11 @@ function parseSessionFile(filePath: string): StoredSessionSummary | null {
         parsed = JSON.parse(line) as Record<string, unknown>;
       } catch {
         continue;
+      }
+      const entry = normalizeSessionEntry(parsed, leafId);
+      if (entry) {
+        entries.push(entry);
+        leafId = leafIdAfterEntry(entry);
       }
       if (typeof parsed.timestamp === "string") updatedAt = parsed.timestamp;
       if (parsed.type === "session_info" && typeof parsed.name === "string" && parsed.name.trim()) {
@@ -102,6 +197,12 @@ function parseSessionFile(filePath: string): StoredSessionSummary | null {
       path: filePath,
       parentSessionPath: typeof header.parentSession === "string" ? header.parentSession : undefined,
       preview: preview || sessionName || "Untitled session",
+      contextUsage: buildContextUsage(entries, leafId),
+      entryCount: {
+        messages: messageCount,
+        compactions: entries.filter((entry) => entry.type === "compaction").length,
+        branches: entries.filter((entry) => entry.type === "branch_summary").length,
+      },
       sessionName,
       messageCount,
       recentMessages,

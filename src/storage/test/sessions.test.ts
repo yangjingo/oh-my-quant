@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { listStoredSessions } from "./sessions.ts";
+import { listStoredSessions } from "../src/sessions.ts";
 
 const OHQ = join(process.cwd(), ".ohquant-test-sessions-storage");
 
@@ -33,8 +33,31 @@ describe("session storage summaries", () => {
       join(jsonlDir, `2026-06-13T08-00-00-000Z_${jsonlId}.jsonl`),
       [
         JSON.stringify({ type: "session", version: 3, id: jsonlId, timestamp: "2026-06-13T08:00:00.000Z", cwd }),
-        JSON.stringify({ type: "message", id: "m1", timestamp: "2026-06-13T08:01:00.000Z", message: { role: "user", content: [{ type: "text", text: "查看今天行情" }] } }),
-        JSON.stringify({ type: "message", id: "m2", timestamp: "2026-06-13T08:02:00.000Z", message: { role: "assistant", content: [{ type: "text", text: "今天行情如下" }] } }),
+        JSON.stringify({ type: "message", id: "m1", parentId: null, timestamp: "2026-06-13T08:01:00.000Z", message: { role: "user", content: [{ type: "text", text: "查看今天行情" }] } }),
+        JSON.stringify({
+          type: "message",
+          id: "m2",
+          parentId: "m1",
+          timestamp: "2026-06-13T08:02:00.000Z",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "今天行情如下" }],
+            provider: "openrouter",
+            model: "openai/gpt-5.5",
+            api: "responses",
+            usage: {
+              input: 300,
+              output: 100,
+              cacheRead: 0,
+              cacheWrite: 0,
+              totalTokens: 400,
+              cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+            },
+            stopReason: "end_turn",
+            timestamp: Date.now(),
+          },
+        }),
+        JSON.stringify({ type: "compaction", id: "c1", parentId: "m2", timestamp: "2026-06-13T08:03:00.000Z", summary: "keep market context", firstKeptEntryId: "m2", tokensBefore: 900 }),
       ].join("\n"),
       "utf-8",
     );
@@ -69,13 +92,25 @@ describe("session storage summaries", () => {
       { role: "user", text: "股票代码 — 比如 000001.SZ 或 AAPL" },
       { role: "assistant", text: "数据拉取遇到点问题，加日期参数再试。" },
     ]);
-    expect(sessions[1]).toMatchObject({
+    const jsonl = sessions.find((session) => session.id === jsonlId);
+    expect(jsonl).toBeDefined();
+    expect(jsonl).toMatchObject({
       format: "jsonl",
       id: jsonlId,
       preview: "查看今天行情",
       messageCount: 2,
+      entryCount: {
+        messages: 2,
+        compactions: 1,
+        branches: 0,
+      },
     });
-    expect(sessions[1]?.recentMessages).toEqual([
+    expect(jsonl!.contextUsage).toBeDefined();
+    expect(jsonl!.contextUsage!.contextWindow).toBe(1_050_000);
+    expect(typeof jsonl!.contextUsage!.tokens).toBe("number");
+    expect(typeof jsonl!.contextUsage!.percent).toBe("number");
+    expect(jsonl!.contextUsage!.tokens).toBeGreaterThan(0);
+    expect(jsonl!.recentMessages).toEqual([
       { role: "user", text: "查看今天行情" },
       { role: "assistant", text: "今天行情如下" },
     ]);

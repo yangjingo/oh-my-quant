@@ -1,7 +1,6 @@
 import type { CurrentSessionMeta } from "./panel.ts";
 import type { ConfigRowView, PortfolioItemView, PortfolioMetaView, ResumeListItemView, ResumeMetaView } from "./panel-views.ts";
-import type { LocalPortfolioSummary } from "../../storage/local-portfolios.ts";
-import type { StoredSessionSummary } from "../../storage/sessions.ts";
+import type { LocalPortfolioSummary, StoredSessionContextUsage, StoredSessionSummary } from "../../storage/index.ts";
 import { COMMAND_CATALOG } from "../../cli/catalog.ts";
 
 export function buildConfigRowViews(
@@ -43,7 +42,7 @@ export function buildResumePanelData(args: {
   const selected = sessions[selection];
   const isCurrent = selected && meta && selected.id === meta.id;
   const footer = status || (sessions.length === 0
-    ? "No saved sessions found."
+    ? "No saved sessions yet. Start a conversation first, then come back to /resume."
     : `Showing ${sessions.length} session${sessions.length === 1 ? "" : "s"} · enter to resume`);
 
   const metaView = selected ? (() => {
@@ -57,21 +56,19 @@ export function buildResumePanelData(args: {
         : [];
       return previewRows.map((message) => `${message.role === "user" ? "U" : "A"}: ${message.text}`);
     })();
-    const usagePct = isCurrent && meta?.usage
-      ? (meta.usage.percent ?? (meta.usage.contextWindow > 0 ? meta.usage.tokens / meta.usage.contextWindow * 100 : 0))
+    const usage = isCurrent
+      ? (meta?.usage ?? selected.contextUsage)
+      : selected.contextUsage;
+    const usagePct = usage
+      ? (usage.percent ?? (usage.contextWindow > 0 ? usage.tokens / usage.contextWindow * 100 : 0))
       : undefined;
-    const usageBar = isCurrent && meta?.usage && usagePct !== undefined
-      ? (() => {
-        const barW = Math.min(30, innerWidth - 25);
-        const filled = Math.round(barW * usagePct / 100);
-        const bar = "█".repeat(Math.min(filled, barW)) + "░".repeat(Math.max(0, barW - filled));
-        return `${bar}  ${meta.usage!.tokens.toLocaleString()}/${meta.usage!.contextWindow.toLocaleString()} (${usagePct.toFixed(0)}%)`;
-      })()
+    const usageBar = usage && usagePct !== undefined
+      ? formatUsageBar(usage, usagePct, innerWidth)
       : undefined;
     const stats = isCurrent && meta?.entryCount
       ? `Msgs ${meta.entryCount.messages}  Comps ${meta.entryCount.compactions}  Branches ${meta.entryCount.branches}`
       : !isCurrent
-        ? `${selected.format === "markdown" ? "Legacy transcript" : "JSONL session"} · ${selected.messageCount} messages`
+        ? formatHistoricalStats(selected)
         : undefined;
     return {
       title: `${label}: ${isCurrent ? meta!.id : selected.id}  ·  ${isCurrent ? meta!.createdAt : selected.createdAt}`,
@@ -93,6 +90,19 @@ export function buildResumePanelData(args: {
     })),
     footer,
   };
+}
+
+function formatUsageBar(usage: StoredSessionContextUsage, usagePct: number, innerWidth: number): string {
+  const barW = Math.min(30, Math.max(8, innerWidth - 25));
+  const filled = Math.round(barW * usagePct / 100);
+  const bar = "█".repeat(Math.min(filled, barW)) + "░".repeat(Math.max(0, barW - filled));
+  return `${bar}  ${usage.tokens.toLocaleString()}/${usage.contextWindow.toLocaleString()} (${usagePct.toFixed(0)}%)`;
+}
+
+function formatHistoricalStats(session: StoredSessionSummary): string {
+  if (session.format === "markdown") return `Legacy transcript · ${session.messageCount} messages`;
+  if (!session.entryCount) return `JSONL session · ${session.messageCount} messages`;
+  return `JSONL session · Msgs ${session.entryCount.messages}  Comps ${session.entryCount.compactions}  Branches ${session.entryCount.branches}`;
 }
 
 export function buildPortfolioPanelData(args: {
@@ -120,7 +130,9 @@ export function buildPortfolioPanelData(args: {
       selected: index === selection,
       active: item.fileName === activeFile,
     })),
-    footer: items.length === 0 ? "esc close" : (status || `↑↓ select  esc close  ·  ${items.length} portfolio${items.length === 1 ? "" : "s"}`),
+    footer: items.length === 0
+      ? "Add portfolio JSON files under .ohquant/portfolio/, then reopen /portfolio."
+      : (status || `↑↓ select  esc close  ·  ${items.length} portfolio${items.length === 1 ? "" : "s"}`),
   };
 }
 
