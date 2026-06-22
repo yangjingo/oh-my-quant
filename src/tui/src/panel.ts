@@ -5,10 +5,8 @@ import { drawPanelFrame, renderConfigHeaderInfo, type PanelFrame } from "./panel
 import { renderConfigPanelView, renderHelpPanelView, renderPortfolioPanelView, renderResumePanelView, type ConfigRowView } from "./panel-views.ts";
 import { buildConfigRowViews, buildHelpPanelData, buildPortfolioPanelData, buildResumePanelData } from "./panel-models.ts";
 import { COMMAND_CATALOG } from "../../cli/catalog.ts";
-import { loadSettings, saveSettings } from "../../storage/index.ts";
-import { listStoredSessions, type StoredSessionSummary } from "../../storage/sessions.ts";
-import { listLocalPortfolios, type LocalPortfolioSummary } from "../../storage/local-portfolios.ts";
-import { syncPanelPortfolioFromLocalPortfolio } from "../../storage/portfolio.ts";
+import { describeEndpointMode } from "../../cli/doctor.ts";
+import { loadSettings, saveSettings, listStoredSessions, listLocalPortfolios, syncPanelPortfolioFromLocalPortfolio, hasWhyjEnvValue, stripTerminalControlCodes, type StoredSessionSummary, type LocalPortfolioSummary, type WhyjEnvAliasKey } from "../../storage/index.ts";
 import type { DataSource, OhQuantSettings } from "../../types/config.ts";
 
 export type PanelResult = { command?: string; close?: boolean; refreshPanel?: boolean };
@@ -376,42 +374,46 @@ export class PanelController {
     return this.groups().flatMap((group) => group.fields);
   }
 
-  private providerFromModel(model: string): { name: string; envVar: string } {
-    const prefix = model.split("/")[0] || "";
-    const map: Record<string, { name: string; envVar: string }> = {
-      deepseek: { name: "DeepSeek", envVar: "DEEPSEEK_API_KEY" },
-      zai: { name: "智谱 Z.AI", envVar: "ZAI_API_KEY" },
-      moonshotai: { name: "Moonshot", envVar: "MOONSHOT_API_KEY" },
-      minimax: { name: "MiniMax", envVar: "MINIMAX_CN_API_KEY" },
-      "minimax-cn": { name: "MiniMax", envVar: "MINIMAX_CN_API_KEY" },
-    };
-    return map[prefix] || { name: prefix, envVar: `${prefix.toUpperCase()}_API_KEY` };
+  private apiKeyLabel(): string {
+    return hasWhyjEnvValue(this.cfg?.env || {}, "apiKey") ? "✓ configured" : "○ enter key";
   }
 
-  private providerKeyLabel(): string {
-    const p = this.providerFromModel(this.cfg?.model || "");
-    const env = (this.cfg?.env || {}) as Record<string, string | undefined>;
-    return env[p.envVar] ? "✓ configured" : "○ enter key";
+  private baseUrlLabel(): string {
+    const baseUrl = stripTerminalControlCodes(this.cfg?.env?.WHYJ_QUANT_BASE_URL || "");
+    if (!baseUrl) return "○ enter url";
+    return `${baseUrl} · ${describeEndpointMode(baseUrl)}`;
   }
 
   private dataSourceEnvVar(source: DataSource): string | null {
     switch (source) {
       case "tushare":
-        return "TUSHARE_TOKEN";
+        return "WHYJ_QUANT_TUSHARE_TOKEN";
       case "llmquant-data":
-        return "LLMQUANT_API_KEY";
+        return "WHYJ_QUANT_LLMQUANT_API_KEY";
       case "financial-datasets":
-        return "FINANCIAL_DATASETS_KEY";
+        return "WHYJ_QUANT_FINANCIAL_DATASETS_KEY";
+      default:
+        return null;
+    }
+  }
+
+  private dataSourceEnvKey(source: DataSource): WhyjEnvAliasKey | null {
+    switch (source) {
+      case "tushare":
+        return "tushareToken";
+      case "llmquant-data":
+        return "llmquantApiKey";
+      case "financial-datasets":
+        return "financialDatasetsKey";
       default:
         return null;
     }
   }
 
   private dataSourceKeyLabel(source: DataSource): string {
-    const envVar = this.dataSourceEnvVar(source);
-    if (!envVar) return "○ no key needed";
-    const env = (this.cfg?.env || {}) as Record<string, string | undefined>;
-    return env[envVar] ? "✓ configured" : "○ enter key";
+    const envKey = this.dataSourceEnvKey(source);
+    if (!envKey) return "○ no key needed";
+    return hasWhyjEnvValue(this.cfg?.env || {}, envKey) ? "✓ configured" : "○ enter key";
   }
 
   private currentSource(): DataSource {
@@ -443,13 +445,21 @@ export class PanelController {
   }
 
   private saveProviderKey(raw: string): string {
-    const p = this.providerFromModel(this.cfg?.model || "");
     const key = raw.trim();
     if (!key) return "Enter an API key.";
     if (!this.cfg) return "Config not loaded.";
-    this.cfg.env = { ...(this.cfg.env || {}), [p.envVar]: key };
+    this.cfg.env = { ...(this.cfg.env || {}), WHYJ_QUANT_API_KEY: key };
     saveSettings(this.cfg);
-    return `Saved ${p.envVar}.`;
+    return "Saved WHYJ_QUANT_API_KEY.";
+  }
+
+  private saveBaseUrl(raw: string): string {
+    const value = raw.trim();
+    if (!value) return "Enter a base URL.";
+    if (!this.cfg) return "Config not loaded.";
+    this.cfg.env = { ...(this.cfg.env || {}), WHYJ_QUANT_BASE_URL: value };
+    saveSettings(this.cfg);
+    return "Saved WHYJ_QUANT_BASE_URL.";
   }
 
   private saveDataSourceKey(source: DataSource, raw: string): string {
@@ -478,9 +488,14 @@ export class PanelController {
             optionsFn: () => this.currentPortfolioOptions(),
           },
           {
-            label: "Key",
-            get: () => this.providerKeyLabel(),
+            label: "API Key",
+            get: () => this.apiKeyLabel(),
             apply: (v) => this.saveProviderKey(v),
+          },
+          {
+            label: "Base URL",
+            get: () => this.baseUrlLabel(),
+            apply: (v) => this.saveBaseUrl(v),
           },
           {
             label: "Source",
@@ -492,6 +507,18 @@ export class PanelController {
             label: "Token",
             get: () => this.dataSourceKeyLabel(this.currentSource()),
             apply: (v) => this.saveDataSourceKey(this.currentSource(), v),
+          },
+          {
+            label: "Codex Skills",
+            get: () => this.cfg?.skillIntegrations.codex ? "on" : "off",
+            set: (v) => { if (this.cfg) this.cfg.skillIntegrations.codex = v !== "off"; },
+            options: ENABLE_OPTIONS,
+          },
+          {
+            label: "Claude Skills",
+            get: () => this.cfg?.skillIntegrations.claude ? "on" : "off",
+            set: (v) => { if (this.cfg) this.cfg.skillIntegrations.claude = v !== "off"; },
+            options: ENABLE_OPTIONS,
           },
           { label: "Panel", get: () => this.cfg?.showPortfolioPanel === false ? "off" : "on", set: (v) => { if (this.cfg) this.cfg.showPortfolioPanel = v !== "off"; }, options: ENABLE_OPTIONS },
           { label: "Insight", get: () => this.cfg?.insightEnabled === false ? "off" : "on", set: (v) => { if (this.cfg) this.cfg.insightEnabled = v !== "off"; }, options: ENABLE_OPTIONS },

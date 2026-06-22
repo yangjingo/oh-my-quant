@@ -3,9 +3,8 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { JsonlSessionRepo } from "./agent/src/pi/index.ts";
 import { NodeExecutionEnv } from "./agent/src/pi/node.ts";
-import { loadPanelPortfolio } from "./storage/panel-portfolio.ts";
-import { savePanelPortfolio } from "./storage/panel-portfolio.ts";
-import { AppRuntime, createRuntimeAgent } from "./app-runtime.ts";
+import { loadPanelPortfolio, savePanelPortfolio, saveSettings } from "./storage/index.ts";
+import { AppRuntime, createInitialAppState, createRuntimeAgent } from "./app-runtime.ts";
 import { SKILLS_DIR } from "./skill/index.ts";
 import { shellDisplayName } from "./tools/catalog.ts";
 import type { AppState, PanelSection, UIMessage } from "./tui/src/types.ts";
@@ -26,6 +25,38 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.OHQUANT_DIR;
   if (existsSync(OHQ)) rmSync(OHQ, { recursive: true, force: true });
+});
+
+describe("initial app state", () => {
+  it("keeps the raw default model from settings env", () => {
+    saveSettings({
+      version: 1,
+      env: {
+        WHYJ_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
+      },
+      model: "sonnet",
+      thinkingLevel: "high",
+      insightEnabled: true,
+      showPortfolioPanel: true,
+      skillIntegrations: {
+        codex: false,
+        claude: false,
+      },
+      permissions: {},
+      preferences: {
+        defaultMarket: "A",
+        defaultBenchmark: "000300.SH",
+        defaultCash: 100_000,
+        defaultFast: 20,
+        defaultSlow: 60,
+        currentPortfolioFile: "holdings.json",
+        source: "llmquant-data",
+      },
+    });
+
+    const state = createInitialAppState("1.0.0");
+    expect(state.model).toBe("deepseek-v4-pro[1m]");
+  });
 });
 
 function harness(
@@ -145,6 +176,19 @@ description: Use for crypto market analysis.
     expect(h.activities.at(-1)).toBe("ready");
   });
 
+  it("handles doctor locally without agent initialization", async () => {
+    const h = harness();
+    expect(await h.runtime.submit("/doctor")).toBe("continue");
+    expect(h.messages.at(-1)?.at(-1)).toEqual(expect.objectContaining({
+      role: "assistant",
+      text: expect.stringContaining("whyj doctor"),
+    }));
+    expect(h.messages.at(-1)?.at(-1)?.text).toContain("Credentials");
+    expect(h.messages.at(-1)?.at(-1)?.text).toContain("value");
+    expect(h.statuses.at(-1)).toBeNull();
+    expect(h.activities.at(-1)).toBe("ready");
+  });
+
   it("clears messages locally", async () => {
     const h = harness();
     await h.runtime.submit("hello");
@@ -158,12 +202,15 @@ description: Use for crypto market analysis.
     expect(h.activities.at(-1)).toBe("ready");
   });
 
-  it("reports initializing error for natural language before init", async () => {
+  it("keeps natural language input queued while the agent is starting", async () => {
     const h = harness();
     await h.runtime.submit("analyze AAPL");
     expect(h.messages[0]).toBeUndefined();
     expect(h.queues.at(-1)).toEqual(["analyze AAPL"]);
-    expect(h.statuses.at(-1)).toEqual({ kind: "error", text: "Initializing... please wait a moment." });
+    expect(h.statuses.at(-1)).toEqual({
+      kind: "info",
+      text: "Agent is still starting. Your message is kept in the composer; send it again in a moment.",
+    });
     expect(h.activities).toContain("thinking");
     expect(h.activities.at(-1)).toBe("ready");
   });
@@ -192,7 +239,7 @@ description: Use for crypto market analysis.
   it("executes unknown slash command through deterministic command path", async () => {
     const h = harness();
     await h.runtime.submit("/does-not-exist");
-    expect(h.statuses.at(-1)).toEqual({ kind: "error", text: "Unknown /does-not-exist. Try /help" });
+    expect(h.statuses.at(-1)).toEqual({ kind: "error", text: "Unknown /does-not-exist. Run /help to see available slash commands." });
     expect(h.activities.at(-1)).toBe("ready");
     expect(h.panels[0]).toMatchObject({ loading: true });
     const latestPanel = h.panels.at(-1)?.panel ?? [];
@@ -428,6 +475,43 @@ description: Use for crypto market analysis.
       role: "error",
       text: expect.stringContaining("Hint: Agent API endpoint is unreachable."),
     });
+  });
+
+  it("adds a reconnect-oriented hint below generic connection errors", async () => {
+    const fakeAgent = makeFakeAgent(async (agent) => {
+      agent.state.isStreaming = true;
+      await agent.emit({
+        type: "message_start",
+        message: { role: "displayUser", content: [{ type: "text", text: "" }], displayText: "你是谁" },
+      });
+      await agent.emit({ type: "message_start", message: { role: "assistant", content: [] } });
+      await agent.emit({
+        type: "message_end",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "" }],
+          stopReason: "error",
+          errorMessage: "Connection error.",
+        },
+      });
+      agent.state.isStreaming = false;
+      await agent.emit({ type: "agent_end", messages: [] });
+    });
+    const h = harness(async () => [], async () => [], async () => [], () => fakeAgent as never);
+
+    await h.runtime.bootstrap();
+    await h.runtime.submit("你是谁");
+
+    const latest = h.messages.at(-1) ?? [];
+    expect(latest).toEqual([
+      { role: "user", text: "你是谁" },
+      {
+        role: "error",
+        text: expect.stringContaining(
+          "Hint: Network connection to the agent provider failed. The client may already have retried automatically;",
+        ),
+      },
+    ]);
   });
 
   it("clears active animation as soon as assistant output ends", async () => {
@@ -692,7 +776,7 @@ description: Use for crypto market analysis.
 
     expect(h.statuses.at(-1)).toEqual({
       kind: "info",
-      text: "Nothing to compact. The current session is already within the compaction window.",
+      text: "Nothing to compact. The current session context is already small enough.",
     });
   });
 
@@ -701,6 +785,28 @@ description: Use for crypto market analysis.
     expect(await h.runtime.submit("/resume")).toBe("continue");
     expect(h.resumeOpened).toBe(1);
     expect(h.activities.at(-1)).toBe("ready");
+  });
+
+  it("maps missing resumed sessions to a user-facing slash error", async () => {
+    const h = harness();
+    const agent = {
+      state: {
+        isStreaming: false,
+        messages: [] as Array<{ role: string; content: string }>,
+        pendingToolCalls: new Set<string>(),
+      },
+      resumeSession: async () => {
+        throw new Error("Session not found: missing-session");
+      },
+    };
+    (h.runtime as unknown as { agent: object }).agent = agent;
+
+    await h.runtime.submit("/resume missing-session");
+
+    expect(h.statuses.at(-1)).toEqual({
+      kind: "error",
+      text: 'Could not find session "missing-session". Run /resume to see saved sessions, then choose one of them.',
+    });
   });
 
   it("opens portfolio panel for bare portfolio command before agent initialization", async () => {

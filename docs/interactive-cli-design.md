@@ -141,6 +141,7 @@ CLI 只暴露一个自然语言 agent 入口，但后端模型传输方式对错
 - OpenAI-compatible provider 路径对工具重放和空 assistant turn 更宽容。
 - Anthropic provider 路径要求严格的 `tool_use` / `tool_result` 相邻性，这也是某些 400 错误看起来像 "tool_result missing immediately after tool_use" 的原因。
 - `/config`、`doctor` 和 TUI settings 面板应展示当前激活的端点模式，以便用户区分模型问题与传输问题。
+- 对同一厂商同时提供两套协议的情况，优先按 URL 尾段分流：`/anthropic` 走 Anthropic Messages，`/v1` 走 OpenAI-compatible。
 
 ---
 

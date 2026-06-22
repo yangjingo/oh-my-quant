@@ -6,9 +6,7 @@ import { fetchLiveBars, formatRefreshMinute, formatSourceLabels, type PullSource
 import { dispatchUserMessage, isAgentTurnActive } from "./agent/src/dispatch.ts";
 import { createAgent, updateSessionCtx, type QuantAgentSession } from "./agent/src/session.ts";
 import { skillPaths } from "./skill/index.ts";
-import { ensureDirs, loadSettings } from "./storage/index.ts";
-import { listLocalPortfolios } from "./storage/local-portfolios.ts";
-import { loadPanelPortfolio, loadPortfolioSymbols } from "./storage/portfolio.ts";
+import { ensureDirs, loadSettings, listLocalPortfolios, loadPanelPortfolio, loadPortfolioSymbols } from "./storage/index.ts";
 import type { AppState, PanelSection, UIMessage } from "./tui/src/types.ts";
 import type { CodeEntry } from "./tui/src/watchlist.ts";
 import type { Bar, Market } from "./types/data.ts";
@@ -306,7 +304,7 @@ export class AppRuntime {
       updateLastSymbol(parsed.flags);
     } catch (err) {
       if (isSkillInvoke) this.finalizeSkillMessage(true);
-      this.setStatus({ kind: "error", text: errorText(err) });
+      this.setStatus({ kind: "error", text: formatSlashRuntimeError(parsed.command, err) });
     } finally {
       this.scheduleMarketRefresh();
       if (!localOnly) this.slashRunning = false;
@@ -392,7 +390,7 @@ export class AppRuntime {
     if (!this.agent) {
       this.emitComposerQueue([input]);
       this.setActivity("thinking");
-      this.setStatus({ kind: "error", text: "Initializing... please wait a moment." });
+      this.setStatus({ kind: "info", text: "Agent is still starting. Your message is kept in the composer; send it again in a moment." });
       this.setActivity("ready");
       return;
     }
@@ -402,9 +400,10 @@ export class AppRuntime {
       perfLog("runtime.agent.dispatch", startedAt);
     } catch (err) {
       this.emitComposerQueue([]);
-      this.messages.push({ role: "error", text: formatAgentError("Agent", errorText(err)) });
+      const message = errorText(err);
+      this.messages.push({ role: "error", text: formatAgentError("Agent", message) });
       this.emitMessages();
-      this.setStatus({ kind: "error", text: errorText(err) });
+      this.setStatus({ kind: "error", text: agentStatusText(message) });
       if (!isAgentTurnActive(this.agent)) this.setActivity("ready");
     }
   }
@@ -574,7 +573,7 @@ export class AppRuntime {
     this.finalizeThinking();
     this.removeTrailingThinkingAfterAssistant();
     const assistant = this.findLatestMessage("assistant");
-    const errText = errorMessage || text || `API call failed (${stopReason})`;
+    const errText = errorMessage || text || providerStopReasonText(stopReason);
     if (assistant) {
       assistant.text = isError ? formatAgentError("Agent error", errText) : text;
       if (isError) assistant.role = "error";
@@ -766,13 +765,44 @@ function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+function formatSlashRuntimeError(command: string, err: unknown): string {
+  const message = errorText(err);
+  if (/^Session not found:/i.test(message)) {
+    const sessionId = message.split(":").slice(1).join(":").trim();
+    return sessionId
+      ? `Could not find session "${sessionId}". Run /resume to see saved sessions, then choose one of them.`
+      : "Could not find that session. Run /resume to see saved sessions, then choose one of them.";
+  }
+  if (/Agent harness not initialized/i.test(message)) {
+    return `/${command} needs an active agent session. Send any AI message first, then try again.`;
+  }
+  if (/Nothing to compact/i.test(message)) {
+    return "Nothing to compact. The current session context is already small enough.";
+  }
+  return message;
+}
+
 function formatAgentError(prefix: string, message: string): string {
   const hint = agentErrorHint(message);
   return hint ? `${prefix}: ${message}\nHint: ${hint}` : `${prefix}: ${message}`;
 }
 
+function agentStatusText(message: string): string {
+  if (agentErrorHint(message)) return "Agent request failed. See the message above for the cause and next step.";
+  return "Agent request failed. Check the conversation error above, then retry.";
+}
+
+function providerStopReasonText(stopReason: unknown): string {
+  if (stopReason === "aborted") return "The agent response was interrupted before it finished.";
+  if (stopReason === "error") return "The provider ended the response with an error.";
+  return `The provider ended the response unexpectedly (${String(stopReason || "unknown")}).`;
+}
+
 function agentErrorHint(message: string): string | null {
   const text = message.toLowerCase();
+  if (/\bconnection error\b/i.test(message)) {
+    return "Network connection to the agent provider failed. The client may already have retried automatically; if it still fails, check your network/proxy settings and send the message again.";
+  }
   if (
     /\b(econnrefused|econnreset|etimedout|enotfound|socket hang up|fetch failed)\b/i.test(message)
     || /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?/i.test(message)
@@ -780,10 +810,10 @@ function agentErrorHint(message: string): string | null {
     return "Agent API endpoint is unreachable. Check the local API service/port, proxy settings, and the configured base URL.";
   }
   if (/\b(401|403|unauthorized|forbidden|invalid api key|missing api key)\b/i.test(message)) {
-    return "Check WHYJ_AUTH_TOKEN or WHYJ_API_KEY in /config; the token may be missing, expired, or rejected by the provider.";
+    return "Check WHYJ_QUANT_API_KEY and WHYJ_QUANT_BASE_URL in /config. WHYJ_QUANT_AUTH_TOKEN is kept for legacy setups.";
   }
   if (/\b(404|model not found|not_found)\b/i.test(message)) {
-    return "Check the configured model and provider base URL; the selected model may not exist on this endpoint.";
+    return "Check the configured model and provider endpoint. If WHYJ_QUANT_BASE_URL points to /anthropic, the runtime will use Anthropic Messages automatically, but the model name still has to exist on that endpoint.";
   }
   if (/\b(429|rate limit|too many requests)\b/i.test(message)) {
     return "The provider is rate limiting requests. Wait briefly or switch to another configured model/provider.";

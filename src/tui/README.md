@@ -73,7 +73,7 @@ Thinking content is preserved after finalization when non-empty, but empty think
 - Composer: fixed bottom input surface; slash suggestions open inside Composer, below the input row, as a compact inline list.
 - Status: final row with a divider above.
 
-The Overview dock is hidden when the terminal is narrower than 78 columns or when settings disable it. Text is sanitized, wrapped, and clipped to region boundaries so streamed thinking cannot bleed into the dock. Slash suggestions stay inside Composer so they do not overlap the `◉ Analyzing` panel or the TUI activity rows above it. In compact density, Composer is tall enough to show 5 slash suggestion rows by default.
+The Overview dock is hidden when the terminal is narrower than 78 columns or when settings disable it. Text has terminal control codes stripped, then is wrapped and clipped to region boundaries so streamed thinking cannot bleed into the dock. Slash suggestions stay inside Composer so they do not overlap the `◉ Analyzing` panel or the TUI activity rows above it. In compact density, Composer is tall enough to show 5 slash suggestion rows by default.
 
 ## Input Model
 

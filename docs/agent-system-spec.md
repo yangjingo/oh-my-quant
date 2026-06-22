@@ -71,13 +71,14 @@ WhyJ 支持两种模型传输形态，它们不可互换：
 | Tool replay | `assistant.tool_calls` 后跟 `tool` messages | `assistant.tool_use` 后紧跟 `user.tool_result` blocks |
 | 排序容忍度 | 对空 assistant turn 和工具分组更宽容 | 严格相邻：tool results 必须在下一条消息中紧跟 tool use |
 | 空 assistant turn | 通常容忍或被合成消除 | 重放时优先省略 |
-| Base URL 行为 | 可与 OpenAI 兼容端点及自定义兼容性覆盖一起使用 | `/anthropic` 端点必须通过 Anthropic Messages 语义路由，即使模型名被复用 |
+| Base URL 行为 | 以 OpenAI-compatible payload 发送；`/v1` 这类尾段应继续走该路径 | `/anthropic` 这类尾段必须通过 Anthropic Messages 语义路由，即使模型名被复用 |
 
 实现规则：
 
 - 如果 `WHYJ_QUANT_BASE_URL` 是 Anthropic 兼容的，通过 `anthropic-messages` 路由
 - 如果 provider 是 OpenAI 兼容的，保持现有 OpenAI completion 路径
 - 不在同一 request builder 中混合两种重放格式
+- URL 尾段优先决定协议形态：尾段为 `anthropic` 走 Anthropic Messages；尾段为 `v1` 之类的 OpenAI-compatible 路径继续走 `openai-completions`
 - 终端控制码剥离仅属于呈现层。Model ID、base URL 和环境变量支持的配置值必须原样传递，除非函数被显式记录为仅用于显示。
 - 避免为配置解析使用共享的"清理"helper。如果字符串需要 UI 友好的缩短，使用单独的格式化器，使请求路径仍能看到原始值。
 
@@ -88,6 +89,14 @@ WhyJ 支持两种模型传输形态，它们不可互换：
 3. 如果重放以空 assistant turn 开始，为 Anthropic 请求移除它；OpenAI 兼容路径更宽容，但 Anthropic 不是。
 4. 如果 provider 正确但请求仍然失败，在查看工具代码之前比较配置的 base URL 和模型标签；大多数不匹配是路由问题，而非工具 bug。
 5. 将 OpenAI-compatible 的 `assistant.tool_calls` 重放和 Anthropic 的 `tool_use` 重放保持在不同的代码路径中，即使它们共享相同的高层 agent 逻辑。
+
+已验证的真实 smoke 矩阵：
+
+- `https://api.deepseek.com/anthropic` + `deepseek-v4-pro[1m]` -> `anthropic-messages`
+- `https://open.bigmodel.cn/api/anthropic` + `glm-5.2` -> `anthropic-messages`
+- `https://open.bigmodel.cn/api/v1` + `glm-5.2` -> `openai-completions`
+- `https://api.minimaxi.com/anthropic` + `MiniMax-M2.7` -> `anthropic-messages`
+- `https://api.minimaxi.com/v1` + `MiniMax-M2.7` -> `openai-completions`
 
 ### 3.2 消息模型分离：模型文本 vs 显示文本
 
