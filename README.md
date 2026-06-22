@@ -8,12 +8,21 @@
 
 ## Quick Start
 
+全局安装：
+
 ```bash
 npm i -g whyj-quant
 whyj
 ```
 
-第一步先打开配置面板选择数据源：
+本地开发：
+
+```bash
+bun install
+bun run src/index.ts
+```
+
+首次启动后先打开配置面板：
 
 ```
 Q > /config
@@ -21,21 +30,23 @@ Q > /config
 
 在 `Config` 里设置：
 
-- `API Key` 用于 AI Agent
-- `Source` 用于行情来源
-- `Source Key` 用于对应数据源密钥
+- `API Key`: AI Agent provider key
+- `Source`: 行情来源
+- `Source Key`: 对应数据源密钥
 
-然后可以直接提问做分析：
+也可以直接写入默认配置文件 `.ohquant/settings.json`：
 
 ```bash
-# .env 文件 (项目根目录)
-ANTHROPIC_API_KEY=sk-ant-...
-TUSHARE_TOKEN=your_token        # A 股数据 (可选)
-FINANCIAL_DATASETS_KEY=your_key # 美股直连数据 (可选)
-LLMQUANT_API_KEY=your_key       # 美股/HK 直连数据 (可选)
+# .ohquant/settings.json 中的 env
+WHYJ_QUANT_API_KEY=sk-...                  # 模型调用统一密钥
+WHYJ_QUANT_BASE_URL=https://api.deepseek.com/anthropic
+WHYJ_QUANT_AUTH_TOKEN=sk-...               # 兼容旧配置
+WHYJ_QUANT_TUSHARE_TOKEN=your_token        # A 股数据 (可选)
+WHYJ_QUANT_FINANCIAL_DATASETS_KEY=your_key # 美股直连数据 (可选)
+WHYJ_QUANT_LLMQUANT_API_KEY=your_key       # 美股/HK 直连数据 (可选)
 ```
 
-然后：
+配置完成后直接提问：
 
 ```
 Q > 分析平安银行的动量因子和风险指标
@@ -61,6 +72,8 @@ Slash commands:
 | `/resume` | 恢复历史 session |
 | `/compact` | 压缩当前 session |
 | `/config` | 配置面板 |
+| `/doctor` | 检查 runtime、auth 来源和修复 hints |
+| `/skill` | 查看、安装和运行 skills |
 | `/clear` | 清空当前对话 |
 | `/help` | 命令参考 |
 
@@ -101,14 +114,42 @@ bun run src/index.ts -- --json doctor
 }
 ```
 
-`doctor` 只报告 token 是否存在以及来源类别：`env`、`config` 或 `missing`。
+`doctor` 报告 token 是否存在、来源类别和 redacted value fingerprint；不会打印完整 secret。
 
 ## Docs
 
-- [CLI Design & Reference](./docs/interactive-cli-design.md) — slash commands, `src/cli/` module, implementation plan
-- [Agent System Spec](./docs/agent-system-spec.md)
+### Architecture & System
+
+- [Agent System Spec](./docs/agent-system-spec.md) — full architecture, tool system, session management
+- [pi Agent Loop & Harness](./docs/pi-agent-loop-harness.md) — harness lifecycle, compaction, queue drains, branch navigation
+- [Agent Loop Context Assembly](./docs/agent-loop-context.md) — model-input vs UI-text assembly path
 - [Module Architecture](./docs/module-architecture.md) — repo-level module boundaries and dependency direction
-- [Built-in Tool Registry](./docs/builtin-tool-registry.md) — how future built-in agent tools are registered
-- [Source Providers](./docs/source-data-providers.md) — official interfaces, source priority, and agent/runtime injection path
-- [Source Module](./src/source/README.md) — provider adapters, fallback rules, module test layout
+- [Storage Policy](./docs/ohquant-storage-policy.md) — local filesystem split: durable settings, cache, artifacts, forbidden state
+
+### CLI & UX
+
+- [CLI Design & Reference](./docs/interactive-cli-design.md) — slash commands, `src/cli/` module, implementation plan
+- [Doctor, Config, and UX Guidelines](./docs/doctor-design-and-hints.md) — doctor checks, config flow, UX interaction, errors, guidance
+
+### TUI
+
+- [TUI Layout Design](./docs/tui-layout-design.md) — five-region frame-buffer layout and interaction model
+- [TUI Table/Chart Render](./docs/tui-table-chart-render.md) — structured agent output rendering in the TUI
 - [Design System (NewForm)](./DESIGN.md)
+
+### Agent Tools & Skills
+
+- [Built-in Tool Registry](./docs/builtin-tool-registry.md) — unified registration path for built-in agent tools
+- [Quant Tools Design](./docs/quant-tools-design.md) — factor, backtest, risk, and benchmark as agent tools
+- [Skills Module](./docs/skills.md) — skill installation, discovery, CLI handler, and TUI integration
+- [Trader Skills](./docs/trader-skills.md) — 23 built-in skills in `.agents/skills/`
+
+### Data
+
+- [Source Providers](./docs/source-data-providers.md) — official interfaces, source priority, agent/runtime injection
+- [Source Module](./src/source/README.md) — provider adapters, fallback rules, module test layout
+
+### Reference
+
+- [Quant Resource Index](./docs/reference.md) — external resources: agent skills, Python libs, data sources, learning materials
+- [Personal Notes](./notes/README.md) — 投资知识库：`notes.md`（原则/法则/框架）+ `funder.md`（16 位大师索引）+ `daily.md`（每日笔记）。其中 `notes.md` 和 `funder.md` 被 `/insight` 管道消费，自动生成为 Agent 思考时展示的投资格言
