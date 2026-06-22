@@ -4,8 +4,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { estimateTokens, estimateContextTokens, createAgent, updateSessionCtx } from "../src/session.ts";
+import { basename, join } from "node:path";
+import { estimateTokens, estimateContextTokens, createAgent, resolveModelId, updateSessionCtx } from "../src/session.ts";
 import { JsonlSessionRepo } from "../src/pi/index.ts";
 import { NodeExecutionEnv } from "../src/pi/node.ts";
 
@@ -13,7 +13,7 @@ let TEST_DIR = "";
 let TEST_SESSIONS_DIR = "";
 let TEST_SKILLS_DIR = "";
 
-function setupSettings(env: Record<string, string>) {
+function setupSettings(env: Record<string, string>, model = "gpt-5.5") {
   TEST_DIR = mkdtempSync(join(tmpdir(), "ohq-agent-"));
   TEST_SESSIONS_DIR = join(TEST_DIR, "sessions");
   TEST_SKILLS_DIR = join(TEST_DIR, "skills");
@@ -31,7 +31,7 @@ Inspect benchmark output and propose next analysis steps.
   writeFileSync(join(TEST_DIR, "settings.json"), JSON.stringify({
     version: 1,
     env,
-    model: "gpt-5.5",
+    model,
     thinkingLevel: "off",
     permissions: {},
     preferences: {
@@ -121,6 +121,12 @@ describe("estimateTokens", () => {
   });
 });
 
+describe("resolveModelId", () => {
+  it("preserves the raw env model value", () => {
+    expect(resolveModelId("sonnet", { WHYJ_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]" })).toBe("deepseek-v4-pro[1m]");
+  });
+});
+
 describe("estimateContextTokens", () => {
   it("sums tokens across all messages", () => {
     const messages = [
@@ -137,7 +143,7 @@ describe("estimateContextTokens", () => {
 
 describe("createAgent", () => {
   beforeEach(() => {
-    setupSettings({ WHYJ_AUTH_TOKEN: "test-key-123" });
+    setupSettings({ WHYJ_QUANT_AUTH_TOKEN: "test-key-123" });
   });
   afterEach(() => cleanup());
 
@@ -146,7 +152,7 @@ describe("createAgent", () => {
       cwd: TEST_DIR,
       sessionsRoot: TEST_SESSIONS_DIR,
       settings: {
-        env: { WHYJ_AUTH_TOKEN: "test-key-123" },
+        env: { WHYJ_QUANT_AUTH_TOKEN: "test-key-123" },
         model: "gpt-5.5",
         thinkingLevel: "off",
       },
@@ -170,8 +176,192 @@ describe("createAgent", () => {
       },
       skillPaths: [TEST_SKILLS_DIR],
     });
-    await agent.waitForIdle();
     expect(agent).not.toBeNull();
+    expect(agent.state.model.id).toBe("openai/gpt-5.5");
+  });
+
+  it("routes sonnet to the anthropic provider when baseUrl is anthropic-compatible", async () => {
+    cleanup();
+    setupSettings({
+      WHYJ_QUANT_API_KEY: "test-key-123",
+      WHYJ_QUANT_BASE_URL: "https://api.deepseek.com/anthropic",
+    }, "sonnet");
+
+    const agent = createAgent({
+      cwd: TEST_DIR,
+      sessionsRoot: TEST_SESSIONS_DIR,
+      settings: {
+        env: {
+          WHYJ_QUANT_API_KEY: "test-key-123",
+          WHYJ_QUANT_BASE_URL: "https://api.deepseek.com/anthropic",
+        },
+        model: "sonnet",
+        thinkingLevel: "off",
+      },
+      skillPaths: [TEST_SKILLS_DIR],
+    });
+    await agent.waitForIdle();
+
+    expect(agent.state.model.id).toBe("deepseek-v4-pro");
+    expect(agent.state.model.provider).toBe("anthropic");
+    expect(agent.state.model.api).toBe("anthropic-messages");
+    expect(agent.state.model.baseUrl).toBe("https://api.deepseek.com/anthropic");
+  });
+
+  it("accepts annotated deepseek model ids on anthropic-compatible endpoints", async () => {
+    cleanup();
+    setupSettings({
+      WHYJ_QUANT_API_KEY: "test-key-123",
+      WHYJ_QUANT_BASE_URL: "https://api.deepseek.com/anthropic",
+      WHYJ_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
+    }, "sonnet");
+
+    const agent = createAgent({
+      cwd: TEST_DIR,
+      sessionsRoot: TEST_SESSIONS_DIR,
+      settings: {
+        env: {
+          WHYJ_QUANT_API_KEY: "test-key-123",
+          WHYJ_QUANT_BASE_URL: "https://api.deepseek.com/anthropic",
+          WHYJ_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
+        },
+        model: "sonnet",
+        thinkingLevel: "off",
+      },
+      skillPaths: [TEST_SKILLS_DIR],
+    });
+    await agent.waitForIdle();
+
+    expect(agent.state.model.id).toBe("deepseek-v4-pro");
+    expect(agent.state.model.provider).toBe("anthropic");
+    expect(agent.state.model.api).toBe("anthropic-messages");
+  });
+
+  it("routes claude model ids to the anthropic provider", async () => {
+    cleanup();
+    setupSettings({
+      WHYJ_QUANT_API_KEY: "test-key-123",
+      WHYJ_QUANT_BASE_URL: "https://api.anthropic.com",
+    }, "claude-opus-4-6");
+
+    const agent = createAgent({
+      cwd: TEST_DIR,
+      sessionsRoot: TEST_SESSIONS_DIR,
+      settings: {
+        env: {
+          WHYJ_QUANT_API_KEY: "test-key-123",
+          WHYJ_QUANT_BASE_URL: "https://api.anthropic.com",
+        },
+        model: "claude-opus-4-6",
+        thinkingLevel: "off",
+      },
+      skillPaths: [TEST_SKILLS_DIR],
+    });
+    await agent.waitForIdle();
+
+    expect(agent.state.model.id).toBe("claude-opus-4-6");
+    expect(agent.state.model.provider).toBe("anthropic");
+    expect(agent.state.model.api).toBe("anthropic-messages");
+    expect(agent.state.model.baseUrl).toBe("https://api.anthropic.com");
+  });
+
+  [
+    ["glm-5", "https://open.bigmodel.cn/api/anthropic"],
+    ["glm-5.2", "https://open.bigmodel.cn/api/anthropic"],
+    ["glm-5.1", "https://open.bigmodel.cn/api/anthropic"],
+    ["MiniMax-M2.7", "https://api.minimaxi.com/anthropic"],
+  ].forEach(([modelId, baseUrl]) => {
+    it(`routes ${modelId} through the anthropic provider on Anthropic-compatible endpoints`, async () => {
+      cleanup();
+      setupSettings({
+        WHYJ_QUANT_API_KEY: "test-key-123",
+        WHYJ_QUANT_BASE_URL: baseUrl,
+        WHYJ_DEFAULT_SONNET_MODEL: modelId,
+      }, "sonnet");
+
+      const agent = createAgent({
+        cwd: TEST_DIR,
+        sessionsRoot: TEST_SESSIONS_DIR,
+        settings: {
+          env: {
+            WHYJ_QUANT_API_KEY: "test-key-123",
+            WHYJ_QUANT_BASE_URL: baseUrl,
+            WHYJ_DEFAULT_SONNET_MODEL: modelId,
+          },
+          model: "sonnet",
+          thinkingLevel: "off",
+        },
+        skillPaths: [TEST_SKILLS_DIR],
+      });
+      await agent.waitForIdle();
+
+      expect(agent.state.model.id).toBe(modelId);
+      expect(agent.state.model.provider).toBe("anthropic");
+      expect(agent.state.model.api).toBe("anthropic-messages");
+      expect(agent.state.model.baseUrl).toBe(baseUrl);
+    });
+  });
+
+  [
+    ["glm-5", "https://open.bigmodel.cn/api/v1", "zai"],
+    ["glm-5.2", "https://open.bigmodel.cn/api/v1", "zai"],
+    ["glm-5.1", "https://open.bigmodel.cn/api/v1", "zai"],
+    ["MiniMax-M2.7", "https://api.minimaxi.com/v1", "minimax"],
+  ].forEach(([modelId, baseUrl, provider]) => {
+    it(`routes ${modelId} through the ${provider} openai-completions path on OpenAI-style endpoints`, async () => {
+      cleanup();
+      setupSettings({
+        WHYJ_QUANT_API_KEY: "test-key-123",
+        WHYJ_QUANT_BASE_URL: baseUrl,
+        WHYJ_DEFAULT_SONNET_MODEL: modelId,
+      }, "sonnet");
+
+      const agent = createAgent({
+        cwd: TEST_DIR,
+        sessionsRoot: TEST_SESSIONS_DIR,
+        settings: {
+          env: {
+            WHYJ_QUANT_API_KEY: "test-key-123",
+            WHYJ_QUANT_BASE_URL: baseUrl,
+            WHYJ_DEFAULT_SONNET_MODEL: modelId,
+          },
+          model: "sonnet",
+          thinkingLevel: "off",
+        },
+        skillPaths: [TEST_SKILLS_DIR],
+      });
+      await agent.waitForIdle();
+
+      expect(agent.state.model.id).toBe(modelId);
+      expect(agent.state.model.provider).toBe(provider);
+      expect(agent.state.model.api).toBe("openai-completions");
+      expect(agent.state.model.baseUrl).toBe(baseUrl);
+    });
+  });
+
+  it("keeps OpenAI-style model routing on the OpenAI-compatible path", async () => {
+    cleanup();
+    setupSettings({
+      WHYJ_QUANT_API_KEY: "test-key-123",
+    }, "gpt-5.5");
+
+    const agent = createAgent({
+      cwd: TEST_DIR,
+      sessionsRoot: TEST_SESSIONS_DIR,
+      settings: {
+        env: {
+          WHYJ_QUANT_API_KEY: "test-key-123",
+        },
+        model: "gpt-5.5",
+        thinkingLevel: "off",
+      },
+      skillPaths: [TEST_SKILLS_DIR],
+    });
+    await agent.waitForIdle();
+
+    expect(agent.state.model.id).toBe("openai/gpt-5.5");
+    expect(agent.state.model.provider).toBe("openrouter");
+    expect(agent.state.model.api).toBe("openai-completions");
   });
 
   it("creates a persisted JSONL session tree file and exposes metadata", async () => {
@@ -192,11 +382,53 @@ describe("createAgent", () => {
     expect(metadata?.cwd).toBe(TEST_DIR);
     expect(metadata?.path.endsWith(".jsonl")).toBe(true);
     expect(existsSync(metadata!.path)).toBe(true);
+    const fileName = basename(metadata!.path);
+    expect(fileName).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/);
+    expect(fileName.endsWith(`_${metadata!.id}.jsonl`)).toBe(true);
 
     const file = readFileSync(metadata!.path, "utf-8");
     expect(file.split("\n")[0]).toContain("\"type\":\"session\"");
     expect(await agent.getSessionEntries()).toEqual([]);
     expect(await agent.getLeafId()).toBeNull();
+  });
+
+  it("creates a new JSONL session for each agent startup instead of reopening the latest session", async () => {
+    const first = createAgent({
+      cwd: TEST_DIR,
+      sessionsRoot: TEST_SESSIONS_DIR,
+      settings: {
+        env: {},
+        model: "gpt-5.5",
+        thinkingLevel: "off",
+      },
+      skillPaths: [TEST_SKILLS_DIR],
+    });
+    await first.waitForIdle();
+    const firstMeta = await first.getSessionMetadata();
+
+    const second = createAgent({
+      cwd: TEST_DIR,
+      sessionsRoot: TEST_SESSIONS_DIR,
+      settings: {
+        env: {},
+        model: "gpt-5.5",
+        thinkingLevel: "off",
+      },
+      skillPaths: [TEST_SKILLS_DIR],
+    });
+    await second.waitForIdle();
+    const secondMeta = await second.getSessionMetadata();
+
+    expect(firstMeta).not.toBeNull();
+    expect(secondMeta).not.toBeNull();
+    expect(secondMeta!.id).not.toBe(firstMeta!.id);
+    expect(secondMeta!.path).not.toBe(firstMeta!.path);
+    expect(existsSync(firstMeta!.path)).toBe(true);
+    expect(existsSync(secondMeta!.path)).toBe(true);
+    expect(second.state.messages).toEqual([]);
+
+    const sessions = await second.listSessions();
+    expect(sessions.map((session) => session.id)).toEqual(expect.arrayContaining([firstMeta!.id, secondMeta!.id]));
   });
 
   it("reports context usage from the harness-backed transcript", async () => {
@@ -234,12 +466,13 @@ describe("createAgent", () => {
     await expect(agent.navigateTree("missing-entry")).rejects.toThrow("not found");
   });
 
-  it("rehydrates an existing pi session tree and refreshes state after navigateTree", async () => {
+  it("starts fresh, then resumes an existing pi session tree and refreshes state after navigateTree", async () => {
     const cwd = join(TEST_DIR, "workspace");
     mkdirSync(cwd, { recursive: true });
     const env = new NodeExecutionEnv({ cwd });
     const repo = new JsonlSessionRepo({ fs: env, sessionsRoot: TEST_SESSIONS_DIR });
     const seeded = await repo.create({ cwd });
+    const seededMeta = await seeded.getMetadata();
 
     const firstUserId = await seeded.appendMessage({
       role: "user",
@@ -280,6 +513,13 @@ describe("createAgent", () => {
       skillPaths: [TEST_SKILLS_DIR],
     });
     await agent.waitForIdle();
+
+    const freshMeta = await agent.getSessionMetadata();
+    expect(freshMeta?.id).not.toBe(seededMeta.id);
+    expect(agent.state.messages).toHaveLength(0);
+    expect(await agent.getSessionEntries()).toEqual([]);
+
+    await agent.resumeSession(seededMeta.id);
 
     expect(agent.state.messages).toHaveLength(3);
     expect((await agent.getSessionEntries()).length).toBe(3);
@@ -348,7 +588,7 @@ describe("createAgent", () => {
     await agent.skill("whyj-quant", "focus on benchmark drift");
 
     expect(captured.prompt).toContain("<!-- render guidance -->");
-    expect(captured.prompt).toContain("compact aligned plain-text table");
+    expect(captured.prompt).toContain("compact aligned three-line plain-text table or chart-style block");
     expect(captured.followUp).toContain("<!-- render guidance -->");
     expect(captured.followUp).toContain("chart-style block");
     expect(captured.followUp).toContain("preserve VaR/CVaR and drawdown lines explicitly");

@@ -4,7 +4,7 @@ import { capSections, conversationMaxScrollUp, drawComposer, drawConversation, d
 import { buildConversationLines } from "../src/render-lines.ts";
 import { extractConversationSelection } from "../src/selection.ts";
 import { shellDisplayName } from "../../tools/catalog.ts";
-import { GOLD, POSITIVE } from "../src/styles.ts";
+import { GOLD, MARKET_DOWN, MARKET_UP, NEGATIVE, POSITIVE, S } from "../src/styles.ts";
 import type { AppState } from "../src/types.ts";
 import type { PanelSection, UIMessage } from "../src/types.ts";
 
@@ -31,6 +31,7 @@ describe("layout", () => {
 describe("text safety", () => {
   it("sanitizes control sequences and hard-wraps long tokens", () => {
     expect(sanitizeTerminalText("ok\x1b[31m red")).toBe("ok red");
+    expect(sanitizeTerminalText("model deepseek-v4-pro[1m]")).toBe("model deepseek-v4-pro");
     expect(wrap("abcdefghij", 4)).toEqual(["abcd", "efgh", "ij"]);
   });
 
@@ -515,6 +516,39 @@ describe("panel isolation", () => {
     expect(text).not.toContain("line5");
   });
 
+  it("keeps deterministic chart blocks visible in tool result previews", () => {
+    const lines = buildConversationLines([
+      {
+        role: "tool",
+        tool: {
+          name: "fetch_bars",
+          label: "AKShare · Daily Bars",
+          args: "000300.SH",
+          status: "done",
+          startedAt: Date.now() - 1000,
+          result: [
+            "Downloaded  000300.SH",
+            "⌁ Close     ▁▂▃▄▅▆▇█  10.70  +2.30%",
+            "▥ Volume    ▁▂▃▄▅▆▇█  1.20M",
+            "┃ K-line",
+            "2026-01-02  ▲  O=10.00 H=10.80 L=9.90 C=10.70  +2.30%",
+            "2026-01-03  ▼  O=10.70 H=10.90 L=10.10 C=10.20  -1.50%",
+            "Source      akshare",
+            "Bars        120",
+          ].join("\n"),
+        },
+      },
+    ] as UIMessage[], 96);
+
+    expect(lines.some((line) => line.text.includes("2026-01-03"))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("▁▂▃") && seg.style?.fg === GOLD))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("▥") && seg.style?.fg === GOLD))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("▲") && seg.style?.fg === MARKET_UP))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("▼") && seg.style?.fg === MARKET_DOWN))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("+2.30%") && seg.style?.fg === MARKET_UP))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("-1.50%") && seg.style?.fg === MARKET_DOWN))).toBe(true);
+  });
+
   it("shows portfolio fund count and scroll position in the overview title", () => {
     const buf = new Buffer(120, 24);
     const L = layout(120, 24);
@@ -585,9 +619,9 @@ describe("drawComposer queue", () => {
     const L = layout(120, 32);
 
     drawComposer(buf, L.composer, base, "/re", [
-      { kind: "command", label: "/resume  Resume", fill: "/resume" },
-      { kind: "command", label: "/reset  Reset", fill: "/reset" },
-      { kind: "command", label: "/retry  Retry", fill: "/retry" },
+      { label: "/resume  Resume", fill: "/resume" },
+      { label: "/reset  Reset", fill: "/reset" },
+      { label: "/retry  Retry", fill: "/retry" },
     ], 0, L.conversation);
 
     const rows = buf.toPlain();
@@ -608,7 +642,7 @@ describe("drawComposer queue", () => {
     const L = layout(120, 32);
 
     drawComposer(buf, L.composer, base, "/he", [
-      { kind: "command", label: "/help  Show commands and hotkeys", fill: "/help" },
+      { label: "/help  Show commands and hotkeys", fill: "/help" },
     ], 0, L.conversation);
 
     const text = buf.toPlain().join("\n");
@@ -619,6 +653,48 @@ describe("drawComposer queue", () => {
 });
 
 describe("render lines", () => {
+  it("defines semantic structured-render style tokens for future themes", () => {
+    expect(S.tableHeader.fg).toBe(GOLD);
+    expect(S.tablePositive.fg).toBe(POSITIVE);
+    expect(S.tableNegative.fg).toBe(NEGATIVE);
+    expect(S.tableGain.fg).toBe(MARKET_UP);
+    expect(S.tableLoss.fg).toBe(MARKET_DOWN);
+    expect(S.chartLine.fg).toBe(GOLD);
+    expect(S.chartUp.fg).toBe(MARKET_UP);
+    expect(S.chartDown.fg).toBe(MARKET_DOWN);
+  });
+
+  it("formats doctor reports with semantic credential colors", () => {
+    const lines = buildConversationLines([
+      {
+        role: "assistant",
+        text: [
+          "WhyJ Doctor",
+          "",
+          "item           value",
+          "-------------  ----------------",
+          "command        whyj doctor",
+          "status         ready",
+          "model          deepseek-v4-pro[1m]",
+          "base url       https://api.deepseek.com/anthropic",
+          "",
+          "Credentials",
+          "",
+          "key                   status   source   value",
+          "--------------------  -------  -------  ------------------",
+          "WHYJ_QUANT_AUTH_TOKEN       OK       env      sk-t...1234 · fp:abcd1234",
+          "WHYJ_QUANT_API_KEY          Missing  missing  -",
+        ].join("\n"),
+      },
+    ] as UIMessage[], 80);
+
+    expect(lines.some((line) => line.text.includes("WhyJ Doctor"))).toBe(true);
+    expect(lines.some((line) => line.text.includes("deepseek-v4-pro[1m]"))).toBe(false);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text === "OK" && seg.style?.fg === POSITIVE))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text === "Missing" && seg.style?.fg === NEGATIVE))).toBe(true);
+    expect(lines.some((line) => line.text.includes("sk-t...1234 · fp:abcd1234"))).toBe(true);
+  });
+
   it("formats compact receipts and tool previews through the shared line renderer", () => {
     const lines = buildConversationLines([
       { role: "assistant", text: "Compacted\nmetric  value  note\nturns  12  kept\nretention map\nfacts  ███░  kept" },
@@ -630,6 +706,84 @@ describe("render lines", () => {
     expect(lines.some((line) => line.text.includes("bash git diff"))).toBe(true);
     expect(lines.some((line) => line.text.includes("added line"))).toBe(true);
     expect(lines.some((line) => line.text.includes("removed line"))).toBe(true);
+  });
+
+  it("formats generic tables with stable tabular alignment and semantic colors", () => {
+    const lines = buildConversationLines([
+      {
+        role: "assistant",
+        text: [
+          "| metric | value | note |",
+          "| --- | --- | --- |",
+          "| CAGR | +12.30% | strong |",
+          "| Max DD | -8.20% | breach |",
+        ].join("\n"),
+      },
+    ] as UIMessage[], 80);
+
+    const cagr = lines.find((line) => line.text.includes("CAGR"));
+    const drawdown = lines.find((line) => line.text.includes("Max DD"));
+    const header = lines.find((line) => line.text.includes("metric") && line.text.includes("value"));
+    const rules = lines.filter((line) => line.text.includes("─"));
+
+    expect(lines.every((line) => !line.text.includes("|"))).toBe(true);
+    expect(rules.length).toBe(3);
+    expect(header?.text.indexOf("value")).toBe(cagr?.text.indexOf("+12.30%"));
+    expect(cagr?.text.indexOf("+12.30%")).toBe(drawdown?.text.indexOf("-8.20%"));
+    expect(cagr?.segments?.some((seg) => seg.text.includes("+12.30%") && seg.style?.fg === MARKET_UP)).toBe(true);
+    expect(drawdown?.segments?.some((seg) => seg.text.includes("-8.20%") && seg.style?.fg === MARKET_DOWN)).toBe(true);
+  });
+
+  it("colors sparkline and K-line chart-style blocks", () => {
+    const lines = buildConversationLines([
+      {
+        role: "assistant",
+        text: [
+          "⌁ Line chart",
+          "close  ▁▂▃▄▅▆▇█  +4.20%",
+          "",
+          "┃ K-line",
+          "2026-01-02  ▲  O=10.00 H=10.80 L=9.90 C=10.70  +2.30%",
+          "2026-01-03  ▼  O=10.70 H=10.90 L=10.10 C=10.20  -1.50%",
+        ].join("\n"),
+      },
+    ] as UIMessage[], 96);
+
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("Line chart") && seg.style?.fg === GOLD))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("⌁") && seg.style?.fg === GOLD))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("▁▂▃") && seg.style?.fg === GOLD))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("▲") && seg.style?.fg === MARKET_UP))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("▼") && seg.style?.fg === MARKET_DOWN))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("+2.30%") && seg.style?.fg === MARKET_UP))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("-1.50%") && seg.style?.fg === MARKET_DOWN))).toBe(true);
+  });
+
+  it("colors quant figure icon blocks for benchmark and bar comparisons", () => {
+    const lines = buildConversationLines([
+      {
+        role: "assistant",
+        text: [
+          "⌁ Trend",
+          "EQ  ▁▂▃▄▅▆▇█  +12.30%  +1.20%",
+          "BM  ▁▂▃▄▅▅▆▇  +8.10%   +0.70%",
+          "α   ▁▁▂▃▄▆▇█  +4.20%   +0.50%",
+          "",
+          "▥ Exposure",
+          "Tech     ███████░░░  34.0%  +2.0%",
+          "Finance  ████░░░░░░  18.0%  -1.1%",
+          "DD       ▁▃▅█▅▃▁     -8.20%",
+        ].join("\n"),
+      },
+    ] as UIMessage[], 96);
+
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("⌁") && seg.style?.fg === GOLD))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text === "EQ" && seg.style?.fg === GOLD))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text === "BM" && seg.style?.fg === S.chartMuted.fg))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text === "α" && seg.style?.fg === GOLD))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("▥") && seg.style?.fg === GOLD))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("████") && seg.style?.fg === GOLD))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("+12.30%") && seg.style?.fg === MARKET_UP))).toBe(true);
+    expect(lines.some((line) => line.segments?.some((seg) => seg.text.includes("-8.20%") && seg.style?.fg === MARKET_DOWN))).toBe(true);
   });
 });
 

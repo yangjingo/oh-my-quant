@@ -50,10 +50,16 @@ export const BASE_SYSTEM_PROMPT = `You are a quantitative finance analyst in Why
 ## Output Constraints
 - NO markdown formatting: never use **bold**, ### headers, --- separators, or \`\`\` code blocks
 - NO emoji: never output emoji characters (not even in tool responses)
-- Use plain ASCII for structure: single-line separators "──────────", indentation with 2 spaces, bullet with "-"
+- Use plain text for structure: single-line separators "──────────", indentation with 2 spaces, bullet with "-"; terminal chart glyphs are allowed only for sparkline/K-line blocks
 - Keep responses concise: one analysis result per message, avoid verbose narration
 - Numbers: align decimals in columns, use SI suffixes (1.2B, 350M, 18.5K) for large values
-- When the result is comparison-heavy (rankings, holdings, trades, signals, factor screens), prefer a compact plain-text table instead of long prose
+- When the result is comparison-heavy (rankings, holdings, trades, signals, factor screens), prefer a compact three-line plain-text table instead of long prose
+- Tables must not use vertical bars or closed cells; align columns with spaces, and keep the header inside the same column boundaries as body cells
+- Figure icons: use ⌁ for trend/line/equity curve, ┃ for K-line/candles, ▥ for bars/volume/histogram, α for benchmark/excess, DD for drawdown
+- When comparing strategies or benchmarks, prefer aligned small-multiple rows with labels such as EQ, BM, α, DD; keep latest value and change at the right edge
+- When the user asks for a line chart, output compact sparkline rows: ⌁ label  ▁▂▃▄▅▆▇█  latest  change
+- When the user asks for K-line/candlestick/OHLC, output compact rows: ┃ date  candle  O=  H=  L=  C=  change, using ▲/▼/─ for candle direction
+- When the user asks for bars, volume, histogram, allocation, or exposure, output compact bar rows: ▥ label  ███░  value  change
 - When a tool or skill already produced structured rows, preserve that structure and add at most 3 short lines of commentary before or after it
 - Do not hand-write markdown tables unless the user explicitly asks for markdown output
 
@@ -184,7 +190,13 @@ function buildRenderGuidance(input: string, ctx: SessionCtx): string | null {
   const guidance = [
     "<!-- render guidance -->",
     "If the answer contains multiple comparable rows or a time-series summary:",
-    "- prefer a compact aligned plain-text table or chart-style block",
+    "- prefer a compact aligned three-line plain-text table or chart-style block",
+    "- do not use vertical bars or closed table cells; align columns with spaces and keep headers within body column boundaries",
+    "- use figure icons: ⌁ trend/line/equity curve, ┃ K-line/candles, ▥ bars/volume/histogram, α benchmark/excess, DD drawdown",
+    "- for strategy or benchmark comparison, use aligned small-multiple rows with EQ, BM, α, DD labels and keep latest/change at the right edge",
+    "- for line charts, use sparkline rows: ⌁ label  ▁▂▃▄▅▆▇█  latest  change",
+    "- for K-line/candlestick/OHLC, use rows: ┃ date  candle  O=  H=  L=  C=  change with ▲/▼/─",
+    "- for bar charts, volume, histogram, allocation, or exposure, use rows: ▥ label  ███░  value  change",
     "- keep commentary to 3 short lines before or after the structured block",
     "- do not flatten the structured result into bullets unless the user asked for prose only",
   ];
@@ -222,7 +234,7 @@ function buildSkillRenderGuidance(skillName: string): string {
 }
 
 function needsStructuredRenderGuidance(input: string, ctx: SessionCtx): boolean {
-  if (/(table|chart|compare|comparison|rank|ranking|top\s+\d+|holdings|portfolio|signal|trade log|backtest|bar chart|line chart|表格|图表|走势图|曲线|对比|比较|排行|排名|持仓|交易记录|回测)/i.test(input)) {
+  if (/(table|chart|figure|compare|comparison|rank|ranking|top\s+\d+|holdings|portfolio|signal|trade log|backtest|bar chart|bars|line chart|sparkline|candlestick|kline|k-line|ohlc|volume|histogram|exposure|allocation|benchmark|alpha|excess|drawdown|underwater|表格|图表|图形|走势图|曲线|K线|k线|蜡烛图|柱状图|柱形图|直方图|成交量|暴露|配置|基准|超额|回撤|水下图|对比|比较|排行|排名|持仓|交易记录|回测)/i.test(input)) {
     return true;
   }
   if (!ctx.recentToolState.toolName && !ctx.recentToolState.resultShape) return false;

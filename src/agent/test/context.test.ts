@@ -44,12 +44,24 @@ describe("BASE_SYSTEM_PROMPT", () => {
 
   it("contains structured tool-result preservation guidance", () => {
     expect(BASE_SYSTEM_PROMPT).toContain("Structured Tool Result Handling");
+    expect(BASE_SYSTEM_PROMPT).toContain("three-line plain-text table");
+    expect(BASE_SYSTEM_PROMPT).toContain("must not use vertical bars");
     expect(BASE_SYSTEM_PROMPT).toContain("run_backtest");
     expect(BASE_SYSTEM_PROMPT).toContain("Total return, CAGR, Sharpe, Max DD, Win rate, P/L ratio");
     expect(BASE_SYSTEM_PROMPT).toContain("check_risk");
     expect(BASE_SYSTEM_PROMPT).toContain("VaR, CVaR, Max DD, Skew/Kurt");
     expect(BASE_SYSTEM_PROMPT).toContain("show_dashboard");
     expect(BASE_SYSTEM_PROMPT).toContain("do not replace the leaderboard with a one-line summary");
+  });
+
+  it("contains terminal chart output contracts", () => {
+    expect(BASE_SYSTEM_PROMPT).toContain("sparkline rows");
+    expect(BASE_SYSTEM_PROMPT).toContain("▁▂▃▄▅▆▇█");
+    expect(BASE_SYSTEM_PROMPT).toContain("K-line/candlestick/OHLC");
+    expect(BASE_SYSTEM_PROMPT).toContain("Figure icons");
+    expect(BASE_SYSTEM_PROMPT).toContain("⌁ for trend/line/equity curve");
+    expect(BASE_SYSTEM_PROMPT).toContain("▥ for bars/volume/histogram");
+    expect(BASE_SYSTEM_PROMPT).toContain("EQ, BM, α, DD");
   });
 
   it("lists shell tool", () => {
@@ -145,7 +157,11 @@ describe("injectTurnContext", () => {
     expect(result).toContain("<!-- tool execution guidance -->");
     expect(result).toContain("never write temp_*.py");
     expect(result).toContain("<!-- render guidance -->");
-    expect(result).toContain("compact aligned plain-text table");
+    expect(result).toContain("compact aligned three-line plain-text table");
+    expect(result).toContain("do not use vertical bars");
+    expect(result).toContain("use figure icons");
+    expect(result).toContain("EQ, BM, α, DD");
+    expect(result).toContain("sparkline rows");
     expect(result).toContain("last_symbol: 510300.SH");
   });
 
@@ -162,6 +178,22 @@ describe("injectTurnContext", () => {
     });
     expect(result).toContain("total return, CAGR, Sharpe, max drawdown, win rate, P/L ratio");
     expect(result).toContain("preserve VaR/CVaR and drawdown lines explicitly");
+  });
+
+  it("adds figure guidance for quant chart terms without saying chart", () => {
+    const result = injectTurnContext("show volume, exposure, alpha, and drawdown", {
+      lastSymbol: null,
+      lastMarket: null,
+      lastStartDate: null,
+      lastEndDate: null,
+      recentToolState: {
+        toolName: null,
+        resultShape: null,
+      },
+    });
+    expect(result).toContain("<!-- render guidance -->");
+    expect(result).toContain("▥ bars/volume/histogram");
+    expect(result).toContain("EQ, BM, α, DD");
   });
 
   it("uses last tool name to shape a generic follow-up", () => {

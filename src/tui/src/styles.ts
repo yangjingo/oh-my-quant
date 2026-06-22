@@ -14,6 +14,8 @@ export const HAIRLINE = "#2B2722";
 export const STEP_DIM = "#3C3730";
 export const POSITIVE = "#1E9F4D";
 export const NEGATIVE = "#E5494D";
+export const MARKET_UP = NEGATIVE;
+export const MARKET_DOWN = POSITIVE;
 export const CODE_DIM = "#7A7368";
 export const THINKING = "#7F807D";
 export const SHADOW = "#000000";
@@ -51,10 +53,31 @@ export const S = {
   thinking: { fg: THINKING, dim: true } as Style,
   canvas:   { fg: CANVAS } as Style,
   selection:{ fg: SELECTION_FG, bg: SELECTION_BG, bold: true } as Style,
+
+  // Structured text tokens. Keep renderers semantic so future themes only
+  // need to remap these entries, not table/chart parsing logic.
+  tableHeader:   { fg: GOLD, bold: true } as Style,
+  tableKey:      { fg: GOLD } as Style,
+  tableValue:    { fg: CREAM } as Style,
+  tableStrong:   { fg: CREAM, bold: true } as Style,
+  tableNote:     { fg: MUTED, dim: true } as Style,
+  tableRule:     { fg: HAIRLINE } as Style,
+  tableSpacing:  { fg: MUTED, dim: true } as Style,
+  tablePositive: { fg: POSITIVE } as Style,
+  tableNegative: { fg: NEGATIVE } as Style,
+  tableGain:     { fg: MARKET_UP } as Style,
+  tableLoss:     { fg: MARKET_DOWN } as Style,
+  tableNeutral:  { fg: MUTED } as Style,
+  chartTitle:    { fg: GOLD, bold: true } as Style,
+  chartLine:     { fg: GOLD } as Style,
+  chartUp:       { fg: MARKET_UP } as Style,
+  chartDown:     { fg: MARKET_DOWN } as Style,
+  chartAxis:     { fg: HAIRLINE } as Style,
+  chartMuted:    { fg: MUTED, dim: true } as Style,
 };
 
 export function pctStyle(pct: number): Style {
-  if (pct > 0.001) return { fg: NEGATIVE };
-  if (pct < -0.001) return { fg: POSITIVE };
+  if (pct > 0.001) return { fg: MARKET_UP };
+  if (pct < -0.001) return { fg: MARKET_DOWN };
   return S.muted;
 }
