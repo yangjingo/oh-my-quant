@@ -1,180 +1,180 @@
-# Built-in Quant Tools Design
+# 内置量化工具设计
 
-> last-updated: 2026-06-16
+> 最后更新：2026-06-16
 
-Quant analysis is exposed to the agent as built-in tools, not slash commands. Users should ask in natural language; the agent decides when to call data tools first and then call the relevant Quant tool.
+量化分析以内置工具形式暴露给 agent，而非 slash 命令。用户应以自然语言提问；agent 自行决定何时先调用数据工具，再调用对应的量化工具。
 
-## 1. Boundary
+## 1. 边界
 
-Slash commands are reserved for local UI/session actions such as `/help`, `/config`, `/portfolio`, `/resume`, `/compact`, and `/clear`.
+Slash 命令保留用于本地 UI/session 操作，如 `/help`、`/config`、`/portfolio`、`/resume`、`/compact` 和 `/clear`。
 
-Quant workflows are agent tools:
+量化工作流为 agent 工具：
 
-| Conversation label | Tool name | Purpose |
+| 对话标签 | 工具名 | 用途 |
 |--------------------|-----------|---------|
-| `Quant.Factor` | `compute_factor` | Compute one technical factor for a symbol. |
-| `Quant.Backtest` | `run_backtest` | Run SMA crossover strategy backtest. |
-| `Quant.Risk` | `check_risk` | Compute return-distribution and drawdown risk metrics. |
-| `Quant.Benchmark` | `score_benchmark` | Score a strategy against a benchmark and save a result artifact. |
-| `Quant.Dashboard` | `show_dashboard` | Read saved benchmark artifacts and show ranked summaries. |
+| `Quant.Factor` | `compute_factor` | 计算某个 symbol 的单个技术因子。 |
+| `Quant.Backtest` | `run_backtest` | 运行 SMA 双均线策略回测。 |
+| `Quant.Risk` | `check_risk` | 计算收益分布和回撤风险指标。 |
+| `Quant.Benchmark` | `score_benchmark` | 对策略进行 benchmark 评分并保存结果制品。 |
+| `Quant.Dashboard` | `show_dashboard` | 读取已保存的 benchmark 制品并展示排名摘要。 |
 
-The TUI should render these as tool calls in the Conversation panel using the names above, for example:
+TUI 应在 Conversation 面板中使用上述名称渲染这些工具调用，例如：
 
 ```text
 ● Quant.Risk · 000300.SH
-  ⎿ Annual vol 18.42% ...
+  ⎿ 年化波动率 18.42% ...
 ```
 
-## 2. Data Contract
+## 2. 数据契约
 
-`compute_factor`, `run_backtest`, and `check_risk` require cached daily bars. They call `loadCachedBars(symbol)`, which searches cache sources in this order:
+`compute_factor`、`run_backtest` 和 `check_risk` 需要缓存的日线数据。它们调用 `loadCachedBars(symbol)`，按以下顺序搜索缓存源：
 
 1. `akshare`
 2. `tushare`
 3. `llmquant-data`
 4. `financial-datasets`
 
-If no cached bars exist, the tool returns `DATA_NO_CACHE` and the agent should call `fetch_bars` first. The preferred agent flow is:
+如果无缓存数据，工具返回 `DATA_NO_CACHE`，agent 应先调用 `fetch_bars`。推荐的 agent 流程为：
 
 ```text
 fetch_bars -> Quant.Factor / Quant.Backtest / Quant.Risk
 ```
 
-`score_benchmark` is different: it first uses cached bars when available, otherwise fetches local bars for both strategy symbol and benchmark symbol, aligns dates, evaluates the strategy, and writes a benchmark result artifact.
+`score_benchmark` 有所不同：优先使用缓存数据，否则分别为策略 symbol 和 benchmark symbol 抓取本地数据，对齐日期，评估策略，并写入 benchmark 结果制品。
 
-`show_dashboard` does not fetch market data. It only reads `.ohquant/benchmark/results/*.json`.
+`show_dashboard` 不抓取行情数据，仅读取 `.ohquant/benchmark/results/*.json`。
 
-## 3. Tool Specs
+## 3. 工具规格
 
 ### `compute_factor`
 
-Inputs:
+输入：
 
-| Field | Required | Default | Notes |
+| 字段 | 必填 | 默认值 | 说明 |
 |-------|----------|---------|-------|
-| `symbol` | Yes | - | Market symbol. |
-| `factor` | Yes | - | One of `momentum`, `reversal`, `volatility`, `volume_ratio`, `rsi`, `sma_deviation`. |
-| `period` | No | `20` | Lookback window. |
+| `symbol` | 是 | - | 行情 symbol。 |
+| `factor` | 是 | - | 可选值：`momentum`、`reversal`、`volatility`、`volume_ratio`、`rsi`、`sma_deviation`。 |
+| `period` | 否 | `20` | 回看窗口。 |
 
-Output text:
+输出文本：
 
-- symbol and factor window
-- cache source
-- latest factor value
-- historical mean
-- percentile rank
+- symbol 和因子窗口
+- 缓存来源
+- 最新因子值
+- 历史均值
+- 百分位排名
 
-Details object includes `symbol`, `factor`, `period`, `last`, `mean`, and `percentile`.
+Details 对象包含 `symbol`、`factor`、`period`、`last`、`mean` 和 `percentile`。
 
 ### `run_backtest`
 
-Inputs:
+输入：
 
-| Field | Required | Default | Notes |
+| 字段 | 必填 | 默认值 | 说明 |
 |-------|----------|---------|-------|
-| `symbol` | Yes | - | Market symbol. |
-| `fast` | No | `20` | Fast SMA window. |
-| `slow` | No | `60` | Slow SMA window. |
-| `cash` | No | `100000` | Starting cash. |
-| `start` | No | - | Reserved for date filtering. |
-| `end` | No | - | Reserved for date filtering. |
+| `symbol` | 是 | - | 行情 symbol。 |
+| `fast` | 否 | `20` | 快线 SMA 窗口。 |
+| `slow` | 否 | `60` | 慢线 SMA 窗口。 |
+| `cash` | 否 | `100000` | 初始资金。 |
+| `start` | 否 | - | 预留：日期过滤。 |
+| `end` | 否 | - | 预留：日期过滤。 |
 
-Precondition: cached bars must contain at least `slow + 10` rows.
+前置条件：缓存数据至少包含 `slow + 10` 行。
 
-Output text:
+输出文本：
 
-- total return
+- 总收益率
 - CAGR
 - Sharpe
-- max drawdown
-- win rate
-- P/L ratio
+- 最大回撤
+- 胜率
+- 盈亏比
 
-Details object includes `symbol` and the report metrics.
+Details 对象包含 `symbol` 和各项报告指标。
 
 ### `check_risk`
 
-Inputs:
+输入：
 
-| Field | Required | Default | Notes |
+| 字段 | 必填 | 默认值 | 说明 |
 |-------|----------|---------|-------|
-| `symbol` | Yes | - | Market symbol. |
-| `start` | No | - | Reserved for date filtering. |
-| `end` | No | - | Reserved for date filtering. |
+| `symbol` | 是 | - | 行情 symbol。 |
+| `start` | 否 | - | 预留：日期过滤。 |
+| `end` | 否 | - | 预留：日期过滤。 |
 
-Output text:
+输出文本：
 
-- annualized volatility
-- downside volatility
-- historical and parametric VaR 95
+- 年化波动率
+- 下行波动率
+- 历史 VaR 和参数 VaR 95
 - VaR 99
 - CVaR 95
-- max drawdown and drawdown duration
-- skewness and kurtosis
+- 最大回撤及回撤持续时间
+- 偏度和峰度
 
-Details object includes `symbol` and all risk metrics.
+Details 对象包含 `symbol` 和所有风险指标。
 
 ### `score_benchmark`
 
-Inputs:
+输入：
 
-| Field | Required | Default | Notes |
+| 字段 | 必填 | 默认值 | 说明 |
 |-------|----------|---------|-------|
-| `symbol` | Yes | - | Strategy symbol. |
-| `benchmark_symbol` | No | `000300.SH` | Benchmark symbol. |
-| `fast` | No | `20` | Fast SMA window. |
-| `slow` | No | `60` | Slow SMA window. |
-| `cash` | No | `100000` | Starting cash. |
-| `label` | No | `sma_<fast>_<slow>` | Artifact strategy label. |
+| `symbol` | 是 | - | 策略 symbol。 |
+| `benchmark_symbol` | 否 | `000300.SH` | Benchmark symbol。 |
+| `fast` | 否 | `20` | 快线 SMA 窗口。 |
+| `slow` | 否 | `60` | 慢线 SMA 窗口。 |
+| `cash` | 否 | `100000` | 初始资金。 |
+| `label` | 否 | `sma_<fast>_<slow>` | 制品策略标签。 |
 
-Behavior:
+行为：
 
-1. Infer market for strategy and benchmark symbols.
-2. Fetch local bars for both symbols.
-3. Align bars by date.
-4. Run SMA strategy.
-5. Split data into train/test windows for robustness scoring.
-6. Score return, risk, and robustness on a 100-point scale.
-7. Save JSON under `.ohquant/benchmark/results/`.
+1. 推断策略和 benchmark symbol 的市场。
+2. 为两个 symbol 抓取本地数据。
+3. 按日期对齐数据。
+4. 运行 SMA 策略。
+5. 将数据拆分为训练/测试窗口用于稳健性评分。
+6. 按 100 分制对收益、风险和稳健性进行评分。
+7. 保存 JSON 至 `.ohquant/benchmark/results/`。
 
-Output text includes grade, total score, component scores, CAGR, Sharpe, max drawdown, and saved filename.
+输出文本包含评级、总分、各维度得分、CAGR、Sharpe、最大回撤和已保存的文件名。
 
-Details object includes `filename` and the benchmark score object.
+Details 对象包含 `filename` 和 benchmark score 对象。
 
 ### `show_dashboard`
 
-Inputs:
+输入：
 
-| Field | Required | Default | Notes |
+| 字段 | 必填 | 默认值 | 说明 |
 |-------|----------|---------|-------|
-| `sort_by` | No | - | Reserved: `score`, `cagr`, or `sharpe`. Current implementation ranks by total score. |
+| `sort_by` | 否 | - | 预留：`score`、`cagr` 或 `sharpe`。当前实现按总分排名。 |
 
-Behavior:
+行为：
 
-1. Read `.ohquant/benchmark/results/*.json`.
-2. Build dashboard rows.
-3. Compute total evaluations, average score, median score, best strategy, and grade distribution.
-4. Display top 10 rows.
+1. 读取 `.ohquant/benchmark/results/*.json`。
+2. 构建 dashboard 行。
+3. 计算总评估次数、平均分、中位数分、最佳策略和评级分布。
+4. 展示前 10 行。
 
-If no artifacts exist, the tool returns a natural-language hint asking the user to run a benchmark analysis first.
+如无制品存在，工具返回自然语言提示，建议用户先运行 benchmark 分析。
 
-## 4. Storage Effects
+## 4. 存储影响
 
-| Tool | Reads | Writes |
+| 工具 | 读取 | 写入 |
 |------|-------|--------|
-| `compute_factor` | `.ohquant/data/{source}/{symbol}/` | None |
-| `run_backtest` | `.ohquant/data/{source}/{symbol}/` | None |
-| `check_risk` | `.ohquant/data/{source}/{symbol}/` | None |
-| `score_benchmark` | cached bars first, then market data through source adapters | `.ohquant/benchmark/results/*.json` |
-| `show_dashboard` | `.ohquant/benchmark/results/*.json` | None |
+| `compute_factor` | `.ohquant/data/{source}/{symbol}/` | 无 |
+| `run_backtest` | `.ohquant/data/{source}/{symbol}/` | 无 |
+| `check_risk` | `.ohquant/data/{source}/{symbol}/` | 无 |
+| `score_benchmark` | 优先缓存数据，否则通过 source adapter 获取 | `.ohquant/benchmark/results/*.json` |
+| `show_dashboard` | `.ohquant/benchmark/results/*.json` | 无 |
 
-All local filesystem activity should emit storage file events so the Conversation tool-call stream can display READ/WRITE/MKDIR activity consistently.
+所有本地文件系统活动应发出 storage file event，以便 Conversation tool-call stream 统一展示 READ/WRITE/MKDIR 活动。
 
-## 5. Agent Usage Rules
+## 5. Agent 使用规则
 
-- Do not expose these tools as slash commands.
-- Prefer natural-language prompts for Quant work.
-- Fetch bars before factor, backtest, or risk tools when cache is missing or stale.
-- Use `score_benchmark` when the user asks for strategy scoring, ranking, grading, or benchmark comparison.
-- Use `show_dashboard` when the user asks for saved benchmark results or a strategy leaderboard.
-- Keep personal portfolio holdings out of `.ohquant/portfolio/`; portfolio storage rules are separate from Quant tool artifacts.
+- 不要将这些工具暴露为 slash 命令。
+- 量化工作优先使用自然语言。
+- 在调用 factor、backtest 或 risk 工具之前，当缓存缺失或过期时先抓取数据。
+- 当用户要求策略评分、排名、评级或 benchmark 对比时使用 `score_benchmark`。
+- 当用户要求查看已保存的 benchmark 结果或策略排行榜时使用 `show_dashboard`。
+- 个人投资组合持仓不得存入 `.ohquant/portfolio/`；portfolio 存储规则与量化工具制品分离。

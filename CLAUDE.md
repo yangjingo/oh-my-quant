@@ -57,7 +57,8 @@ oh-my-quant/
 - **Bun** 作为运行时和包管理，不要用 npm/yarn 安装依赖
 - `DESIGN.md` 是项目唯一的 UI 设计系统来源
 - `notes/quant/` 是投资原则和知识体系的唯一真源
-- `docs/reference.md` 是量化资源索引
+- `docs/source-data-providers.md` 是量化数据源与 Python 库索引
+- `docs/trader-skills.md` 是 skill 生态与学习资源索引
 - `.ohquant/` 下所有数据为本地存储，不提交 git；存储策略见 `docs/ohquant-storage-policy.md`
 - `.ohquant/data/` 与 `.ohquant/cache/` 只缓存可重取的市场公开数据或派生结果
 - portfolio 信息（持仓、净值、仓位、个人组合）是 live-only 私有状态，不允许缓存、推断或读取 `.ohquant/portfolio/`
@@ -91,7 +92,7 @@ oh-my-quant/
 | CLI 架构、slash 命令参考、`src/cli/` 模块、数据流、实施计划 | `docs/interactive-cli-design.md` |
 | AI Agent 架构、Tool 系统、System Prompt、数据存储、Session 管理 | `docs/agent-system-spec.md` |
 | 颜色、字体、间距、组件样式、品牌规则 | `DESIGN.md` |
-| 数据源 API、Python 库速记 | `docs/reference.md` |
+| 数据源 API、Python 库速记 | `docs/source-data-providers.md` |
 
 **Why:** 这些文档包含了完整的架构决策、组件树、事件流、数据格式和接口签名。绕过它们直接写代码会导致与设计不一致的 API 签名、错误的组件结构、不匹配的颜色方案，以及遗漏关键的架构约束（如双队列系统、缓存优先数据源、事件驱动 UI 更新）。
 

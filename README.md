@@ -33,6 +33,7 @@ Q > /config
 - `API Key`: AI Agent provider key
 - `Source`: 行情来源
 - `Source Key`: 对应数据源密钥
+- `Codex Skills` / `Claude Skills`: 是否把用户级 Codex/Claude skills 集成进 WhyJ Quant。默认关闭，只加载项目内核心量化 skills。
 
 也可以直接写入默认配置文件 `.ohquant/settings.json`：
 
@@ -44,6 +45,17 @@ WHYJ_QUANT_AUTH_TOKEN=sk-...               # 兼容旧配置
 WHYJ_QUANT_TUSHARE_TOKEN=your_token        # A 股数据 (可选)
 WHYJ_QUANT_FINANCIAL_DATASETS_KEY=your_key # 美股直连数据 (可选)
 WHYJ_QUANT_LLMQUANT_API_KEY=your_key       # 美股/HK 直连数据 (可选)
+```
+
+外部 skill 集成开关保存在 `.ohquant/settings.json`：
+
+```json
+{
+  "skillIntegrations": {
+    "codex": false,
+    "claude": false
+  }
+}
 ```
 
 配置完成后直接提问：
@@ -141,15 +153,15 @@ bun run src/index.ts -- --json doctor
 
 - [Built-in Tool Registry](./docs/builtin-tool-registry.md) — unified registration path for built-in agent tools
 - [Quant Tools Design](./docs/quant-tools-design.md) — factor, backtest, risk, and benchmark as agent tools
-- [Skills Module](./docs/skills.md) — skill installation, discovery, CLI handler, and TUI integration
-- [Trader Skills](./docs/trader-skills.md) — 23 built-in skills in `.agents/skills/`
+- [Skill 系统](./docs/trader-skills.md) — skill 架构、安装、发现、CLI handler、TUI 集成及完整技能目录
 
 ### Data
 
 - [Source Providers](./docs/source-data-providers.md) — official interfaces, source priority, agent/runtime injection
 - [Source Module](./src/source/README.md) — provider adapters, fallback rules, module test layout
 
-### Reference
+### 参考
 
-- [Quant Resource Index](./docs/reference.md) — external resources: agent skills, Python libs, data sources, learning materials
+- [量化资源索引](./docs/source-data-providers.md) — 数据源 provider、Python 库、API 参考（已合并至此）
+- [Skill 系统](./docs/trader-skills.md) — 外部 skill 生态、AI 交易平台、学习资源（已合并至此）
 - [Personal Notes](./notes/README.md) — 投资知识库：`notes.md`（原则/法则/框架）+ `funder.md`（16 位大师索引）+ `daily.md`（每日笔记）。其中 `notes.md` 和 `funder.md` 被 `/insight` 管道消费，自动生成为 Agent 思考时展示的投资格言

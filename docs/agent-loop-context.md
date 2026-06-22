@@ -1,72 +1,72 @@
 # Agent Loop Context Assembly
 
-Status: current as of June 18, 2026.
+状态：截至 2026-06-18 最新。
 
-Recommended reading order:
+推荐阅读顺序：
 
-- Read `docs/agent-system-spec.md` first for the full architecture and ownership boundaries.
-- Read `docs/pi-agent-loop-harness.md` second for run-loop and harness mechanics.
-- Read this file third when you specifically need the exact model-input vs UI-text assembly path.
+- 首先阅读 `docs/agent-system-spec.md` 了解完整架构和所有权边界。
+- 其次阅读 `docs/pi-agent-loop-harness.md` 了解 run-loop 和 harness 机制。
+- 当您具体需要确切的模型输入 vs UI 文本 assembly 路径时，再阅读本文档。
 
-This document describes the real context assembly path in the current WhyJ Quant agent loop.
+本文档描述当前 WhyJ Quant agent loop 中真实的 context assembly 路径。
 
-## High-Level Path
+## 高层路径
 
-User input path:
+用户输入路径：
 
 `src/app-runtime.ts`
 -> `dispatchUserMessage()`
--> `QuantAgentSession.prompt()` or `followUp()` or `steer()`
--> prompt/context assembly in `src/agent/src/context.ts`
+-> `QuantAgentSession.prompt()` 或 `followUp()` 或 `steer()`
+-> `src/agent/src/context.ts` 中的 prompt/context assembly
 -> pi `AgentHarness`
 -> tool calls / skill calls / assistant generation
--> runtime events back to the TUI
+-> runtime events 返回 TUI
 
-There are two distinct views of one turn:
+一个 turn 有两个不同的视图：
 
-1. model-facing context
-2. user-facing TUI text
+1. 模型面向的 context
+2. 用户面向的 TUI 文本
 
-They are related but not byte-identical.
+它们相关但不完全一致。
 
-## Model-Facing Context Path
+## 模型面向的 Context 路径
 
-### 1. Raw user input enters from `AppRuntime`
+### 1. 原始用户输入从 `AppRuntime` 进入
 
-File: [src/app-runtime.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/app-runtime.ts)
+文件：[src/app-runtime.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/app-runtime.ts)
 
-`runAgentPrompt(input)` forwards raw user input through:
+`runAgentPrompt(input)` 通过以下方式转发原始用户输入：
 
 `dispatchUserMessage(this.agent, input, input)`
 
-The first `input` is model-facing text. The second is `displayText`, which preserves the clean user-visible copy.
+第一个 `input` 是面向模型的文本。第二个是 `displayText`，保留原始用户可见副本。
 
-### 2. Dispatch chooses turn mode
+### 2. Dispatch 选择 turn 模式
 
-File: [src/agent/src/dispatch.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/dispatch.ts)
+文件：[src/agent/src/dispatch.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/dispatch.ts)
 
 - idle -> `prompt()`
-- streaming without pending tools -> `followUp()`
-- streaming with pending tools -> `steer()`
+- 正在 streaming 且无待处理工具 -> `followUp()`
+- 正在 streaming 且有待处理工具 -> `steer()`
 
-All three routes now use the same turn-context injection logic inside `session.ts`.
+三种路由现在都在 `session.ts` 内部使用相同的 turn-context injection 逻辑。
 
-### 3. Session owns turn injection
+### 3. Session 持有 turn injection
 
-File: [src/agent/src/session.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/session.ts)
+文件：[src/agent/src/session.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/session.ts)
 
 - `prompt()` -> `injectTurnContext(input, sessionCtx)`
 - `followUp()` -> `injectTurnContext(extractMessageText(message), sessionCtx)`
 - `steer()` -> `injectTurnContext(extractMessageText(message), sessionCtx)`
 - `skill()` -> `injectSkillContext(name, additionalInstructions)`
 
-This is the single source of truth for model-facing augmentation.
+这是面向模型增强的唯一真源。
 
-## Session Context Fields
+## Session Context 字段
 
-File: [src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/context.ts)
+文件：[src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/context.ts)
 
-`injectSessionContext()` appends a lightweight metadata block:
+`injectSessionContext()` 追加一个轻量元数据块：
 
 - `last_symbol`
 - `last_market`
@@ -74,11 +74,11 @@ File: [src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant
 - `last_end`
 - `recent_tool_state`
 
-### Meaning
+### 含义
 
-- `last_symbol` / `last_market` help resolve follow-up references like “it”
-- `recent_tool_state.tool` stores the latest tool family, such as `check_risk` or `show_dashboard`
-- `recent_tool_state.result_shape` stores a more stable shape hint, such as:
+- `last_symbol` / `last_market` 帮助解析如"it"这样的后续引用
+- `recent_tool_state.tool` 存储最近的工具族，如 `check_risk` 或 `show_dashboard`
+- `recent_tool_state.result_shape` 存储更稳定的形状提示，如：
   - `risk_metrics`
   - `backtest_metrics`
   - `dashboard_ranking`
@@ -88,9 +88,9 @@ File: [src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant
   - `symbol_list`
   - `bars_summary`
 
-`recent_tool_state.result_shape` is preferred over `recent_tool_state.tool` when recovering how a generic follow-up should stay structured.
+在恢复通用后续请求应保持结构化时，优先使用 `recent_tool_state.result_shape` 而非 `recent_tool_state.tool`。
 
-The injected shape is now intentionally object-like instead of growing more flat fields:
+注入的形状现在有意为 object-like，而不是增长更多扁平字段：
 
 ```text
 <!-- session context -->
@@ -101,22 +101,22 @@ recent_tool_state:
   result_shape: dashboard_ranking
 ```
 
-## System Prompt Path
+## System Prompt 路径
 
-File: [src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/context.ts)
+文件：[src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/context.ts)
 
-`buildSystemPrompt()` assembles:
+`buildSystemPrompt()` 组装：
 
 1. `BASE_SYSTEM_PROMPT`
-2. available cached data block
-3. discovered skills block
-4. optional extra text
+2. 可用缓存数据块
+3. 发现的 skill 块
+4. 可选的额外文本
 
-The base prompt now includes:
+基础 prompt 现在包括：
 
-- general output constraints
-- a comparison-heavy structured-output preference
-- a built-in tool-result preservation contract for:
+- 通用输出约束
+- 对比型结构化输出偏好
+- 内置工具结果保留契约：
   - `fetch_bars`
   - `search_symbols`
   - `fetch_snapshot`
@@ -126,30 +126,30 @@ The base prompt now includes:
   - `score_benchmark`
   - `show_dashboard`
 
-This keeps the model biased toward preserving important rows even when the user did not explicitly ask for a table.
+这使模型偏向于保留重要行，即使用户没有显式要求表格。
 
-## Turn-Level Render Guidance
+## Turn 级渲染引导
 
-File: [src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/context.ts)
+文件：[src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/context.ts)
 
-`injectTurnContext()` does:
+`injectTurnContext()` 执行：
 
 1. `injectSessionContext()`
-2. conditional render guidance
+2. 条件渲染引导
 
-The render guidance has two layers:
+渲染引导有两层：
 
-1. general structured-output rules
-2. tool-family-specific rules
+1. 通用结构化输出规则
+2. 工具族特定规则
 
-### When render guidance triggers
+### 渲染引导何时触发
 
-It triggers for explicit structured-output requests such as:
+对显式结构化输出请求触发：
 
-- `table`, `chart`, `compare`, `ranking`, `holdings`, `backtest`
-- `表格`, `图表`, `比较`, `排行`, `持仓`, `回测`
+- `table`、`chart`、`compare`、`ranking`、`holdings`、`backtest`
+- `表格`、`图表`、`比较`、`排行`、`持仓`、`回测`
 
-It also triggers for generic follow-ups such as:
+对通用后续请求也触发：
 
 - `continue`
 - `expand`
@@ -157,39 +157,39 @@ It also triggers for generic follow-ups such as:
 - `继续`
 - `展开讲一下`
 
-but only when `recent_tool_state.tool` or `recent_tool_state.result_shape` is available.
+但仅当 `recent_tool_state.tool` 或 `recent_tool_state.result_shape` 可用时。
 
-### Why `recent_tool_state.result_shape` exists
+### 为什么存在 `recent_tool_state.result_shape`
 
-If the user says only `继续`, the new turn may contain no tool keywords at all.
+如果用户仅说 `继续`，新 turn 可能完全不包含工具关键词。
 
-In that case:
+在这种情况下：
 
-- `recent_tool_state.tool=check_risk` is useful
-- `recent_tool_state.result_shape=risk_metrics` is better
+- `recent_tool_state.tool=check_risk` 有用
+- `recent_tool_state.result_shape=risk_metrics` 更好
 
-because the second value directly tells the prompt layer which row family to preserve.
+因为第二个值直接告诉 prompt 层应保留哪个行族。
 
-## Tool-to-Shape Recovery Path
+## 工具到形状的恢复路径
 
-File: [src/agent/src/session.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/session.ts)
+文件：[src/agent/src/session.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/session.ts)
 
-During tool lifecycle events:
+在工具生命周期事件期间：
 
-- `tool_execution_start` stores:
+- `tool_execution_start` 存储：
   - `sessionCtx.recentToolState.toolName`
-  - an initial `sessionCtx.recentToolState.resultShape`
-- `tool_execution_end` stores:
-  - final `sessionCtx.recentToolState.toolName`
-  - final `sessionCtx.recentToolState.resultShape`
+  - 初始的 `sessionCtx.recentToolState.resultShape`
+- `tool_execution_end` 存储：
+  - 最终的 `sessionCtx.recentToolState.toolName`
+  - 最终的 `sessionCtx.recentToolState.resultShape`
 
-Current shape recovery is lightweight:
+当前形状恢复是轻量的：
 
-1. first inspect structured `result.details`
-2. then map directly from tool name
-3. then optionally refine from tool result text
+1. 首先检查结构化 `result.details`
+2. 然后直接从工具名映射
+3. 然后可选地从工具结果文本细化
 
-Example mappings:
+示例映射：
 
 - `run_backtest` -> `backtest_metrics`
 - `check_risk` -> `risk_metrics`
@@ -197,136 +197,136 @@ Example mappings:
 - `show_dashboard` -> `dashboard_ranking`
 - `fetch_snapshot` -> `snapshot_kv`
 
-## Compaction Context Design
+## Compaction Context 设计
 
-`/compact` is not only a session-control slash command. In WhyJ Quant it is also part of the context design, because the output of compaction becomes future model-facing context.
+`/compact` 不仅是 session-control slash 命令。在 WhyJ Quant 中它也是 context 设计的一部分，因为 compaction 的输出成为未来的模型面向 context。
 
-Files:
+文件：
 
 - [src/cli/handlers/system.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/cli/handlers/system.ts)
 - [src/agent/src/pi/harness/compaction/compaction.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/pi/harness/compaction/compaction.ts)
 - [src/app-runtime.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/app-runtime.ts)
 - [src/tui/src/render.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/tui/src/render.ts)
 
-### Runtime path
+### 运行时路径
 
-The current `/compact` flow is:
+当前 `/compact` 流程：
 
 `AppRuntime.submit("/compact ...")`
 -> `compactHandler()`
 -> `agent.waitForIdle()`
 -> `agent.compact(customInstructions)`
 -> pi harness `compact()`
--> append compaction entry to session tree
--> rebuild `agent.state.messages`
--> runtime syncs conversation from session state
+-> 将 compaction entry 追加到 session tree
+-> 重建 `agent.state.messages`
+-> runtime 从 session state 同步 conversation
 
-Important boundary:
+重要边界：
 
-- `waitForIdle()` is required before `compact()`
-- `compact()` is phase-owned by the harness, not by TUI state
-- the resulting summary is persisted as a session-tree compaction entry, not just shown once in the UI
+- `compact()` 之前需要 `waitForIdle()`
+- `compact()` 由 harness phase 控制，而非 TUI state
+- 生成的摘要作为 session-tree compaction entry 持久化，而非仅在 UI 中显示一次
 
-### Why this is a context-layer concern
+### 为什么这是 context 层关注点
 
-Future turns do not re-read the old raw history once that history has been compacted.
+未来的 turn 在历史被压缩后不会重新读取旧的原始历史。
 
-Instead, `buildSessionContext()` reconstructs context using:
+相反，`buildSessionContext()` 使用以下内容重建 context：
 
-- retained recent messages after `firstKeptEntryId`
-- the synthetic `compactionSummary` message generated from the compaction entry
+- `firstKeptEntryId` 之后保留的最近消息
+- 从 compaction entry 生成的合成 `compactionSummary` 消息
 
-So the quality of the compaction summary directly affects:
+因此 compaction 摘要的质量直接影响：
 
-- what the model still remembers
-- whether generic follow-ups like `继续` remain grounded
-- whether quant output stays attached to the right symbols, date ranges, and strategy assumptions
+- 模型仍然记住的内容
+- 通用后续请求如 `继续` 是否保持上下文扎根
+- 量化输出是否保持与正确的 symbol、日期范围和策略假设关联
 
-### Quant-specific compaction requirements
+### 量化特定的 compaction 要求
 
-WhyJ Quant now adds quant-aware instructions to the compaction summarization prompt. When a session involves quant research, the summary should preserve:
+WhyJ Quant 现在向 compaction 摘要 prompt 添加量化感知的指令。当 session 涉及量化研究时，摘要应保留：
 
-- symbols, benchmarks, universes, exchanges, and portfolio names
-- date ranges, lookback windows, rebalance cadence, and timeframe assumptions
-- factor definitions, signal rules, strategy parameters, and risk limits
-- data providers, cache/local file paths, and any data-quality caveats
-- validated findings, open hypotheses, and the metrics that matter for the next step
-- output-shape preferences such as compact tables, rankings, and risk dashboards
+- symbol、benchmark、universe、交易所和组合名称
+- 日期范围、回看窗口、再平衡频率和时间框架假设
+- 因子定义、信号规则、策略参数和风险限制
+- 数据 provider、缓存/本地文件路径和任何数据质量注意事项
+- 已验证的发现、开放假设以及对下一步重要的指标
+- 输出形状偏好，如紧凑表格、排名和风险仪表盘
 
-This is intentionally stricter than generic coding-session compaction. The design goal is to preserve research state, not just implementation progress.
+这有意比通用 coding-session compaction 更严格。设计目标是保留研究状态，而不仅仅是实现进度。
 
-### `/compact` completion receipt
+### `/compact` 完成回执
 
-The slash-command receipt is also quant-aware now. On success it still shows:
+slash-command 回执现在也是量化感知的。成功时仍然显示：
 
 - `first kept`
 - `tokens before`
 
-but it also extracts a compact research-state receipt from the generated summary:
+但也从生成的摘要中提取紧凑的研究状态回执：
 
 - `scope`
 - `dates/window`
 - `params/risk`
 - `open threads`
 
-This receipt is not the authoritative context store. The authoritative store is still the compaction entry in the session tree. The receipt exists to let the user verify that the most important research state survived compaction.
+此回执不是权威 context 存储。权威存储仍然是 session tree 中的 compaction entry。回执存在的目的是让用户验证最重要的研究状态在 compaction 中幸存。
 
-### TUI visibility during compaction
+### Compaction 期间的 TUI 可见性
 
-The TUI now exposes compaction as an explicit activity, not just a silent slash command:
+TUI 现在将 compaction 展示为显式活动，而不仅是静默的 slash 命令：
 
-- runtime sets activity to `compacting` before the command runs
-- if the agent is still finishing a turn, status first says that compaction is waiting for idle
-- while compacting, the conversation panel uses the same ora-style spinner and animated gold banner treatment as `thinking`
-- when the conversation is empty, the loading overlay copy changes from `WhyJ is thinking...` to `WhyJ is compacting...`
+- runtime 在命令运行前将 activity 设为 `compacting`
+- 如果 agent 仍在完成 turn，状态首先说明 compaction 正在等待 idle
+- 在 compacting 期间，conversation 面板使用与 `thinking` 相同的 ora 风格 spinner 和动画金色横幅处理
+- 当 conversation 为空时，loading overlay 副本从 `WhyJ is thinking...` 变为 `WhyJ is compacting...`
 
-This matters because compaction can take long enough to feel broken if there is no visible progress, especially when the runtime is still draining the previous turn.
+这很重要，因为 compaction 可能耗时足够长，在没有可见进度时感觉像坏了，尤其是当 runtime 仍在排空上一个 turn 时。
 
-## Skill Path
+## Skill 路径
 
-File: [src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/context.ts)
+文件：[src/agent/src/context.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/context.ts)
 
-`injectSkillContext()` appends a small structured-output contract to explicit skill runs.
+`injectSkillContext()` 向显式 skill 运行追加一个小的结构化输出契约。
 
-For quant / trader / benchmark style skills, it explicitly reinforces:
+对于 quant / trader / benchmark 风格 skill，它显式强化：
 
-- keep structured rows visible
-- prefer compact plain-text tables or chart-style blocks
-- preserve score rows, ranking rows, risk rows, and backtest metric rows
+- 保持结构化行可见
+- 优先使用紧凑纯文本表格或图表风格块
+- 保留评分行、排名行、风险行和回测指标行
 
-## User-Facing TUI Path
+## 用户面向的 TUI 路径
 
-The TUI prefers clean display text instead of injected text.
+TUI 优先使用原始显示文本而非注入文本。
 
-Files:
+文件：
 
 - [src/agent/src/dispatch.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/src/dispatch.ts)
 - [src/app-runtime.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/app-runtime.ts)
 
-Relevant behavior:
+相关行为：
 
-- user turns carry `displayText`
-- runtime prefers `displayText` when rendering queue/conversation text
+- 用户 turn 携带 `displayText`
+- runtime 在渲染队列/对话文本时优先使用 `displayText`
 
-So the model may see extra session context and render guidance, while the user still sees the original clean prompt.
+因此模型可能看到额外的 session context 和渲染引导，而用户仍看到原始 prompt 文本。
 
-## Queue Path
+## 队列路径
 
-Queued follow-ups also flow through the same model-facing injection path when consumed later.
+排队的 follow-up 在稍后被消费时也流经相同的面向模型注入路径。
 
-Runtime queue UI remains clean because it uses display text extraction, not injected text.
+运行时队列 UI 保持可读，因为它使用 display text extraction 而非注入文本。
 
-## Concrete Summary
+## 具体总结
 
-### Normal user turn
+### 普通用户 turn
 
 `AppRuntime.submit()`
 -> `runAgentPrompt(input)`
 -> `dispatchUserMessage(agent, input, input)`
 -> `session.prompt()/followUp()/steer()`
 -> `injectTurnContext(rawInput, sessionCtx)`
--> optional session metadata block
--> optional structured render guidance block
+-> 可选 session metadata block
+-> 可选 structured render guidance block
 -> `AgentHarness`
 
 ### Skill turn
@@ -336,18 +336,18 @@ Runtime queue UI remains clean because it uses display text extraction, not inje
 -> `injectSkillContext(name, extra)`
 -> `AgentHarness.skill(...)`
 
-### Generic follow-up after a tool result
+### 工具结果后的通用 follow-up
 
-previous tool ends
--> session stores `recent_tool_state.tool` and `recent_tool_state.result_shape`
--> user says `继续`
--> `injectTurnContext()` sees generic follow-up language
--> recovers the proper row family from `recent_tool_state.result_shape`
--> model stays aligned to the previous structured result
+前一个工具结束
+-> session 存储 `recent_tool_state.tool` 和 `recent_tool_state.result_shape`
+-> 用户说 `继续`
+-> `injectTurnContext()` 看到通用 follow-up 语言
+-> 从 `recent_tool_state.result_shape` 恢复正确的行族
+-> 模型保持与之前结构化结果对齐
 
-## Verification
+## 验证
 
-Relevant tests:
+相关测试：
 
 - [src/agent/test/context.test.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/test/context.test.ts)
 - [src/agent/test/session.test.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/test/session.test.ts)

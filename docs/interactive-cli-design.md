@@ -1,90 +1,91 @@
-# WhyJ Quant CLI — Design & Reference
+# WhyJ Quant CLI — 设计与参考
 
-> last-updated: 2026-06-08
+> 最后更新：2026-06-08
 > 合并自 `interactive-cli-design.md` + `cli-manual.md`；CLI 唯一设计/参考文档。
 
-## Table of Contents
+## 目录
 
-1. [Overview](#1-overview)
-2. [Quick Start](#2-quick-start)
-3. [Two Layers: Shell vs Slash](#3-two-layers-shell-vs-slash)
-4. [Operating Modes](#4-operating-modes)
-5. [Architecture](#5-architecture)
-6. [Slash vs Agent Boundary](#6-slash-vs-agent-boundary)
-7. [Slash Command Reference](#7-slash-command-reference)
-8. [Configuration & Storage](#8-configuration--storage)
-9. [Data Flow](#9-data-flow)
-10. [CLI Design Checklist](#10-cli-design-checklist)
-11. [Safe Implementation Plan](#11-safe-implementation-plan)
-12. [Key Design Decisions](#12-key-design-decisions)
-13. [Tests & Related Docs](#13-tests--related-docs)
+1. [概述](#1-概述)
+2. [快速开始](#2-快速开始)
+3. [两层架构：Shell vs Slash](#3-两层架构shell-vs-slash)
+4. [运行模式](#4-运行模式)
+5. [架构](#5-架构)
+6. [Slash 与 Agent 的边界](#6-slash-与-agent-的边界)
+7. [Slash 命令参考](#7-slash-命令参考)
+8. [配置与存储](#8-配置与存储)
+9. [数据流](#9-数据流)
+10. [CLI 设计检查清单](#10-cli-设计检查清单)
+11. [安全实施计划](#11-安全实施计划)
+12. [关键设计决策](#12-关键设计决策)
+13. [测试与相关文档](#13-测试与相关文档)
 
 ---
 
-## 1. Overview
+## 1. 概述
 
-`whyj` is an interactive quantitative analysis terminal built with **Bun + TypeScript + pi Agent**.
+`whyj` 是基于 **Bun + TypeScript + pi Agent** 的交互式量化分析终端。
 
-Two input modes:
+两种输入模式：
 
-| Mode | Trigger | Path |
+| 模式 | 触发方式 | 路径 |
 |------|---------|------|
-| **Slash command** | `/` prefix | `src/cli/registry.ts` — deterministic, no LLM |
-| **AI Agent** | natural language | `src/agent/src/session.ts` — LLM + skills + data/compute tools |
+| **Slash 命令** | `/` 前缀 | `src/cli/registry.ts` — 确定性执行，无 LLM |
+| **AI Agent** | 自然语言 | `src/agent/src/session.ts` — LLM + skills + data/compute tools |
 
-Tech stack:
+技术栈：
 
-| Layer | Choice |
+| 层 | 选型 |
 |-------|--------|
 | Runtime | Bun + TypeScript (strict) |
-| TUI | Custom frame-buffer — see `src/tui/README.md` and `docs/tui-layout-design.md` |
+| TUI | 自定义 frame-buffer — 见 `src/tui/README.md` 和 `docs/tui-layout-design.md` |
 | AI Agent | `@earendil-works/pi-agent-core` + `@earendil-works/pi-ai` |
-| Data | local data adapters + `.ohquant/` local JSON |
-| Schema | TypeBox (agent tool parameters) |
-| Build | `bun build src/index.ts --outdir dist --target bun` |
-| Test | `bun test src/` |
+| 数据 | 本地 data adapter + `.ohquant/` 本地 JSON |
+| Schema | TypeBox（agent tool 参数） |
+| 构建 | `bun build src/index.ts --outdir dist --target bun` |
+| 测试 | `bun test src/` |
 
 ---
 
-## 2. Quick Start
+## 2. 快速开始
 
 ```bash
 bun install
 bun run src/index.ts                              # Interactive TUI
 whyj -c "/help"                                  # One-shot local slash
 whyj --json doctor                                # Config / auth check
+whyj --json -c "/doctor"                          # Same check through slash dispatch
 ```
 
-Global install: `npm i -g whyj-quant` then `whyj`.
+全局安装：`npm i -g whyj-quant` 然后 `whyj`。
 
-TUI layout: header, Analyzing panel (left), Overview dock (right), composer, status bar. Code guide: `src/tui/README.md`; full layout spec: `docs/tui-layout-design.md`.
+TUI 布局：header、Analyzing 面板（左侧）、Overview dock（右侧）、composer、status bar。代码指南：`src/tui/README.md`；完整布局规格：`docs/tui-layout-design.md`。
 
 ---
 
-## 3. Two Layers: Shell vs Slash
+## 3. 两层架构：Shell vs Slash
 
 参考 pi `coding-agent`：进程入口与 TUI 内 slash 分层，不混在同一 parser。
 
-| Layer | Location | Responsibility |
+| 层 | 位置 | 职责 |
 |-------|----------|----------------|
-| **Shell entry** | `src/index.ts` | `whyj`, `-c`, `--json`, `doctor`, exit codes |
-| **Slash commands** | `src/cli/` | `/help`, `/config`, `/portfolio`, parse + dispatch |
+| **Shell 入口** | `src/index.ts` | `whyj`、`-c`、`--json`、`doctor`、exit codes |
+| **Slash 命令** | `src/cli/` | `/help`、`/config`、`/doctor`、`/portfolio`、parse + dispatch |
 
 Shell 层只关心生命周期；slash 层只关心业务动作。两者共用 `src/cli/catalog.ts` 作为命令列表真源。
 
 ---
 
-## 4. Operating Modes
+## 4. 运行模式
 
-| Mode | Example | Status |
+| 模式 | 示例 | 状态 |
 |------|---------|--------|
-| Interactive TUI | `whyj` | implemented |
-| One-shot slash | `whyj -c "/help"` | implemented |
-| JSON envelope | `whyj --json -c "/portfolio"` | implemented |
-| Doctor | `whyj --json doctor` | implemented |
-| RPC / SDK embed | — | not planned (see pi `--mode rpc`) |
+| Interactive TUI | `whyj` | 已实现 |
+| One-shot slash | `whyj -c "/help"` | 已实现 |
+| JSON envelope | `whyj --json -c "/portfolio"` | 已实现 |
+| Doctor | `whyj --json doctor`, `whyj -c "/doctor"` | 已实现 |
+| RPC / SDK embed | — | 未计划（见 pi `--mode rpc`） |
 
-JSON envelope (stable):
+JSON envelope（稳定格式）：
 
 ```json
 { "ok": true, "command": "portfolio", "message": "...", "data": {} }
@@ -93,7 +94,7 @@ JSON envelope (stable):
 
 ---
 
-## 5. Architecture
+## 5. 架构
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -110,49 +111,58 @@ JSON envelope (stable):
 └──────────────────────────────────────────────────────┘
 ```
 
-### `src/cli/` module
+### `src/cli/` 模块
 
-| File | Purpose |
+| 文件 | 用途 |
 |------|---------|
-| `catalog.ts` | `COMMAND_CATALOG`, `SLASH_COMMANDS`, `buildCommandHelpText()` |
-| `types.ts` | `ParsedCommand`, `CommandResult`, `CommandEffect`, `CommandContext` |
-| `params.ts` | `runQuantTool()`, `normalizeToolParams()` |
-| `registry.ts` | `parseCommand()`, `executeCommand()`, handler dispatch |
-| `handlers/system.ts` | `/help`, `/clear`, `/config`, `/resume`, `/portfolio`, `/exit` |
-| `handlers/workflow.ts` | internal compare workflow helpers only |
-| `registry.test.ts` | Parser + dispatch unit tests |
+| `catalog.ts` | `COMMAND_CATALOG`、`SLASH_COMMANDS`、`buildCommandHelpText()` |
+| `types.ts` | `ParsedCommand`、`CommandResult`、`CommandEffect`、`CommandContext` |
+| `doctor.ts` | 共享 doctor 报告、文本格式化、认证来源提示 |
+| `params.ts` | `runQuantTool()`、`normalizeToolParams()` |
+| `registry.ts` | `parseCommand()`、`executeCommand()`、handler dispatch |
+| `handlers/system.ts` | `/help`、`/clear`、`/config`、`/doctor`、`/resume`、`/portfolio`、`/exit` |
+| `handlers/workflow.ts` | 仅内部 compare workflow helper |
+| `registry.test.ts` | Parser + dispatch 单元测试 |
 
-Consumers:
+消费者：
 
-- `src/app-runtime.ts` — slash dispatch via `executeCommand()`, applies `CommandEffect`
-- `src/tui/src/input.ts` — composer autocomplete from `COMMAND_CATALOG` (subcommands + actions)
-- `src/index.ts` — one-shot mode + shell `--help` slash list
+- `src/app-runtime.ts` — 通过 `executeCommand()` 进行 slash dispatch，应用 `CommandEffect`
+- `src/tui/src/input.ts` — 从 `COMMAND_CATALOG` 获取 composer autocomplete（subcommands + actions）
+- `src/index.ts` — one-shot 模式 + shell `--help` slash list
 
-Composer autocomplete: Level 1/2 from `catalog.ts`; flag values (`--symbol`, `--name`) from watchlist in `input.ts`. See `docs/tui-layout-design.md`.
+Composer 自动补全：Level 1/2 来自 `catalog.ts`；flag 值（`--symbol`、`--name`）来自 `input.ts` 中的 watchlist。详见 `docs/tui-layout-design.md`。
 
-Agent / skill / session internals: `docs/agent-system-spec.md`.
+Agent / skill / session 内部机制：`docs/agent-system-spec.md`。
+
+### Agent provider 差异在 CLI 层面的影响
+
+CLI 只暴露一个自然语言 agent 入口，但后端模型传输方式对错误处理和文档很重要：
+
+- OpenAI-compatible provider 路径对工具重放和空 assistant turn 更宽容。
+- Anthropic provider 路径要求严格的 `tool_use` / `tool_result` 相邻性，这也是某些 400 错误看起来像 "tool_result missing immediately after tool_use" 的原因。
+- `/config`、`doctor` 和 TUI settings 面板应展示当前激活的端点模式，以便用户区分模型问题与传输问题。
 
 ---
 
-## 6. Slash vs Agent Boundary
+## 6. Slash 与 Agent 的边界
 
-| Scenario | CLI slash | Agent |
+| 场景 | CLI slash | Agent |
 |----------|-----------|-------|
-| Run factor/backtest/risk/benchmark on configured data source | — | Agent calls `Quant.Factor`, `Quant.Backtest`, `Quant.Risk`, `Quant.Benchmark` |
-| Multi-step natural language analysis | — | `分析平安银行动量+风险` |
-| Local UI state | `/clear`, `/config`, `/resume`, `/portfolio` | — |
+| 在配置的数据源上运行 factor/backtest/risk/benchmark | — | Agent 调用 `Quant.Factor`、`Quant.Backtest`、`Quant.Risk`、`Quant.Benchmark` |
+| 多步骤自然语言分析 | — | `分析平安银行动量+风险` |
+| 本地 UI 状态 | `/clear`、`/config`、`/doctor`、`/resume`、`/portfolio` | — |
 
-Rules:
+规则：
 
-- CLI handlers are limited to local UI/session operations.
-- Quant workflows are agent tools, not slash commands.
-- Portfolio holdings are **live-only** — never cached under `.ohquant/portfolio/`. See `docs/ohquant-storage-policy.md`.
+- CLI handler 限于本地 UI/session 操作。
+- 量化工作流是 agent 工具，不是 slash 命令。
+- Portfolio 持仓是 **实时的（live-only）** — 永不缓存到 `.ohquant/portfolio/`。见 `docs/ohquant-storage-policy.md`。
 
 ---
 
-## 7. Slash Command Reference
+## 7. Slash 命令参考
 
-Quant analysis is intentionally not exposed as slash commands. Use natural language and let the agent call the built-in tools:
+量化分析有意不暴露为 slash 命令。使用自然语言，让 agent 调用内置工具：
 
 ```
 分析 CODE 的 momentum 因子
@@ -161,69 +171,70 @@ Quant analysis is intentionally not exposed as slash commands. Use natural langu
 给 CODE 做策略评分并展示 dashboard
 ```
 
-Built-in Quant tools:
+内置量化工具：
 
-- `Quant.Factor`: momentum, reversal, volatility, volume_ratio, rsi, sma_deviation
-- `Quant.Backtest`: SMA crossover backtest
-- `Quant.Risk`: annual vol, VaR/CVaR, max drawdown, skewness, kurtosis
-- `Quant.Benchmark`: strategy scoring and dashboard data
+- `Quant.Factor`：momentum、reversal、volatility、volume_ratio、rsi、sma_deviation
+- `Quant.Backtest`：SMA crossover backtest
+- `Quant.Risk`：年化波动率、VaR/CVaR、最大回撤、偏度、峰度
+- `Quant.Benchmark`：策略评分和 dashboard 数据
 
-### `/portfolio` — Local Portfolio Panel
+### `/portfolio` — 本地组合面板
 
 ```
 /portfolio
 ```
 
-Read-only local portfolio comparison panel. File edits are handled by the agent, not slash commands.
+只读本地组合对比面板。文件编辑由 agent 处理，而非 slash 命令。
 
-### System
+### 系统
 
 ```
-/help      Command reference (from catalog)
-/clear     Clear conversation + reset agent
-/exit      Quit
-/config    Settings panel (API keys, model, sources)
-/resume    Resume panel / restore a previous session
-/compact   Compact the current session
-/portfolio Local portfolio comparison panel
+/help      命令参考（来自 catalog）
+/clear     清空对话 + 重置 agent
+/exit      退出
+/config    设置面板（API keys、模型、数据源）
+/doctor    运行时、配置、认证来源检查、脱敏值指纹和设置提示
+/resume    恢复面板 / 恢复之前的 session
+/compact   压缩当前 session
+/portfolio 本地组合对比面板
 ```
 
-### AI Agent (no `/` prefix)
+### AI Agent（无 `/` 前缀）
 
-Local data + quant tools, plus `bash` for shell (pi/codex-style). Session → `.ohquant/sessions/{date}/session-{time}.md`. Details: `docs/agent-system-spec.md`.
+本地数据 + 量化工具，加上 `bash` 用于 shell（pi/codex 风格）。Session → `.ohquant/sessions/{date}/session-{time}.md`。详情：`docs/agent-system-spec.md`。
 
 ---
 
-## 8. Configuration & Storage
+## 8. 配置与存储
 
-Single config: `.ohquant/settings.json`
+统一配置：`.ohquant/settings.json`
 
 ```json
 {
-  "env": { "WHYJ_AUTH_TOKEN": "sk-..." },
+  "env": { "WHYJ_QUANT_AUTH_TOKEN": "sk-..." },
   "model": "sonnet",
   "thinkingLevel": "off"
 }
 ```
 
-Keys and preferred data source via `/config` panel; agent reads lazily on each API call.
+密钥和首选数据源通过 `/config` 面板设置；agent 在每次 API 调用时延迟读取。
 
-Cache paths:
+缓存路径：
 
-- Market bars: `.ohquant/data/{source}/{symbol}/daily.json`
-- Sessions: `.ohquant/sessions/`
-- Benchmark: `.ohquant/benchmark/results/*.json`
-- Watchlist autocomplete: `.ohquant/watchlist.json`
-- Overview symbols: `.ohquant/panel-portfolio.json`
+- 行情数据：`.ohquant/data/{source}/{symbol}/daily.json`
+- Sessions：`.ohquant/sessions/`
+- Benchmark：`.ohquant/benchmark/results/*.json`
+- Watchlist 自动补全：`.ohquant/watchlist.json`
+- Overview symbols：`.ohquant/panel-portfolio.json`
 
 ---
 
-## 9. Data Flow
+## 9. 数据流
 
 ```
-User input
-  ├─ /command → src/cli/registry.ts: parseCommand() → executeCommand() → display
-  └─ NL text  → injectContext() → agent.prompt() → tools → display + cache
+用户输入
+  ├─ /command → src/cli/registry.ts: parseCommand() → executeCommand() → 显示
+  └─ 自然语言文本 → injectContext() → agent.prompt() → tools → 显示 + 缓存
 
 Agent fetch_bars("000001.SZ")
   → source adapter (akshare / tushare / llmquant-data / financial-datasets)
@@ -232,116 +243,117 @@ Agent fetch_bars("000001.SZ")
 
 ---
 
-## 10. CLI Design Checklist
+## 10. CLI 设计检查清单
 
 参考 pi `coding-agent`（CLI 层）与 `pi-ai`（Tool/LLM 层）。实现 CLI 功能前先对照。
 
-| # | Dimension | Requirement | Status |
+| # | 维度 | 要求 | 状态 |
 |---|-----------|-------------|--------|
-| 1 | Catalog single source | help / autocomplete / shell help 同源 | done |
-| 2 | Shell vs slash split | `index.ts` vs `src/cli/` | done |
-| 3 | Slash vs agent split | `/` → registry; NL → agent | done |
-| 4 | Tool reuse | handlers → `runQuantTool()`, same as Agent | done |
-| 5 | SessionCtx handoff | `--symbol` → `updateSessionCtx` | done |
-| 6 | JSON envelope | one-shot `--json` stable shape | done |
-| 7 | Storage policy | no portfolio cache; file events | partial |
-| 8 | Local commands unified | `/help`/`/clear`/`/config` in registry | done |
-| 9 | Type consolidation | merge `ParsedCommand` duplicates | done |
-| 10 | Handler split | `registry.ts` → `handlers/*.ts` | done |
-| 11 | Catalog schema | subcommands + flags in catalog | partial |
-| 12 | Busy input queue | steering/follow-up like pi | done |
-| 13 | Extension hook | static catalog → registerCommand | future |
+| 1 | Catalog 单一真源 | help / autocomplete / shell help 同源 | done |
+| 2 | Shell vs slash 分离 | `index.ts` vs `src/cli/` | done |
+| 3 | Slash vs agent 分离 | `/` → registry; NL → agent | done |
+| 4 | 工具复用 | handlers → `runQuantTool()`，与 Agent 相同 | done |
+| 5 | SessionCtx 传递 | `--symbol` → `updateSessionCtx` | done |
+| 6 | JSON envelope | one-shot `--json` 稳定结构 | done |
+| 7 | 存储策略 | 无 portfolio 缓存；file events | partial |
+| 8 | 本地命令统一 | `/help`/`/clear`/`/config` 在 registry 中 | done |
+| 9 | 类型整合 | 合并 `ParsedCommand` 重复定义 | done |
+| 10 | Handler 拆分 | `registry.ts` → `handlers/*.ts` | done |
+| 11 | Catalog schema | catalog 中的 subcommands + flags | partial |
+| 12 | 忙碌输入队列 | steering/follow-up 如 pi | done |
+| 13 | 扩展钩子 | static catalog → registerCommand | future |
 
 pi-ai 边界（CLI 不应触碰）：
 
-- 不直接调 `stream()` / `complete()` — 除非新增显式 `/agent` 代理命令
+- 不直接调用 `stream()` / `complete()` — 除非新增显式 `/agent` 代理命令
 - Tool 参数校验走 TypeBox schema；Agent 侧 pi-ai `validateToolCall`
 - Streaming 事件仅 Agent 路径；slash 返回同步 `CommandResult`
 
 ---
 
-## 11. Safe Implementation Plan
+## 11. 安全实施计划
 
 分阶段执行；每阶段独立可验证、可回滚。**先文档、后代码**；每步只改一层。
 
-### Phase 0 — Documentation (this merge)
+### Phase 0 — 文档（本次合并）
 
-- [x] Merge `cli-manual.md` → `interactive-cli-design.md`
-- [x] Update `CLAUDE.md`, `README.md` references
-- [x] Remove `docs/cli-manual.md`
+- [x] 合并 `cli-manual.md` → `interactive-cli-design.md`
+- [x] 更新 `CLAUDE.md`、`README.md` 引用
+- [x] 移除 `docs/cli-manual.md`
 
-**Verify:** grep 无残留 `cli-manual` 引用。
+**验证：** grep 无残留 `cli-manual` 引用。
 
-### Phase 1 — Local command unification (low risk)
+### Phase 1 — 本地命令统一（低风险）
 
-- [x] Move `/help`, `/clear`, `/config`, `/portfolio` from `app-runtime.ts` into `registry.ts`
-- [x] `app-runtime.ts` applies `CommandResult.effects` + TUI callbacks
-- [x] `/exit`/`/quit` remain process-level in runtime
+- [x] 将 `/help`、`/clear`、`/config`、`/portfolio` 从 `app-runtime.ts` 移至 `registry.ts`
+- [x] `app-runtime.ts` 应用 `CommandResult.effects` + TUI callbacks
+- [x] `/exit`/`/quit` 保留为 runtime 的进程级操作
 
-**Verify:** `bun test src/app-runtime.test.ts src/cli/registry.test.ts`
+**验证：** `bun test src/app-runtime.test.ts src/cli/registry.test.ts`
 
-### Phase 2 — Type consolidation (low risk)
+### Phase 2 — 类型整合（低风险）
 
-- [x] Add `src/cli/types.ts` with `ParsedCommand`, `CommandResult`, `CommandEffect`, `CommandContext`
-- [x] Re-export `CommandResult` from `src/types/messages.ts`
-- [x] Remove unused `CommandSpec` / duplicate `ParsedCommand`
+- [x] 添加 `src/cli/types.ts`，包含 `ParsedCommand`、`CommandResult`、`CommandEffect`、`CommandContext`
+- [x] 从 `src/types/messages.ts` 重新导出 `CommandResult`
+- [x] 移除未使用的 `CommandSpec` / 重复的 `ParsedCommand`
 
-**Verify:** `bun run typecheck`
+**验证：** `bun run typecheck`
 
-### Phase 3 — Handler extraction (medium risk)
+### Phase 3 — Handler 提取（中等风险）
 
-- [x] Split handlers into `src/cli/handlers/{system,data,workflow,watchlist,skill}.ts`
-- [x] `src/cli/params.ts` for `runQuantTool()` + flag normalization
-- [x] `registry.ts` parse + dispatch only
+- [x] 将 handler 拆分为 `src/cli/handlers/{system,data,workflow,watchlist,skill}.ts`
+- [x] `src/cli/params.ts` 用于 `runQuantTool()` + flag normalization
+- [x] `registry.ts` 仅 parse + dispatch
 
-**Verify:** existing tests pass; spot-check unknown quant slash rejection and built-in `Quant.Factor` / `Quant.Benchmark` tool rendering.
+**验证：** 现有测试通过；抽查未知量化 slash 的拒绝和内置 `Quant.Factor` / `Quant.Benchmark` 工具渲染。
 
-### Phase 4 — Catalog schema enrichment (medium risk)
+### Phase 4 — Catalog schema 增强（中等风险）
 
-- [x] Extend `CommandCatalogEntry` with `subcommands`
-- [x] Autocomplete Level 2 from catalog subcommands (`input.ts`)
-- [ ] Flag schema in catalog (future)
+- [x] 扩展 `CommandCatalogEntry`，增加 `subcommands`
+- [x] 从 catalog subcommands 自动补全 Level 2（`input.ts`）
+- [ ] 未来：catalog 中的 flag schema
 
-### Phase 5 — Symbol rename (optional, breaking docs only)
+### Phase 5 — Symbol 重命名（可选，仅文档层面的破坏性改动）
 
-Rename `COMMAND_CATALOG` → `CLI_CATALOG`, `parseCommand` → `parseSlash`, etc.
+将 `COMMAND_CATALOG` 重命名为 `CLI_CATALOG`，`parseCommand` 重命名为 `parseSlash` 等。
 
 - 与用户约定后统一改；不在 Phase 1–4 混入
 
-**Verify:** full `bun test src/`
+**验证：** 完整 `bun test src/`
 
-### Out of scope (explicit)
+### 明确不包含（Out of scope）
 
-- RPC mode, extension registerCommand API
-- pi-style message queue (steering/follow-up)
-- `@file` / `!bash` composer prefixes
+- RPC 模式、extension registerCommand API
+- pi 风格 message queue（steering/follow-up）
+- `@file` / `!bash` composer 前缀
 
 ---
 
-## 12. Key Design Decisions
+## 12. 关键设计决策
 
-| Decision | Rationale |
+| 决策 | 理由 |
 |----------|-----------|
-| Data tools as AgentTools | Agent calls directly; caching in tool execute() |
-| Catalog as CLI metadata SSOT | Eliminates help/autocomplete/shell drift |
-| settings.json single config | No `.env` dependency; `/config` panel writes here |
-| Agent always boots | API key checked at runtime, not startup gate |
-| Heuristic compaction | No extra LLM cost for context trim |
-| Portfolio live-only | Personal state must not hit `.ohquant/` cache |
+| 数据工具作为 AgentTools | Agent 直接调用；缓存在工具 execute() 中 |
+| Catalog 作为 CLI metadata SSOT | 消除 help/autocomplete/shell 偏移 |
+| settings.json 单一配置 | `/config` 写入 `.ohquant/settings.json`；应用从该处读取配置 |
+| Agent 始终启动 | API key 在运行时检查，非启动门禁 |
+| 启发式 compaction | 上下文修剪不产生额外 LLM 成本 |
+| Portfolio live-only | 个人状态不得落入 `.ohquant/` 缓存 |
 
 ---
 
-## 13. Tests & Related Docs
+## 13. 测试与相关文档
 
 ```bash
 bun test src/     # session, context, cli, tui, storage, agent
 ```
 
-| Doc | Scope |
+| 文档 | 范围 |
 |-----|-------|
-| `src/tui/README.md` | TUI code map, runtime interaction, tests |
-| `docs/tui-layout-design.md` | Frame-buffer layout, composer UX |
-| `docs/agent-system-spec.md` | Agent, tools, compaction, session |
-| `docs/ohquant-storage-policy.md` | Cache vs live-only rules |
-| `docs/reference.md` | skills, data APIs, ecosystem links |
-| `DESIGN.md` | Visual design system |
+| `src/tui/README.md` | TUI 代码地图、运行时交互、测试 |
+| `docs/tui-layout-design.md` | Frame-buffer 布局、composer UX |
+| `docs/agent-system-spec.md` | Agent、tools、compaction、session |
+| `docs/ohquant-storage-policy.md` | 缓存 vs live-only 规则 |
+| `docs/source-data-providers.md` | 数据源 provider、Python 库、API 参考 |
+| `docs/trader-skills.md` | skill 系统、外部 skill 生态、学习资源 |
+| `DESIGN.md` | 视觉设计系统 |
