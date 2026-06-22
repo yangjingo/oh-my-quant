@@ -98,6 +98,12 @@ WhyJ 支持两种模型传输形态，它们不可互换：
 - `https://api.minimaxi.com/anthropic` + `MiniMax-M2.7` -> `anthropic-messages`
 - `https://api.minimaxi.com/v1` + `MiniMax-M2.7` -> `openai-completions`
 
+仓库内置 live smoke 命令：
+
+- `bun run test:providers`
+- 默认读取项目根目录 `.ohquant/settings.json` 作为主 case
+- 可额外通过 `WHYJ_SMOKE_GLM_AUTH_TOKEN` 和 `WHYJ_SMOKE_MINIMAX_AUTH_TOKEN` 开启 GLM / MiniMax 的 anthropic 与 openai 双协议实测
+
 ### 3.2 消息模型分离：模型文本 vs 显示文本
 
 WhyJ 现在区分：

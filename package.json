@@ -38,6 +38,7 @@
     "typecheck": "bun run tsc --noEmit",
     "gen:insights": "bun run scripts/generate-insights.ts",
     "test": "bun test src/",
+    "test:providers": "bun run scripts/provider-smoke.ts",
     "test:watch": "bun test --watch",
     "prepublishOnly": "bun run gen:insights && bun run build && bun run typecheck"
   },
