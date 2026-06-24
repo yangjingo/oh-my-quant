@@ -8,10 +8,8 @@
 import { migrateOldConfig, loadSettings } from "./storage/index.ts";
 import { parseCommand, executeCommand } from "./cli/registry.ts";
 import { COMMAND_CATALOG } from "./cli/catalog.ts";
+import { formatDoctorText, runDoctor } from "./cli/doctor.ts";
 import { printBanner } from "./tui/src/banner.ts";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 interface CliEnvelope {
   ok: boolean;
@@ -49,9 +47,9 @@ if (args.includes("--help") || args.includes("-h")) {
   writeHelp(json);
   process.exit(0);
 } else if (positional[0] === "doctor") {
-  const doctor = runDoctor();
+  const doctor = runDoctor(settings);
   if (json) writeJson({ ok: true, command: "doctor", data: doctor });
-  else writeDoctorText(doctor);
+  else console.log(formatDoctorText(doctor));
   process.exit(doctor.ready ? 0 : 1);
 } else if (cmdArg) {
   // Fix MSYS2 path mangling: "/config" → "C:/.../git/.../config"
@@ -81,69 +79,6 @@ async function runOneShot(input: string, json: boolean) {
     console.error(`✗ ${result.message}`);
   }
   process.exit(result.success ? 0 : 1);
-}
-
-function getPackageVersion(): string {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    join(here, "..", "package.json"),
-    join(process.cwd(), "package.json"),
-  ];
-  for (const path of candidates) {
-    try {
-      if (!existsSync(path)) continue;
-      const pkg = JSON.parse(readFileSync(path, "utf-8")) as { version?: string };
-      if (pkg.version) return pkg.version;
-    } catch {
-      // Try the next location.
-    }
-  }
-  return "2.0.5";
-}
-
-function runDoctor() {
-  const requiredKeys = ["ANTHROPIC_API_KEY", "TUSHARE_TOKEN", "FINANCIAL_DATASETS_KEY", "LLMQUANT_API_KEY"];
-  const configKeys = new Set(Object.entries(settings.env).filter(([, value]) => Boolean(value)).map(([key]) => key));
-  const envKeys = new Set(requiredKeys.filter((key) => Boolean(process.env[key])));
-  const auth = Object.fromEntries(requiredKeys.map((key) => [
-    key,
-    {
-      available: envKeys.has(key) || configKeys.has(key),
-      source: envKeys.has(key) ? "env" : configKeys.has(key) ? "config" : "missing",
-    },
-  ]));
-  const cwdOhquant = join(process.cwd(), ".ohquant");
-  const ready = true;
-  return {
-    name: "whyj",
-    package: "whyj-quant",
-    version: getPackageVersion(),
-    runtime: {
-      node: process.version,
-      platform: process.platform,
-    },
-    config: {
-      path: cwdOhquant,
-      exists: existsSync(cwdOhquant),
-      model: settings.model,
-      thinkingLevel: settings.thinkingLevel,
-    },
-    auth,
-    ready,
-  };
-}
-
-function writeDoctorText(doctor: ReturnType<typeof runDoctor>) {
-  const authLines = Object.entries(doctor.auth)
-    .map(([key, value]) => `  ${key.padEnd(24)} ${value.available ? "available" : "missing"} (${value.source})`);
-  console.log([
-    `whyj doctor`,
-    `version: ${doctor.version}`,
-    `config: ${doctor.config.path}`,
-    `model: ${doctor.config.model}`,
-    `auth:`,
-    ...authLines,
-  ].join("\n"));
 }
 
 function writeHelp(json: boolean) {

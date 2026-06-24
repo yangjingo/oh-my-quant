@@ -7,18 +7,20 @@ import {
   clearHandler,
   compactHandler,
   configHandler,
+  doctorHandler,
   exitHandler,
   helpHandler,
   portfolioHandler,
   resumeHandler,
 } from "./handlers/system.ts";
 import { skillHandler } from "../skill/handler.ts";
+import { artifactHandler } from "./handlers/artifact.ts";
 import type { CommandContext, CommandHandler, CommandResult, ParsedCommand } from "./types.ts";
 
 export { SLASH_COMMANDS };
 export type { CommandContext, CommandResult, ParsedCommand } from "./types.ts";
 
-const LOCAL_COMMANDS = new Set(["help", "clear", "config", "portfolio", "resume", "compact", "skill"]);
+const LOCAL_COMMANDS = new Set(["help", "clear", "config", "doctor", "portfolio", "resume", "compact", "skill", "artifact"]);
 
 export function isLocalSlashCommand(command: string): boolean {
   return LOCAL_COMMANDS.has(command);
@@ -64,8 +66,10 @@ const HANDLERS: Record<string, CommandHandler> = {
   config: configHandler,
   portfolio: portfolioHandler,
   compact: compactHandler,
+  doctor: doctorHandler,
   resume: resumeHandler,
   skill: skillHandler,
+  artifact: artifactHandler,
   help: helpHandler,
   clear: clearHandler,
 };
@@ -75,7 +79,7 @@ export async function executeCommand(cmd: ParsedCommand, ctx: CommandContext = {
   if (command === "exit") return exitHandler();
   const handler = HANDLERS[command];
   if (!handler) {
-    return { success: false, message: `Unknown /${command}. Try /help` };
+    return { success: false, message: `Unknown /${command}. Run /help to see available slash commands.` };
   }
   return handler(flags, positional, ctx);
 }

@@ -18,9 +18,11 @@ export const COMMAND_CATALOG: readonly CommandCatalogEntry[] = [
   { name: "/resume", desc: "Resume", help: "List or restore saved sessions", example: "/resume" },
   { name: "/portfolio", desc: "Portfolio", help: "List, compare, and switch local portfolios", example: "/portfolio" },
   { name: "/config", desc: "Config", help: "Show or open config panel", example: "/config" },
+  { name: "/doctor", desc: "Doctor", help: "Check config, auth sources, runtime readiness, and setup hints", example: "/doctor" },
   { name: "/skill", desc: "Skill", help: "List, inspect, and run skills", example: "/skill" },
   { name: "/help", desc: "Help", help: "Show commands and hotkeys" },
   { name: "/clear", desc: "Clear", help: "Clear conversation and reset agent" },
+  { name: "/artifact", desc: "Artifact", help: "Generate analysis dashboard from current session, open in browser", example: "/artifact" },
   { name: "/exit", desc: "Exit", help: "Exit WhyJ Quant" },
 ];
 

@@ -18,6 +18,7 @@ export async function startApp(): Promise<void> {
     onConfigRequest: () => tui?.openConfig(),
     onResumeRequest: (meta) => tui?.openResume(meta),
     onPortfolioRequest: () => tui?.openPortfolio(),
+    onArtifactRequest: () => tui?.openArtifact(),
     onHelpRequest: () => tui?.openHelp(),
     onSessionRequest: (meta) => tui?.syncCurrentSessionMeta(meta),
     onPanel: (panel, panelLoading = false) => tui?.update({ panel, panelLoading }),

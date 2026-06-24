@@ -10,7 +10,7 @@ import { loadSettings, saveSettings, listStoredSessions, listLocalPortfolios, sy
 import type { DataSource, OhQuantSettings } from "../../types/config.ts";
 
 export type PanelResult = { command?: string; close?: boolean; refreshPanel?: boolean };
-type PanelMode = "config" | "resume" | "portfolio" | "help";
+type PanelMode = "config" | "resume" | "portfolio" | "help" | "artifact";
 
 export interface CurrentSessionMeta {
   id: string;
@@ -137,7 +137,7 @@ export class PanelController {
     if (!this.cfg) return null;
     if (this.mode === "resume") return this.handleResumeKey(input, key);
     if (this.mode === "portfolio") return this.handlePortfolioKey(input, key);
-    if (this.mode === "help") {
+    if (this.mode === "help" || this.mode === "artifact") {
       if (key.name === "escape") return { close: true };
       const total = COMMAND_CATALOG.length;
       if (key.name === "up") { this.helpSelection = (this.helpSelection - 1 + total) % total; return {}; }
@@ -246,7 +246,7 @@ export class PanelController {
       this.renderPortfolioPanel(buf);
       return;
     }
-    if (this.mode === "help") {
+    if (this.mode === "help" || this.mode === "artifact") {
       this.renderHelpPanel(buf);
       return;
     }

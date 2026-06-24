@@ -15,6 +15,7 @@ export type CommandEffect =
   | { type: "openSession" }
   | { type: "openPortfolio" }
   | { type: "openHelp" }
+  | { type: "openArtifact" }
   | { type: "compactSession" }
   | { type: "sessionChanged" }
   | { type: "portfolioChanged" };
@@ -28,6 +29,8 @@ export interface CommandContext {
   openPortfolio?: () => void;
   /** When set, /help opens the help panel. */
   openHelp?: () => void;
+  /** When set, /artifact opens the artifact panel. */
+  openArtifact?: () => void;
   openSession?: () => void;
   /** Active agent session for session/harness commands. */
   agentSession?: QuantAgentSession | null;

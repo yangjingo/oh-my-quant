@@ -27,6 +27,7 @@ interface AppRuntimeCallbacks {
   onConfigRequest?: () => void;
   onResumeRequest?: (meta?: CurrentSessionMeta) => void;
   onPortfolioRequest?: () => void;
+  onArtifactRequest?: () => void;
   onHelpRequest?: () => void;
   onSessionRequest?: (meta?: CurrentSessionMeta) => void;
   onPanel?: (panel: PanelSection[], loading?: boolean) => void;
@@ -265,7 +266,7 @@ export class AppRuntime {
     if (isSkillInvoke) {
       this.messages.push({
         role: "skill",
-        skill: { name: skillName, label: `skill:${skillName}`, status: "running", startedAt: Date.now() },
+        skill: { name: skillName, label: `SKILL.${skillName}`, status: "running", startedAt: Date.now() },
       });
       this.emitMessages();
       this.setActivity("running tool");
@@ -293,6 +294,9 @@ export class AppRuntime {
           : undefined,
         openHelp: this.callbacks.onHelpRequest
           ? () => { this.callbacks.onHelpRequest!(); }
+          : undefined,
+        openArtifact: this.callbacks.onArtifactRequest
+          ? () => { this.callbacks.onArtifactRequest!(); }
           : undefined,
         openSession: (this.callbacks.onSessionRequest || this.callbacks.onResumeRequest)
           ? () => { void this.collectCurrentSessionMeta().then(meta => (this.callbacks.onSessionRequest ?? this.callbacks.onResumeRequest)?.(meta)); }
@@ -357,6 +361,9 @@ export class AppRuntime {
         break;
       case "openHelp":
         this.callbacks.onHelpRequest?.();
+        break;
+      case "openArtifact":
+        this.callbacks.onArtifactRequest?.();
         break;
       case "compactSession":
         this.syncMessagesFromAgentState();

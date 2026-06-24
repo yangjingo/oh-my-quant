@@ -12,7 +12,8 @@ import { PanelController, type CurrentSessionMeta } from "./panel.ts";
 import { buildSuggestions, hitTestScrollRegion, nextInputAction, type InputAction, type MouseEvent, type ScrollRegion, type SkillEntry } from "./input.ts";
 import { discoverSkills } from "../../agent/src/skills.ts";
 import { NodeExecutionEnv } from "../../agent/src/pi/node.ts";
-import { SKILLS_DIR } from "../../skill/index.ts";
+import { skillPaths } from "../../skill/index.ts";
+import { loadSettings } from "../../storage/index.ts";
 import { copyToClipboard } from "./clipboard.ts";
 import { resolveCopyText } from "./tui-copy.ts";
 import {
@@ -100,6 +101,7 @@ export class QuantTui {
   openResume(meta?: CurrentSessionMeta): void { if (meta) this.panel.setCurrentSessionMeta(meta); this.panel.open("resume"); this.paint(); }
   syncCurrentSessionMeta(meta?: CurrentSessionMeta): void { if (meta) this.panel.setCurrentSessionMeta(meta); this.paint(); }
   openPortfolio(): void { this.panel.open("portfolio"); this.paint(); }
+  openArtifact(): void { this.panel.open("artifact"); this.paint(); }
   openHelp(): void { this.panel.open("help"); this.paint(); }
 
   private paint(): void {
@@ -447,7 +449,13 @@ export class QuantTui {
   private async loadSkills(): Promise<void> {
     try {
       const env = new NodeExecutionEnv({ cwd: process.cwd() });
-      const discovered = await discoverSkills({ cwd: process.cwd(), env, extraPaths: [SKILLS_DIR] });
+      const settings = loadSettings();
+      const discovered = await discoverSkills({
+        cwd: process.cwd(),
+        env,
+        extraPaths: skillPaths(),
+        integrations: settings.skillIntegrations,
+      });
       this.skills = discovered.skills.map((s) => ({ name: s.name, description: s.description, scope: s.scope }));
     } catch { /* skills are optional */ }
   }
