@@ -6,8 +6,7 @@ import { fetchFromAKShare } from "./akshare.ts";
 import { fetchFromFinancialDatasets } from "./financial-datasets.ts";
 import { fetchFromLlmQuant } from "./llmquant.ts";
 import { fetchFromTushare, searchTushareSymbols } from "./tushare.ts";
-import { loadBars, saveBars, isCacheFresh } from "../../storage/bars.ts";
-import { loadSettings } from "../../storage/index.ts";
+import { loadBars, saveBars, isCacheFresh, loadSettings } from "../../storage/index.ts";
 import type { Bar, Market, SymbolInfo } from "../../types/data.ts";
 
 export type DataSource = "auto" | "akshare" | "tushare" | "llmquant-data" | "financial-datasets";
@@ -137,17 +136,32 @@ export async function pullBarsFromProviders(
 ): Promise<{ bars: Bar[]; source: PullSource }> {
   const normalized = normalizeSymbol(symbol, market);
 
-  // Always try AKShare + Tushare for A-shares (regardless of selected source)
+  // Try A-share providers: respect explicit source selection, fall back to the other
   if (market === "A") {
-    try {
-      const bars = await fetchFromAKShare(normalized, start, end);
-      if (bars.length > 0) return { bars, source: "akshare" };
-    } catch { /* fall through */ }
+    const tryTushare = async () => {
+      try {
+        const bars = await fetchFromTushare(normalized, start, end);
+        return { bars, source: "tushare" as PullSource };
+      } catch { return null; }
+    };
+    const tryAkshare = async () => {
+      try {
+        const bars = await fetchFromAKShare(normalized, start, end);
+        return { bars, source: "akshare" as PullSource };
+      } catch { return null; }
+    };
 
-    try {
-      const bars = await fetchFromTushare(normalized, start, end);
-      if (bars.length > 0) return { bars, source: "tushare" };
-    } catch { /* fall through */ }
+    if (selected === "tushare") {
+      const r = await tryTushare();
+      if (r && r.bars.length > 0) return r;
+      const fb = await tryAkshare();
+      if (fb && fb.bars.length > 0) return fb;
+    } else {
+      const r = await tryAkshare();
+      if (r && r.bars.length > 0) return r;
+      const fb = await tryTushare();
+      if (fb && fb.bars.length > 0) return fb;
+    }
   }
 
   // Try LLMQuant for US/HK or when selected explicitly

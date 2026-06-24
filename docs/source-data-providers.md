@@ -2,14 +2,14 @@
 
 本文档描述 WhyJ Quant 使用的行情数据源：其官方 API/文档入口、本地 adapter 实际调用的内容、运行时优先级顺序，以及这些 adapter 如何注入 agent loop。
 
-这些 provider 的配置位于 `.ohquant/settings.json`，而非项目根目录的 `.env` 文件。
+这些 provider 的配置位于 `.ohquant/settings.json`。运行时会先从 settings 中规范化到统一的 `WHYJ_QUANT_*` 键名，再注入进 source adapter；不要把项目根目录 `.env` 当成主配置源。
 
 ## 1. Provider 矩阵
 
 | Provider | 官方网站/文档 | WhyJ Quant adapter 文件 | 市场 | 配置键 |
 |------|------|------|------|------|
 | AKShare | https://akshare.akfamily.xyz/ | `src/source/src/akshare.ts` | A 股、指数、基金 | 无 |
-| Tushare | https://tushare.pro/document/2 | `src/source/src/tushare.ts` | A 股 | `WHYJ_QUANT_TUSHARE_TOKEN` |
+| Tushare | https://tushare.pro/document/2 | `src/source/src/tushare.ts` | A 股、基金(ETF/LOF) | `WHYJ_QUANT_TUSHARE_TOKEN` |
 | Financial Datasets | https://docs.financialdatasets.ai/introduction | `src/source/src/financial-datasets.ts` | 美股 | `WHYJ_QUANT_FINANCIAL_DATASETS_KEY` |
 | LLMQuant Data | `LLMQUANT_BASE_URL` / `https://api.llmquantdata.com` | `src/source/src/llmquant.ts` | 美股、港股 | `WHYJ_QUANT_LLMQUANT_API_KEY` |
 
@@ -37,11 +37,13 @@
 - 官方文档：
   - 入口：https://tushare.pro/document/2
 - WhyJ Quant 调用：
-  - `daily`
-  - `stock_basic`
-  - `daily_basic`
+  - `daily` — 股票日线
+  - `fund_daily` — 基金/ETF 日线（`daily` 返回空时自动回退）
+  - `stock_basic` — symbol 搜索
+  - `daily_basic` — 快照（PE/PB/市值）
 - 本地角色：
-  - AKShare 返回空或出错时的 A 股回退
+  - 当 `settings.preferences.source` 设为 `tushare` 时的 A 股首选 provider
+  - 其他 source 配置下，AKShare 返回空或出错时的 A 股回退
   - `/search` 风格查找的 symbol 搜索
   - A 股 symbol 的紧凑交易快照
 - 本地 wrapper 形态：
@@ -61,6 +63,7 @@
   - 比本地 A 股 adapter 更丰富的美股快照数据
 - 本地 wrapper 形态：
   - HTTP GET，带 `X-API-KEY`
+  - 默认请求最近 60 天窗口；未显式传日期范围时只向上层返回最近 30 条
   - 接受数组 payload 或包装的 `{ prices: [...] }` / `{ data: [...] }`
 
 ### LLMQuant Data
@@ -74,6 +77,7 @@
   - 将 `adj_close` 保留为内部 `adjClose`
 - 本地 wrapper 形态：
   - HTTP GET，带 `Authorization: Bearer <WHYJ_QUANT_LLMQUANT_API_KEY>`
+  - 无显式日期范围时追加 `limit=30`
   - 接受包装的 `{ data: [...] }` 或 `{ data: { prices: [...] } }`
 - 配置位置：
   - 在 `.ohquant/settings.json` 中设置 `WHYJ_QUANT_LLMQUANT_API_KEY` 和可选的 `WHYJ_QUANT_BASE_URL`
@@ -104,17 +108,23 @@
 
 市场 `A`：
 
-1. `AKShare`
-2. `Tushare`
+1. 根据 `selected` 参数决定优先 provider：
+   - `selected === "tushare"` → Tushare 优先，失败回退 AKShare
+   - 其他（auto / akshare 等）→ AKShare 优先，失败回退 Tushare
+2. Tushare adapter 内部：`daily` API 对基金代码可能返回空，此时自动尝试 `fund_daily`
 
 市场 `US` / `HK`：
 
-1. 显式选择时或自动对 `US`/`HK` 使用 `LLMQuant Data`
-2. 显式选择时或自动对 `US` 使用 `Financial Datasets`
+1. 显式选择 `llmquant-data` 时优先走 LLMQuant Data
+2. 显式选择 `financial-datasets` 时优先走 Financial Datasets
+3. auto 模式下：
+   - `US` / `HK` 先尝试 `llmquant-data`
+   - `US` 再尝试 `financial-datasets`
 
 重要细节：
 
-- A 股始终尝试 `AKShare -> Tushare`，与配置的选定数据源无关。
+- 显式 `source` 参数必须优先生效，不能被默认 source 覆盖。
+- A 股始终尝试两个 provider（首选 + 回退），顺序由 `selected` 参数决定。
 - US/HK 不尝试 AKShare/Tushare。
 - `Financial Datasets` 对 `US` 自动，但对 `HK` 不自动。
 
@@ -149,7 +159,7 @@
    - `search_symbols`
    - `fetch_snapshot`
 2. 这些工具 handler 调用 source 模块导出：
-   - `fetchBars(...)`
+   - `fetchBars(...)` — 支持 `source: "akshare" | "tushare"`
    - `searchSymbols(...)`
    - `fetchTushareSnapshot(...)`
    - `fetchFinancialDatasetsSnapshot(...)`

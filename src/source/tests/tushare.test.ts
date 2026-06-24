@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 describe("tushare adapter", () => {
-  const originalToken = process.env.TUSHARE_TOKEN;
+  const originalToken = process.env.WHYJ_QUANT_TUSHARE_TOKEN;
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
-    process.env.TUSHARE_TOKEN = "test-token";
+    process.env.WHYJ_QUANT_TUSHARE_TOKEN = "test-token";
   });
 
   afterEach(() => {
-    if (originalToken == null) delete process.env.TUSHARE_TOKEN;
-    else process.env.TUSHARE_TOKEN = originalToken;
+    if (originalToken == null) delete process.env.WHYJ_QUANT_TUSHARE_TOKEN;
+    else process.env.WHYJ_QUANT_TUSHARE_TOKEN = originalToken;
     globalThis.fetch = originalFetch;
   });
 
@@ -65,6 +65,43 @@ describe("tushare adapter", () => {
         exchange: "SSE",
         type: "stock",
         listDate: "19991110",
+      },
+    ]);
+  });
+
+  it("falls back to fund_daily when daily returns empty for fund symbols", async () => {
+    let callCount = 0;
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      callCount++;
+      const body = JSON.parse(
+        typeof (init?.body) === "string" ? init.body : "{}",
+      );
+      // First call: daily returns empty; second: fund_daily returns data
+      if (body.api_name === "daily" || callCount === 1) {
+        return new Response(JSON.stringify({ code: 0, data: { fields: [], items: [] } }));
+      }
+      return new Response(JSON.stringify({
+        code: 0,
+        data: {
+          fields: ["ts_code", "trade_date", "open", "high", "low", "close", "vol", "amount"],
+          items: [
+            ["510050.SH", "20260618", 2.5, 2.6, 2.4, 2.55, 500000, 1275000],
+          ],
+        },
+      }));
+    }) as unknown as typeof fetch;
+
+    const { fetchFromTushare } = await import(`../src/tushare.ts?case=fund-${Date.now()}`);
+    const bars = await fetchFromTushare("510050.SH", "2026-06-01", "2026-06-18");
+    expect(bars).toEqual([
+      {
+        date: "2026-06-18",
+        open: 2.5,
+        high: 2.6,
+        low: 2.4,
+        close: 2.55,
+        volume: 500000,
+        amount: 1275000,
       },
     ]);
   });

@@ -1,5 +1,6 @@
 import type { Bar, SymbolInfo } from "../../types/data.ts";
 import { postJson } from "./http.ts";
+import { readWhyjEnvValue } from "../../storage/index.ts";
 
 const TUSHARE_BASE_URL = process.env.TUSHARE_BASE_URL || "https://api.tushare.pro";
 
@@ -15,8 +16,8 @@ interface TushareResponse<T> {
 type TusharePrimitive = string | number | null;
 
 function token(): string {
-  const value = process.env.TUSHARE_TOKEN;
-  if (!value) throw new Error("TUSHARE_TOKEN is not configured");
+  const value = readWhyjEnvValue(process.env, "tushareToken");
+  if (!value) throw new Error("WHYJ_QUANT_TUSHARE_TOKEN is not configured");
   return value;
 }
 
@@ -44,15 +45,16 @@ function formatDate(d: string): string {
 }
 
 export async function fetchFromTushare(symbol: string, start?: string, end?: string): Promise<Bar[]> {
-  const rows = await callTushare(
-    "daily",
-    {
-      ts_code: symbol,
-      ...(start ? { start_date: start.replace(/-/g, "") } : {}),
-      ...(end ? { end_date: end.replace(/-/g, "") } : {}),
-    },
-    ["ts_code", "trade_date", "open", "high", "low", "close", "vol", "amount"],
-  );
+  const dateParams = {
+    ...(start ? { start_date: start.replace(/-/g, "") } : {}),
+    ...(end ? { end_date: end.replace(/-/g, "") } : {}),
+  };
+
+  // Try stock daily first; fall back to fund_daily for ETF/LOF symbols
+  let rows = await callTushare("daily", { ts_code: symbol, ...dateParams }, DAILY_FIELDS);
+  if (rows.length === 0) {
+    rows = await callTushare("fund_daily", { ts_code: symbol, ...dateParams }, DAILY_FIELDS);
+  }
 
   return rows.map((row) => ({
     date: formatDate(String(row.trade_date || "")),
@@ -64,6 +66,8 @@ export async function fetchFromTushare(symbol: string, start?: string, end?: str
     amount: Number(row.amount || 0),
   }));
 }
+
+const DAILY_FIELDS = ["ts_code", "trade_date", "open", "high", "low", "close", "vol", "amount"];
 
 export async function searchTushareSymbols(keyword: string): Promise<SymbolInfo[]> {
   const rows = await callTushare(

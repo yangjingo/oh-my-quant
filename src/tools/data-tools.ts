@@ -2,6 +2,7 @@ import { Type } from "typebox";
 import type { Static } from "typebox";
 import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import { fetchFinancialDatasetsSnapshot, fetchTushareSnapshot, fetchBars, searchSymbols } from "../source/index.ts";
+import type { DataSource } from "../source/index.ts";
 import type { Bar, Market } from "../types/data.ts";
 
 const FetchBars = Type.Object({
@@ -9,7 +10,7 @@ const FetchBars = Type.Object({
   market: Type.Optional(Type.String({ description: "Market code: A, US, HK" })),
   start: Type.Optional(Type.String({ description: "Start date YYYY-MM-DD" })),
   end: Type.Optional(Type.String({ description: "End date YYYY-MM-DD" })),
-  source: Type.Optional(Type.String({ description: "Preferred local source. Only akshare is supported." })),
+  source: Type.Optional(Type.String({ description: "Preferred data source: akshare (default) or tushare" })),
 });
 
 const SearchSymbols = Type.Object({
@@ -50,7 +51,7 @@ export const fetchBarsTool: AgentTool<typeof FetchBars> = {
       return unsupported(args.symbol, market);
     }
 
-    const source = args.source === "akshare" || !args.source ? "akshare" : "akshare";
+    const source: DataSource = args.source === "tushare" ? "tushare" : "akshare";
     const result = await fetchBars(args.symbol, market, args.start, args.end, source);
     if (result.bars.length === 0) {
       return ok(
