@@ -47,7 +47,7 @@ if (args.includes("--help") || args.includes("-h")) {
   writeHelp(json);
   process.exit(0);
 } else if (positional[0] === "doctor") {
-  const doctor = runDoctor(settings);
+  const doctor = runDoctor(settings, process.env);
   if (json) writeJson({ ok: true, command: "doctor", data: doctor });
   else console.log(formatDoctorText(doctor));
   process.exit(doctor.ready ? 0 : 1);

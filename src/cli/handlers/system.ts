@@ -240,7 +240,8 @@ export const configHandler: CommandHandler = async (_flags, _positional, ctx) =>
 };
 
 export const doctorHandler: CommandHandler = async () => {
-  const doctor = runDoctor();
+  const { loadSettings } = await import("../../storage/index.ts");
+  const doctor = runDoctor(loadSettings(), process.env);
   return {
     success: true,
     message: formatDoctorText(doctor),

@@ -159,6 +159,11 @@ Slash 命令应有从命令到下一步操作的清晰路径。
 - Benchmark dashboard：告诉用户如何创建第一个 benchmark 结果。
 - 数据搜索：建议完整代码或更具体的名称。
 
+补充实现约束：
+
+- `/doctor` 和 `whyj --json doctor` 必须共享同一套 `runDoctor()` 逻辑，避免 TUI 与 one-shot CLI 的 ready 判定、来源显示或脱敏格式不一致。
+- `doctor` 表格输出应包含列头，便于在 TUI 对话区和纯文本 shell 输出中快速扫描。
+
 ## 安装
 
 主要安装路径：

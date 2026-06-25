@@ -39,8 +39,9 @@ describe("CLI doctor command", () => {
       ok: true,
       command: "doctor",
       data: expect.objectContaining({
-        name: "whyj",
         ready: true,
+        auth: expect.any(Object),
+        config: expect.any(Object),
         hints: [],
       }),
     }));

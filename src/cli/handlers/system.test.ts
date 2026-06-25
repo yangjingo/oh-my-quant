@@ -193,10 +193,15 @@ describe("doctorHandler", () => {
     const result = await doctorHandler({}, [], {});
     expect(result.success).toBe(true);
     expect(result.renderAs).toBe("text");
-    expect(result.message).toContain("whyj doctor");
+    expect(result.message).toContain("WhyJ Doctor");
     expect(result.message).toContain("Credentials");
     expect(result.message).toContain("value");
-    expect(result.data).toEqual(expect.objectContaining({ name: "whyj", ready: true }));
+    expect(result.data).toEqual(expect.objectContaining({
+      ready: true,
+      auth: expect.any(Object),
+      config: expect.any(Object),
+      hints: expect.any(Array),
+    }));
   });
 });
 

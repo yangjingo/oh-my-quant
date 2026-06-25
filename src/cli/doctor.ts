@@ -87,6 +87,7 @@ export function formatDoctorText(doctor: DoctorResult): string {
       : "  base url       (not set)",
     "",
     "Credentials",
+    "  header   key                          status   source   value",
   ];
 
   for (const key of AUTH_KEYS) {

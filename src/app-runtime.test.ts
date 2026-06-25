@@ -181,7 +181,7 @@ description: Use for crypto market analysis.
     expect(await h.runtime.submit("/doctor")).toBe("continue");
     expect(h.messages.at(-1)?.at(-1)).toEqual(expect.objectContaining({
       role: "assistant",
-      text: expect.stringContaining("whyj doctor"),
+      text: expect.stringContaining("WhyJ Doctor"),
     }));
     expect(h.messages.at(-1)?.at(-1)?.text).toContain("Credentials");
     expect(h.messages.at(-1)?.at(-1)?.text).toContain("value");
