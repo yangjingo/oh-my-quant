@@ -12,6 +12,13 @@ export interface UserPreferences {
   source: DataSource;
 }
 
+export interface SkillIntegrationSettings {
+  /** Load user-level Codex skills from ~/.codex/skills. */
+  codex: boolean;
+  /** Load user-level Claude/agent skills from ~/.claude/skills, ~/.agents/skills, and ~/.pi/agent/skills. */
+  claude: boolean;
+}
+
 export interface OhQuantSettings {
   version: number;
   /** Claude Code-style env vars (API keys, base URLs, etc.) */
@@ -24,6 +31,8 @@ export interface OhQuantSettings {
   insightEnabled: boolean;
   /** Whether the right-side overview/portfolio panel is visible. */
   showPortfolioPanel: boolean;
+  /** Optional user-level skill integrations. Project quant skills are always loaded. */
+  skillIntegrations: SkillIntegrationSettings;
   /** Tool allow/deny lists */
   permissions: { allow?: string[]; deny?: string[] };
   /** User business preferences */
@@ -37,6 +46,10 @@ export const DEFAULT_SETTINGS: OhQuantSettings = {
   thinkingLevel: "high",
   insightEnabled: true,
   showPortfolioPanel: true,
+  skillIntegrations: {
+    codex: false,
+    claude: false,
+  },
   permissions: {},
   preferences: {
     defaultMarket: "A",
