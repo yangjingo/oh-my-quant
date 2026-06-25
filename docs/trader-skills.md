@@ -8,7 +8,7 @@
 src/skill/          ← whyj skill 模块（安装/CLI handler/TUI suggestions）
 src/agent/src/      ← 桥接层：discoverSkills() → QuantSkill → AgentHarness
 src/agent/src/pi/   ← pi harness 通用引擎：文件加载、验证、formatSkillInvocation
-src/tui/src/        ← 对话渲染（⚡ skill:name）和 Composer 建议
+src/tui/src/        ← 对话渲染（`SKILL.name` 状态行）和 Composer 建议
 ```
 
 `src/skill/` 目录：
@@ -122,7 +122,7 @@ Composer 输入 "/skill:llmquant-macro 分析当前宏观环境"
   → parseCommand() → command="skill", positional=["llmquant-macro", "分析当前宏观环境"]
   → app-runtime.ts: isSkillInvoke = true
     → push UIMessage { role: "skill", skill: { name, label, status: "running" } }
-    → emitMessages() → TUI 显示 "⚡ skill:llmquant-macro  0.5s"
+    → emitMessages() → TUI 显示 "● SKILL.llmquant-macro ...  0.5s"
   → executeCommand() → skillHandler
     → 查找 skill 对象 → agentSession.skill("llmquant-macro", "分析当前宏观环境")
       │
@@ -130,14 +130,14 @@ Composer 输入 "/skill:llmquant-macro 分析当前宏观环境"
         → 在 this.resources.skills 中按 name 查找
         → 未找到 → throw "Unknown skill"
         → formatSkillInvocation(skill, extra)
-          包装为 user message：
+          包装为模型输入：
           <skill name="llmquant-macro" location=".ohquant/skills/.../SKILL.md">
           References are relative to .ohquant/skills/.../
           {skill.content}
           </skill>
 
           {extra instructions}
-        → executeTurn(turnState, formattedText)
+        → executeTurn(turnState, formattedText, { displayText: "SKILL.llmquant-macro" })
           → LLM 处理 skill 内容 + 额外指令
           → LLM 可调用任何已注册 Tool（fetch_bars, compute_factor, …）
           → LLM 返回分析结果
@@ -149,9 +149,11 @@ Composer 输入 "/skill:llmquant-macro 分析当前宏观环境"
 
 ```
 对话中：
-  ⚡ skill:llmquant-macro  2.1s      ← running 时显示耗时
-  ⚡ skill:llmquant-macro             ← done 后显示
-  ✗ skill:unknown-skill               ← error
+  ● SKILL.llmquant-macro ...  2.1s   ← running 时显示省略号和耗时
+  ● SKILL.llmquant-macro             ← done 后显示
+  ✗ SKILL.unknown-skill              ← error
+
+显式 `/skill:name` 调用时，原始 `<skill>...</skill>` prompt 只发给模型，不会直接在 TUI 对话区展开显示。若上方已经有同名彩色 skill 状态行，普通用户消息里的 `SKILL.name` 回显也会被折叠，避免重复。
 
 建议栏（/skill 或 /ski）：
   skill:llmquant-macro  [p] Router skill for LLMQuant macro workflows...

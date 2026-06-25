@@ -147,6 +147,12 @@ Session 传递原始指令加上一个小的 skill 侧附加说明：
 - 优先使用紧凑纯文本表格或图表风格块
 - 保持解释简洁
 
+在可见层，显式 skill 调用使用单独的 display text：
+
+- Conversation 顶部状态行显示为 `● SKILL.<name> ...`
+- 模型实际收到的 `<skill>...</skill>` 指令块不会回显到用户对话区
+- 当已有同名 skill 状态行时，后续 `SKILL.<name>` 用户回显会被 runtime 折叠，避免出现两行重复标签
+
 ## 这不做什么
 
 此更改不：
@@ -168,6 +174,11 @@ Session 传递原始指令加上一个小的 skill 侧附加说明：
   - skill invocation 收到紧凑渲染引导
 - [src/agent/test/session.test.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/agent/test/session.test.ts)
   - `prompt()`、`followUp()` 和 `skill()` 全部通过注入的引导
+- [src/app-runtime.test.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/app-runtime.test.ts)
+  - skill banner 出现后，不再重复渲染同名 `SKILL.<name>` user line
+- [src/tui/test/render.test.ts](/abs/path/C:/Users/yangjing/Project/oh-my-quant/src/tui/test/render.test.ts)
+  - skill 行渲染为 `SKILL.<name>` 命名空间
+  - 仅包含分隔线的表头行会被吸收到完整三线表结构中
 
 ## 金融终端色彩方案
 
