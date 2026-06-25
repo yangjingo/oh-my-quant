@@ -253,6 +253,7 @@ function collectTableBlock(rawLines: string[], startIndex: number): ParsedTableB
 function parseTableRow(rawLine: string): ParsedTableRow | null {
   const trimmed = rawLine.trim();
   if (!trimmed) return null;
+  if (isDividerLine(trimmed)) return { cells: [], divider: true };
   if (trimmed.includes("|")) {
     const cells = trimmed
       .split("|")
@@ -268,7 +269,11 @@ function parseTableRow(rawLine: string): ParsedTableRow | null {
 }
 
 function isDividerCell(cell: string): boolean {
-  return /^:?-{3,}:?$/.test(cell) || /^[─-]{3,}$/.test(cell);
+  return /^:?-{3,}:?$/.test(cell) || /^[\u2500-]{3,}$/.test(cell);
+}
+
+function isDividerLine(line: string): boolean {
+  return /^[\s\u2500-]+$/.test(line) && /[\u2500-]{3,}/.test(line.trim());
 }
 
 function renderTableBlock(rows: ParsedTableRow[], maxWidth: number): RenderLine[] {
@@ -288,15 +293,18 @@ function renderTableBlock(rows: ParsedTableRow[], maxWidth: number): RenderLine[
     .filter(({ row }) => !row.divider);
   const header = explicitHeaderIndex >= 0
     ? contentRows.find(({ rowIndex }) => rowIndex === explicitHeaderIndex) ?? contentRows[0]
-    : contentRows[0];
-  if (!header) return [];
-  const headerCells = header.row.cells;
-  const bodyRows = contentRows.filter(({ rowIndex }) => rowIndex !== header.rowIndex);
+    : undefined;
+  const headerCells = header?.row.cells ?? [];
+  const bodyRows = header
+    ? contentRows.filter(({ rowIndex }) => rowIndex !== header.rowIndex)
+    : contentRows;
   const out: RenderLine[] = [
     renderTableRule(widths),
-    renderTableContentRow(header.row, widths, headerCells, true),
-    renderTableRule(widths),
   ];
+  if (header) {
+    out.push(renderTableContentRow(header.row, widths, headerCells, true));
+    out.push(renderTableRule(widths));
+  }
   for (const { row } of bodyRows) {
     out.push(renderTableContentRow(row, widths, headerCells, false));
   }
