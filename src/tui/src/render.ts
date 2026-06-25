@@ -162,7 +162,7 @@ export function drawConversation(
   for (let i = view.startLineIdx; i < view.lines.length && i - view.startLineIdx < visibleH; i++) {
     const line = view.lines[i];
     const y = inner.y + topPadding + i - view.startLineIdx;
-    drawConversationLine(buf, inner.x, y, line.text, line.style ?? {}, inner.w, clipEnd, i, selection);
+    drawSelectableLine(buf, inner.x, y, line, inner.w, clipEnd, i, selection);
   }
 
   if (thinkBarH > 0) {

@@ -57,10 +57,13 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
     }
   } else if (msg.role === "skill") {
     const sk = msg.skill!;
-    const status = sk.status === "running" ? "⚡" : sk.status === "done" ? "⚡" : "✗";
-    const elapsed = sk.status === "running" ? `  ${fmtElapsed(Date.now() - sk.startedAt)}` : "";
+    const status = sk.status === "running" ? "●" : sk.status === "done" ? "●" : "✗";
+    const running = sk.status === "running";
+    const lineLabel = sk.label || `SKILL.${sk.name}`;
+    const suffix = running ? " ..." : "";
+    const elapsed = running ? `  ${fmtElapsed(Date.now() - sk.startedAt)}` : "";
     const prefix = `${status} `;
-    const body = `${sk.label}${elapsed}`;
+    const body = `${lineLabel}${suffix}${elapsed}`;
     const wrapped = wrap(body, Math.max(1, w - strWidth(prefix)));
     if (wrapped.length > 0) {
       lines.push({ text: `${prefix}${wrapped[0]}`, style: S.gold });

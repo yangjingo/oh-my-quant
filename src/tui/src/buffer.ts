@@ -285,6 +285,7 @@ export function sanitizeTerminalText(s: string): string {
   return s
     .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
     .replace(/\x1b\[[0-9?]*[ -/]*[@-~]/g, "")
+    .replace(/\[(?:\??\d+(?:;\d+)*)[ -/]*[@-~]\]?/g, "")
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
 }
 

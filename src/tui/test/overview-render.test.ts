@@ -1,3 +1,4 @@
+import { describe, expect, it } from "bun:test";
 import { buildOverviewLines, buildOverviewView, overviewContentHeight } from "../src/overview-render.ts";
 import type { PanelSection } from "../src/types.ts";
 

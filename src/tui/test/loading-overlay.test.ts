@@ -1,3 +1,4 @@
+import { describe, expect, it } from "bun:test";
 import { Buffer } from "../src/buffer.ts";
 import { drawLoadingOverlay, thinkingBannerStyle } from "../src/loading-overlay.ts";
 

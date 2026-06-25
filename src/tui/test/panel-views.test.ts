@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
 import { Buffer } from "../src/buffer.ts";
 import { drawPanelFrame } from "../src/panel-chrome.ts";
-import { renderHelpPanelView, renderResumePanelView } from "../src/panel-views.ts";
+import { renderHelpPanelView, renderPortfolioPanelView, renderResumePanelView } from "../src/panel-views.ts";
 
 describe("panel views", () => {
   it("renders resume metadata and legacy archive markers through the shared resume view", () => {
@@ -50,5 +51,19 @@ describe("panel views", () => {
     expect(plain).toContain("/resume");
     expect(plain).toContain("Hotkeys");
     expect(plain).toContain("Ctrl+P");
+  });
+
+  it("renders actionable portfolio empty state text", () => {
+    const buf = new Buffer(120, 20);
+    const frame = drawPanelFrame(buf, "Portfolio", "Add portfolio JSON files under .ohquant/portfolio/");
+
+    renderPortfolioPanelView(buf, frame, {
+      items: [],
+      footer: "Add portfolio JSON files under .ohquant/portfolio/, then reopen /portfolio.",
+    });
+
+    const plain = buf.toPlain().join("\n");
+    expect(plain).toContain("No local portfolios yet.");
+    expect(plain).toContain(".ohquant/portfolio/");
   });
 });

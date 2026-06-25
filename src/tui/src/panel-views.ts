@@ -84,7 +84,7 @@ export function renderResumePanelView(
   }
 
   if (data.items.length === 0) {
-    buf.text(inner.x, frame.contentY, "No saved sessions found.", S.dim);
+    buf.text(inner.x, frame.contentY, "No saved sessions yet.", S.dim);
     buf.text(inner.x, frame.footerY, truncate(data.footer, inner.w), S.dim);
     return;
   }
@@ -143,7 +143,7 @@ export function renderPortfolioPanelView(
   }
 
   if (data.items.length === 0) {
-    buf.text(inner.x, frame.contentY, "No local portfolios found.", S.dim);
+    buf.text(inner.x, frame.contentY, "No local portfolios yet.", S.dim);
     buf.text(inner.x, frame.footerY, truncate(data.footer, inner.w), S.dim);
     return;
   }

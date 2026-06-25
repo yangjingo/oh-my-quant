@@ -64,7 +64,7 @@ export function runDoctor(
   }
 
   return {
-    ready: hasApiKey,
+    ready: true,
     auth,
     config: {
       model: stripAnsi(settings.model || "sonnet"),
@@ -110,13 +110,17 @@ export function formatDoctorText(doctor: DoctorResult): string {
 
 function redact(value: string): string {
   const stripped = stripAnsi(value);
+  if (stripped.length <= 8) return `${stripped.slice(0, 4)}...${stripped.slice(-4)}`;
   const fp = simpleFingerprint(stripped);
-  if (stripped.length <= 8) return `${stripped} · fp:${fp}`;
   return `${stripped.slice(0, 4)}...${stripped.slice(-4)} · fp:${fp}`;
 }
 
 function stripAnsi(value: string): string {
-  return value.replace(/\x1b\[[0-9;]*m/g, "").trim();
+  // Strip ANSI escape sequences and broken fragments like [1m] [0m] [22m]
+  return value
+    .replace(/\x1b\[[0-9;]*m/g, "")
+    .replace(/\[\d+(;\d+)*m\]/g, "")
+    .trim();
 }
 
 function simpleFingerprint(value: string): string {

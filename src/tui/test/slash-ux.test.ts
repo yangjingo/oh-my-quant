@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { QuantTui } from "../src/tui.ts";
-import { savePanelPortfolio } from "../../storage/panel-portfolio.ts";
+import { savePanelPortfolio } from "../../storage/index.ts";
 import type { AppState } from "../src/types.ts";
 
 const OHQ = join(process.cwd(), ".ohquant-test-slash-ux");
@@ -291,7 +291,7 @@ describe("slash command UX simulation", () => {
       "utf-8",
     );
 
-    let resumeCommand: string | null = null;
+    let resumeCommand = "";
     tui.onSubmit((text: string) => { resumeCommand = text; });
 
     tui.openResume({

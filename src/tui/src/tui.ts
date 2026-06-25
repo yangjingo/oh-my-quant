@@ -57,6 +57,7 @@ export class QuantTui {
   /** Panel that owns the active text selection (for highlight + copy scope). */
   private selectionRegion: ScrollRegion | null = null;
   private copyStatusTimer: ReturnType<typeof setTimeout> | null = null;
+  private portfolioStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(state: AppState) {
     this.state = state;
@@ -299,6 +300,16 @@ export class QuantTui {
     return activeConversationStatusRows(this.state.activity, this.state.messages, innerH);
   }
 
+  private flashPortfolioStatus(text: string): void {
+    if (this.portfolioStatusTimer) clearTimeout(this.portfolioStatusTimer);
+    this.state.composerStatus = { kind: "info", text };
+    this.portfolioStatusTimer = setTimeout(() => {
+      this.state.composerStatus = null;
+      this.paint();
+      this.portfolioStatusTimer = null;
+    }, 3000);
+  }
+
   private flashCopyStatus(text: string, error = false): void {
     if (this.copyStatusTimer) clearTimeout(this.copyStatusTimer);
     this.state.composerStatus = { kind: error ? "error" : "info", text };
@@ -349,6 +360,9 @@ export class QuantTui {
         this.panel.close();
         this.state.activePortfolio = name;
         this.state.showPortfolioPanel = showPanel;
+        if (result.refreshPanel) {
+          this.flashPortfolioStatus(`已切换至 ${name}`);
+        }
       } else {
         this.state.activePortfolio = this.panel.selectedPortfolioName();
       }
