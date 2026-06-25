@@ -3,30 +3,32 @@ import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { FileError, loadSourcedSkills, type ExecutionEnv, type FileInfo, type Result, type Skill, type SkillDiagnostic } from "./pi/index.ts";
 import type { NodeExecutionEnv } from "./pi/node.ts";
+import type { SkillIntegrationSettings } from "../../types/config.ts";
 import { perfLog, perfNow } from "../../perf.ts";
 
 export interface QuantSkill extends Skill {
   scope: "project" | "user";
-  source: "agents" | "codex" | "pi";
+  source: "agents" | "claude" | "codex" | "pi";
   sourcePath: string;
 }
 
 export interface QuantSkillDiagnostic extends SkillDiagnostic {
   scope: "project" | "user";
-  source: "agents" | "codex" | "pi";
+  source: "agents" | "claude" | "codex" | "pi";
   sourcePath: string;
 }
 
 interface SkillSource {
   path: string;
   scope: "project" | "user";
-  source: "agents" | "codex" | "pi";
+  source: "agents" | "claude" | "codex" | "pi";
 }
 
 export interface DiscoverSkillsOptions {
   cwd: string;
   env: NodeExecutionEnv;
   extraPaths?: string[];
+  integrations?: Partial<SkillIntegrationSettings>;
 }
 
 type DiscoverSkillsResult = { skills: QuantSkill[]; diagnostics: QuantSkillDiagnostic[]; sources: SkillSource[] };
@@ -36,7 +38,7 @@ const discoveryCache = new Map<string, Promise<DiscoverSkillsResult>>();
 export async function discoverSkills(
   options: DiscoverSkillsOptions,
 ): Promise<DiscoverSkillsResult> {
-  const sources = resolveSkillSources(options.cwd, options.extraPaths);
+  const sources = resolveSkillSources(options.cwd, options.extraPaths, options.integrations);
   const cacheKey = discoveryCacheKey(sources);
   if (process.env.WHYJ_SKILL_CACHE?.toLowerCase() !== "off") {
     const cached = discoveryCache.get(cacheKey);
@@ -103,17 +105,31 @@ function discoveryCacheKey(sources: SkillSource[]): string {
     .join("|");
 }
 
-function resolveSkillSources(cwd: string, extraPaths: string[] = []): SkillSource[] {
-  const projectRoots = collectAncestorRoots(cwd);
+function resolveSkillSources(
+  cwd: string,
+  extraPaths: string[] = [],
+  integrations: Partial<SkillIntegrationSettings> = {},
+): SkillSource[] {
   const userHome = homedir();
+  const homeRoot = resolve(userHome);
+  const projectRoots = collectAncestorRoots(cwd).filter((root) => resolve(root) !== homeRoot);
+  const userSources: SkillSource[] = [];
+  if (integrations.claude === true) {
+    userSources.push(
+      { path: join(userHome, ".claude", "skills"), scope: "user", source: "claude" },
+      { path: join(userHome, ".agents", "skills"), scope: "user", source: "agents" },
+      { path: join(userHome, ".pi", "agent", "skills"), scope: "user", source: "pi" },
+    );
+  }
+  if (integrations.codex === true) {
+    userSources.push({ path: join(userHome, ".codex", "skills"), scope: "user", source: "codex" });
+  }
   const candidates: SkillSource[] = [
     ...projectRoots.flatMap((root) => ([
       { path: join(root, ".agents", "skills"), scope: "project" as const, source: "agents" as const },
       { path: join(root, ".pi", "skills"), scope: "project" as const, source: "pi" as const },
     ])),
-    { path: join(userHome, ".agents", "skills"), scope: "user", source: "agents" },
-    { path: join(userHome, ".pi", "agent", "skills"), scope: "user", source: "pi" },
-    { path: join(userHome, ".codex", "skills"), scope: "user", source: "codex" },
+    ...userSources,
     ...extraPaths.map((path) => ({ path: resolve(path), scope: "project" as const, source: "pi" as const })),
   ];
 

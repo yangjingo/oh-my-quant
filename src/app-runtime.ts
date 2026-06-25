@@ -421,9 +421,17 @@ export class AppRuntime {
 
   private addUserMessage(text: string): void {
     this.finalizeThinking();
+    if (this.shouldSuppressSkillEcho(text)) return;
     this.messages.push({ role: "user", text });
     this.emitMessages();
     this.setStatus(null);
+  }
+
+  private shouldSuppressSkillEcho(text: string): boolean {
+    const trimmed = text.trim();
+    if (!/^SKILL\.[a-z0-9-]+$/i.test(trimmed)) return false;
+    const last = this.messages[this.messages.length - 1];
+    return last?.role === "skill" && last.skill?.label === trimmed;
   }
 
   private pushLocalCommandMessage(text: string, role: "assistant" | "error"): void {

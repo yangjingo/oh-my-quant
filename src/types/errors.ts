@@ -19,25 +19,25 @@ export const ERRORS = {
   AUTH_NO_ANTHROPIC_KEY: {
     code: "AUTH_NO_ANTHROPIC_KEY",
     category: "auth" as const,
-    problem: "Cannot use AI agent — auth token is missing",
-    cause: "WHYJ_AUTH_TOKEN is not set in .env or .ohquant/settings.json",
-    fix: "Run /config to review configuration, or add: WHYJ_AUTH_TOKEN=sk-... to .env file",
+    problem: "Cannot use AI agent - provider key is missing",
+    cause: "The active model provider does not have WHYJ_QUANT_API_KEY configured, or the endpoint base URL is missing",
+    fix: "Run /config and add WHYJ_QUANT_API_KEY plus WHYJ_QUANT_BASE_URL.",
     docs: "/config",
   },
   AUTH_NO_TUSHARE_KEY: {
     code: "AUTH_NO_TUSHARE_KEY",
     category: "auth" as const,
     problem: "Cannot fetch A-share data — Tushare token is missing",
-    cause: "TUSHARE_TOKEN is not set in .env",
-    fix: "Register at https://tushare.pro, get your token, add to .env: TUSHARE_TOKEN=your_token",
+    cause: "WHYJ_QUANT_TUSHARE_TOKEN is not set in .ohquant/settings.json",
+    fix: "Register at https://tushare.pro, get your token, then add WHYJ_QUANT_TUSHARE_TOKEN to .ohquant/settings.json or /config.",
     docs: "/config",
   },
   AUTH_NO_FINANCIAL_KEY: {
     code: "AUTH_NO_FINANCIAL_KEY",
     category: "auth" as const,
     problem: "Cannot fetch US stock data — Financial Datasets key is missing",
-    cause: "FINANCIAL_DATASETS_KEY is not set in .env",
-    fix: "Register at https://financialdatasets.ai, get your key, add to .env: FINANCIAL_DATASETS_KEY=your_key",
+    cause: "WHYJ_QUANT_FINANCIAL_DATASETS_KEY is not set in .ohquant/settings.json",
+    fix: "Register at https://financialdatasets.ai, get your key, then add WHYJ_QUANT_FINANCIAL_DATASETS_KEY to .ohquant/settings.json or /config.",
     docs: "/config",
   },
   DATA_BACKEND_UNAVAILABLE: {
@@ -53,7 +53,7 @@ export const ERRORS = {
     category: "network" as const,
     problem: "Data request failed",
     cause: "The active data backend returned an error or timed out",
-    fix: "Check your internet connection and API key validity. Run /config show to verify keys.",
+    fix: "Check network/proxy access and data keys in /config, then retry the request.",
     docs: "/config",
   },
   DATA_NO_CACHE: {
@@ -61,7 +61,7 @@ export const ERRORS = {
     category: "data" as const,
     problem: "No cached data for this symbol",
     cause: "Data must be downloaded before analysis. The symbol may not exist or has never been fetched.",
-    fix: "Use the AI agent to fetch the symbol after setting Source and Source Key in /config.",
+    fix: "Ask the agent to fetch this symbol first, or run /config to verify the data source and key.",
     docs: "/config",
   },
   DATA_NOT_ENOUGH: {
@@ -69,7 +69,7 @@ export const ERRORS = {
     category: "data" as const,
     problem: "Not enough bars for the requested analysis",
     cause: "Analysis needs a minimum number of data points that aren't available",
-    fix: "Fetch a wider date range or choose a stock with more trading history",
+    fix: "Fetch a wider date range or choose a symbol with more trading history.",
     docs: undefined,
   },
   INPUT_INVALID_SYMBOL: {
@@ -85,7 +85,7 @@ export const ERRORS = {
     category: "input" as const,
     problem: "Required argument is missing",
     cause: "The command needs a required flag that wasn't provided",
-    fix: "Check the command help or use /help to see required flags",
+    fix: "Run /help to see the command format, then retry with the missing argument.",
     docs: "/help",
   },
   CONFIG_MISSING: {

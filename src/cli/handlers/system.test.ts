@@ -2,9 +2,8 @@ import { describe, expect, it, mock } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadPanelPortfolio } from "../../storage/panel-portfolio.ts";
-import { loadSettings } from "../../storage/index.ts";
-import { compactHandler, configHandler, portfolioHandler, resumeHandler, sessionHandler } from "./system.ts";
+import { loadPanelPortfolio, loadSettings } from "../../storage/index.ts";
+import { compactHandler, configHandler, doctorHandler, portfolioHandler, resumeHandler, sessionHandler } from "./system.ts";
 import { skillHandler } from "../../skill/handler.ts";
 import type { QuantAgentSession } from "../../agent/src/session.ts";
 
@@ -78,7 +77,7 @@ describe("resumeHandler", () => {
   it("returns error when no agent session is available", async () => {
     const result = await resumeHandler({}, [], {});
     expect(result.success).toBe(false);
-    expect(result.message).toContain("not initialized");
+    expect(result.message).toContain("active agent session");
   });
 
   it("lists saved sessions by default", async () => {
@@ -177,7 +176,7 @@ describe("sessionHandler", () => {
   it("returns error when no agent session is available", async () => {
     const result = await sessionHandler({}, [], {});
     expect(result.success).toBe(false);
-    expect(result.message).toContain("not initialized");
+    expect(result.message).toContain("active agent session");
   });
 
   it("renders current session metadata and context usage", async () => {
@@ -186,6 +185,18 @@ describe("sessionHandler", () => {
     expect(result.message).toContain("Session");
     expect(result.message).toContain("id          s1");
     expect(result.message).toContain("context     1200/200000");
+  });
+});
+
+describe("doctorHandler", () => {
+  it("renders doctor output with structured report data", async () => {
+    const result = await doctorHandler({}, [], {});
+    expect(result.success).toBe(true);
+    expect(result.renderAs).toBe("text");
+    expect(result.message).toContain("whyj doctor");
+    expect(result.message).toContain("Credentials");
+    expect(result.message).toContain("value");
+    expect(result.data).toEqual(expect.objectContaining({ name: "whyj", ready: true }));
   });
 });
 
@@ -224,6 +235,7 @@ describe("portfolioHandler", () => {
       expect(result.success).toBe(true);
       expect(result.message).toContain("Config");
       expect(result.message).toContain("Active portfolio  当前主组合");
+      expect(result.message).toContain("Skills     Codex off  ·  Claude off");
       expect(result.message).toContain("Ctrl+P opens the settings panel");
       expect(result.message).not.toContain("────────────────");
     });

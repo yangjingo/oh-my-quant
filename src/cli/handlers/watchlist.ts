@@ -10,27 +10,27 @@ export const watchHandler: CommandHandler = async (flags, positional) => {
     if (!code) return { success: false, message: watchUsage };
     const before = watchlist.funds.length;
     watchlist.funds = watchlist.funds.filter((f) => f.code !== code);
-    if (watchlist.funds.length === before) return { success: false, message: `${code} not found.` };
+    if (watchlist.funds.length === before) return { success: false, message: `${code} is not in the watchlist.` };
     saveWatchlist(watchlist);
     return { success: true, message: `Removed ${code}.` };
   }
 
   if (positional[0]) {
     const code = positional[0];
-    if (watchlist.funds.some((f) => f.code === code)) return { success: false, message: `${code} already in watchlist.` };
+    if (watchlist.funds.some((f) => f.code === code)) return { success: false, message: `${code} is already in the watchlist.` };
     const name = flags.name ? String(flags.name) : code;
     watchlist.funds.push({ code, name, added: new Date().toISOString().slice(0, 10) });
     saveWatchlist(watchlist);
     return { success: true, message: `Added ${name} (${code}).` };
   }
 
-  if (watchlist.funds.length === 0) return { success: true, message: "Watchlist empty" };
+  if (watchlist.funds.length === 0) return { success: true, message: "Watchlist is empty." };
   const lines = watchlist.funds.map((f, i) => `  ${i + 1}. ${f.code.padEnd(14)} ${f.name.padEnd(16)}  (${f.added})`);
   return { success: true, message: [`Watchlist (${watchlist.funds.length})`, ...lines].join("\n") };
 };
 
 export const panelHandler: CommandHandler = async (flags, positional) => {
-  const { loadPanelPortfolio, savePanelPortfolio } = await import("../../storage/panel-portfolio.ts");
+  const { loadPanelPortfolio, savePanelPortfolio } = await import("../../storage/index.ts");
   const panel = loadPanelPortfolio();
   const panelUsage = "Use /portfolio for the local comparison panel";
 
@@ -39,7 +39,7 @@ export const panelHandler: CommandHandler = async (flags, positional) => {
     if (!code) return { success: false, message: panelUsage };
     const before = panel.symbols.length;
     panel.symbols = panel.symbols.filter((entry) => entry.code !== code);
-    if (panel.symbols.length === before) return { success: false, message: `${code} not in panel portfolio.` };
+    if (panel.symbols.length === before) return { success: false, message: `${code} is not in the panel portfolio.` };
     savePanelPortfolio(panel);
     return { success: true, message: `Removed ${code} from panel-portfolio.json.` };
   }
@@ -47,7 +47,7 @@ export const panelHandler: CommandHandler = async (flags, positional) => {
   if (positional[0]) {
     const code = positional[0];
     if (panel.symbols.some((entry) => entry.code === code)) {
-      return { success: false, message: `${code} already in panel portfolio.` };
+      return { success: false, message: `${code} is already in the panel portfolio.` };
     }
     const name = flags.name ? String(flags.name) : code;
     panel.symbols.push({ code, name, added: new Date().toISOString().slice(0, 10) });
@@ -58,7 +58,7 @@ export const panelHandler: CommandHandler = async (flags, positional) => {
   if (panel.symbols.length === 0) {
     return {
       success: true,
-      message: "Panel portfolio empty. Use /portfolio for the local comparison panel.",
+      message: "The panel portfolio is empty. Use /portfolio for the local comparison panel.",
     };
   }
   const lines = panel.symbols.map(

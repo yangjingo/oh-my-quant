@@ -1,6 +1,7 @@
 import { discoverSkills, type QuantSkill } from "../agent/src/skills.ts";
 import { NodeExecutionEnv } from "../agent/src/pi/node.ts";
 import type { CommandHandler } from "../cli/types.ts";
+import { loadSettings } from "../storage/index.ts";
 import { skillPaths, installSkills } from "./store.ts";
 
 function sourceLabel(skill: QuantSkill): string {
@@ -10,7 +11,13 @@ function sourceLabel(skill: QuantSkill): string {
 async function loadSkillsFromContext(ctx: Parameters<CommandHandler>[2]): Promise<QuantSkill[]> {
   if (ctx.agentSession) return await ctx.agentSession.getSkills();
   const env = new NodeExecutionEnv({ cwd: process.cwd() });
-  const discovered = await discoverSkills({ cwd: process.cwd(), env, extraPaths: skillPaths() });
+  const settings = loadSettings();
+  const discovered = await discoverSkills({
+    cwd: process.cwd(),
+    env,
+    extraPaths: skillPaths(),
+    integrations: settings.skillIntegrations,
+  });
   return discovered.skills;
 }
 
@@ -40,9 +47,9 @@ export const skillHandler: CommandHandler = async (flags, positional, ctx) => {
 
   if (action === "info") {
     const name = positional[1] || String(flags.name || flags.skill || "");
-    if (!name) return { success: false, message: "Use /skill info <name>" };
+    if (!name) return { success: false, message: "Choose a skill with /skill info <name>." };
     const skill = skills.find((entry) => entry.name === name);
-    if (!skill) return { success: false, message: `Unknown skill: ${name}. Use /skill.` };
+    if (!skill) return { success: false, message: `Unknown skill "${name}". Run /skill to list available skills.` };
     return {
       success: true,
       message: [
@@ -58,9 +65,9 @@ export const skillHandler: CommandHandler = async (flags, positional, ctx) => {
 
   if (action === "run" || action === "trigger") {
     const name = positional[1] || String(flags.name || flags.skill || "");
-    if (!name) return { success: false, message: "Use /skill:<name> or /skill run <name> [instructions]" };
+    if (!name) return { success: false, message: "Choose a skill with /skill:<name> or /skill run <name> [instructions]." };
     const extra = positional.slice(2).join(" ").trim() || undefined;
-    if (!ctx.agentSession) return { success: false, message: "Agent session is not initialized yet." };
+    if (!ctx.agentSession) return { success: false, message: "Running a skill needs an active agent session. Send any AI message first, then try again." };
     await ctx.agentSession.skill(name, extra);
     return {
       success: true,
@@ -72,9 +79,9 @@ export const skillHandler: CommandHandler = async (flags, positional, ctx) => {
   if (!SUBCOMMANDS.has(action)) {
     const name = action;
     const skill = skills.find((entry) => entry.name === name);
-    if (!skill) return { success: false, message: `Unknown skill: ${name}. Use /skill.` };
+    if (!skill) return { success: false, message: `Unknown skill "${name}". Run /skill to list available skills.` };
     const extra = positional.slice(1).join(" ").trim() || undefined;
-    if (!ctx.agentSession) return { success: false, message: "Agent session is not initialized yet." };
+    if (!ctx.agentSession) return { success: false, message: "Running a skill needs an active agent session. Send any AI message first, then try again." };
     await ctx.agentSession.skill(name, extra);
     return {
       success: true,

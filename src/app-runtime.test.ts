@@ -265,6 +265,30 @@ description: Use for crypto market analysis.
     expect(runtime.messages[2]?.role).toBe("assistant");
   });
 
+  it("suppresses duplicate skill echo user lines when a skill banner is already visible", () => {
+    const h = harness();
+    const runtime = h.runtime as unknown as {
+      messages: UIMessage[];
+      addUserMessage: (text: string) => void;
+    };
+    runtime.messages = [
+      {
+        role: "skill",
+        skill: {
+          name: "llmquant-portfolio",
+          label: "SKILL.llmquant-portfolio",
+          status: "running",
+          startedAt: Date.now(),
+        },
+      },
+    ];
+
+    runtime.addUserMessage("SKILL.llmquant-portfolio");
+
+    expect(runtime.messages).toHaveLength(1);
+    expect(runtime.messages[0]?.role).toBe("skill");
+  });
+
   it("keeps non-empty thinking content when the turn finalizes", () => {
     const h = harness();
     const runtime = h.runtime as unknown as {

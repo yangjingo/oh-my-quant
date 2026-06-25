@@ -52,7 +52,7 @@ export async function runQuantTool(
   try {
     const { findBuiltinTool } = await import("../tools/registry.ts");
     const tool = findBuiltinTool(name);
-    if (!tool) return { success: false, message: `Tool "${name}" not registered.` };
+    if (!tool) return { success: false, message: `Tool "${name}" is unavailable in this build.` };
 
     const params = normalizeToolParams(flags, defaults);
     const preparedParams = tool.prepareArguments ? tool.prepareArguments(params) : params;
@@ -60,6 +60,6 @@ export async function runQuantTool(
     const text = result.content.map((c) => ("text" in c ? c.text : "[image]")).join("\n");
     return { success: true, message: text, data: result.details };
   } catch (err) {
-    return { success: false, message: `Command failed: ${err instanceof Error ? err.message : String(err)}` };
+    return { success: false, message: `Command failed.\nCause: ${err instanceof Error ? err.message : String(err)}` };
   }
 }

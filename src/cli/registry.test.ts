@@ -53,6 +53,12 @@ describe("parseCommand", () => {
     expect(cmd!.positional).toEqual(["focus", "on", "signals"]);
   });
 
+  it("parses /doctor", () => {
+    const cmd = parseCommand("/doctor");
+    expect(cmd).not.toBeNull();
+    expect(cmd!.command).toBe("doctor");
+  });
+
   it("ignores leading whitespace", () => {
     const cmd = parseCommand("  /help  ");
     expect(cmd).not.toBeNull();
@@ -219,10 +225,20 @@ describe("executeCommand", () => {
     expect(result.effects).toEqual([{ type: "openConfig" }]);
   });
 
-  it("treats resume and compact as local commands", () => {
+  it("runs doctor as a local slash command", async () => {
+    const result = await executeCommand(parseCommand("/doctor")!);
+    expect(result.success).toBe(true);
+    expect(result.message).toContain("whyj doctor");
+    expect(result.message).toContain("Credentials");
+    expect(result.message).toContain("value");
+    expect(result.data).toEqual(expect.objectContaining({ name: "whyj", ready: true }));
+  });
+
+  it("treats resume, compact, and doctor as local commands", () => {
     expect(isLocalSlashCommand("resume")).toBe(true);
     expect(isLocalSlashCommand("compact")).toBe(true);
     expect(isLocalSlashCommand("portfolio")).toBe(true);
+    expect(isLocalSlashCommand("doctor")).toBe(true);
   });
 
   it("normalizes /session to /resume for backward compatibility", () => {
@@ -238,6 +254,7 @@ describe("catalog", () => {
     const help = buildCommandHelpText();
     expect(help).toContain("Commands");
     expect(help).toContain("/config");
+    expect(help).toContain("/doctor");
     expect(help).not.toContain("/factor");
     expect(help).not.toContain("/backtest");
     expect(help).not.toContain("/risk");
@@ -258,5 +275,9 @@ describe("catalog", () => {
 
   it("does not list /session in the public slash catalog", () => {
     expect(COMMAND_CATALOG.some((entry) => entry.name === "/session")).toBe(false);
+  });
+
+  it("lists doctor in the public slash catalog", () => {
+    expect(COMMAND_CATALOG.some((entry) => entry.name === "/doctor")).toBe(true);
   });
 });

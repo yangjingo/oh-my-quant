@@ -1,8 +1,7 @@
 import type { CommandHandler } from "../types.ts";
 import { runComparison, type ComparisonConfig, type ComparisonContext } from "../../quant/comparison.ts";
 import { volatilityRule, drawdownRule, sectorRule, type ClassificationRule } from "../../quant/auto-classify.ts";
-import { loadPanelPortfolio } from "../../storage/panel-portfolio.ts";
-import { loadBars as loadBarsFromStorage } from "../../storage/bars.ts";
+import { loadPanelPortfolio, loadBars as loadBarsFromStorage } from "../../storage/index.ts";
 import { metrics } from "../../quant/risk.ts";
 
 const compareUsage = "Use /compare run --rule volatility|drawdown|sector";
@@ -21,26 +20,26 @@ export const compareHandler: CommandHandler = async (flags, positional) => {
   const portfolio = loadPanelPortfolio();
   const symbolCodes = portfolio.symbols.map((s) => s.code);
   if (symbolCodes.length === 0) {
-    return { success: false, message: "No symbols in panel portfolio. Ask the agent to update local portfolio files, then reopen /portfolio." };
+    return { success: false, message: "The panel portfolio is empty. Ask the agent to update local portfolio files, then reopen /portfolio." };
   }
 
   let rules: ClassificationRule[];
   const threshold = Number(flags.threshold || flags.t || 0);
 
   if (ruleType === "volatility") {
-    if (!threshold) return { success: false, message: "Volatility rule requires --threshold (e.g., 0.25)" };
+    if (!threshold) return { success: false, message: "The volatility rule needs --threshold, for example: /compare run --rule volatility --threshold 0.25" };
     const sampleProfile = { code: "sample", name: "sample", riskMetrics: { annualVol: threshold * 1.1 } as any };
     rules = [volatilityRule(sampleProfile, threshold)];
   } else if (ruleType === "drawdown") {
-    if (!threshold) return { success: false, message: "Drawdown rule requires --threshold (e.g., -0.20)" };
+    if (!threshold) return { success: false, message: "The drawdown rule needs --threshold, for example: /compare run --rule drawdown --threshold -0.20" };
     const sampleProfile = { code: "sample", name: "sample", riskMetrics: { maxDrawdown: threshold * 1.1 } as any };
     rules = [drawdownRule(sampleProfile, threshold)];
   } else if (ruleType === "sector") {
     const sectorName = String(flags.name || flags.n || flags.sector || "");
-    if (!sectorName) return { success: false, message: "Sector rule requires --name SECTOR_NAME" };
+    if (!sectorName) return { success: false, message: "The sector rule needs --name, for example: /compare run --rule sector --name Semiconductor" };
     rules = [sectorRule(sectorName)];
   } else {
-    return { success: false, message: `Unknown rule type: ${ruleType}. Use volatility|drawdown|sector` };
+    return { success: false, message: `Unknown rule type "${ruleType}". Supported rules: volatility, drawdown, sector.` };
   }
 
   const config: ComparisonConfig = {
@@ -86,6 +85,6 @@ export const compareHandler: CommandHandler = async (flags, positional) => {
     return { success: true, message: `Comparison saved\n  id    ${artifactId}\n  path  .ohquant/benchmark/comparisons/` };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    return { success: false, message: `Comparison failed\n  ${msg}` };
+    return { success: false, message: `Comparison failed.\nCause: ${msg}\nNext: Check whether the selected symbols already have enough local price history, then retry.` };
   }
 };

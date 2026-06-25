@@ -44,7 +44,7 @@ Other app layers should import only from these files. `src/pi/` is intentionally
 
 `context.ts` builds the quant-specific system prompt, injects session context, and conditionally injects lightweight structured-output guidance for table/chart-heavy requests.
 
-`skills.ts` discovers local skill files from project and user directories.
+`skills.ts` discovers project skill files by default. User-level Codex/Claude skill directories are included only when the app config enables those integrations.
 
 ## Vendored pi Subset
 

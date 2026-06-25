@@ -52,7 +52,7 @@ function err(code: ErrorCode, detail?: string): AgentToolResult<unknown> {
 
 /** Load bars from any available cache source. Returns null if nothing cached. */
 async function loadCachedBars(symbol: string) {
-  const { loadBars } = await import("../storage/bars.ts");
+  const { loadBars } = await import("../storage/index.ts");
   for (const src of ["akshare", "tushare", "llmquant-data", "financial-datasets"]) {
     const bars = await loadBars(symbol, src);
     if (bars.length > 0) return { bars, source: src };
@@ -170,7 +170,7 @@ export const scoreBenchmarkTool: AgentTool<typeof S.ScoreBenchmark> = {
     const { evaluate } = await import("../quant/benchmark.ts");
     const { smaSignals, vectorizedBacktest } = await import("../quant/backtest.ts");
     const { fetchBars } = await import("../source/index.ts");
-    const { emitFileEvent } = await import("../storage/fs-events.ts");
+    const { emitFileEvent } = await import("../storage/index.ts");
     const { writeFileSync, mkdirSync } = await import("node:fs");
     const { join } = await import("node:path");
 
@@ -261,7 +261,7 @@ export const showDashboardTool: AgentTool<typeof S.ShowDashboard> = {
     const { readdirSync, readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const { collectResults, dashboardSummary } = await import("../quant/dashboard.ts");
-    const { emitFileEvent } = await import("../storage/fs-events.ts");
+    const { emitFileEvent } = await import("../storage/index.ts");
 
     const root = process.env.OHQUANT_DIR || join(process.cwd(), ".ohquant");
     const dir = join(root, "benchmark", "results");

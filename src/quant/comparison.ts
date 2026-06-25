@@ -4,7 +4,7 @@
 
 import { classifySymbols, type ClassificationRule, type SymbolProfile } from "./auto-classify.ts";
 import { synthesizeEqualWeightNav, groupRiskFromNav, totalReturn, type GroupComparisonResult } from "./group-comparison.ts";
-import { saveComparison, generateComparisonId } from "../storage/comparison.ts";
+import { saveComparison, generateComparisonId } from "../storage/index.ts";
 
 export interface ComparisonConfig {
   name: string;

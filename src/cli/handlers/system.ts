@@ -1,6 +1,9 @@
 import { buildCommandHelpText } from "../catalog.ts";
+import { formatDoctorText, runDoctor } from "../doctor.ts";
 import type { CommandContext, CommandHandler, CommandResult } from "../types.ts";
 import type { CompactResult } from "../../agent/src/pi/index.ts";
+import { hasWhyjEnvValue } from "../../storage/index.ts";
+import { describeEndpointMode } from "../doctor.ts";
 
 function mark(ok: boolean): string {
   return ok ? "✓" : "○";
@@ -181,7 +184,7 @@ export const clearHandler: CommandHandler = async () => ({
 export const compactHandler: CommandHandler = async (_flags, positional, ctx) => {
   const agent = ctx.agentSession;
   if (!agent) {
-    return { success: false, message: "Agent session is not initialized yet." };
+    return { success: false, message: "This command needs an active agent session. Send any AI message first, then try /compact again." };
   }
   const customInstructions = positional.join(" ").trim() || undefined;
   let result: Awaited<ReturnType<typeof agent.compact>>;
@@ -193,13 +196,13 @@ export const compactHandler: CommandHandler = async (_flags, positional, ctx) =>
     if (message.includes("Nothing to compact")) {
       return {
         success: true,
-        message: "Nothing to compact. The current session is already within the compaction window.",
+        message: "Nothing to compact. The current session context is already small enough.",
       };
     }
     if (message.includes("requires idle harness") || message.includes("AgentHarness is busy")) {
       return {
         success: false,
-        message: "Agent is still finalizing the current turn. Try /compact again after the tool/result output settles.",
+        message: "The current turn is still finishing. Run /compact again after the reply or tool output settles.",
       };
     }
     throw error;
@@ -216,10 +219,8 @@ export const configHandler: CommandHandler = async (_flags, _positional, ctx) =>
     return { success: true, message: "", effects: [{ type: "openConfig" }] };
   }
   const { loadSettings, SETTINGS_PATH } = await import("../../storage/index.ts");
-  const { listLocalPortfolios } = await import("../../storage/local-portfolios.ts");
+  const { listLocalPortfolios } = await import("../../storage/index.ts");
   const cfg = loadSettings();
-  const env = cfg.env || {};
-  const has = (k: string) => !!(env as Record<string, string | undefined>)[k];
   const activeFile = cfg.preferences.currentPortfolioFile;
   const activeName = listLocalPortfolios().find((item) => item.fileName === activeFile)?.name || activeFile;
   return {
@@ -228,11 +229,23 @@ export const configHandler: CommandHandler = async (_flags, _positional, ctx) =>
       "Config",
       `  Model ${cfg.model}  ·  Thinking ${cfg.thinkingLevel}  ·  Insight ${cfg.insightEnabled ? "on" : "off"}`,
       `  Active portfolio  ${activeName}`,
-      `  Providers  ${mark(has("DEEPSEEK_API_KEY"))} DeepSeek  ${mark(has("ZAI_API_KEY"))} ZAI  ${mark(has("MOONSHOT_API_KEY"))} Moonshot  ${mark(has("MINIMAX_CN_API_KEY"))} MiniMax`,
-      `  Data       ${mark(has("TUSHARE_TOKEN"))} Tushare  ${mark(has("FINANCIAL_DATASETS_KEY"))} Financial Datasets  ${mark(has("LLMQUANT_API_KEY"))} LLMQuant`,
+      `  Skills     Codex ${cfg.skillIntegrations.codex ? "on" : "off"}  ·  Claude ${cfg.skillIntegrations.claude ? "on" : "off"}`,
+      `  API Key    ${mark(hasWhyjEnvValue(cfg.env, "apiKey"))} WHYJ_QUANT_API_KEY`,
+      `  Base URL   ${cfg.env.WHYJ_QUANT_BASE_URL || "(default)"}  ·  ${describeEndpointMode(cfg.env.WHYJ_QUANT_BASE_URL || "")}`,
+      `  Data       ${mark(hasWhyjEnvValue(cfg.env, "tushareToken"))} Tushare  ${mark(hasWhyjEnvValue(cfg.env, "financialDatasetsKey"))} Financial Datasets  ${mark(hasWhyjEnvValue(cfg.env, "llmquantApiKey"))} LLMQuant`,
       `  Path       ${SETTINGS_PATH}`,
       "  Ctrl+P opens the settings panel",
     ].join("\n"),
+  };
+};
+
+export const doctorHandler: CommandHandler = async () => {
+  const doctor = runDoctor();
+  return {
+    success: true,
+    message: formatDoctorText(doctor),
+    data: doctor,
+    renderAs: "text",
   };
 };
 
@@ -242,11 +255,11 @@ export const portfolioHandler: CommandHandler = async (_flags, positional, ctx) 
   }
   if (positional[0] === "use" || positional[0] === "select") {
     const identifier = positional.slice(1).join(" ").trim();
-    if (!identifier) return { success: false, message: "Use /portfolio use <name|file|index>" };
+    if (!identifier) return { success: false, message: "Choose a portfolio with /portfolio use <name|file|index>." };
     const { loadSettings, saveSettings } = await import("../../storage/index.ts");
-    const { syncPanelPortfolioFromLocalPortfolio } = await import("../../storage/portfolio.ts");
+    const { syncPanelPortfolioFromLocalPortfolio } = await import("../../storage/index.ts");
     const synced = syncPanelPortfolioFromLocalPortfolio(identifier);
-    if (!synced) return { success: false, message: `Local portfolio not found: ${identifier}` };
+    if (!synced) return { success: false, message: `Could not find a local portfolio matching "${identifier}". Run /portfolio to list available portfolios.` };
     const cfg = loadSettings();
     cfg.preferences.currentPortfolioFile = synced.portfolio.fileName;
     saveSettings(cfg);
@@ -264,13 +277,13 @@ export const portfolioHandler: CommandHandler = async (_flags, positional, ctx) 
   if (positional.length > 0) {
     return {
       success: false,
-      message: "Portfolio panel is read-only. Use /portfolio use <name|file|index> to switch local portfolios.",
+      message: "This panel is read-only. Use /portfolio use <name|file|index> to switch portfolios.",
     };
   }
-  const { listLocalPortfolios } = await import("../../storage/local-portfolios.ts");
+  const { listLocalPortfolios } = await import("../../storage/index.ts");
   const portfolios = listLocalPortfolios();
   if (portfolios.length === 0) {
-    return { success: true, message: "No local portfolio files found." };
+    return { success: true, message: "No local portfolio files found yet. Add portfolio JSON files under .ohquant/portfolio/ first." };
   }
   const lines = portfolios.map((portfolio, index) =>
     `  ${index + 1}. ${portfolio.name}  ·  ${portfolio.count} funds  ·  ${portfolio.updated || "-"}`,
@@ -284,7 +297,7 @@ export const portfolioHandler: CommandHandler = async (_flags, positional, ctx) 
 export const marketHandler: CommandHandler = async (_flags, positional) => {
   const action = positional[0] || "refresh";
   if (action !== "refresh") {
-    return { success: false, message: "Use /market" };
+    return { success: false, message: "Use /market refresh to reload the overview data." };
   }
   return { success: true, message: "Overview refreshed." };
 };
@@ -299,7 +312,7 @@ export const resumeHandler: CommandHandler = async (_flags, positional, ctx) => 
 
   const agent = ctx.agentSession;
   if (!agent) {
-    return { success: false, message: "Agent session is not initialized yet." };
+    return { success: false, message: "This command needs an active agent session. Send any AI message first, then try /resume again." };
   }
 
   if (!action) {
@@ -313,7 +326,7 @@ export const resumeHandler: CommandHandler = async (_flags, positional, ctx) => 
       success: true,
       message: lines.length > 0
         ? ["Saved sessions", ...lines, "Use /resume <sessionId> to switch sessions"].join("\n")
-        : "No saved sessions found.",
+        : "No saved sessions yet. Start a conversation first, then come back to /resume.",
     };
   }
 
@@ -337,14 +350,14 @@ export const sessionHandler: CommandHandler = async (_flags, _positional, ctx) =
   }
   const agent = ctx.agentSession;
   if (!agent) {
-    return { success: false, message: "Agent session is not initialized yet." };
+    return { success: false, message: "This command needs an active agent session. Send any AI message first, then try /session again." };
   }
   const [metadata, usage] = await Promise.all([
     agent.getSessionMetadata(),
     Promise.resolve(agent.getContextUsage()),
   ]);
   if (!metadata) {
-    return { success: false, message: "No active session metadata available." };
+    return { success: false, message: "Current session metadata is unavailable. Start a conversation first, then retry." };
   }
   return {
     success: true,

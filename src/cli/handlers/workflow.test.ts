@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { compareHandler } from "./workflow.ts";
-import { savePanelPortfolio } from "../../storage/panel-portfolio.ts";
+import { savePanelPortfolio } from "../../storage/index.ts";
 
 const OHQ = join(process.cwd(), ".ohquant-test-compare");
 
@@ -29,7 +29,7 @@ describe("compareHandler", () => {
     savePanelPortfolio({ updated: "", symbols: [], groups: [] });
     const result = await compareHandler({ rule: "volatility", threshold: "0.25" }, ["run"], {});
     expect(result.success).toBe(false);
-    expect(result.message).toContain("No symbols");
+    expect(result.message).toContain("panel portfolio is empty");
   });
 
   it("rejects volatility rule without threshold", async () => {
@@ -57,7 +57,7 @@ describe("compareHandler", () => {
     savePanelPortfolio({ updated: "", symbols: [{ code: "000001", name: "Test", added: "2024-01-01" }], groups: [] });
     const result = await compareHandler({ rule: "unknown", threshold: "0.25" }, ["run"], {});
     expect(result.success).toBe(false);
-    expect(result.message).toContain("Unknown rule type");
+    expect(result.message).toContain('Unknown rule type "unknown"');
   });
 
   it("rejects invalid action", async () => {
