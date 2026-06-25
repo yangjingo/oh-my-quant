@@ -37,26 +37,29 @@ try:
                 df = df[df["date"] >= pd.to_datetime(start).strftime("%Y-%m-%d")]
             if end:
                 df = df[df["date"] <= pd.to_datetime(end).strftime("%Y-%m-%d")]
+    elif "." in symbol:
+        code = symbol.split(".")[0]
+        df = ak.stock_zh_a_hist(symbol=code, period="daily",
+                                start_date=start, end_date=end,
+                                adjust="qfq")
+    elif symbol.isdigit() and len(symbol) == 6:
+        df = ak.fund_open_fund_info_em(symbol=symbol, indicator="单位净值走势")
+        if df is not None and not df.empty:
+            df = df.rename(columns={"净值日期": "date", "单位净值": "close"})
+            df["open"] = df["close"]
+            df["high"] = df["close"]
+            df["low"] = df["close"]
+            df["volume"] = 0
+            df["amount"] = 0
+            df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+            if start:
+                df = df[df["date"] >= pd.to_datetime(start).strftime("%Y-%m-%d")]
+            if end:
+                df = df[df["date"] <= pd.to_datetime(end).strftime("%Y-%m-%d")]
     else:
-        code = symbol.split(".")[0] if "." in symbol else symbol
-        if code.isdigit() and len(code) == 6:
-            df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
-            if df is not None and not df.empty:
-                df = df.rename(columns={"净值日期": "date", "单位净值": "close"})
-                df["open"] = df["close"]
-                df["high"] = df["close"]
-                df["low"] = df["close"]
-                df["volume"] = 0
-                df["amount"] = 0
-                df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
-                if start:
-                    df = df[df["date"] >= pd.to_datetime(start).strftime("%Y-%m-%d")]
-                if end:
-                    df = df[df["date"] <= pd.to_datetime(end).strftime("%Y-%m-%d")]
-        else:
-            df = ak.stock_zh_a_hist(symbol=code, period="daily",
-                                    start_date=start, end_date=end,
-                                    adjust="qfq")
+        df = ak.stock_zh_a_hist(symbol=symbol, period="daily",
+                                start_date=start, end_date=end,
+                                adjust="qfq")
 
     if df is None or df.empty:
         print(json.dumps({"error": f"No data for {symbol}"}))

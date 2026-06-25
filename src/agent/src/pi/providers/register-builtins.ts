@@ -10,6 +10,7 @@ import type {
 	StreamOptions,
 } from "../llm-types.ts";
 import { AssistantMessageEventStream } from "../utils/event-stream.ts";
+import type { AnthropicMessagesOptions } from "./anthropic-messages.ts";
 import type { OpenAICompletionsOptions } from "./openai-completions.ts";
 
 interface LazyProviderModule<
@@ -28,6 +29,11 @@ interface LazyProviderModule<
 interface OpenAICompletionsProviderModule {
 	streamOpenAICompletions: StreamFunction<"openai-completions", OpenAICompletionsOptions>;
 	streamSimpleOpenAICompletions: StreamFunction<"openai-completions", SimpleStreamOptions>;
+}
+
+interface AnthropicMessagesProviderModule {
+	streamAnthropicMessages: StreamFunction<"anthropic-messages", AnthropicMessagesOptions>;
+	streamSimpleAnthropicMessages: StreamFunction<"anthropic-messages", SimpleStreamOptions>;
 }
 
 function forwardStream(target: AssistantMessageEventStream, source: AsyncIterable<AssistantMessageEvent>): void {
@@ -104,6 +110,10 @@ let openAICompletionsProviderModulePromise:
 	| Promise<LazyProviderModule<"openai-completions", OpenAICompletionsOptions, SimpleStreamOptions>>
 	| undefined;
 
+let anthropicMessagesProviderModulePromise:
+	| Promise<LazyProviderModule<"anthropic-messages", AnthropicMessagesOptions, SimpleStreamOptions>>
+	| undefined;
+
 function loadOpenAICompletionsProviderModule(): Promise<
 	LazyProviderModule<"openai-completions", OpenAICompletionsOptions, SimpleStreamOptions>
 > {
@@ -117,14 +127,34 @@ function loadOpenAICompletionsProviderModule(): Promise<
 	return openAICompletionsProviderModulePromise;
 }
 
+function loadAnthropicMessagesProviderModule(): Promise<
+	LazyProviderModule<"anthropic-messages", AnthropicMessagesOptions, SimpleStreamOptions>
+> {
+	anthropicMessagesProviderModulePromise ||= import("./anthropic-messages.ts").then((module) => {
+		const provider = module as AnthropicMessagesProviderModule;
+		return {
+			stream: provider.streamAnthropicMessages,
+			streamSimple: provider.streamSimpleAnthropicMessages,
+		};
+	});
+	return anthropicMessagesProviderModulePromise;
+}
+
 export const streamOpenAICompletions = createLazyStream(loadOpenAICompletionsProviderModule);
 export const streamSimpleOpenAICompletions = createLazySimpleStream(loadOpenAICompletionsProviderModule);
+export const streamAnthropicMessages = createLazyStream(loadAnthropicMessagesProviderModule);
+export const streamSimpleAnthropicMessages = createLazySimpleStream(loadAnthropicMessagesProviderModule);
 
 export function registerBuiltInApiProviders(): void {
 	registerApiProvider({
 		api: "openai-completions",
 		stream: streamOpenAICompletions,
 		streamSimple: streamSimpleOpenAICompletions,
+	});
+	registerApiProvider({
+		api: "anthropic-messages",
+		stream: streamAnthropicMessages,
+		streamSimple: streamSimpleAnthropicMessages,
 	});
 }
 

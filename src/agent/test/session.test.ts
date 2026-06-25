@@ -566,9 +566,10 @@ describe("createAgent", () => {
     agent.harness = {
       prompt: async (text: string) => { captured.prompt = text; },
       followUp: async (text: string) => { captured.followUp = text; },
-      skill: async (name: string, text?: string) => {
+      skill: async (name: string, text?: string, options?: { displayText?: string }) => {
         captured.skillName = name;
         captured.skill = text ?? "";
+        captured.skillDisplayText = options?.displayText ?? "";
       },
     };
     agent.ready = Promise.resolve();
@@ -597,6 +598,7 @@ describe("createAgent", () => {
     expect(captured.skillName).toBe("whyj-quant");
     expect(captured.skill).toContain("focus on benchmark drift");
     expect(captured.skill).toContain("structured rows visible");
+    expect(captured.skillDisplayText).toBe("SKILL.whyj-quant");
   });
 
   it("stores last result shape from structured tool-result details", async () => {

@@ -37,14 +37,20 @@ Q > /config
 
 也可以直接写入默认配置文件 `.ohquant/settings.json`：
 
-```bash
-# .ohquant/settings.json 中的 env
-WHYJ_QUANT_API_KEY=sk-...                  # 模型调用统一密钥
-WHYJ_QUANT_BASE_URL=https://api.deepseek.com/anthropic
-WHYJ_QUANT_AUTH_TOKEN=sk-...               # 兼容旧配置
-WHYJ_QUANT_TUSHARE_TOKEN=your_token        # A 股数据 (可选)
-WHYJ_QUANT_FINANCIAL_DATASETS_KEY=your_key # 美股直连数据 (可选)
-WHYJ_QUANT_LLMQUANT_API_KEY=your_key       # 美股/HK 直连数据 (可选)
+```json
+{
+  "version": 1,
+  "env": {
+    "WHYJ_QUANT_API_KEY": "sk-...",
+    "WHYJ_QUANT_BASE_URL": "https://api.deepseek.com/anthropic",
+    "WHYJ_QUANT_AUTH_TOKEN": "sk-...",
+    "WHYJ_QUANT_TUSHARE_TOKEN": "your_token",
+    "WHYJ_QUANT_FINANCIAL_DATASETS_KEY": "your_key",
+    "WHYJ_QUANT_LLMQUANT_API_KEY": "your_key"
+  },
+  "model": "sonnet",
+  "thinkingLevel": "high"
+}
 ```
 
 外部 skill 集成开关保存在 `.ohquant/settings.json`：
@@ -126,7 +132,7 @@ bun run src/index.ts -- --json doctor
 }
 ```
 
-`doctor` 报告 token 是否存在、来源类别和 redacted value fingerprint；不会打印完整 secret。
+`doctor` 报告凭证是否存在、来源类别和 redacted value fingerprint；不会打印完整 secret。`whyj --json doctor` 和 `/doctor` 使用同一套报告逻辑。
 
 ## Docs
 

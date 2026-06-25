@@ -43,6 +43,10 @@ function createUserMessage(text: string, images?: ImageContent[], displayText = 
 	return createDisplayUserMessage(text, displayText, images);
 }
 
+function createSkillDisplayText(name: string): string {
+	return `SKILL.${name}`;
+}
+
 function createFailureMessage(model: Model<any>, error: unknown, aborted: boolean): AssistantMessage {
 	return {
 		role: "assistant",
@@ -639,7 +643,11 @@ export class AgentHarness<
 		}
 	}
 
-	async skill(name: string, additionalInstructions?: string): Promise<AssistantMessage> {
+	async skill(
+		name: string,
+		additionalInstructions?: string,
+		options?: { displayText?: string },
+	): Promise<AssistantMessage> {
 		if (this.phase !== "idle") throw new AgentHarnessError("busy", "AgentHarness is busy");
 		this.phase = "turn";
 		const finishRunPromise = this.startRunPromise();
@@ -647,7 +655,9 @@ export class AgentHarness<
 			const turnState = await this.createTurnState();
 			const skill = (turnState.resources.skills ?? []).find((candidate) => candidate.name === name);
 			if (!skill) throw new AgentHarnessError("invalid_argument", `Unknown skill: ${name}`);
-			return await this.executeTurn(turnState, formatSkillInvocation(skill, additionalInstructions));
+			return await this.executeTurn(turnState, formatSkillInvocation(skill, additionalInstructions), {
+				displayText: options?.displayText ?? createSkillDisplayText(name),
+			});
 		} catch (error) {
 			this.phase = "idle";
 			throw normalizeHarnessError(error, "unknown");

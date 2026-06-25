@@ -137,7 +137,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 		try {
 			const apiKey = options?.apiKey;
 			if (!apiKey) {
-				throw new Error(`No API key for provider: ${model.provider}`);
+				throw new Error("No API key configured. Set WHYJ_QUANT_API_KEY in .ohquant/settings.json or /config.");
 			}
 			const compat = getCompat(model);
 			const cacheRetention = resolveCacheRetention(options?.cacheRetention);
@@ -432,7 +432,7 @@ export const streamSimpleOpenAICompletions: StreamFunction<"openai-completions",
 ): AssistantMessageEventStream => {
 	const apiKey = options?.apiKey;
 	if (!apiKey) {
-		throw new Error(`No API key for provider: ${model.provider}`);
+		throw new Error("No API key configured. Set WHYJ_QUANT_API_KEY in .ohquant/settings.json or /config.");
 	}
 
 	const base = buildBaseOptions(model, options, apiKey);

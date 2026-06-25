@@ -181,7 +181,7 @@ class QuantAgentHarnessSession implements QuantAgentSession {
   async skill(name: string, additionalInstructions?: string): Promise<void> {
     await this.ready;
     if (!this.harness) throw new Error("Agent harness not initialized");
-    await this.harness.skill(name, injectSkillContext(name, additionalInstructions));
+    await this.harness.skill(name, injectSkillContext(name, additionalInstructions), { displayText: `SKILL.${name}` });
   }
 
   async waitForIdle(): Promise<void> {

@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 describe("llmquant adapter", () => {
-  const originalKey = process.env.LLMQUANT_API_KEY;
+  const originalKey = process.env.WHYJ_QUANT_LLMQUANT_API_KEY;
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
-    process.env.LLMQUANT_API_KEY = "llmq-test-key";
+    process.env.WHYJ_QUANT_LLMQUANT_API_KEY = "llmq-test-key";
   });
 
   afterEach(() => {
-    if (originalKey == null) delete process.env.LLMQUANT_API_KEY;
-    else process.env.LLMQUANT_API_KEY = originalKey;
+    if (originalKey == null) delete process.env.WHYJ_QUANT_LLMQUANT_API_KEY;
+    else process.env.WHYJ_QUANT_LLMQUANT_API_KEY = originalKey;
     globalThis.fetch = originalFetch;
   });
 

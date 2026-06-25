@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 describe("financial datasets adapter", () => {
-  const originalKey = process.env.FINANCIAL_DATASETS_KEY;
+  const originalKey = process.env.WHYJ_QUANT_FINANCIAL_DATASETS_KEY;
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
-    process.env.FINANCIAL_DATASETS_KEY = "fd-test-key";
+    process.env.WHYJ_QUANT_FINANCIAL_DATASETS_KEY = "fd-test-key";
   });
 
   afterEach(() => {
-    if (originalKey == null) delete process.env.FINANCIAL_DATASETS_KEY;
-    else process.env.FINANCIAL_DATASETS_KEY = originalKey;
+    if (originalKey == null) delete process.env.WHYJ_QUANT_FINANCIAL_DATASETS_KEY;
+    else process.env.WHYJ_QUANT_FINANCIAL_DATASETS_KEY = originalKey;
     globalThis.fetch = originalFetch;
   });
 
@@ -38,25 +38,24 @@ describe("financial datasets adapter", () => {
     ]);
   });
 
-  it("merges company facts and metrics snapshot", async () => {
+  it("fetches the real-time price snapshot", async () => {
     let callCount = 0;
     globalThis.fetch = (async (url: string | URL | Request) => {
       callCount += 1;
       const text = String(url);
-      if (text.includes("get_financial_metrics_snapshot")) {
-        return new Response(JSON.stringify({ pe_ratio: 24.5, market_cap: 3000000000 }));
-      }
-      return new Response(JSON.stringify({ company_name: "Apple Inc.", sector: "Technology" }));
+      expect(text).toContain("/prices/snapshot");
+      return new Response(JSON.stringify({ snapshot: { price: 182.9, open: 181, high: 183.5, low: 180.2, close: 182.9 } }));
     }) as unknown as typeof fetch;
 
     const { fetchFinancialDatasetsSnapshot } = await import(`../src/financial-datasets.ts?case=snapshot-${Date.now()}`);
     const snapshot = await fetchFinancialDatasetsSnapshot("AAPL");
-    expect(callCount).toBe(2);
+    expect(callCount).toBe(1);
     expect(snapshot).toEqual({
-      company_name: "Apple Inc.",
-      sector: "Technology",
-      pe_ratio: 24.5,
-      market_cap: 3000000000,
+      price: 182.9,
+      open: 181,
+      high: 183.5,
+      low: 180.2,
+      close: 182.9,
     });
   });
 });

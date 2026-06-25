@@ -2,6 +2,7 @@ export * from "./api-registry.ts";
 export * from "./env-api-keys.ts";
 export * from "./models.ts";
 export type { OpenAICompletionsOptions } from "./providers/openai-completions.ts";
+export type { AnthropicMessagesOptions } from "./providers/anthropic-messages.ts";
 export * from "./providers/register-builtins.ts";
 export * from "./stream.ts";
 export * from "./llm-types.ts";

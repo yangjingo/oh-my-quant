@@ -202,7 +202,7 @@ CLI 只暴露一个自然语言 agent 入口，但后端模型传输方式对错
 
 ### AI Agent（无 `/` 前缀）
 
-本地数据 + 量化工具，加上 `bash` 用于 shell（pi/codex 风格）。Session → `.ohquant/sessions/{date}/session-{time}.md`。详情：`docs/agent-system-spec.md`。
+本地数据 + 量化工具，加上 `bash` 用于 shell（pi/codex 风格）。Session 持久化在 `.ohquant/sessions/` 下的 JSONL session tree。详情：`docs/agent-system-spec.md`。
 
 ---
 
@@ -212,7 +212,11 @@ CLI 只暴露一个自然语言 agent 入口，但后端模型传输方式对错
 
 ```json
 {
-  "env": { "WHYJ_QUANT_AUTH_TOKEN": "sk-..." },
+  "env": {
+    "WHYJ_QUANT_API_KEY": "sk-...",
+    "WHYJ_QUANT_BASE_URL": "https://api.deepseek.com/anthropic",
+    "WHYJ_QUANT_AUTH_TOKEN": "sk-..."
+  },
   "model": "sonnet",
   "thinkingLevel": "off"
 }

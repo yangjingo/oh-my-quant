@@ -219,14 +219,18 @@ App 挂载
 ```json
 {
   "version": 1,
-  "env": { "WHYJ_QUANT_AUTH_TOKEN": "sk-..." },
+  "env": {
+    "WHYJ_QUANT_API_KEY": "sk-...",
+    "WHYJ_QUANT_BASE_URL": "https://api.deepseek.com/anthropic",
+    "WHYJ_QUANT_AUTH_TOKEN": "sk-..."
+  },
   "model": "sonnet",
   "thinkingLevel": "off",
   "preferences": {},
 }
 ```
 
-密钥通过 `loadSettings().env["WHYJ_QUANT_AUTH_TOKEN"]` 在每次 API 调用时从 `.ohquant/settings.json` 读取。
+模型凭证优先读取 `WHYJ_QUANT_API_KEY`，缺失时回退到 `WHYJ_QUANT_AUTH_TOKEN`。这两个键都从 `.ohquant/settings.json` 的 `env` 块读取；`WHYJ_QUANT_BASE_URL` 用于决定当前走 Anthropic Messages 还是 OpenAI-compatible 路径。
 
 ## 11. 洞察系统与提示
 
