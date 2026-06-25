@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Buffer, sanitizeTerminalText, wrap } from "../src/buffer.ts";
+import { Buffer, sanitizeTerminalText, strWidth, wrap } from "../src/buffer.ts";
 import { capSections, conversationMaxScrollUp, drawComposer, drawConversation, drawPortfolio, drawStatus, layout, overviewMaxScrollTop, buildOverviewView, buildConversationView } from "../src/render.ts";
 import { buildConversationLines } from "../src/render-lines.ts";
 import { extractConversationSelection } from "../src/selection.ts";
@@ -732,6 +732,47 @@ describe("render lines", () => {
     expect(cagr?.text.indexOf("+12.30%")).toBe(drawdown?.text.indexOf("-8.20%"));
     expect(cagr?.segments?.some((seg) => seg.text.includes("+12.30%") && seg.style?.fg === MARKET_UP)).toBe(true);
     expect(drawdown?.segments?.some((seg) => seg.text.includes("-8.20%") && seg.style?.fg === MARKET_DOWN)).toBe(true);
+  });
+
+  it("absorbs standalone table header dividers into full-width three-line tables", () => {
+    const lines = buildConversationLines([
+      {
+        role: "assistant",
+        text: [
+          "code       name                         price  change  bars  range",
+          "  ----------------------------------------------------------------",
+          "562590.SH  Semiconductor Equipment ETF  1.62   -0.35%  543   2023-10 -> 2025-12",
+          "159842.SZ  Semiconductor Materials ETF  1.15   -0.48%  1170  2021-03 -> 2025-12",
+        ].join("\n"),
+      },
+    ] as UIMessage[], 120);
+
+    const rules = lines.filter((line) => line.text.includes("\u2500"));
+    const header = lines.find((line) => line.text.includes("code") && line.text.includes("change"));
+    const firstData = lines.find((line) => line.text.includes("562590.SH"));
+
+    expect(lines.some((line) => line.text.includes("----------------------------------------------------------------"))).toBe(false);
+    expect(rules.length).toBe(3);
+    expect(header).toBeTruthy();
+    expect(firstData).toBeTruthy();
+    expect(rules.every((rule) => firstData && strWidth(rule.text) === strWidth(firstData.text))).toBe(true);
+  });
+
+  it("does not bold the first aligned data row without an explicit header divider", () => {
+    const lines = buildConversationLines([
+      {
+        role: "assistant",
+        text: [
+          "AAPL  Apple Inc.      +1.20%",
+          "MSFT  Microsoft Corp  -0.80%",
+        ].join("\n"),
+      },
+    ] as UIMessage[], 80);
+
+    const firstData = lines.find((line) => line.text.includes("AAPL"));
+
+    expect(firstData?.segments?.some((seg) => seg.text.includes("AAPL") && seg.style?.bold)).toBe(false);
+    expect(firstData?.segments?.some((seg) => seg.text.includes("+1.20%") && seg.style?.fg === MARKET_UP)).toBe(true);
   });
 
   it("colors sparkline and K-line chart-style blocks", () => {
