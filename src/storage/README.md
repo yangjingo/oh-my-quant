@@ -59,6 +59,8 @@ Full policy: [`docs/ohquant-storage-policy.md`](../../docs/ohquant-storage-polic
 3. Storage files do not import from external module barrels — they import specific source files.
 4. File I/O always goes through storage; TUI renderers and CLI handlers do not call `fs` directly.
 
+The barrel export is a compatibility boundary, not a convenience-only layer. Shared helpers such as `readWhyjEnvValue()` must remain importable from `src/storage/index.ts`, and regressions should be covered by `src/storage/test/`.
+
 ## Cross-module dependencies
 
 - `sessions.ts` depends on `agent/src/pi/` for session tree model (`SessionTreeEntry`, `buildSessionContext`, `estimateContextTokens`) and model catalog (`getModels`). This is a deliberate one-way dependency: storage reads session files and needs agent-level primitives to compute context-usage summaries.

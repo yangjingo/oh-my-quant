@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { canonicalizeWhyjEnv, hasWhyjEnvValue, readWhyjEnvValue } from "../src/env-keys.ts";
+import { readWhyjEnvValue as readWhyjEnvValueFromBarrel } from "../index.ts";
 
 describe("WhyJ env key aliases", () => {
   it("reads the canonical source keys", () => {
@@ -29,6 +30,14 @@ describe("WhyJ env key aliases", () => {
     expect(readWhyjEnvValue(env, "authToken")).toBeUndefined();
     expect(hasWhyjEnvValue(env, "apiKey")).toBe(false);
     expect(canonicalizeWhyjEnvKeyList(env)).toEqual(["WHYJ_API_KEY", "WHYJ_AUTH_TOKEN"]);
+  });
+
+  it("re-exports readWhyjEnvValue through the storage barrel", () => {
+    const env = {
+      WHYJ_QUANT_API_KEY: "api-key",
+    };
+
+    expect(readWhyjEnvValueFromBarrel(env, "apiKey")).toBe("api-key");
   });
 });
 
