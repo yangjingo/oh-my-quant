@@ -5,15 +5,18 @@
 import { spawn } from "node:child_process";
 import type { Bar } from "../../types/data.ts";
 
+// AKShare 股票数据 — AKShare 1.18.64 文档 https://akshare.akfamily.xyz/data/stock/stock.html#
+
 const AKSCRIPT = `
 import json, sys
+from datetime import datetime
 try:
     import akshare as ak
     import pandas as pd
 
     symbol = sys.argv[1]
     start = sys.argv[2] if len(sys.argv) > 2 else "20200101"
-    end = sys.argv[3] if len(sys.argv) > 3 else "20251231"
+    end = sys.argv[3] if len(sys.argv) > 3 else datetime.today().strftime("%Y%m%d")
 
     index_map = {
         "000001.SH": "sh000001",
@@ -39,9 +42,34 @@ try:
                 df = df[df["date"] <= pd.to_datetime(end).strftime("%Y-%m-%d")]
     elif "." in symbol:
         code = symbol.split(".")[0]
-        df = ak.stock_zh_a_hist(symbol=code, period="daily",
-                                start_date=start, end_date=end,
-                                adjust="qfq")
+        if code.isdigit() and len(code) == 6:
+            stock_df = None
+            try:
+                stock_df = ak.stock_zh_a_hist(symbol=code, period="daily",
+                                              start_date=start, end_date=end,
+                                              adjust="qfq")
+            except Exception:
+                pass
+            if stock_df is not None and not stock_df.empty:
+                df = stock_df
+            else:
+                df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
+                if df is not None and not df.empty:
+                    df = df.rename(columns={"净值日期": "date", "单位净值": "close"})
+                    df["open"] = df["close"]
+                    df["high"] = df["close"]
+                    df["low"] = df["close"]
+                    df["volume"] = 0
+                    df["amount"] = 0
+                    df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+                    if start:
+                        df = df[df["date"] >= pd.to_datetime(start).strftime("%Y-%m-%d")]
+                    if end:
+                        df = df[df["date"] <= pd.to_datetime(end).strftime("%Y-%m-%d")]
+        else:
+            df = ak.stock_zh_a_hist(symbol=code, period="daily",
+                                    start_date=start, end_date=end,
+                                    adjust="qfq")
     elif symbol.isdigit() and len(symbol) == 6:
         df = ak.fund_open_fund_info_em(symbol=symbol, indicator="单位净值走势")
         if df is not None and not df.empty:
@@ -109,10 +137,18 @@ export async function fetchFromAKShare(
   end?: string,
 ): Promise<Bar[]> {
   const startDate = start?.replace(/-/g, "") || "20200101";
-  const endDate = end?.replace(/-/g, "") || "20251231";
+  const endDate = end?.replace(/-/g, "") || todayYmd();
 
   const { stdout } = await runPython(AKSCRIPT, symbol, startDate, endDate);
   return parseAkshareJson(JSON.parse(stdout));
+}
+
+function todayYmd(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}${m}${day}`;
 }
 
 function runPython(

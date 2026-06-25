@@ -84,6 +84,9 @@ export class AppRuntime {
   ) {}
 
   async refreshOverviewPanel(): Promise<void> {
+    if (this.overviewReady) {
+      this.callbacks.onPanel?.(this.marketSections, true);
+    }
     await this.refreshMarketPanel();
   }
 

@@ -968,7 +968,7 @@ describe("portfolio display", () => {
     const L = layout(120, 32);
     drawPortfolio(buf, L.portfolio, [], true);
     const rows = buf.toPlain().map(r => r.slice(L.portfolio.x));
-    expect(rows.some(r => r.includes("Waiting for market data"))).toBe(true);
+    expect(rows.some(r => r.includes("Refreshing"))).toBe(true);
   });
 
   it("shows compacting as a bottom status banner for an empty conversation", () => {

@@ -282,18 +282,19 @@ export function drawPortfolio(
   const maxTop = overviewMaxScrollTop(capped, innerPreview.h);
   const top = Math.min(Math.max(0, scrollFromTop), maxTop);
   buf.fillRect(r, { fg: CANVAS });
+
   const inner = buf.box(r, {
     title: "◫ Overview", titleStyle: S.creamB,
     titleRight: maxTop > 0 ? `scroll ${top + 1}/${maxTop + 1}` : undefined,
     titleRightStyle: S.dim, border: S.rule,
   });
 
-  if (loading && sections.length === 0) {
+  if (loading) {
     const frames = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
-    const frame = frames[Math.floor(Date.now() / 80) % frames.length];
-    const color = thinkingBannerStyle().fg!;
-    buf.text(inner.x + 2, inner.y + 2, frame, { fg: color, bold: true });
-    buf.text(inner.x + 4, inner.y + 2, "Waiting for market data...", { fg: color });
+    const spinner = frames[Math.floor(Date.now() / 80) % frames.length];
+    const accent = thinkingBannerStyle().fg!;
+    buf.text(inner.x + 2, inner.y + 2, spinner, { fg: accent, bold: true });
+    buf.text(inner.x + 4, inner.y + 2, "Refreshing...", { fg: accent });
     return;
   }
 

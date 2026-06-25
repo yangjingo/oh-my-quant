@@ -98,6 +98,7 @@ export class PanelController {
   private cursor = 0;
   private draft: string | null = null;
   private status = "";
+  private dirty = false;
   private currentSessionMeta: CurrentSessionMeta | null = null;
   private helpSelection = 0;
 
@@ -116,6 +117,7 @@ export class PanelController {
     this.portfolioSort = "updated";
     this.portfolioSelection = 0;
     this.helpSelection = 0;
+    this.dirty = false;
     this.refreshResumeSessions();
     this.refreshLocalPortfolios();
   }
@@ -156,7 +158,7 @@ export class PanelController {
       return this.handleDraft(input, key, field);
     }
 
-    if (key.name === "escape") return { close: true };
+    if (key.name === "escape") return { close: true, refreshPanel: this.dirty };
     if (key.name === "up" || key.name === "down") {
       const delta = key.name === "up" ? -1 : 1;
       this.cursor = (this.cursor + delta + fields.length) % fields.length;
@@ -442,6 +444,7 @@ export class PanelController {
     const fileName = value.split(" · ")[1] || value;
     this.cfg.preferences.currentPortfolioFile = fileName;
     syncPanelPortfolioFromLocalPortfolio(fileName);
+    this.dirty = true;
   }
 
   private saveProviderKey(raw: string): string {

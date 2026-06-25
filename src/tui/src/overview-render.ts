@@ -108,8 +108,8 @@ function overviewBlockToLines(block: OverviewBlock, w: number): RenderLine[] {
       return [{
         text: `${block.row.label}${pad}${block.row.value}`,
         segments: [
-          { text: block.row.label, style: S.code },
-          { text: `${pad}${block.row.value}`, style: S.dim },
+          { text: block.row.label, style: S.dim },
+          { text: `${pad}${block.row.value}`, style: S.tableValue },
         ],
       }];
     }
