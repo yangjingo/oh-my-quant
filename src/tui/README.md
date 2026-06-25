@@ -15,6 +15,7 @@ The layout spec lives in `docs/tui-layout-design.md`. This README is the code ma
 |------|------|
 | `src/tui.ts` | `QuantTui` lifecycle, alt-screen setup, repaint loop, keyboard/mouse dispatch, scroll state, panel routing |
 | `src/render.ts` | Pure renderers: layout, header, analyzing panel, overview dock, composer, status bar |
+| `src/render-lines.ts` | Structured message-line renderer for assistant/tool text: compact tables, sparkline/K-line/bar blocks, semantic cell styling |
 | `src/buffer.ts` | Cell-grid buffer, box drawing, CJK-aware text clipping, ANSI flush |
 | `src/input.ts` | Raw input parser, CSI keys, SGR mouse events, hit testing, slash/watchlist suggestions |
 | `src/panel.ts` | Modal panels for config, resume/session, local portfolios, help |
@@ -54,6 +55,14 @@ Message rows are intentionally compact:
 | `thinking` | gray content only; no `Thinking` heading or polite label |
 | `tool` | pi-style `● Namespace.Action · args`, optional elapsed time, optional `⎿ result` preview |
 | `error` | `▏ ERR ` prefix |
+
+Assistant and tool-result text passes through `render-lines.ts` before drawing:
+
+- Markdown pipe tables and double-space aligned text tables are normalized into no-pipe three-line tables.
+- A header is only treated as a header when the next row is a divider; plain aligned data rows do not make the first row bold.
+- Standalone divider rows such as `---` or `───` are absorbed into the table block and re-rendered at the same width as the content rows.
+- Positive market values use `MARKET_UP` (red for A-share convention); negative market values use `MARKET_DOWN` (green).
+- Sparkline, K-line, bar/exposure, and benchmark comparison glyphs are colored through semantic chart tokens in `styles.ts`.
 
 Thinking content is preserved after finalization when non-empty, but empty thinking blocks are removed. The bottom activity bar is separate from thinking content:
 
@@ -123,7 +132,7 @@ bun test src/tui/test/stream_think_test.ts
 
 What they cover:
 
-- `render.test.ts`: layout, clipping, panel isolation, fixed `◉ Analyzing` title, gray thinking without polite heading, tool labels, overview rows, status line.
+- `render.test.ts`: layout, clipping, panel isolation, fixed `◉ Analyzing` title, gray thinking without polite heading, tool labels, structured table/chart lines, overview rows, status line.
 - `stream_think_test.ts`: thinking lifecycle and finalized gray content.
 - `input.test.ts`: raw key/mouse parsing and suggestions.
 - `slash-ux.test.ts`: full composer slash UX simulation.
