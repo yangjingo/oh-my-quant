@@ -392,6 +392,26 @@ describe("panel isolation", () => {
     expect(text).not.toContain("fetch_bars");
   });
 
+  it("renders skill calls like tool calls with a SKILL namespace and running ellipsis", () => {
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+    const msgs: UIMessage[] = [{
+      role: "skill",
+      skill: {
+        name: "llmquant-macro",
+        label: "SKILL.llmquant-macro",
+        status: "running",
+        startedAt: Date.now() - 1200,
+      },
+    }];
+
+    drawConversation(buf, L.conversation, msgs, "running tool", L.mainPane);
+
+    const text = buf.toPlain().join("\n");
+    expect(text).toContain("● SKILL.llmquant-macro ...");
+    expect(text).not.toContain("⚡ skill:llmquant-macro");
+  });
+
   it("renders bash and quant tool calls with pi-style namespaces", () => {
     const shell = shellDisplayName();
     const buf = new Buffer(100, 24);
