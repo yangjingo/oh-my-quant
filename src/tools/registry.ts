@@ -1,5 +1,6 @@
 import type { AgentTool } from "../agent/src/pi/index.ts";
 import { SYSTEM_TOOLS } from "./bash-tool.ts";
+import { AKSHARE_FUND_TOOL_REGISTRATIONS } from "./akshare-fund-tools.ts";
 import { DATA_TOOLS } from "./data-tools.ts";
 import { COMPUTE_TOOLS } from "./quant-tools.ts";
 import { shellDisplayName } from "./shell.ts";
@@ -45,10 +46,16 @@ const DEFAULT_BUILTIN_TOOL_REGISTRATIONS: BuiltinToolRegistration[] = [
   { tool: mustTool(DATA_TOOLS, "fetch_bars"), domain: "data", display: { label: "AKShare · Daily Bars", provider: "akshare" } },
   { tool: mustTool(DATA_TOOLS, "search_symbols"), domain: "data", display: { label: "Tushare · Search", provider: "joinquant" } },
   { tool: mustTool(DATA_TOOLS, "fetch_snapshot"), domain: "data", display: { label: "Direct · Snapshot" } },
+  ...AKSHARE_FUND_TOOL_REGISTRATIONS.map((entry) => ({
+    tool: mustTool(DATA_TOOLS, entry.name),
+    domain: "data" as const,
+    display: { label: entry.label, provider: "akshare" as const },
+  })),
 
   { tool: mustTool(COMPUTE_TOOLS, "compute_factor"), domain: "quant", display: { label: "Quant.Factor" } },
   { tool: mustTool(COMPUTE_TOOLS, "run_backtest"), domain: "quant", display: { label: "Quant.Backtest" } },
   { tool: mustTool(COMPUTE_TOOLS, "check_risk"), domain: "quant", display: { label: "Quant.Risk" } },
+  { tool: mustTool(COMPUTE_TOOLS, "fund_dca_backtest"), domain: "quant", display: { label: "Tool.quant.fund.dca" } },
   { tool: mustTool(COMPUTE_TOOLS, "score_benchmark"), domain: "quant", display: { label: "Quant.Benchmark" } },
   { tool: mustTool(COMPUTE_TOOLS, "show_dashboard"), domain: "quant", display: { label: "Quant.Dashboard" } },
 

@@ -392,6 +392,28 @@ describe("panel isolation", () => {
     expect(text).not.toContain("fetch_bars");
   });
 
+  it("does not show elapsed time on running tool calls", () => {
+    const buf = new Buffer(100, 24);
+    const L = layout(100, 24);
+    const msgs: UIMessage[] = [{
+      role: "tool",
+      tool: {
+        name: "akshare_fund_nav",
+        label: "Tool.akshare.fund.nav · 270042",
+        args: "270042",
+        status: "running",
+        startedAt: Date.now() - 10_000,
+      },
+    }];
+
+    drawConversation(buf, L.conversation, msgs, "running tool", L.mainPane);
+
+    const text = buf.toPlain().join("\n");
+    expect(text).toContain("● Tool.akshare.fund.nav · 270042");
+    expect(text).not.toMatch(/\b\d+:\d{2}\b/);
+    expect(text).not.toMatch(/\b\d+s\b/);
+  });
+
   it("renders skill calls like tool calls with a SKILL namespace and running ellipsis", () => {
     const buf = new Buffer(100, 24);
     const L = layout(100, 24);

@@ -69,11 +69,12 @@ beforeEach(() => resetOhq());
 afterAll(() => cleanupOhq());
 
 describe("built-in quant tool catalog", () => {
-  it("registers the five built-in quant tools as sequential agent tools", () => {
+  it("registers the built-in quant tools as sequential agent tools", () => {
     expect(COMPUTE_TOOLS.map((tool) => tool.name)).toEqual([
       "compute_factor",
       "run_backtest",
       "check_risk",
+      "fund_dca_backtest",
       "score_benchmark",
       "show_dashboard",
     ]);

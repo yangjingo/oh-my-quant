@@ -53,7 +53,7 @@ Message rows are intentionally compact:
 | `user` | `▏ ` gutter + bold cream text |
 | `assistant` | `▏ ` gutter + cream text |
 | `thinking` | gray content only; no `Thinking` heading or polite label |
-| `tool` | pi-style `● Namespace.Action · args`, optional elapsed time, optional `⎿ result` preview |
+| `tool` | pi-style `● Namespace.Action · args`, optional `⎿ result` preview |
 | `error` | `▏ ERR ` prefix |
 
 Assistant and tool-result text passes through `render-lines.ts` before drawing:

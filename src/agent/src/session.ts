@@ -753,6 +753,18 @@ function inferResultShape(toolName: string, result?: unknown): string | null {
       return "symbol_list";
     case "fetch_snapshot":
       return "snapshot_kv";
+    case "akshare_fund_nav":
+      return "fund_nav";
+    case "akshare_fund_profile":
+      return "fund_profile";
+    case "akshare_fund_purchase":
+      return "fund_purchase";
+    case "akshare_fund_fee":
+      return "fund_fee";
+    case "akshare_fund_performance":
+      return "fund_performance";
+    case "fund_dca_backtest":
+      return "fund_dca_backtest";
     case "compute_factor":
       return "factor_metrics";
     case "run_backtest":
@@ -773,6 +785,7 @@ function inferResultShape(toolName: string, result?: unknown): string | null {
   if (text.includes("dashboard") && text.includes("evaluations")) return "dashboard_ranking";
   if (text.includes("score") && text.includes("grade")) return "benchmark_score";
   if (text.includes("snapshot")) return "snapshot_kv";
+  if (toolName.startsWith("akshare_fund_")) return "fund_akshare_endpoint";
   return null;
 }
 
@@ -805,6 +818,27 @@ function inferResultShapeFromDetails(toolName: string, result?: unknown): string
   }
   if (toolName === "fetch_bars" && typeof record.barCount === "number") {
     return "bars_summary";
+  }
+  if (toolName === "akshare_fund_nav" && Array.isArray(record.navCurve)) {
+    return "fund_nav";
+  }
+  if (toolName === "akshare_fund_profile" && record.profile && typeof record.profile === "object") {
+    return "fund_profile";
+  }
+  if (toolName === "akshare_fund_purchase" && record.purchase && typeof record.purchase === "object") {
+    return "fund_purchase";
+  }
+  if (toolName === "akshare_fund_fee" && Array.isArray(record.rows)) {
+    return "fund_fee";
+  }
+  if (toolName === "akshare_fund_performance" && Array.isArray(record.periodPerformance)) {
+    return "fund_performance";
+  }
+  if (toolName.startsWith("akshare_fund_") && typeof record.endpoint === "string" && Array.isArray(record.rows)) {
+    return "fund_akshare_endpoint";
+  }
+  if (toolName === "fund_dca_backtest" && record.dcaSummary && Array.isArray(record.navCurve)) {
+    return "fund_dca_backtest";
   }
 
   return null;

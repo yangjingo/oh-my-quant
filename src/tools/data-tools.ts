@@ -4,6 +4,7 @@ import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import { fetchFinancialDatasetsSnapshot, fetchTushareSnapshot, fetchBars, searchSymbols } from "../source/index.ts";
 import type { DataSource } from "../source/index.ts";
 import type { Bar, Market } from "../types/data.ts";
+import { AKSHARE_FUND_TOOLS } from "./akshare-fund-tools.ts";
 
 const FetchBars = Type.Object({
   symbol: Type.String({ description: "Market symbol such as 000300.SH or 159915" }),
@@ -214,4 +215,4 @@ function inferMarket(symbol: string): Market {
   return "A";
 }
 
-export const DATA_TOOLS: AgentTool[] = [fetchBarsTool, searchSymbolsTool, fetchSnapshotTool];
+export const DATA_TOOLS: AgentTool[] = [fetchBarsTool, searchSymbolsTool, fetchSnapshotTool, ...AKSHARE_FUND_TOOLS];

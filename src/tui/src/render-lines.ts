@@ -1,7 +1,6 @@
 import { charWidth, sanitizeTerminalText, strWidth, truncate, wrap } from "./buffer.ts";
 import type { Style } from "./buffer.ts";
 import { S } from "./styles.ts";
-import { fmtElapsed } from "./format.ts";
 import type { UIMessage } from "./types.ts";
 import { formatToolLine } from "../../tools/catalog.ts";
 
@@ -40,9 +39,8 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
     const t = msg.tool!;
     const status = t.status === "running" ? "●" : t.status === "done" ? "●" : "✗";
     const lineLabel = t.label || formatToolLine(t.name, t.args);
-    const elapsed = t.status === "running" ? `  ${fmtElapsed(Date.now() - t.startedAt)}` : "";
     const prefix = `${status} `;
-    const body = `${lineLabel}${elapsed}`;
+    const body = lineLabel;
     const wrapped = wrap(body, Math.max(1, w - strWidth(prefix)));
     if (wrapped.length > 0) {
       lines.push({ text: `${prefix}${wrapped[0]}`, style: S.gold });
@@ -61,9 +59,8 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
     const running = sk.status === "running";
     const lineLabel = sk.label || `SKILL.${sk.name}`;
     const suffix = running ? " ..." : "";
-    const elapsed = running ? `  ${fmtElapsed(Date.now() - sk.startedAt)}` : "";
     const prefix = `${status} `;
-    const body = `${lineLabel}${suffix}${elapsed}`;
+    const body = `${lineLabel}${suffix}`;
     const wrapped = wrap(body, Math.max(1, w - strWidth(prefix)));
     if (wrapped.length > 0) {
       lines.push({ text: `${prefix}${wrapped[0]}`, style: S.gold });

@@ -16,11 +16,15 @@ export const BASE_SYSTEM_PROMPT = `You are a quantitative finance analyst in Why
 - fetch_bars: A-share / index / fund daily bars through AKShare. Caches locally.
 - search_symbols: Search A-share symbols through Tushare direct API.
 - fetch_snapshot: Pull compact symbol snapshot through direct data adapters.
+- AKShare public fund endpoints are exposed as atomic tools named Tool.akshare.fund.<akshare_endpoint>. No cache.
+- Common endpoint tools: fund_name_em, fund_open_fund_info_em, fund_open_fund_daily_em, fund_purchase_em, fund_overview_em, fund_fee_em, fund_individual_achievement_xq, fund_individual_analysis_xq, fund_portfolio_hold_em, fund_fh_em, fund_etf_spot_em, fund_etf_hist_em, fund_manager_em, fund_announcement_report_em.
+- akshare_fund_nav/profile/purchase/fee/performance are convenience fund-detail views with source_priority fallback across EastMoney/Tiantian, THS, Xueqiu, Sina where available; prefer the endpoint-level tool when the user asks for a specific AKShare interface.
 
 ## Quant Tools (require cached price data)
 - compute_factor: momentum / reversal / volatility / volume_ratio / rsi / sma_deviation
 - run_backtest: SMA crossover backtest → total return, CAGR, Sharpe, max drawdown, win rate, P/L ratio
 - check_risk: annual vol, VaR(95/99), CVaR(95/99), max drawdown duration, skewness, kurtosis
+- fund_dca_backtest: fixed-investment fund DCA backtest on live AKShare fund NAV, including invested amount, value, return, XIRR, max drawdown. No cache.
 - score_benchmark: 3-dimension strategy scoring (Return 40 + Risk 40 + Robustness 20 = 100), saves to .ohquant/
 - show_dashboard: aggregated benchmark results ranking
 
@@ -46,6 +50,7 @@ export const BASE_SYSTEM_PROMPT = `You are a quantitative finance analyst in Why
 2. Proceed stepwise: data → factor → backtest → risk → benchmark
 3. If a tool errors, read the error message and adapt (different symbol format, wider date range, local cache fallback)
 4. Reuse last symbol when user says "it" or omits the code
+5. For fund detail pages, use the smallest matching AKShare endpoint tool when the user names an interface; otherwise use the semantic fallback tools: akshare_fund_nav for净值曲线, akshare_fund_profile for基础信息, akshare_fund_purchase for申购/赎回/限购, akshare_fund_fee for费率, akshare_fund_performance for阶段收益/排名/回撤, and fund_dca_backtest for定投/XIRR/最大回撤
 
 ## Output Constraints
 - NO markdown formatting: never use **bold**, ### headers, --- separators, or \`\`\` code blocks
@@ -67,6 +72,13 @@ export const BASE_SYSTEM_PROMPT = `You are a quantitative finance analyst in Why
 - fetch_bars: keep Source, Bars, Range, Latest as labeled rows
 - search_symbols: keep code and name as a compact two-column list
 - fetch_snapshot: keep fields as a labeled key-value block
+- akshare_fund_nav: keep Latest, Rows, Range visible
+- akshare_fund_profile: keep Fund, Profile, Company, Benchmark visible
+- akshare_fund_purchase: keep Buy, Redeem, Fee visible
+- akshare_fund_fee: keep Source, Indicator, Rows, and Sources fallback status visible
+- akshare_fund_performance: keep Periods and Risk rows visible
+- Tool.akshare.fund.<akshare_endpoint>: keep AKShare, Tool, Rows, Params, Columns, and preview rows visible
+- fund_dca_backtest: keep Fund DCA, Latest, DCA, Invested, Return, Cost rows visible; do not replace the DCA result with a one-line summary
 - compute_factor: keep Latest, Mean, Percentile visible as labeled rows
 - run_backtest: keep Total return, CAGR, Sharpe, Max DD, Win rate, P/L ratio as separate aligned rows
 - check_risk: keep Annual vol, Downside vol, VaR, CVaR, Max DD, Skew/Kurt as separate labeled rows
@@ -267,6 +279,12 @@ function buildToolSpecificRenderGuidance(input: string, ctx: SessionCtx): string
   }
   if (toolName === "fetch_bars" || shape === "bars_summary") {
     lines.push("- for fetched bar summaries, keep Source, Bars, Range, and Latest visible as labeled rows");
+  }
+  if (/(dca|fixed investment|定投)/i.test(lower) || toolName === "fund_dca_backtest" || shape === "fund_dca_backtest") {
+    lines.push("- for fund DCA output, keep Fund DCA, Latest, DCA, Invested, Return, and Cost rows visible");
+  }
+  if (/(净值曲线|基金详情|历史净值|申购|赎回|限购|费率|基金经理|规模)/i.test(lower) || toolName.startsWith("akshare_fund_") || shape.startsWith("fund_")) {
+    lines.push("- for AKShare fund output, keep the atomic tool rows visible instead of merging them into one prose summary");
   }
 
   return lines;
