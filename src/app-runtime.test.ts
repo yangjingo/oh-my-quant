@@ -582,7 +582,7 @@ description: Use for crypto market analysis.
     );
     await h.runtime.submit("/help");
     expect(marketSeen[0]).toContain("000300.SH");
-    expect(portfolioSeen[0]).toEqual(["510300.SH"]);
+    expect(portfolioSeen[0]).toEqual(expect.arrayContaining(["510300.SH", "510300"]));
     expect(h.panels[0]).toMatchObject({ loading: true });
     expect(h.panels.at(-1)?.loading).toBe(false);
     const latestPanel = h.panels.at(-1)?.panel ?? [];
@@ -840,6 +840,24 @@ description: Use for crypto market analysis.
     expect(h.activities.at(-1)).toBe("ready");
   });
 
+  it("renders portfolio groups even when only group codes are present", async () => {
+    savePanelPortfolio({
+      updated: "2026-06-10",
+      symbols: [],
+      groups: [{ id: "group-1", name: "核心组合", symbolCodes: ["510300.SH"] }],
+    });
+    const holdingSeen: string[][] = [];
+    const h = harness(async () => [], async () => [], async (entries) => {
+      holdingSeen.push(entries.map((entry) => entry.code));
+      return [];
+    });
+    await h.runtime.submit("/help");
+    const latestPanel = h.panels.at(-1)?.panel ?? [];
+    const portfolioSection = latestPanel.find((section) => section.kind === "group" && section.title === "核心组合") as Extract<PanelSection, { kind: "group" }> | undefined;
+    expect(portfolioSection).toBeTruthy();
+    expect(portfolioSection?.rows.map((row) => row.code)).toEqual(["510300"]);
+    expect(holdingSeen.at(-1)).toEqual(expect.arrayContaining(["510300.SH", "510300"]));
+  });
   it("selects local portfolio storage and refreshes overview state", async () => {
     mkdirSync(join(OHQ, "portfolio"), { recursive: true });
     await Bun.write(join(OHQ, "portfolio", "holdings_alpha.json"), JSON.stringify({
@@ -873,3 +891,5 @@ description: Use for crypto market analysis.
     expect(marketSeen.length).toBeGreaterThan(0);
   });
 });
+
+

@@ -508,18 +508,34 @@ export class AppRuntime {
     const pullMeta: PullMeta = { sources: [], asOfDates: [] };
     const panelPortfolio = loadPanelPortfolio();
     const groups = panelPortfolio.groups ?? [];
-    const allSymbols = panelPortfolio.symbols.map(s => ({ code: s.code, name: s.name || s.code }));
+    const portfolioEntries = new Map<string, { code: string; name: string }>();
+    for (const entry of panelPortfolio.symbols) {
+      const name = entry.name || entry.code;
+      portfolioEntries.set(entry.code, { code: entry.code, name });
+      const normalizedCode = baseCode(entry.code);
+      if (!portfolioEntries.has(normalizedCode)) {
+        portfolioEntries.set(normalizedCode, { code: normalizedCode, name });
+      }
+    }
+    for (const group of groups) {
+      for (const code of group.symbolCodes) {
+        const normalizedCode = baseCode(code);
+        if (!portfolioEntries.has(code)) portfolioEntries.set(code, { code, name: code });
+        if (!portfolioEntries.has(normalizedCode)) portfolioEntries.set(normalizedCode, { code: normalizedCode, name: code });
+      }
+    }
+    const portfolioSymbols = [...portfolioEntries.values()];
     const [marketQuotes, portfolioRows] = await Promise.all([
       this.quoteFetcher(MARKET_INDICES, pullMeta),
-      this.holdingFetcher(allSymbols, pullMeta),
+      this.holdingFetcher(portfolioSymbols, pullMeta),
     ]);
     const sections: PanelSection[] = [];
-    if (allSymbols.length > 0) {
+    if (portfolioSymbols.length > 0 || groups.length > 0) {
       const rowsByCode = new Map<string, Holding>();
       for (const row of portfolioRows) {
         rowsByCode.set(row.code, row);
       }
-      const fallbackRows = allSymbols.map((entry) => ({
+      const fallbackRows = portfolioSymbols.map((entry) => ({
         code: baseCode(entry.code),
         name: entry.name || entry.code,
         price: 0,
@@ -533,7 +549,7 @@ export class AppRuntime {
         const baseCode = code.split(".")[0] || code;
         return rowsByCode.get(code) || rowsByCode.get(baseCode) || fallbackByCode.get(code) || fallbackByCode.get(baseCode) || {
           code: baseCode,
-          name: allSymbols.find(s => s.code === code || s.code === baseCode)?.name || code,
+          name: portfolioSymbols.find((s) => s.code === code || s.code === baseCode)?.name || code,
           price: 0,
           pct: 0,
         };
@@ -989,3 +1005,6 @@ function isPureLocalCommand(parsed: NonNullable<ReturnType<typeof parseCommand>>
   if (parsed.command === "skill" && parsed.positional[0] && !["list", "info"].includes(parsed.positional[0])) return false;
   return isLocalSlashCommand(parsed.command);
 }
+
+
+

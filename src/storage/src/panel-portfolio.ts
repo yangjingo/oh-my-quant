@@ -89,22 +89,30 @@ export function loadPanelPortfolio(): PanelPortfolioFile {
   const existing = readPanelFile(path);
   const legacy = importLegacyHoldings();
   const validSymbols = existing.symbols.filter((entry) => isValidPanelSymbol(entry.code));
-  const validCodes = new Set(validSymbols.map(s => s.code));
+  const validGroupCodes = new Set(
+    existing.groups.flatMap((group) => group.symbolCodes).filter((code) => isValidPanelSymbol(code)),
+  );
+  const validCodes = new Set([...validSymbols.map(s => s.code), ...validGroupCodes]);
+
+  const repairedGroups = existing.groups
+    .map(g => ({ ...g, symbolCodes: g.symbolCodes.filter(code => validCodes.has(code)) }))
+    .filter(g => g.symbolCodes.length > 0);
 
   if (validSymbols.length === 0) {
     if (legacy.symbols.length > 0) {
       savePanelPortfolio(legacy);
       return legacy;
     }
-    if (existing.symbols.length > 0) {
+    if (repairedGroups.length > 0) {
+      const repaired: PanelPortfolioFile = { updated: existing.updated, symbols: [], groups: repairedGroups };
+      savePanelPortfolio(repaired);
+      return repaired;
+    }
+    if (existing.symbols.length > 0 || existing.groups.length > 0) {
       savePanelPortfolio({ updated: existing.updated, symbols: [], groups: [] });
     }
     return { updated: existing.updated, symbols: [], groups: [] };
   }
-
-  const repairedGroups = existing.groups
-    .map(g => ({ ...g, symbolCodes: g.symbolCodes.filter(code => validCodes.has(code)) }))
-    .filter(g => g.symbolCodes.length > 0);
 
   const symbolsChanged = validSymbols.length !== existing.symbols.length;
   const groupsChanged = JSON.stringify(repairedGroups) !== JSON.stringify(existing.groups);
@@ -117,6 +125,7 @@ export function loadPanelPortfolio(): PanelPortfolioFile {
 
   return existing;
 }
+
 
 export function savePanelPortfolio(data: PanelPortfolioFile): void {
   ensureDirs();
@@ -192,3 +201,8 @@ function generateGroupId(data: PanelPortfolioFile): string {
   }
   return `group-${Date.now()}`;
 }
+
+
+
+
+

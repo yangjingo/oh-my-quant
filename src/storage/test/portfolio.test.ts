@@ -56,6 +56,16 @@ describe("panel-portfolio storage", () => {
     ]);
   });
 
+  it("keeps groups when panel portfolio has only group codes", () => {
+    savePanelPortfolio({
+      updated: "2026-06-10",
+      symbols: [],
+      groups: [{ id: "group-1", name: "核心组合", symbolCodes: ["510300.SH"] }],
+    });
+    const loaded = loadPanelPortfolio();
+    expect(loaded.symbols).toEqual([]);
+    expect(loaded.groups.map((group) => group.symbolCodes)).toEqual([["510300.SH"]]);
+  });
   it("returns empty list when file is missing", async () => {
     expect(loadPanelPortfolio().symbols).toEqual([]);
     expect(await loadPortfolioSymbols()).toEqual([]);
@@ -208,7 +218,9 @@ describe("panel-portfolio groups", () => {
       ],
     });
     const loaded = loadPanelPortfolio();
-    expect(loaded.groups.length).toBe(0);
+    expect(loaded.groups.length).toBe(1);
+    expect(loaded.groups[0].id).toBe("group-2");
+    expect(loaded.groups[0].symbolCodes).toEqual(["510300.SH"]);
   });
 
   it("persists and loads groups correctly", () => {
@@ -227,3 +239,4 @@ describe("panel-portfolio groups", () => {
     expect(loaded.groups[1].symbolCodes).toEqual(["159915.SZ"]);
   });
 });
+
