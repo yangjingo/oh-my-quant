@@ -29,8 +29,13 @@
   - A 股/指数/基金日线的主要数据源
   - 中国市场数据的零密钥本地回退
 - 本地 wrapper 形态：
-  - Node 启动 Python 并执行 AKShare 代码片段
+  - Node 通过 `child_process.spawn` 启动 Python 子进程执行 AKShare 代码片段
   - adapter 将结果标准化为内部 `Bar[]`
+- Python 发现顺序（`getPythonCandidates()`）：
+  1. 项目 `.venv/` 下的 python（按源文件位置解析，不依赖 cwd）
+  2. `py -3`（Windows Python Launcher）
+  3. `python3`
+  4. `python`
 
 ### Tushare
 

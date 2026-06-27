@@ -122,8 +122,14 @@ describe("estimateTokens", () => {
 });
 
 describe("resolveModelId", () => {
-  it("preserves the raw env model value", () => {
+  it("preserves the raw env model value with [1m] suffix", () => {
     expect(resolveModelId("sonnet", { WHYJ_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]" })).toBe("deepseek-v4-pro[1m]");
+  });
+
+  it("preserves glm model names as-is", () => {
+    expect(resolveModelId("sonnet", { WHYJ_DEFAULT_SONNET_MODEL: "glm-5.2" })).toBe("glm-5.2");
+    expect(resolveModelId("opus", { WHYJ_DEFAULT_OPUS_MODEL: "glm-5.1" })).toBe("glm-5.1");
+    expect(resolveModelId("haiku", { WHYJ_DEFAULT_HAIKU_MODEL: "glm-5-turbo" })).toBe("glm-5-turbo");
   });
 });
 
@@ -339,6 +345,92 @@ describe("createAgent", () => {
       expect(agent.state.model.api).toBe("openai-completions");
       expect(agent.state.model.baseUrl).toBe(baseUrl);
     });
+  });
+
+  it("routes deepseek-v4-pro[1m] through anthropic on a GLM Anthropic-compatible baseUrl", async () => {
+    cleanup();
+    setupSettings({
+      WHYJ_QUANT_API_KEY: "test-key-123",
+      WHYJ_QUANT_BASE_URL: "https://open.bigmodel.cn/api/anthropic",
+      WHYJ_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
+    }, "sonnet");
+
+    const agent = createAgent({
+      cwd: TEST_DIR,
+      sessionsRoot: TEST_SESSIONS_DIR,
+      settings: {
+        env: {
+          WHYJ_QUANT_API_KEY: "test-key-123",
+          WHYJ_QUANT_BASE_URL: "https://open.bigmodel.cn/api/anthropic",
+          WHYJ_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]",
+        },
+        model: "sonnet",
+        thinkingLevel: "off",
+      },
+      skillPaths: [TEST_SKILLS_DIR],
+    });
+    await agent.waitForIdle();
+
+    expect(agent.state.model.id).toBe("deepseek-v4-pro[1m]");
+    expect(agent.state.model.provider).toBe("anthropic");
+    expect(agent.state.model.api).toBe("anthropic-messages");
+    expect(agent.state.model.baseUrl).toBe("https://open.bigmodel.cn/api/anthropic");
+  });
+
+  it("routes glm-5.2 directly as model on GLM Anthropic-compatible baseUrl", async () => {
+    cleanup();
+    setupSettings({
+      WHYJ_QUANT_API_KEY: "test-key-123",
+      WHYJ_QUANT_BASE_URL: "https://open.bigmodel.cn/api/anthropic",
+    }, "glm-5.2");
+
+    const agent = createAgent({
+      cwd: TEST_DIR,
+      sessionsRoot: TEST_SESSIONS_DIR,
+      settings: {
+        env: {
+          WHYJ_QUANT_API_KEY: "test-key-123",
+          WHYJ_QUANT_BASE_URL: "https://open.bigmodel.cn/api/anthropic",
+        },
+        model: "glm-5.2",
+        thinkingLevel: "off",
+      },
+      skillPaths: [TEST_SKILLS_DIR],
+    });
+    await agent.waitForIdle();
+
+    expect(agent.state.model.id).toBe("glm-5.2");
+    expect(agent.state.model.provider).toBe("anthropic");
+    expect(agent.state.model.api).toBe("anthropic-messages");
+    expect(agent.state.model.baseUrl).toBe("https://open.bigmodel.cn/api/anthropic");
+  });
+
+  it("builds a generic anthropic fallback for unknown models on GLM Anthropic-compatible baseUrl", async () => {
+    cleanup();
+    setupSettings({
+      WHYJ_QUANT_API_KEY: "test-key-123",
+      WHYJ_QUANT_BASE_URL: "https://open.bigmodel.cn/api/anthropic",
+    }, "unknown-custom-model");
+
+    const agent = createAgent({
+      cwd: TEST_DIR,
+      sessionsRoot: TEST_SESSIONS_DIR,
+      settings: {
+        env: {
+          WHYJ_QUANT_API_KEY: "test-key-123",
+          WHYJ_QUANT_BASE_URL: "https://open.bigmodel.cn/api/anthropic",
+        },
+        model: "unknown-custom-model",
+        thinkingLevel: "off",
+      },
+      skillPaths: [TEST_SKILLS_DIR],
+    });
+    await agent.waitForIdle();
+
+    expect(agent.state.model.id).toBe("unknown-custom-model");
+    expect(agent.state.model.provider).toBe("anthropic");
+    expect(agent.state.model.api).toBe("anthropic-messages");
+    expect(agent.state.model.baseUrl).toBe("https://open.bigmodel.cn/api/anthropic");
   });
 
   it("keeps OpenAI-style model routing on the OpenAI-compatible path", async () => {

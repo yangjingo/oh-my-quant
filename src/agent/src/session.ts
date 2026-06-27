@@ -565,10 +565,8 @@ export function estimateContextTokens(messages: AgentMessage[]): number {
 }
 
 export function resolveModelId(model: string, env: Record<string, string>): string {
-  const upper = model.toUpperCase();
-  const whyjKey = `WHYJ_DEFAULT_${upper}_MODEL`;
-  const anthropicKey = `ANTHROPIC_DEFAULT_${upper}_MODEL`;
-  return env[whyjKey] || process.env[whyjKey] || env[anthropicKey] || process.env[anthropicKey] || inferModelId(model);
+  const envKey = `WHYJ_DEFAULT_${model.toUpperCase()}_MODEL`;
+  return env[envKey] || process.env[envKey] || inferModelId(model);
 }
 
 function getUrlTail(baseUrl: string): string {

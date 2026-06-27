@@ -82,6 +82,33 @@ WhyJ 支持两种模型传输形态，它们不可互换：
 - 终端控制码剥离仅属于呈现层。Model ID、base URL 和环境变量支持的配置值必须原样传递，除非函数被显式记录为仅用于显示。
 - 避免为配置解析使用共享的"清理"helper。如果字符串需要 UI 友好的缩短，使用单独的格式化器，使请求路径仍能看到原始值。
 
+### 3.2 Model 解析
+
+`session.ts` 中的模型解析遵循**用户输入为准**原则，不对模型名做任何转换：
+
+```
+settings.json "model": "glm-5.2"
+  → resolveModelId("glm-5.2", env)
+    → 查 WHYJ_DEFAULT_GLM-5.2_MODEL env var（无）
+    → inferModelId("glm-5.2") → default: return "glm-5.2"
+  → inferProvider("glm-5.2", env)
+    → 读 WHYJ_QUANT_BASE_URL → 判断协议类型
+    → anthropic-compatible → "anthropic"
+    → open.bigmodel.cn / api.z.ai → "zai"
+    → api.minimaxi.com → "minimax"
+  → resolveModel(provider, "glm-5.2", env)
+    → 查注册表 models.generated.ts → 精确匹配或前缀匹配
+    → 未命中：buildAnthropicFallbackModel / buildGenericFallbackModel
+    → resolved.id = id  // 始终用用户给的原始 ID
+  → provider: model: "glm-5.2" → API
+```
+
+关键规则：
+- **不剥离后缀**：`deepseek-v4-pro[1m]` 原样发送给 DeepSeek API
+- **不验证存在性**：模型名是否被 API 接受由 API 自身校验，不在客户端验证
+- **用户直接模型名优先**：用户在 settings.json 或 Config Panel 填写的模型名直接作为 API `model` 字段
+- **WHYJ_DEFAULT_*_MODEL** 环境变量可覆盖短别名（sonnet/opus/haiku）到任意模型名
+
 故障排查清单：
 
 1. 如果在 Anthropic 兼容端点上看到 `404`，验证模型名在该端点上存在，并验证运行时选择了 Anthropic Messages 路径。
