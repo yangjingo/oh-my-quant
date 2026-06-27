@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   AKSHARE_PUBLIC_FUND_ENDPOINTS,
   AKSHARE_PUBLIC_INDEX_ENDPOINTS,
+  fetchAkshareAIndexSpot,
   normalizeAkshareIndexConstituentRows,
   normalizeAkshareIndexInfoRows,
   normalizeAkshareIndexQuote,
@@ -220,3 +221,25 @@ describe("normalizeAkshareIndexQuote", () => {
     expect(normalizeAkshareIndexQuote({ 代码: "000001", 名称: "上证指数" })).toBeNull();
   });
 });
+
+describe("fetchAkshareAIndexSpot", () => {
+  it("falls back to Sina quotes without Python", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(
+      new TextEncoder().encode('var hq_str_sh000001="上证指数,3381.10,3354.29,3381.10,3388.12,3352.34,0,0,285455945,321018391310";var hq_str_sz399001="深证成指,10898.75,10765.00,10898.75,10920.00,10750.00,0,0,123456789,987654321";'),
+      { status: 200 },
+    )) as unknown as typeof fetch;
+
+    try {
+      const quotes = await fetchAkshareAIndexSpot(["沪深重要指数"]);
+      expect(quotes.some((quote) => quote.code === "000001" && quote.price === 3381.1)).toBe(true);
+      expect(quotes.some((quote) => quote.code === "399001" && quote.price === 10898.75)).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+
+
+
