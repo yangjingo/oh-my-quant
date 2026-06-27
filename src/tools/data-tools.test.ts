@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Bar } from "../types/data.ts";
-import { fetchBarsTool, formatBarsChartBlock } from "./data-tools.ts";
+import { fetchBarsTool, fetchIndexRowsTool, formatBarsChartBlock } from "./data-tools.ts";
 
 function resultText(result: AgentToolResult<unknown>): string {
   return result.content
@@ -20,6 +20,16 @@ describe("data tools UX messages", () => {
     expect(text).toContain("No daily-bars adapter is available for AAPL in market US.");
     expect(text).toContain("Next");
     expect(text).toContain("configured source");
+  });
+
+  it("rejects non-whitelisted AKShare index endpoints before calling Python", async () => {
+    const result = await fetchIndexRowsTool.execute("t2", {
+      endpoint: "stock_zh_a_spot_em",
+    });
+
+    const text = resultText(result);
+    expect(text).toContain("Unsupported AKShare index endpoint");
+    expect(text).toContain("whitelisted index endpoints");
   });
 
   it("formats fetched bars with deterministic close and K-line chart blocks", () => {

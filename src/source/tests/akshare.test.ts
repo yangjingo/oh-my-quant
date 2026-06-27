@@ -1,5 +1,15 @@
 import { describe, expect, it } from "bun:test";
-import { AKSHARE_PUBLIC_FUND_ENDPOINTS, parseAkshareFundHistoryJson, parseAkshareJson, parseAkshareRowsJson } from "../src/akshare.ts";
+import {
+  AKSHARE_PUBLIC_FUND_ENDPOINTS,
+  AKSHARE_PUBLIC_INDEX_ENDPOINTS,
+  normalizeAkshareIndexConstituentRows,
+  normalizeAkshareIndexInfoRows,
+  normalizeAkshareIndexQuote,
+  parseAkshareFundHistoryJson,
+  parseAkshareIndexRowsJson,
+  parseAkshareJson,
+  parseAkshareRowsJson,
+} from "../src/akshare.ts";
 
 describe("parseAkshareJson", () => {
   it("maps AKShare records to Bar rows", () => {
@@ -109,5 +119,104 @@ describe("parseAkshareRowsJson", () => {
     expect(AKSHARE_PUBLIC_FUND_ENDPOINTS).toContain("fund_portfolio_hold_em");
     expect(AKSHARE_PUBLIC_FUND_ENDPOINTS).toContain("reits_realtime_em");
     expect(() => parseAkshareRowsJson({ endpoint: "stock_zh_a_spot_em", rows: [] })).toThrow("unsupported endpoint");
+  });
+});
+
+describe("parseAkshareIndexRowsJson", () => {
+  it("normalizes generic AKShare index endpoint rows", () => {
+    const parsed = parseAkshareIndexRowsJson({
+      endpoint: "stock_zh_index_spot_em",
+      params: { symbol: "沪深重要指数" },
+      fetched_at: "2026-06-26T10:00:00",
+      row_count: 1,
+      rows: [{ 代码: "000001", 名称: "上证指数", 最新价: 3381.1, 涨跌幅: 0.8 }],
+    });
+
+    expect(parsed.endpoint).toBe("stock_zh_index_spot_em");
+    expect(parsed.rowCount).toBe(1);
+    expect(parsed.rows[0]?.["名称"]).toBe("上证指数");
+  });
+
+  it("keeps public index endpoints whitelisted", () => {
+    expect(AKSHARE_PUBLIC_INDEX_ENDPOINTS).toContain("stock_zh_index_spot_em");
+    expect(AKSHARE_PUBLIC_INDEX_ENDPOINTS).toContain("index_realtime_sw");
+    expect(AKSHARE_PUBLIC_INDEX_ENDPOINTS).toContain("stock_zh_index_hist_csindex");
+    expect(() => parseAkshareIndexRowsJson({ endpoint: "stock_zh_a_spot_em", rows: [] })).toThrow("unsupported endpoint");
+  });
+});
+
+describe("normalizeAkshareIndexInfoRows", () => {
+  it("maps AKShare index_stock_info rows to stable index metadata", () => {
+    const rows = normalizeAkshareIndexInfoRows([
+      { index_code: "000300", display_name: "沪深300", publish_date: "2005/4/8" },
+      { index_code: "399300", display_name: "沪深300", publish_date: "2005/4/8" },
+      { index_code: "000905", display_name: "中证500", publish_date: "2007/1/15" },
+    ], { keyword: "沪深" });
+
+    expect(rows).toEqual([
+      { indexCode: "000300", displayName: "沪深300", publishDate: "2005/4/8" },
+      { indexCode: "399300", displayName: "沪深300", publishDate: "2005/4/8" },
+    ]);
+  });
+});
+
+describe("normalizeAkshareIndexConstituentRows", () => {
+  it("maps legacy Sina constituent rows and removes duplicate stock codes", () => {
+    const rows = normalizeAkshareIndexConstituentRows([
+      { 品种代码: "000001", 品种名称: "平安银行", 纳入日期: "2005-04-08" },
+      { 品种代码: "000001", 品种名称: "平安银行", 纳入日期: "2005-04-08" },
+      { 品种代码: "600519", 品种名称: "贵州茅台", 纳入日期: "2005-04-08" },
+    ], { symbol: "000300", indexName: "沪深300", source: "index_stock_cons" });
+
+    expect(rows).toEqual([
+      expect.objectContaining({ stockCode: "000001", stockName: "平安银行", inclusionDate: "2005-04-08", indexCode: "000300", indexName: "沪深300" }),
+      expect.objectContaining({ stockCode: "600519", stockName: "贵州茅台", source: "index_stock_cons" }),
+    ]);
+  });
+
+  it("maps csindex constituent rows with exchange and weight when present", () => {
+    const rows = normalizeAkshareIndexConstituentRows([
+      { 指数代码: "000300", 指数名称: "沪深300", 成分券代码: "000001", 成分券名称: "平安银行", 交易所: "深圳证券交易所", 权重: "0.524" },
+    ], { symbol: "399300", indexName: null, source: "index_stock_cons_csindex" });
+
+    expect(rows[0]).toEqual(expect.objectContaining({
+      stockCode: "000001",
+      stockName: "平安银行",
+      indexCode: "000300",
+      indexName: "沪深300",
+      exchange: "深圳证券交易所",
+      weight: 0.524,
+      source: "index_stock_cons_csindex",
+    }));
+  });
+});
+
+describe("normalizeAkshareIndexQuote", () => {
+  it("maps Eastmoney/Sina style index rows to one quote shape", () => {
+    const quote = normalizeAkshareIndexQuote({
+      代码: "sh000001",
+      名称: "上证指数",
+      最新价: "3,381.10",
+      涨跌幅: "0.80%",
+      涨跌额: "26.81",
+      今开: 3360,
+      最高: 3388,
+      最低: 3352,
+      昨收: 3354.29,
+      成交量: "285455945",
+      成交额: "321018391310",
+    });
+
+    expect(quote).toEqual(expect.objectContaining({
+      code: "000001",
+      name: "上证指数",
+      price: 3381.1,
+      changePct: 0.8,
+      source: "akshare",
+    }));
+  });
+
+  it("returns null when a row is not quote-like", () => {
+    expect(normalizeAkshareIndexQuote({ 代码: "000001", 名称: "上证指数" })).toBeNull();
   });
 });

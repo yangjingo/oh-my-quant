@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { generateInsights, getNotePaths } from "./insight-generator.ts";
 
 // ── Types ──
@@ -100,7 +101,7 @@ const BUILTIN_RULES: readonly InsightRule[] = [
 
 // ── JSON loading ──
 
-const ROOT = resolve(import.meta.dir, "../..");
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const INSIGHTS_PATH = resolve(ROOT, ".ohquant/insights.json");
 
 let _entries: InsightEntry[] | null = null;

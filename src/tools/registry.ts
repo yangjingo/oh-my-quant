@@ -46,6 +46,10 @@ const DEFAULT_BUILTIN_TOOL_REGISTRATIONS: BuiltinToolRegistration[] = [
   { tool: mustTool(DATA_TOOLS, "fetch_bars"), domain: "data", display: { label: "AKShare · Daily Bars", provider: "akshare" } },
   { tool: mustTool(DATA_TOOLS, "search_symbols"), domain: "data", display: { label: "Tushare · Search", provider: "joinquant" } },
   { tool: mustTool(DATA_TOOLS, "fetch_snapshot"), domain: "data", display: { label: "Direct · Snapshot" } },
+  { tool: mustTool(DATA_TOOLS, "fetch_index_spot"), domain: "data", display: { label: "AKShare · Index Spot", provider: "akshare" } },
+  { tool: mustTool(DATA_TOOLS, "fetch_index_info"), domain: "data", display: { label: "AKShare · Index Info", provider: "akshare" } },
+  { tool: mustTool(DATA_TOOLS, "fetch_index_constituents"), domain: "data", display: { label: "AKShare · Index Constituents", provider: "akshare" } },
+  { tool: mustTool(DATA_TOOLS, "fetch_index_rows"), domain: "data", display: { label: "AKShare · Index Rows", provider: "akshare" } },
   ...AKSHARE_FUND_TOOL_REGISTRATIONS.map((entry) => ({
     tool: mustTool(DATA_TOOLS, entry.name),
     domain: "data" as const,

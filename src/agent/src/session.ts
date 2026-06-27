@@ -565,12 +565,10 @@ export function estimateContextTokens(messages: AgentMessage[]): number {
 }
 
 export function resolveModelId(model: string, env: Record<string, string>): string {
-  const envKey = `WHYJ_DEFAULT_${model.toUpperCase()}_MODEL`;
-  return env[envKey] || process.env[envKey] || inferModelId(model);
-}
-
-function normalizeModelLookupId(modelId: string): string {
-  return modelId.replace(/\[\d+m\]$/u, "");
+  const upper = model.toUpperCase();
+  const whyjKey = `WHYJ_DEFAULT_${upper}_MODEL`;
+  const anthropicKey = `ANTHROPIC_DEFAULT_${upper}_MODEL`;
+  return env[whyjKey] || process.env[whyjKey] || env[anthropicKey] || process.env[anthropicKey] || inferModelId(model);
 }
 
 function getUrlTail(baseUrl: string): string {
@@ -601,43 +599,42 @@ export function inferModelId(model: string): string {
 
 function inferProvider(modelId: string, env: Record<string, string>): string {
   const baseUrl = stripTerminalControlCodes(env.WHYJ_QUANT_BASE_URL || process.env.WHYJ_QUANT_BASE_URL || "");
-  const lookupId = normalizeModelLookupId(modelId);
   if (isAnthropicStyleEndpoint(baseUrl)) return "anthropic";
   if (baseUrl.includes("open.bigmodel.cn") || baseUrl.includes("api.z.ai")) return "zai";
   if (baseUrl.includes("api.minimaxi.com") || baseUrl.includes("minimaxi.com")) return "minimax";
-  if (lookupId.startsWith("openai/")) return "openrouter";
-  if (lookupId.startsWith("deepseek-")) return "deepseek";
-  if (lookupId.startsWith("claude-")) return "anthropic";
-  if (lookupId.startsWith("gpt-") || lookupId.startsWith("o")) return "openai";
-  if (lookupId.startsWith("gemini-")) return "google";
-  if (lookupId.startsWith("mistral-")) return "mistral";
+  if (modelId.startsWith("openai/")) return "openrouter";
+  if (modelId.startsWith("deepseek-")) return "deepseek";
+  if (modelId.startsWith("claude-")) return "anthropic";
+  if (modelId.startsWith("gpt-") || modelId.startsWith("o")) return "openai";
+  if (modelId.startsWith("gemini-")) return "google";
+  if (modelId.startsWith("mistral-")) return "mistral";
   return "deepseek";
 }
 
 function resolveModel(provider: string, id: string, env: Record<string, string>): Model<any> {
   const baseUrl =
     stripTerminalControlCodes(env.WHYJ_QUANT_BASE_URL || process.env.WHYJ_QUANT_BASE_URL || "");
-  const lookupId = normalizeModelLookupId(id);
   const resolvedProvider = isAnthropicStyleEndpoint(baseUrl)
     ? "anthropic"
     : provider;
 
   const models = getModels(resolvedProvider as KnownProvider);
-  const model = models.find((candidate) => candidate.id === lookupId);
+  const model = models.find((candidate) => candidate.id === id);
   const resolved = model ? { ...model } : (() => {
-    const prefix = models.find((candidate) => lookupId.startsWith(candidate.id));
+    const prefix = models.find((candidate) => id.startsWith(candidate.id));
     if (prefix) return { ...prefix };
     if (resolvedProvider === "anthropic") {
-      const anthropicModel = buildAnthropicFallbackModel(lookupId, baseUrl || undefined);
+      const anthropicModel = buildAnthropicFallbackModel(id, baseUrl || undefined);
       if (anthropicModel) return anthropicModel;
     }
-    const genericModel = buildGenericFallbackModel(resolvedProvider, lookupId, baseUrl || undefined);
+    const genericModel = buildGenericFallbackModel(resolvedProvider, id, baseUrl || undefined);
     if (genericModel) return genericModel;
-    throw new Error(`pi-ai model not found: ${resolvedProvider}/${lookupId}`);
+    throw new Error(`pi-ai model not found: ${resolvedProvider}/${id}`);
   })();
   if (baseUrl) {
     resolved.baseUrl = baseUrl;
   }
+  resolved.id = id;
   return resolved;
 }
 
@@ -662,7 +659,7 @@ function buildAnthropicFallbackModel(id: string, baseUrl?: string): Model<any> |
   const anthropicBaseUrl = baseUrl || "https://api.anthropic.com";
   if (id.startsWith("deepseek-")) {
     const deepseekModels = getModels("deepseek" as KnownProvider);
-    const template = deepseekModels.find((candidate) => candidate.id === id);
+    const template = deepseekModels.find((candidate) => id.startsWith(candidate.id));
     if (!template) return undefined;
     return {
       ...template,

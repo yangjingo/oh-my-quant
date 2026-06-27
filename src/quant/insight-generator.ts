@@ -3,9 +3,10 @@
  * Used by both scripts/generate-insights.ts (CLI) and insight.ts (auto-regenerate).
  */
 import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = resolve(import.meta.dir, "../..");
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 export interface InsightEntry {
   quote: string;

@@ -2,7 +2,7 @@ import { formatCompletedToolLine, formatToolArgs, formatToolLine, toolDisplayLab
 import { buildCommandHelpText } from "./cli/catalog.ts";
 import { executeCommand, isLocalSlashCommand, parseCommand } from "./cli/registry.ts";
 import type { CommandEffect, CommandResult } from "./cli/types.ts";
-import { fetchLiveBars, formatRefreshMinute, formatSourceLabels, type PullSource } from "./source/index.ts";
+import { fetchAkshareAIndexSpot, fetchLiveBars, formatRefreshMinute, formatSourceLabels, type PullSource } from "./source/index.ts";
 import { dispatchUserMessage, isAgentTurnActive } from "./agent/src/dispatch.ts";
 import { createAgent, updateSessionCtx, type QuantAgentSession } from "./agent/src/session.ts";
 import { skillPaths } from "./skill/index.ts";
@@ -520,7 +520,7 @@ export class AppRuntime {
         rowsByCode.set(row.code, row);
       }
       const fallbackRows = allSymbols.map((entry) => ({
-        code: entry.code.split(".")[0] || entry.code,
+        code: baseCode(entry.code),
         name: entry.name || entry.code,
         price: 0,
         pct: 0,
@@ -847,6 +847,12 @@ function agentErrorHint(message: string): string | null {
 
 
 async function fetchQuotes(entries: CodeEntry[], meta: PullMeta): Promise<Quote[]> {
+  const realtime = await fetchAIndexSpotQuotes(entries, meta);
+  if (realtime) return realtime;
+  return fetchQuotesFromBars(entries, meta);
+}
+
+async function fetchQuotesFromBars(entries: CodeEntry[], meta: PullMeta): Promise<Quote[]> {
   return Promise.all(entries.map(async (entry) => {
     try {
       const bars = await fetchQuoteBars(entry.code, meta);
@@ -856,12 +862,53 @@ async function fetchQuotes(entries: CodeEntry[], meta: PullMeta): Promise<Quote[
       // Fall through to placeholder row so fixed indices always render.
     }
     return {
-      code: entry.code.split(".")[0] || entry.code,
+      code: baseCode(entry.code),
       name: entry.name || entry.code,
       price: 0,
       pct: 0,
     };
   }));
+}
+
+async function fetchAIndexSpotQuotes(entries: CodeEntry[], meta: PullMeta): Promise<Quote[] | null> {
+  if (entries.length === 0 || !entries.every(isAIndexEntry)) return null;
+  try {
+    const quotes = await fetchAkshareAIndexSpot(["沪深重要指数", "上证系列指数", "深证系列指数", "中证系列指数"]);
+    const byCode = new Map(quotes.map((quote) => [quote.code, quote]));
+    const rows = entries.map((entry): Quote | null => {
+      const code = baseCode(entry.code);
+      const quote = byCode.get(code);
+      if (!quote) return null;
+      return {
+        code,
+        name: entry.name || quote.name,
+        price: quote.price,
+        pct: quote.changePct ?? 0,
+      };
+    });
+    if (rows.some((row) => row === null)) return null;
+    meta.sources.push("akshare");
+    meta.asOfDates.push(todayLocalDate());
+    return rows as Quote[];
+  } catch {
+    return null;
+  }
+}
+
+function isAIndexEntry(entry: CodeEntry): boolean {
+  return /^\d{6}(\.(SH|SZ|BJ))?$/i.test(entry.code);
+}
+
+function baseCode(symbol: string): string {
+  return symbol.split(".")[0] || symbol;
+}
+
+function todayLocalDate(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 async function fetchHoldings(entries: CodeEntry[], meta: PullMeta): Promise<Holding[]> {
@@ -874,7 +921,7 @@ async function fetchHoldings(entries: CodeEntry[], meta: PullMeta): Promise<Hold
       // Fall through to placeholder row.
     }
     return {
-      code: entry.code.split(".")[0] || entry.code,
+      code: baseCode(entry.code),
       name: entry.name || entry.code,
       price: 0,
       pct: 0,
@@ -910,7 +957,7 @@ function quoteFromBars(entry: CodeEntry, bars: Bar[]): Quote | null {
   const prev = bars[bars.length - 2];
   const last = bars[bars.length - 1];
   return {
-    code: entry.code.split(".")[0] || entry.code,
+    code: baseCode(entry.code),
     name: entry.name || entry.code,
     price: last.close,
     pct: prev.close ? (last.close - prev.close) / prev.close * 100 : 0,
@@ -922,7 +969,7 @@ function holdingFromBars(entry: CodeEntry, bars: Bar[]): Holding | null {
   const prev = bars[bars.length - 2];
   const last = bars[bars.length - 1];
   return {
-    code: entry.code.split(".")[0] || entry.code,
+    code: baseCode(entry.code),
     name: entry.name || entry.code,
     price: last.close,
     pct: prev.close ? (last.close - prev.close) / prev.close * 100 : 0,

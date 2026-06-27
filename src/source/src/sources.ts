@@ -22,7 +22,7 @@ export interface LiveFetchResult {
 }
 
 export const SOURCE_LABELS: Record<PullSource, string> = {
-  akshare: "AKShare · 东方财富",
+  akshare: "AKShare",
   tushare: "Tushare",
   "llmquant-data": "LLMQuant",
   "financial-datasets": "Financial Datasets",

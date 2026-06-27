@@ -1,5 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import type { Bar } from "../../types/data.ts";
+import * as REAL_AKSHARE from "../src/akshare.ts";
+import * as REAL_TUSHARE from "../src/tushare.ts";
 
 const SAMPLE_BARS: Bar[] = [
   { date: "2026-06-06", open: 1, high: 1, low: 1, close: 10, volume: 0, amount: 0 },
@@ -10,8 +12,8 @@ const SAMPLE_BARS: Bar[] = [
 describe("source attribution labels", () => {
   it("formats single and mixed providers", async () => {
     const { formatSourceLabels } = await import("../src/sources.ts");
-    expect(formatSourceLabels(["akshare"])).toBe("AKShare · 东方财富");
-    expect(formatSourceLabels(["akshare", "akshare"])).toBe("AKShare · 东方财富");
+    expect(formatSourceLabels(["akshare"])).toBe("AKShare");
+    expect(formatSourceLabels(["akshare", "akshare"])).toBe("AKShare");
     expect(formatSourceLabels(["unavailable"])).toBe("暂无数据");
   });
 
@@ -39,8 +41,8 @@ describe("pullBarsFromProviders", () => {
   it("prefers akshare for A-shares by default", async () => {
     const fetchFromAKShare = mock(() => Promise.resolve(SAMPLE_BARS));
     const fetchFromTushare = mock(() => Promise.resolve([]));
-    mock.module("../src/akshare.ts", () => ({ fetchFromAKShare, parseAkshareJson: () => [] }));
-    mock.module("../src/tushare.ts", () => ({ fetchFromTushare, searchTushareSymbols: async () => [] }));
+    mock.module("../src/akshare.ts", () => ({ ...REAL_AKSHARE, fetchFromAKShare }));
+    mock.module("../src/tushare.ts", () => ({ ...REAL_TUSHARE, fetchFromTushare }));
     const { pullBarsFromProviders: pull } = await import("../src/sources.ts");
     const result = await pull("000300.SH", "A");
     expect(result.source).toBe("akshare");
@@ -54,8 +56,8 @@ describe("pullBarsFromProviders", () => {
       { date: "2026-06-15", open: 2, high: 3, low: 1, close: 20, volume: 1000, amount: 20000 },
     ];
     const fetchFromTushare = mock(() => Promise.resolve(tushareBars));
-    mock.module("../src/akshare.ts", () => ({ fetchFromAKShare, parseAkshareJson: () => [] }));
-    mock.module("../src/tushare.ts", () => ({ fetchFromTushare, searchTushareSymbols: async () => [] }));
+    mock.module("../src/akshare.ts", () => ({ ...REAL_AKSHARE, fetchFromAKShare }));
+    mock.module("../src/tushare.ts", () => ({ ...REAL_TUSHARE, fetchFromTushare }));
     const { pullBarsFromProviders: pull } = await import("../src/sources.ts");
     const result = await pull("000300.SH", "A", undefined, undefined, "tushare");
     expect(result.source).toBe("tushare");
@@ -66,8 +68,8 @@ describe("pullBarsFromProviders", () => {
   it("falls back to akshare when selected=tushare but tushare fails", async () => {
     const fetchFromAKShare = mock(() => Promise.resolve(SAMPLE_BARS));
     const fetchFromTushare = mock(() => Promise.reject(new Error("offline")));
-    mock.module("../src/akshare.ts", () => ({ fetchFromAKShare, parseAkshareJson: () => [] }));
-    mock.module("../src/tushare.ts", () => ({ fetchFromTushare, searchTushareSymbols: async () => [] }));
+    mock.module("../src/akshare.ts", () => ({ ...REAL_AKSHARE, fetchFromAKShare }));
+    mock.module("../src/tushare.ts", () => ({ ...REAL_TUSHARE, fetchFromTushare }));
     const { pullBarsFromProviders: pull } = await import("../src/sources.ts");
     const result = await pull("000300.SH", "A", undefined, undefined, "tushare");
     expect(result.source).toBe("akshare");
@@ -78,8 +80,8 @@ describe("pullBarsFromProviders", () => {
   it("returns unavailable when both providers return empty", async () => {
     const fetchFromAKShare = mock(() => Promise.resolve([]));
     const fetchFromTushare = mock(() => Promise.resolve([]));
-    mock.module("../src/tushare.ts", () => ({ fetchFromTushare, searchTushareSymbols: async () => [] }));
-    mock.module("../src/akshare.ts", () => ({ fetchFromAKShare, parseAkshareJson: () => [] }));
+    mock.module("../src/tushare.ts", () => ({ ...REAL_TUSHARE, fetchFromTushare }));
+    mock.module("../src/akshare.ts", () => ({ ...REAL_AKSHARE, fetchFromAKShare }));
     const { pullBarsFromProviders: pull } = await import("../src/sources.ts");
     const result = await pull("000300.SH", "A");
     expect(result).toEqual({ bars: [], source: "unavailable" });
@@ -89,8 +91,8 @@ describe("pullBarsFromProviders", () => {
   it("returns unavailable when all providers fail", async () => {
     const fetchFromAKShare = mock(() => Promise.reject(new Error("offline")));
     const fetchFromTushare = mock(() => Promise.reject(new Error("token missing")));
-    mock.module("../src/akshare.ts", () => ({ fetchFromAKShare, parseAkshareJson: () => [] }));
-    mock.module("../src/tushare.ts", () => ({ fetchFromTushare, searchTushareSymbols: async () => [] }));
+    mock.module("../src/akshare.ts", () => ({ ...REAL_AKSHARE, fetchFromAKShare }));
+    mock.module("../src/tushare.ts", () => ({ ...REAL_TUSHARE, fetchFromTushare }));
     const { pullBarsFromProviders: pull } = await import("../src/sources.ts");
     const result = await pull("000300.SH", "A");
     expect(result).toEqual({ bars: [], source: "unavailable" });
@@ -102,8 +104,8 @@ describe("pullBarsFromProviders", () => {
     const fetchFromTushare = mock(() => Promise.resolve([
       { date: "2026-06-08", open: 1, high: 1, low: 1, close: 11, volume: 0, amount: 0 },
     ]));
-    mock.module("../src/akshare.ts", () => ({ fetchFromAKShare, parseAkshareJson: () => [] }));
-    mock.module("../src/tushare.ts", () => ({ fetchFromTushare, searchTushareSymbols: async () => [] }));
+    mock.module("../src/akshare.ts", () => ({ ...REAL_AKSHARE, fetchFromAKShare }));
+    mock.module("../src/tushare.ts", () => ({ ...REAL_TUSHARE, fetchFromTushare }));
     const { pullBarsFromProviders: pull } = await import("../src/sources.ts");
     const result = await pull("000300.SH", "A");
     expect(result.source).toBe("tushare");
@@ -116,8 +118,8 @@ describe("fetchLiveBars", () => {
   it("applies date filter and reports latest asOfDate", async () => {
     const fetchFromAKShare = mock(() => Promise.resolve(SAMPLE_BARS));
     const fetchFromTushare = mock(() => Promise.resolve([]));
-    mock.module("../src/akshare.ts", () => ({ fetchFromAKShare, parseAkshareJson: () => [] }));
-    mock.module("../src/tushare.ts", () => ({ fetchFromTushare, searchTushareSymbols: async () => [] }));
+    mock.module("../src/akshare.ts", () => ({ ...REAL_AKSHARE, fetchFromAKShare }));
+    mock.module("../src/tushare.ts", () => ({ ...REAL_TUSHARE, fetchFromTushare }));
     const { fetchLiveBars: fetchLive } = await import("../src/sources.ts");
     const result = await fetchLive("000300.SH", "A", "2026-06-07", "2026-06-08");
     expect(result.source).toBe("akshare");
@@ -129,8 +131,8 @@ describe("fetchLiveBars", () => {
   it("falls back to the latest available bars when the requested window is empty", async () => {
     const fetchFromAKShare = mock(() => Promise.resolve(SAMPLE_BARS));
     const fetchFromTushare = mock(() => Promise.resolve([]));
-    mock.module("../src/akshare.ts", () => ({ fetchFromAKShare, parseAkshareJson: () => [] }));
-    mock.module("../src/tushare.ts", () => ({ fetchFromTushare, searchTushareSymbols: async () => [] }));
+    mock.module("../src/akshare.ts", () => ({ ...REAL_AKSHARE, fetchFromAKShare }));
+    mock.module("../src/tushare.ts", () => ({ ...REAL_TUSHARE, fetchFromTushare }));
     const { fetchLiveBars: fetchLive } = await import("../src/sources.ts");
     const result = await fetchLive("000300.SH", "A", "2030-01-01", "2030-01-31");
     expect(result.source).toBe("akshare");

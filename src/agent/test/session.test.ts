@@ -232,7 +232,7 @@ describe("createAgent", () => {
     });
     await agent.waitForIdle();
 
-    expect(agent.state.model.id).toBe("deepseek-v4-pro");
+    expect(agent.state.model.id).toBe("deepseek-v4-pro[1m]");
     expect(agent.state.model.provider).toBe("anthropic");
     expect(agent.state.model.api).toBe("anthropic-messages");
   });
@@ -269,6 +269,7 @@ describe("createAgent", () => {
     ["glm-5", "https://open.bigmodel.cn/api/anthropic"],
     ["glm-5.2", "https://open.bigmodel.cn/api/anthropic"],
     ["glm-5.1", "https://open.bigmodel.cn/api/anthropic"],
+    ["glm-5.2[1m]", "https://open.bigmodel.cn/api/anthropic"],
     ["MiniMax-M2.7", "https://api.minimaxi.com/anthropic"],
   ].forEach(([modelId, baseUrl]) => {
     it(`routes ${modelId} through the anthropic provider on Anthropic-compatible endpoints`, async () => {
@@ -306,6 +307,7 @@ describe("createAgent", () => {
     ["glm-5", "https://open.bigmodel.cn/api/v1", "zai"],
     ["glm-5.2", "https://open.bigmodel.cn/api/v1", "zai"],
     ["glm-5.1", "https://open.bigmodel.cn/api/v1", "zai"],
+    ["glm-5.2[1m]", "https://open.bigmodel.cn/api/v1", "zai"],
     ["MiniMax-M2.7", "https://api.minimaxi.com/v1", "minimax"],
   ].forEach(([modelId, baseUrl, provider]) => {
     it(`routes ${modelId} through the ${provider} openai-completions path on OpenAI-style endpoints`, async () => {
