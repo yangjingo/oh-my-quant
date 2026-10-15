@@ -180,7 +180,7 @@ document.addEventListener("click", (event) => {
     selectedVersion = Number(button.dataset.version); selectedEvidence = null; phase = "complete"; tab = "summary"; render(); return;
   }
   const action = button.dataset.action;
-  if (action === "toggle-results") { resultsOpen = !resultsOpen; resultsExpanded = false; render(); }
+  if (action === "toggle-results") { resultsOpen = !resultsOpen; mobileResults = resultsOpen; resultsExpanded = false; render(); }
   if (action === "expand-results") { resultsExpanded = !resultsExpanded; resultsOpen = true; mobileResults = true; render(); }
   if (action === "return-chat") { resultsExpanded = false; mobileResults = false; render(); document.querySelector("#question-input").focus(); }
   if (action === "open-comparison" || action === "close-comparison") {
