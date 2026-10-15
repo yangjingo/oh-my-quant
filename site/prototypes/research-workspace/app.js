@@ -156,11 +156,17 @@ document.addEventListener("click", (event) => {
   if (button.dataset.mobile) { mobileResults = button.dataset.mobile === "result"; render(); return; }
   if (button.dataset.tab) { tab = button.dataset.tab; render(); return; }
   if (button.dataset.evidence) { openDetail(button.dataset.evidence); return; }
-  if (button.dataset.version !== undefined) { clearTimeout(timer); selectedVersion = Number(button.dataset.version); phase = "complete"; tab = "summary"; render(); return; }
+  if (button.dataset.version !== undefined) {
+    if (phase === "running" || phase === "cancelled") { notify("当前研究尚未完成。请先继续当前任务，或新建研究重置演示，再打开历史版本。"); return; }
+    selectedVersion = Number(button.dataset.version); phase = "complete"; tab = "summary"; render(); return;
+  }
   const action = button.dataset.action;
   if (action === "new") { clearTimeout(timer); phase = "idle"; stage = 0; input = ""; question = sampleQuestion; mobileResults = false; render(); document.querySelector("#question-input").focus(); }
   if (action === "example") { question = sampleQuestion; startRun(); }
-  if (action === "history") { clearTimeout(timer); phase = "complete"; stage = 5; selectedVersion = 0; question = sampleQuestion; render(); }
+  if (action === "history") {
+    if (phase === "running" || phase === "cancelled") { notify("当前研究尚未完成。请先继续当前任务，或新建研究重置演示，再打开示例研究。"); return; }
+    phase = "complete"; stage = 5; selectedVersion = 0; question = sampleQuestion; render();
+  }
   if (action === "stop") { clearTimeout(timer); phase = "cancelled"; render(); notify("已停止模拟执行，保留已完成步骤。"); }
   if (action === "continue") startRun(pendingReview, true);
   if (action === "evidence") { tab = "evidence"; mobileResults = true; render(); }
