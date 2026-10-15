@@ -11,6 +11,10 @@ let stage = 5;
 let scenario = "complete";
 let tab = "summary";
 let mobileResults = false;
+let resultsOpen = true;
+let resultsExpanded = false;
+let selectedEvidence = null;
+let comparisonMode = new URLSearchParams(location.search).get("compare") === "1" || variant !== "A";
 let saved = false;
 let question = sampleQuestion;
 let input = "";
@@ -49,9 +53,9 @@ function runLog() {
 }
 function conversation() {
   const version = current();
-  return `<section class="main-column" aria-label="Agent 研究对话"><header class="column-header"><div class="eyebrow">RESEARCH / 001</div><div class="row spread"><h2>回调结构研究</h2><span class="tag neutral">${runLabel()}</span></div></header><div class="conversation">
+  return `<section class="main-column" aria-label="Agent 研究对话"><header class="column-header"><div class="eyebrow">RESEARCH / 001</div><div class="row spread"><h2>回调结构研究</h2><div class="row wrap"><span class="tag neutral">${runLabel()}</span>${variant === "A" ? `<button class="small" data-action="toggle-results" aria-expanded="${resultsOpen}">${resultsOpen ? "收起成果" : "查看成果"}</button>` : ""}</div></div></header><div class="conversation">
     ${phase === "idle" ? `<div class="empty"><div class="empty-mark">↗</div><h2>从一个投资问题开始</h2><p class="muted">问清依据、比较和失效条件。<br>本原型只运行一个固定示例。</p><button data-action="example" class="primary">运行研究示例</button></div>` : `<div class="message-label">你 · ${version.id} 研究</div><div class="user-message">${escapeHtml(question)}</div><div class="agent-label"><span class="dot"></span>WhyJ Research <span class="muted">· 演示回答</span></div>
-      ${phase === "running" ? `<p class="agent-message">${pendingReview ? "对照原假设，检查新增数据是否改变判断。" : "我会先核对完成日线与比较口径，再检查结构证据和反证。"}</p>${runLog()}<p class="muted">模拟事件用于验证等待与停止体验，没有调用模型或行情。</p>` : phase === "cancelled" ? `${runLog()}<div class="note">研究已停止。已完成的演示步骤仍保留，尚未生成新的完整结论。</div><button class="primary" data-action="continue">继续演示研究</button>` : `<div class="agent-message"><p>${version.signal === "失效" ? "<strong>原假设已失效。</strong>新增演示收盘值低于原定结构边界 108，不能通过下移边界维持原判断。" : version.signal === "触发" ? "<strong>从观察转为触发，尚未确认。</strong>新增演示收盘值收复 110，仍需要后续已完成日线的支持。" : "<strong>当前保持观察。</strong>回调尚未跌破原结构边界，但缩量本身不足以证明回调结束。"} <button class="citation" data-evidence="E1">E1</button></p><p>${scenario === "missing" ? "板块样本缺失，不能判断是否跑赢板块。已有标的和大盘证据继续保留。" : "标的与大盘、板块使用相同起点和截止范围；相对表现只作为研究依据，不等于可执行买点。"} <button class="citation" data-evidence="E2">E2</button></p></div>${runLog()}<div class="next-question"><h3>接下来验证什么？</h3><p>${version.signal === "失效" ? "旧假设已经终止。重新研究须另立假设，不能沿用原来的看多结论。原边界仍保留供复盘。" : "关注 110 的收复与后续保持；原失效条件固定为完成日线收盘低于 108。均为合成样例条件。"}</p></div><button data-action="evidence" class="text-button">打开证据与计算 ↗</button>`}`}
+      ${phase === "running" ? `<p class="agent-message">${pendingReview ? "对照原假设，检查新增数据是否改变判断。" : "我会先核对完成日线与比较口径，再检查结构证据和反证。"}</p><div class="run-status" role="status"><span class="dot"></span><div><strong>${steps[Math.min(stage, steps.length - 1)]}</strong><p>已完成 ${stage} / ${steps.length} 个演示步骤 · 可随时停止</p></div></div>${runLog()}<p class="muted">模拟事件用于验证等待与停止体验，没有调用模型或行情。</p>` : phase === "cancelled" ? `${runLog()}<div class="note">研究已停止。已完成的演示步骤仍保留，尚未生成新的完整结论。</div><button class="primary" data-action="continue">继续演示研究</button>` : `<div class="agent-message"><p>${version.signal === "失效" ? "<strong>原假设已失效。</strong>新增演示收盘值低于原定结构边界 108，不能通过下移边界维持原判断。" : version.signal === "触发" ? "<strong>从观察转为触发，尚未确认。</strong>新增演示收盘值收复 110，仍需要后续已完成日线的支持。" : "<strong>当前保持观察。</strong>回调尚未跌破原结构边界，但缩量本身不足以证明回调结束。"} <button class="citation" data-evidence="E1">E1</button></p><p>${scenario === "missing" ? "板块样本缺失，不能判断是否跑赢板块。已有标的和大盘证据继续保留。" : "标的与大盘、板块使用相同起点和截止范围；相对表现只作为研究依据，不等于可执行买点。"} <button class="citation" data-evidence="E2">E2</button></p></div>${selectedVersion > 0 ? `<button class="review-preview" data-action="view-changes"><span class="eyebrow">T0 → ${version.id} · 本次变化</span><strong>观察 → ${version.signal} · 原失效边界保持不变</strong><span>查看新增证据与后续条件 ↗</span></button>` : ""}${runLog()}<div class="next-question"><h3>接下来验证什么？</h3><p>${version.signal === "失效" ? "旧假设已经终止。重新研究须另立假设，不能沿用原来的看多结论。原边界仍保留供复盘。" : "关注 110 的收复与后续保持；原失效条件固定为完成日线收盘低于 108。均为合成样例条件。"}</p></div><button data-action="evidence" class="text-button">打开证据与计算 ↗</button>`}`}
     </div>${composer()}</section>`;
 }
 function composer() {
@@ -73,20 +77,24 @@ function summary() {
 function evidence() {
   const v = current();
   const returnValue = ((v.close / v.data[0] - 1) * 100).toFixed(2);
-  return `<h2>证据与计算</h2><p class="muted">可复核的是样本和算式，结构解释仍需要审阅。</p><article class="evidence-card" id="evidence-E1"><div class="row spread"><h3>E1 · 日线样本与结构边界</h3><span class="tag neutral">合成</span></div><p>原始值、窗口和锚点固定在当前版本。108 与 110 是预先定义的演示边界，不来自真实市场研究。</p><dl><dt>来源</dt><dd>prototype-fixture-v1</dd><dt>截止</dt><dd>${v.id}，仅包含该版本可见样本</dd><dt>输入</dt><dd class="mono">${v.data.join(", ")}</dd><dt>复算示例</dt><dd>(${v.close} / 100 − 1) × 100 = ${returnValue}%</dd><dt>解释边界</dt><dd>可复算不代表结构判断已被证明</dd></dl><button class="small" data-evidence="E1">打开证据详情</button></article><article class="evidence-card" id="evidence-E2"><div class="row spread"><h3>E2 · 同口径比较</h3><span class="tag neutral">${scenario === "missing" ? "部分缺失" : "合成"}</span></div><p>全部序列同起点归一化；仅比较演示区间末点，不对真实市场作结论。</p><div class="table-wrap"><table><thead><tr><th>对象</th><th>起点</th><th>末点</th><th>覆盖</th></tr></thead><tbody><tr><td>标的样本</td><td>100</td><td>${v.close}</td><td>${v.id}</td></tr><tr><td>大盘样本</td><td>100</td><td>105</td><td>${v.id}</td></tr><tr><td>板块样本</td><td>${scenario === "missing" ? "—" : "100"}</td><td>${scenario === "missing" ? "—" : "106"}</td><td>${scenario === "missing" ? "未获取，禁止推断" : v.id}</td></tr></tbody></table></div></article>${scenario === "missing" ? '<div class="note">缺板块证据：不能推断跑赢板块或完成买点资格判断。</div>' : ""}`;
+  return `<h2>证据与计算</h2><p class="muted">可复核的是样本和算式，结构解释仍需要审阅。</p><article class="evidence-card ${selectedEvidence === "E1" ? "evidence-selected" : ""}" id="evidence-E1" tabindex="-1"><div class="row spread"><h3>E1 · 日线样本与结构边界</h3><span class="tag neutral">合成</span></div><p>原始值、窗口和锚点固定在当前版本。108 与 110 是预先定义的演示边界，不来自真实市场研究。</p><dl><dt>来源</dt><dd>prototype-fixture-v1</dd><dt>截止</dt><dd>${v.id}，仅包含该版本可见样本</dd><dt>输入</dt><dd class="mono">${v.data.join(", ")}</dd><dt>复算示例</dt><dd>(${v.close} / 100 − 1) × 100 = ${returnValue}%</dd><dt>解释边界</dt><dd>可复算不代表结构判断已被证明</dd></dl><button class="small" data-raw-evidence="E1">查看 E1 原始数据</button></article><article class="evidence-card ${selectedEvidence === "E2" ? "evidence-selected" : ""}" id="evidence-E2" tabindex="-1"><div class="row spread"><h3>E2 · 同口径比较</h3><span class="tag neutral">${scenario === "missing" ? "部分缺失" : "合成"}</span></div><p>全部序列同起点归一化；仅比较演示区间末点，不对真实市场作结论。</p><div class="table-wrap"><table><thead><tr><th>对象</th><th>起点</th><th>末点</th><th>覆盖</th></tr></thead><tbody><tr><td>标的样本</td><td>100</td><td>${v.close}</td><td>${v.id}</td></tr><tr><td>大盘样本</td><td>100</td><td>105</td><td>${v.id}</td></tr><tr><td>板块样本</td><td>${scenario === "missing" ? "—" : "100"}</td><td>${scenario === "missing" ? "—" : "106"}</td><td>${scenario === "missing" ? "未获取，禁止推断" : v.id}</td></tr></tbody></table></div><button class="small" data-raw-evidence="E2">查看 E2 原始数据</button></article>${scenario === "missing" ? '<div class="note">缺板块证据：不能推断跑赢板块或完成买点资格判断。</div>' : ""}`;
 }
 function review() {
-  return `<h2>原假设与复核</h2><p class="muted">每次复核保留旧版。此原型仅在内存中演示。</p>${versions.map((v, i) => `<article class="version-card"><div class="row spread"><h3>${v.id} · ${v.signal}</h3><button class="small" data-version="${i}">打开版本</button></div><p>${i ? `新增末点 ${v.close}；原边界 108 保持不变。${v.signal === "失效" ? "旧假设失效。" : "已触发，尚无后续确认。"}` : "原假设：108 结构边界内观察，收复 110 后等待后续确认。"}</p></article>`).join("")}<div class="note">跟踪卡是研究条件，不会自动创建定时任务或交易。</div>${actions()}`;
+  const latest = current();
+  const changed = selectedVersion > 0;
+  return `<h2>这次复核，什么变了？</h2><p class="muted">保留原假设和证据，先看变化，再看完整版本。</p>
+    ${changed ? `<section class="review-diff" aria-label="复核变化摘要"><div class="diff-heading"><span class="tag">T0 → ${latest.id}</span><strong>${latest.signal === "失效" ? "原假设失效，停止沿用旧判断" : "已触发，但还没有确认"}</strong></div><dl><div><dt>状态变化</dt><dd>观察 → ${latest.signal}</dd></div><div><dt>新增证据</dt><dd>合成收盘末点 109 → ${latest.close} <button class="citation" data-evidence="E1">E1</button></dd></div><div><dt>保持不变</dt><dd>原失效边界 &lt;108，不下移</dd></div><div><dt>接下来</dt><dd>${latest.signal === "失效" ? "旧假设终止；如继续研究，需明确另立新假设。" : "等待后续已完成日线支持，不能把首次收复当作确认。"}</dd></div></dl></section>` : '<div class="note">当前查看 T0 原始研究，不包含后续数据。已有复核可从下方版本列表打开；尚未复核时，可用下一次合成收盘样本验证原假设。</div>'}
+    <h3 class="versions-title">完整版本 · 当前查看 ${current().id}</h3>${versions.map((v, i) => `<article class="version-card ${i === selectedVersion ? "version-selected" : ""}"><div class="row spread"><h3>${v.id} · ${v.signal}</h3><button class="small" data-version="${i}" aria-label="打开 ${v.id} 研究版本">${i === selectedVersion ? "当前版本" : "打开版本"}</button></div><p>${i ? `新增末点 ${v.close}；原边界 108 保持不变。${v.signal === "失效" ? "旧假设失效。" : "已触发，尚无后续确认。"}` : "原假设：108 结构边界内观察，收复 110 后等待后续确认。"}</p></article>`).join("")}<div class="note">跟踪卡是研究条件，不会自动创建定时任务或交易。仅本次浏览内存保存。</div>${actions()}`;
 }
 function actions() {
   return `<div class="result-actions"><button data-action="save">${saved ? "✓ 已保存（内存）" : "保存这次研究"}</button><button class="primary" data-action="review">复核下一个收盘 ↗</button></div>`;
 }
 function stateView() {
-  return `<details class="state-json"><summary>原型状态 · 可展开检查</summary><pre>${escapeHtml(JSON.stringify({ variant, phase, stage, scenario, tab, selectedVersion: current().id, saved, versions: versions.map(({ id, signal, close }) => ({ id, signal, close })), liveModel: false, liveData: false, persistence: "memory-only" }, null, 2))}</pre></details>`;
+  return `<details class="state-json"><summary>原型状态 · 可展开检查</summary><pre>${escapeHtml(JSON.stringify({ variant, phase, stage, scenario, tab, resultsOpen, resultsExpanded, selectedEvidence, comparisonMode, selectedVersion: current().id, saved, versions: versions.map(({ id, signal, close }) => ({ id, signal, close })), liveModel: false, liveData: false, persistence: "memory-only" }, null, 2))}</pre></details>`;
 }
 function resultPanel() {
   const labels = { summary: "结论", chart: "图表", evidence: "证据", review: "复核" };
-  return `<section class="result-panel" aria-label="研究成果"><header class="result-header"><div class="eyebrow">RESEARCH ARTIFACT</div><div class="row spread"><h2>可审阅的研究</h2><span class="tag neutral">${current().id}</span></div></header><nav class="tabs" aria-label="研究成果页签">${Object.entries(labels).map(([key, label]) => `<button data-tab="${key}" class="${tab === key ? "active" : ""}" aria-pressed="${tab === key}">${label}</button>`).join("")}</nav><div class="tab-content">${phase !== "complete" ? `<div class="empty"><h2>${phase === "cancelled" ? "保留已完成证据" : phase === "idle" ? "研究成果将在这里出现" : "正在形成研究成果"}</h2><p class="muted">${phase === "running" ? "阶段反馈在对话区，未完成内容不会冒充最终报告。" : "提问、查看依据，再保存与复核。"}</p></div>` : tab === "summary" ? summary() : tab === "chart" ? `<h2>价格结构与同口径比较</h2>${chart()}${evidence()}` : tab === "evidence" ? evidence() : review()}${stateView()}</div></section>`;
+  return `<section class="result-panel" aria-label="研究成果"><header class="result-header"><div class="eyebrow">RESEARCH ARTIFACT</div><div class="row spread"><h2>研究成果 <span class="tag neutral">${current().id}</span></h2><div class="row"><button class="small" data-action="expand-results" ${phase !== "complete" ? "disabled" : ""} aria-pressed="${resultsExpanded}">${resultsExpanded ? "退出专注" : "放大审阅"}</button><button class="small" data-action="return-chat">返回对话</button></div></div></header><nav class="tabs" aria-label="研究成果页签">${Object.entries(labels).map(([key, label]) => `<button data-tab="${key}" class="${tab === key ? "active" : ""}" aria-pressed="${tab === key}">${label}</button>`).join("")}</nav><div class="tab-content">${phase !== "complete" ? `<div class="empty"><h2>${phase === "cancelled" ? "保留已完成证据" : phase === "idle" ? "研究成果将在这里出现" : "正在形成研究成果"}</h2><p class="muted">${phase === "running" ? "阶段反馈在对话区，未完成内容不会冒充最终报告。" : "提问、查看依据，再保存与复核。"}</p></div>` : tab === "summary" ? summary() : tab === "chart" ? `<h2>价格结构与同口径比较</h2>${chart()}${evidence()}` : tab === "evidence" ? evidence() : review()}${stateView()}</div></section>`;
 }
 function VariantA() { return `${sidebar()}${conversation()}${resultPanel()}`; }
 function VariantB() {
@@ -98,13 +106,22 @@ function VariantC() {
 function switchVariant(next) {
   variant = variants[(variants.indexOf(variant) + next + variants.length) % variants.length];
   const url = new URL(location.href); url.searchParams.set("variant", variant); history.replaceState({}, "", url);
+  resultsExpanded = false; resultsOpen = true;
   render();
+}
+function revealEvidence(id) {
+  selectedEvidence = id; tab = "evidence"; resultsOpen = true; mobileResults = true;
+  render();
+  const target = document.getElementById(`evidence-${id}`);
+  target?.scrollIntoView({ block: "nearest" });
+  target?.focus({ preventScroll: true });
 }
 function render() {
   const wasInput = document.activeElement?.id === "question-input";
   const selection = wasInput ? document.activeElement.selectionStart : null;
-  app.innerHTML = `<div class="prototype-banner"><span>可点击原型 · 固定合成样例 · 无真实 Agent / 行情 / 交易</span><span>仅内存，刷新清空 · 当前布局 ${variant} / ${names[variant]}</span></div><div class="mobile-actions"><button data-action="new" aria-label="新建研究">新建</button><button data-mobile="chat" aria-pressed="${!mobileResults}">研究对话</button><button data-mobile="result" aria-pressed="${mobileResults}">成果与证据</button><button data-action="settings" aria-label="设置与连接">设置</button></div><main class="workspace layout-${variant.toLowerCase()} ${mobileResults ? "mobile-results" : ""}">${({ A: VariantA, B: VariantB, C: VariantC })[variant]()}</main>`;
-  document.querySelector("#prototype-switcher").innerHTML = `<span class="switch-caption">布局研究 · 非产品功能<br>← / → 切换</span><button data-cycle="-1" aria-label="上一个布局">←</button>${variants.map((v) => `<button data-variant="${v}" aria-pressed="${variant === v}">${v} ${names[v]}</button>`).join("")}<button data-cycle="1" aria-label="下一个布局">→</button>`;
+  app.innerHTML = `<div class="prototype-banner"><span>可点击原型 · 固定合成样例 · 无真实 Agent / 行情 / 交易</span><span>仅内存，刷新清空 · 当前布局 ${variant} / ${names[variant]}</span></div><div class="mobile-actions"><button data-action="new" aria-label="新建研究">新建</button><button data-mobile="chat" aria-pressed="${!mobileResults}">研究对话</button><button data-mobile="result" aria-pressed="${mobileResults}">成果与证据</button><button data-action="settings" aria-label="设置与连接">设置</button></div><main class="workspace layout-${variant.toLowerCase()} ${mobileResults ? "mobile-results" : ""} ${resultsOpen ? "" : "results-hidden"} ${resultsExpanded ? "results-expanded" : ""} ${comparisonMode ? "comparing" : ""}">${({ A: VariantA, B: VariantB, C: VariantC })[variant]()}</main>`;
+  document.querySelector("#prototype-switcher").classList.toggle("compact", !comparisonMode);
+  document.querySelector("#prototype-switcher").innerHTML = comparisonMode ? `<span class="switch-caption">布局对照 · 非产品功能<br>← / → 切换</span><button data-cycle="-1" aria-label="上一个布局">←</button>${variants.map((v) => `<button data-variant="${v}" aria-pressed="${variant === v}">${v} ${names[v]}</button>`).join("")}<button data-cycle="1" aria-label="下一个布局">→</button><button data-action="close-comparison">收起</button>` : `<span class="chosen-layout">已选择 A · 对话优先</span><button data-action="open-comparison">布局对照</button>`;
   if (wasInput) { const field = document.querySelector("#question-input"); field.focus(); field.setSelectionRange(selection, selection); }
 }
 function startRun(isReview = false, resume = false) {
@@ -118,6 +135,7 @@ function startRun(isReview = false, resume = false) {
       selectedVersion = 0; saved = false; tab = "summary";
     }
   }
+  selectedEvidence = null; resultsExpanded = false;
   phase = "running"; mobileResults = false; render();
   function advance() {
     if (phase !== "running") return;
@@ -127,7 +145,7 @@ function startRun(isReview = false, resume = false) {
       if (pendingReview) {
         const close = scenario === "invalid" ? 107 : 111;
         versions.push({ id: "T1", signal: close < 108 ? "失效" : "触发", close, data: [...prices, close] });
-        selectedVersion = 1; saved = true; tab = "review";
+        selectedVersion = 1; saved = true; tab = "review"; resultsOpen = true;
       }
       render(); notify("演示研究完成。工具、证据和模型回答均为固定样例。"); return;
     }
@@ -146,22 +164,33 @@ document.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!input.trim()) { notify("请输入问题，或点击运行研究示例。"); return; }
   question = input.trim(); input = "";
-  if (phase === "complete" && /为什么|依据|确认/.test(question)) { tab = "evidence"; mobileResults = true; render(); notify("演示追问：打开固定证据，不执行真实模型。"); return; }
+  if (phase === "complete" && /为什么|依据|确认/.test(question)) { revealEvidence("E1"); notify("演示追问：定位固定证据，不执行真实模型。"); return; }
   startRun(false); notify("输入已接收；原型仅展示固定示例，不会实际分析新问题。");
 });
 document.addEventListener("click", (event) => {
   const button = event.target.closest("button"); if (!button || button.disabled) return;
   if (button.dataset.variant) { const next = variants.indexOf(button.dataset.variant) - variants.indexOf(variant); switchVariant(next); return; }
   if (button.dataset.cycle) { switchVariant(Number(button.dataset.cycle)); return; }
-  if (button.dataset.mobile) { mobileResults = button.dataset.mobile === "result"; render(); return; }
-  if (button.dataset.tab) { tab = button.dataset.tab; render(); return; }
-  if (button.dataset.evidence) { openDetail(button.dataset.evidence); return; }
+  if (button.dataset.mobile) { mobileResults = button.dataset.mobile === "result"; resultsOpen = true; if (!mobileResults) resultsExpanded = false; render(); return; }
+  if (button.dataset.tab) { tab = button.dataset.tab; selectedEvidence = null; render(); return; }
+  if (button.dataset.evidence) { revealEvidence(button.dataset.evidence); return; }
+  if (button.dataset.rawEvidence) { openDetail(button.dataset.rawEvidence); return; }
   if (button.dataset.version !== undefined) {
     if (phase === "running" || phase === "cancelled") { notify("当前研究尚未完成。请先继续当前任务，或新建研究重置演示，再打开历史版本。"); return; }
-    selectedVersion = Number(button.dataset.version); phase = "complete"; tab = "summary"; render(); return;
+    selectedVersion = Number(button.dataset.version); selectedEvidence = null; phase = "complete"; tab = "summary"; render(); return;
   }
   const action = button.dataset.action;
-  if (action === "new") { clearTimeout(timer); phase = "idle"; stage = 0; input = ""; question = sampleQuestion; mobileResults = false; render(); document.querySelector("#question-input").focus(); }
+  if (action === "toggle-results") { resultsOpen = !resultsOpen; resultsExpanded = false; render(); }
+  if (action === "expand-results") { resultsExpanded = !resultsExpanded; resultsOpen = true; mobileResults = true; render(); }
+  if (action === "return-chat") { resultsExpanded = false; mobileResults = false; render(); document.querySelector("#question-input").focus(); }
+  if (action === "open-comparison" || action === "close-comparison") {
+    comparisonMode = action === "open-comparison";
+    if (!comparisonMode) { variant = "A"; resultsExpanded = false; resultsOpen = true; }
+    const url = new URL(location.href); url.searchParams.set("variant", variant);
+    if (comparisonMode) url.searchParams.set("compare", "1"); else url.searchParams.delete("compare");
+    history.replaceState({}, "", url); render();
+  }
+  if (action === "new") { clearTimeout(timer); phase = "idle"; stage = 0; input = ""; question = sampleQuestion; mobileResults = false; resultsExpanded = false; selectedEvidence = null; render(); document.querySelector("#question-input").focus(); }
   if (action === "example") { question = sampleQuestion; startRun(); }
   if (action === "history") {
     if (phase === "running" || phase === "cancelled") { notify("当前研究尚未完成。请先继续当前任务，或新建研究重置演示，再打开示例研究。"); return; }
@@ -169,22 +198,23 @@ document.addEventListener("click", (event) => {
   }
   if (action === "stop") { clearTimeout(timer); phase = "cancelled"; render(); notify("已停止模拟执行，保留已完成步骤。"); }
   if (action === "continue") startRun(pendingReview, true);
-  if (action === "evidence") { tab = "evidence"; mobileResults = true; render(); }
+  if (action === "evidence") revealEvidence("E1");
+  if (action === "view-changes") { tab = "review"; resultsOpen = true; mobileResults = true; selectedEvidence = null; render(); }
   if (action === "save") { saved = true; render(); notify("研究已保存到本次浏览内存；刷新后清空，没有写入文件。"); }
   if (action === "review") { if (phase === "running") { notify("请先完成或停止当前研究。"); return; } if (phase !== "complete") { notify("先完成示例研究，再进行复核。"); return; } saved = true; question = "用下一次已收盘样本复核原假设，只解释变化和原因。"; startRun(true); }
   if (action === "followup") { input = "为什么还不能确认？请解释依据。"; render(); document.querySelector("#question-input").focus(); }
   if (action === "close-dialog") dialog.close();
   if (action === "settings" || action === "help") {
-    dialog.innerHTML = `<div class="row spread"><h2 id="detail-title">${action === "settings" ? "原型连接与演示情形" : "如何试用这个原型"}</h2><button data-action="close-dialog" aria-label="关闭详情">×</button></div><p>未连接模型、行情或账户，无需密钥。所有输入、保存和复核仅在浏览器内存中，刷新后清空。</p><p>A 对话优先，B 图表证据优先，C 研究笔记优先。使用底部按钮或左右方向键切换；编辑输入时不会拦截方向键。</p><label for="scenario">演示情形</label><select id="scenario"><option value="complete">完整合成数据 · 复核后触发</option><option value="missing">缺少板块证据</option><option value="invalid">下一次复核破坏原结构</option></select><p>切换情形会重置演示版本；不会发出外部请求。</p><button class="primary" data-action="close-dialog">返回工作台</button>`;
+    dialog.innerHTML = `<div class="row spread"><h2 id="detail-title">${action === "settings" ? "原型连接与演示情形" : "如何试用这个原型"}</h2><button data-action="close-dialog" aria-label="关闭详情">×</button></div><p>未连接模型、行情或账户，无需密钥。所有输入、保存和复核仅在浏览器内存中，刷新后清空。</p><p>A 对话优先，B 图表证据优先，C 研究笔记优先。打开底部“布局对照”后可切换，编辑输入时不会拦截方向键。</p><label for="scenario">演示情形</label><select id="scenario"><option value="complete">完整合成数据 · 复核后触发</option><option value="missing">缺少板块证据</option><option value="invalid">下一次复核破坏原结构</option></select><p>切换情形会重置演示版本；不会发出外部请求。</p><button class="primary" data-action="close-dialog">返回工作台</button>`;
     dialog.querySelector("select").value = scenario; dialog.showModal();
   }
 });
 document.addEventListener("change", (event) => {
   if (event.target.id !== "scenario") return;
-  clearTimeout(timer); scenario = event.target.value; phase = "complete"; stage = 5; saved = false; selectedVersion = 0; pendingReview = false; versions = [{ id: "T0", signal: "观察", close: 109, data: prices.slice() }]; question = sampleQuestion; render(); notify("已切换合成情形，研究版本重置。");
+  clearTimeout(timer); scenario = event.target.value; phase = "complete"; stage = 5; saved = false; selectedVersion = 0; pendingReview = false; versions = [{ id: "T0", signal: "观察", close: 109, data: prices.slice() }]; question = sampleQuestion; selectedEvidence = null; resultsExpanded = false; render(); notify("已切换合成情形，研究版本重置。");
 });
 document.addEventListener("keydown", (event) => {
-  if (dialog.open || event.target.closest("input, textarea, select, [contenteditable]")) return;
+  if (!comparisonMode || dialog.open || event.target.closest("input, textarea, select, [contenteditable]")) return;
   if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); switchVariant(event.key === "ArrowLeft" ? -1 : 1); }
 });
 render();
