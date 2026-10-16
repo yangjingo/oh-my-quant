@@ -2,6 +2,7 @@ import { Buffer, strWidth, wrap } from "./buffer.ts";
 import type { Style } from "./buffer.ts";
 import { AUTHOR_COPY, BODY_COPY, CASH_DARK, CASH_WARM, S } from "./styles.ts";
 import { mixHex } from "./theme.ts";
+import { BRAND_LABEL } from "./brand.ts";
 
 const ORA_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
@@ -39,7 +40,7 @@ export function drawLoadingOverlay(
     ? insights
     : [{ quote: "保持耐心。", en: "Stay patient.", author: "WhyJ Quant" }];
   const t = Date.now() / 1000;
-  const trend = "▁▃▅▇█ WhyJ Quant";
+  const trend = BRAND_LABEL;
   const n = trend.length;
   const stepSec = 5;
   const idx = Math.floor(t / stepSec) % safeInsights.length;
@@ -65,10 +66,7 @@ export function drawLoadingOverlay(
     const stairX = centerInMain(main, trend);
     for (let i = 0; i < n; i++) {
       const s = (Math.sin(t * 3 + i * 0.6) + 1) / 2;
-      const sr = Math.round(60 + (212 - 60) * s).toString(16).padStart(2, "0");
-      const sg = Math.round(55 + (175 - 55) * s).toString(16).padStart(2, "0");
-      const sb = Math.round(48 + (55 - 48) * s).toString(16).padStart(2, "0");
-      buf.set(stairX + i, stairY, trend[i], { fg: `#${sr}${sg}${sb}`, bold: true }, clipEnd);
+      buf.set(stairX + i, stairY, trend[i], { fg: mixHex(CASH_DARK, CASH_WARM, s), bold: true }, clipEnd);
     }
   }
 

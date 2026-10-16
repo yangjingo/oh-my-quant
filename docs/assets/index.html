@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="app-icon.svg" type="image/svg+xml">
+  <title>WhyJ Quant · JQ 标识素材</title>
+  <style>
+    @font-face { font-family: Geist; src: url(../../site/public/fonts/geist-regular.ttf); }
+    @font-face { font-family: Geist; src: url(../../site/public/fonts/geist-semibold.ttf); font-weight: 600; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0C0C0C; color: #FFF3C4; font-family: Geist, "Microsoft YaHei", sans-serif; }
+    main { max-width: 1120px; margin: auto; padding: 48px 32px; }
+    .eyebrow { color: #C99A2E; font-size: 12px; letter-spacing: .1em; border-bottom: 1px solid #3A362C; padding-bottom: 20px; }
+    h1 { font-size: 36px; letter-spacing: -1px; font-weight: 600; margin: 30px 0 12px; }
+    p { color: #8F8A7B; font-size: 14px; line-height: 1.9; margin: 0 0 28px; }
+    .identity { display: grid; grid-template-columns: 240px 1fr; border: 1px solid #3A362C; margin-bottom: 28px; }
+    .mark { display: grid; place-items: center; border-right: 1px solid #3A362C; padding: 40px; }
+    .mark img { width: 144px; height: 144px; }
+    .lockups { display: grid; grid-template-rows: 1fr 1fr; }
+    .lockup { padding: 30px 40px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .lockup img { width: 270px; max-width: 75%; height: auto; }
+    .lockup span { font-size: 11px; white-space: nowrap; color: #8F8A7B; }
+    .light { background: #FFF3C4; }
+    .light span { color: #444; }
+    .details { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+    h2 { font-size: 16px; font-weight: 600; margin: 0 0 18px; }
+    .sizes { display: flex; gap: 26px; align-items: flex-end; padding: 22px 0; }
+    .sizes div { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .sizes span { color: #8F8A7B; font-size: 11px; }
+    a { color: #C99A2E; text-underline-offset: 4px; }
+    a:focus-visible { outline: 2px solid #C99A2E; outline-offset: 5px; }
+    .downloads { display: flex; flex-wrap: wrap; gap: 16px 24px; font-size: 12px; line-height: 1.8; }
+    footer { border-top: 1px solid #3A362C; margin-top: 30px; padding-top: 24px; }
+    footer p { font-size: 12px; margin: 0; }
+    @media (max-width: 700px) {
+      main { padding: 28px 20px; } h1 { font-size: 28px; }
+      .identity { grid-template-columns: 1fr; }.mark { border-right: 0; border-bottom: 1px solid #3A362C; padding: 22px; }
+      .mark img { width: 112px; height: 112px; }.lockup { padding: 24px 18px; gap: 10px; }
+      .details { grid-template-columns: 1fr; gap: 24px; }.sizes { gap: 24px; }
+    }
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">WHYJ QUANT / JQ IDENTITY</div>
+  <h1>J 融入 Q，形成一个标记。</h1>
+  <p>WhyJ 的 J 嵌入 Quant 的 Q，共用相接的竖笔与短尾笔，末端保留紧凑的终端下划线。标记与字标均为原生 SVG，组合文字已转路径。</p>
+  <section class="identity" aria-label="JQ 标记和深浅底组合">
+    <div class="mark"><img src="logo-mark.svg" alt="WhyJ Quant 的 JQ 标识"></div>
+    <div class="lockups">
+      <div class="lockup"><img src="logo-lockup-dark.svg" alt="WhyJ Quant 深底组合"><span>深底 / 品牌金</span></div>
+      <div class="lockup light"><img src="logo-lockup-light.svg" alt="WhyJ Quant 浅底组合"><span>浅底 / 墨色</span></div>
+    </div>
+  </section>
+  <section class="details">
+    <div><h2>同一轮廓，从 16px 到应用图标</h2><div class="sizes">
+      <div><img src="icons/16x16.png" width="16" height="16" alt=""><span>16px</span></div>
+      <div><img src="icons/24x24.png" width="24" height="24" alt=""><span>24px</span></div>
+      <div><img src="icons/32x32.png" width="32" height="32" alt=""><span>32px</span></div>
+      <div><img src="icons/48x48.png" width="48" height="48" alt=""><span>48px</span></div>
+      <div><img src="app-icon.svg" width="64" height="64" alt="应用图标素材"><span>应用素材</span></div>
+    </div></div>
+    <div><h2>SVG 素材与派生文件</h2><div class="downloads">
+      <a href="logo-mark.svg" download>透明标记 ↓</a><a href="logo-lockup-dark.svg" download>深底组合 ↓</a>
+      <a href="logo-lockup-light.svg" download>浅底组合 ↓</a><a href="logo-lockup-mono.svg" download>单色组合 ↓</a>
+      <a href="logo-mark-mono.svg" download>单色标记 ↓</a><a href="app-icon.svg" download>应用图标 ↓</a>
+      <a href="app-icon.ico" download>Windows ICO ↓</a><a href="icons/1024x1024.png" download>1024px 图标 ↓</a>
+    </div></div>
+  </section>
+  <footer><p>品牌金 #C99A2E · 画布 #0C0C0C · 字标 Geist Semibold。浅底采用墨色，保证清晰。<br>网页与 Desktop 共用 JQ SVG；终端以 JQ 字符显示。icons/ 内按实际像素尺寸命名，app-icon.ico 包含 16-256px 的七个尺寸。</p></footer>
+</main></body>
+</html>

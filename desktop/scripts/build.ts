@@ -18,7 +18,8 @@ const renderer = await Bun.build({ entrypoints: [resolve(desktop, "src/renderer.
 if (!renderer.success) throw new AggregateError(renderer.logs, "Renderer build failed");
 for (const name of ["index.html", "style.css"]) copyFileSync(resolve(desktop, "src", name), resolve(desktop, "dist", name));
 copyFileSync(resolve(desktop, "node_modules/@xterm/xterm/css/xterm.css"), resolve(desktop, "dist/xterm.css"));
-copyFileSync(resolve(desktop, "assets/icon.ico"), resolve(desktop, "dist/icon.ico"));
+copyFileSync(resolve(desktop, "assets/app-icon.ico"), resolve(desktop, "dist/app-icon.ico"));
+copyFileSync(resolve(desktop, "assets/logo-mark.svg"), resolve(desktop, "dist/logo-mark.svg"));
 const child = Bun.spawn([process.execPath, "build", resolve(root, "src/index.ts"), "--compile", "--target=bun-windows-x64-baseline",
   "--compile-executable-path", resolve(desktop, ".downloads/bun/bun-windows-x64-baseline/bun.exe"),
   "--outfile", resolve(desktop, "runtime/whyj.exe")], { cwd: root, stdout: "inherit", stderr: "inherit" });

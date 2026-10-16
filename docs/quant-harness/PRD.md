@@ -54,7 +54,7 @@ F01–F24 覆盖 GOAL1、GOAL2 的产品与工程目标，F25 保留旧 roadmap 
 | F01 | GOAL1：Pi 模型配置与引导 | 部分完成 | [模型配置](./configuration.md)与 [Pi 导入](./configuration.md#pi-import)：API-key/环境凭证、多 provider/模型、元数据及阶梯价格已有验证；原生路径经 localhost 请求验证。[OAuth](./configuration.md#oauth) 已接通独立凭证、跨进程刷新、登录界面、取消及退出，并验证真实 Pi 提示的单文件构建；选定有效账号可显式链接 Pi auth.json 并共享锁刷新，合成目录/CLI/四 worker 已验证。[真实 DeepSeek API-key 双 CLI 并行](./configuration.md#pi-verification) 两次检查通过；真实 OAuth 账号/轮换、其它供应商权限与长期兼容性仍待补齐 |
 | F02 | GOAL1：金融数据/工具配置引导 | 已完成 | [数据配置](../../src/runtime/data/data-settings.ts)、[能力清单](../../src/runtime/data/tool-readiness.ts) 与 [端点探测](../../src/runtime/data/tool-probe.ts) 已接入 CLI/TUI；市场/凭证/依赖、验证后保存、失败保留与取消逐项通过；仅证明配置/诊断功能，不宣称全部市场或权限可用 |
 | F03 | GOAL1：TTFT/TPOT 自动测试与上下文 HUD | 已完成 | [固定输入基准](./evaluation.md#model-performance)、分位数/失败计数、HUD/压缩阈值设置与恢复隔离逐项通过；R04 记录真实连接 5/5 样本，限应用侧单次模型请求，不代表完整研究任务性能 |
-| F04 | GOAL1：参考 terminal.png 统一视觉/皮肤 | 部分完成 | [设计源](../../DESIGN.md) 与 [共享主题](../../src/types/theme-colors.ts) 已统一；选中态/表格/多尺寸设置回归通过。报告浏览器验收 修复图表裁剪、320px 页头/长文本溢出及分享预览空白；仍缺全界面真实终端视觉对照 |
+| F04 | GOAL1：参考 workspace-design-reference.png 统一视觉/皮肤 | 部分完成 | [设计源](../../DESIGN.md) 与 [共享主题](../../src/types/theme-colors.ts) 已统一；选中态/表格/多尺寸设置回归通过。报告浏览器验收 修复图表裁剪、320px 页头/长文本溢出及分享预览空白；仍缺全界面真实终端视觉对照 |
 | F05 | GOAL1：符合日常研究的终端布局 | 已完成 | 终端流程已覆盖空配置下 80×24/120×32 的模型与行情验证、可见组合编辑、分析/比较、自动报告和恢复；60×20 有明确收缩策略。隔离生产 PTY 另覆盖单股压缩重启及真实模型双组合流程，慢输出只保留最新完整帧。获取中、陈旧、失败、空数据与局部结果状态分开显示；物理终端字体/输入法的视觉差异归 F04，不再阻塞布局流程完成 |
 | F06 | GOAL1：金色层级、间隔、涨跌红绿 | 已完成 | 共享主题固定品牌金色，Market Colors 默认红涨绿跌、可选绿涨红跌；行情、风险、状态、零值和缺失使用独立语义 token。TUI、Overview、报告、K 线/ECharts 与静态回退在两种约定、深浅主题和三尺寸均有回归及画面复核，数值同时保留符号或文字，不依赖颜色独立传意 |
 | F07 | GOAL1：Slash 简化与 quant 术语 | 已完成 | 逐命令核验统一十个公开命令的名称、描述、参数、空态、Tab 建议和 help；词法/预检、子模式、版本、损坏设置下离线帮助、三尺寸 Help、生产 PTY 连续路径均通过。`/doctor --tool ... --schema` 提供实际注册端点的静态/安装版声明，旧 `/compare`、`/workflow` 未伪装恢复。供应商权限与响应财务语义继续由 F08/F24 验收，不属于命令契约本身 |
@@ -120,7 +120,7 @@ TTFT 的首输出包含非空 text/thinking delta 或具名 tool call，空 bloc
 
 ### F04–F07 终端视觉、布局与命令
 
-参考图：[terminal.png](../assets/terminal.png)。保留黑底、克制金色、左侧主要工作区、右侧组合和来源信息、清晰主次层级。TUI 字体由宿主终端控制；验收对象是字符宽度、对齐、间隔、密度和终端字体建议，不能照搬网页 px 字号。
+参考图：[workspace-design-reference.png](../assets/workspace-design-reference.png)。保留暖黑底、克制金色、奶油白文字、左侧主要工作区、右侧组合和来源信息、清晰主次层级。TUI 字体由宿主终端控制；验收对象是字符宽度、对齐、间隔、密度和终端字体建议，不能照搬网页 px 字号。
 
 2026-09-15 的 Doctor 与画面验收 修复长诊断报告后续失败/建议不可达：独立视口、逐行/翻页/首尾、固定操作和重试重置已验证。三尺寸共 39 帧由实际 QuantTui/ANSI 与 SVG 投影导出，其中十张完成 Chrome 视觉复核；全量 1442/1442。原生终端字体/输入法与全流程不由此证明，另记录小屏空态提示截断，F04–F07 状态不变。
 

@@ -44,6 +44,8 @@ bun run dist:win
 
 `bun run build` 生成 Electron 主进程、沙箱 preload、xterm renderer 和独立的 `runtime/whyj.exe`。`bun run dist:win` 生成 `release/` 下的一键 NSIS 安装包。打包文件采用白名单，不包含 `.env`、`.ohquant`、测试数据或开发机器设置。
 
+顶栏使用共享 JQ SVG，窗口和安装器使用包含 16/24/32/48/64/128/256px 的 `assets/app-icon.ico`。图标来源位于 [共享素材](../assets/index.html)，尺寸 PNG 只保留在 `docs/assets/icons/`。Desktop 仅保留实际使用的 `assets/logo-mark.svg` 和 `assets/app-icon.ico`，构建直接复制已提交素材，不再通过单独的图标生成脚本。修改共享素材时一并更新这两份副本。CLI/TUI 的 JQ 字符标记与桌面 SVG 分别适应终端和图形界面。新安装器的实际图标与升级缓存仍须在打包后验收。
+
 ## 运行与信任边界
 
 本地 `app://desktop` 页面只通过有限 IPC 访问独立 CLI 的 ConPTY、剪贴板与工作目录。页面不启用 Node，启用 context isolation、sandbox 和 CSP；禁止页面跳转、子窗口、webview 和网页权限。IPC 校验主窗口/主 frame、输入长度及终端尺寸。链接只允许在系统浏览器打开 HTTP(S)。主进程对终端输出实施背压，避免渲染阻塞时持续堆积 IPC。

@@ -203,6 +203,10 @@
     "zh": "为你熟悉的终端而造。",
     "en": "Built for the terminal you know."
   },
+  "demo.liveWorkspace": {
+    "zh": "在线预览真实工作台全貌",
+    "en": "View real workspace preview online"
+  },
   "demo.trySettings": {
     "zh": "试试工作区设置",
     "en": "Try workspace settings"
@@ -606,10 +610,6 @@
   "nav.settings": {
     "zh": "工作区设置",
     "en": "Workspace settings"
-  },
-  "nav.docs": {
-    "zh": "文档",
-    "en": "Docs"
   },
   "nav.github": {
     "zh": "在 GitHub 查看源码",

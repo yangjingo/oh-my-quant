@@ -1,3 +1,4 @@
+import { WHYJ_THEME } from "../../types/theme-colors.ts";
 import { describe, expect, it } from "bun:test";
 import { Buffer, sanitizeTerminalText, strWidth, wrap } from "../src/buffer.ts";
 import { capSections, conversationMaxScrollUp, drawComposer, drawConversation, drawPortfolio, drawStatus, layout, overviewMaxScrollTop, buildOverviewView, buildConversationView } from "../src/render.ts";
@@ -528,8 +529,8 @@ describe("panel isolation", () => {
     expect(addedY).toBeGreaterThanOrEqual(0);
     const removedX = rows[removedY].indexOf("-old value");
     const addedX = rows[addedY].indexOf("+new value");
-    expect(buf.cells[removedY * buf.w + removedX].fg).toBe("#E5494D");
-    expect(buf.cells[addedY * buf.w + addedX].fg).toBe("#1E9F4D");
+    expect(buf.cells[removedY * buf.w + removedX].fg).toBe(WHYJ_THEME.negative);
+    expect(buf.cells[addedY * buf.w + addedX].fg).toBe(WHYJ_THEME.positive);
   });
 
   it("truncates long tool result previews after three lines", () => {

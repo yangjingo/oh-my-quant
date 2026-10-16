@@ -25,19 +25,19 @@
 /* Visual source: ../../DESIGN.md. Gold is brand; market and risk have separate roles. */
 :root {
   color-scheme: dark;
-  --gold: #d4af37;
-  --focus: #e2be4d;
-  --light-gold: #f0d77a;
-  --ink: #f5f5f5;
-  --muted: #a6a6a6;
-  --canvas: #0b0b0c;
-  --surface: #111111;
-  --elevated: #171717;
-  --hairline: #242424;
-  --terminal: #000000;
-  --up: #e5494d;
-  --down: #1e9f4d;
-  --risk: #e5494d;
+  --gold: #C99A2E;
+  --focus: #C99A2E;
+  --light-gold: #FFF3C4;
+  --ink: #FFF3C4;
+  --muted: #8F8A7B;
+  --canvas: #0C0C0C;
+  --surface: #141312;
+  --elevated: #1C1B18;
+  --hairline: #3A362C;
+  --terminal: #0C0C0C;
+  --up: #D87565;
+  --down: #75A26F;
+  --risk: #D87565;
   --sans: Geist, "PingFang SC", "Microsoft YaHei", sans-serif;
   --mono: "Geist Mono", "SFMono-Regular", Consolas, monospace;
 }
@@ -211,14 +211,10 @@ kbd {
   white-space: nowrap;
 }
 .brand-mark {
-  font-family: var(--mono);
-  color: var(--gold);
-  font-size: 26px;
-  letter-spacing: -5px;
+  display: block;
+  flex-shrink: 0;
   width: 32px;
-}
-.brand-mark span {
-  font-size: 18px;
+  height: 32px;
 }
 .desktop-nav {
   display: flex;
@@ -520,9 +516,14 @@ html[lang="en"] .answer p br {
   font-size: 12px;
   border-bottom: 1px solid var(--hairline);
 }
-.terminal-title b {
-  font-weight: 400;
-  margin-right: 10px;
+.terminal-title > span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.terminal-title .brand-mark {
+  width: 20px;
+  height: 20px;
 }
 .terminal-subtitle {
   color: var(--muted);
@@ -633,7 +634,7 @@ html[lang="en"] .answer p br {
 .overview-panel {
   padding: 24px 22px;
   border-left: 1px solid var(--hairline);
-  background: #080809;
+  background: #0C0C0C;
 }
 .overview-title {
   display: flex;
@@ -763,9 +764,14 @@ html[lang="en"] .answer p br {
   font-size: 11px;
   color: var(--muted);
 }
+.preview-footnote-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
 .preview-footnote a {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 .preview-footnote a:hover {
@@ -1372,8 +1378,8 @@ h2 {
   scroll-behavior: auto;
 }
 :root[data-market="green-up"] {
-  --up: #1e9f4d;
-  --down: #e5494d;
+  --up: #75A26F;
+  --down: #D87565;
 }
 @keyframes blink {
   0%,
@@ -1450,8 +1456,8 @@ h2 {
     gap: 9px;
   }
   .brand-mark {
-    font-size: 24px;
     width: 30px;
+    height: 30px;
   }
   .desktop-nav {
     display: none;
@@ -1636,6 +1642,11 @@ h2 {
   }
   .preview-footnote {
     font-size: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .preview-footnote-actions {
+    gap: 12px;
   }
   .section {
     padding-block: 56px;

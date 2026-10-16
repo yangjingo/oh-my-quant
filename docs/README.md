@@ -36,14 +36,14 @@ docs/
 
 Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/runtime/quant-harness.ts` 实现其中的任务装配与守卫；Source、Quant、Storage、Execution、Artifact 和 UI/UX 是这一应用体系内职责不同的组成部分。归入同一目录不抹平模块边界，不表示执行能力已经接入默认研究 Agent，也不放宽账户授权。
 
-当前共 **62 个文件**：39 份 Markdown、2 份 HTML、3 个 TypeScript、5 张 PNG、13 张 SVG。23 份原顶层文档已迁入两个目录；桌面宿主设计也归入 Quant Harness。顶层 Markdown 只保留本页。
+当前共 **77 个文件**：39 份 Markdown、3 份 HTML、3 个 TypeScript、11 张 PNG、19 张 SVG、1 个 ICO、1 份字体许可。23 份原顶层文档已迁入两个目录；桌面宿主设计也归入 Quant Harness。顶层 Markdown 只保留本页。
 
 | 位置 | 文件数 | 内容 |
 |---|---:|---|
 | `agent-runtime/` | 2 | 通用运行时与扩展契约 |
 | `quant-harness/` | 22 | 完整量化应用的设计、产品与使用文档 |
 | `blog/` | 30 | 12 篇正文、目录与编辑说明、12 张 SVG、构建/检查脚本、私有证据路径规则和离线 HTML |
-| `assets/` | 6 | 共用产品与设计素材 |
+| `assets/` | 21 | 共用产品素材、JQ 标识、按尺寸命名的图标与字体许可 |
 | 顶层 | 2 | 本页和讲解演示 |
 
 <a id="agent-design"></a>
@@ -158,18 +158,29 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 <a id="assets"></a>
 ## 配图素材
 
-### 公共视觉素材（6）
+### 公共视觉素材（21）
 
-这些素材不是独立的设计规范或运行证明。无正文引用只能作为使用情况线索，不能单独作为删除依据。
+保留当前正文引用的截图、选定的设计参考、SVG 品牌素材和尺寸图标。素材不是独立的设计规范或运行证明。
 
 | 文件 | 内容与用途 | 定位 |
 |---|---|---|
-| [assets/website-workspace.png](./assets/website-workspace.png) | 网站研究工作台演示，含市场研究、组合比较、报告入口及 Synthetic data 标记 | 当前英文 README 使用；合成演示素材，不证明真实模型、行情或网站部署状态 |
-| [assets/terminal-renderer-2026-10-13.png](./assets/terminal-renderer-2026-10-13.png) | 当前 QuantTui 的 120×32 缓冲区投影，默认 red-up | 讲解演示使用；隔离合成输入，非真实行情/模型回答或实体终端证明 |
-| [assets/terminal.png](./assets/terminal.png) | 早期终端首页视觉参考 | 保留 GOALS / PRD 的设计来源；已退出项目首页和演示，不作为当前界面截图 |
-| [assets/image.png](./assets/image.png) | 另一版终端画面参考，含 Portfolio / Watchlist / Market | 保留素材；本轮分类前未在 docs、项目 README、DESIGN 的文本引用中找到入口 |
-| [assets/logo.png](./assets/logo.png) | 羽毛、柱形图与 WhyJ Quant 字标 | 品牌素材，同上范围未发现原入口 |
-| [assets/poste.svg](./assets/poste.svg) | 1200×1700 SVG 版面素材 | 展示素材，同上范围未发现原入口；不从文件名推断其发布或验收状态 |
+| [assets/workspace-preview.png](./assets/workspace-preview.png) | 唯一当前产品预览，从官网 `#workspace` 截取 | README 与幻灯片引用同一文件；英文、Market research、Overview 开启、red-up、合成数据；非 CLI 截图或运行证明 |
+| [assets/workspace-design-reference.png](./assets/workspace-design-reference.png) | 历史设计参考，仅用于暖黑、奶油白与金色的视觉方向 | DESIGN、GOALS 与 PRD 明确以其为设计输入；旧 Logo、布局和示例数据不作为当前产品预览 |
+| [assets/logo-mark.svg](./assets/logo-mark.svg) | 透明 JQ 融合标记，J 嵌入 Q 并连接尾笔 | 品牌几何主文件，官网标识和 favicon 的共同来源 |
+| [assets/logo-wordmark.svg](./assets/logo-wordmark.svg) | Geist Semibold 的 WhyJ Quant 路径字标 | 字标主文件，不依赖查看设备安装字体 |
+| [assets/logo-lockup-dark.svg](./assets/logo-lockup-dark.svg) | 金色 JQ 与浅色字标，透明底 | 深色背景组合，由主文件生成 |
+| [assets/logo-lockup-light.svg](./assets/logo-lockup-light.svg) | 墨色 JQ 与字标，透明底 | 浅色背景组合，由主文件生成 |
+| [assets/logo-lockup-mono.svg](./assets/logo-lockup-mono.svg) | 单色组合，使用 currentColor | 内联时继承颜色；独立图片默认黑色 |
+| [assets/logo-mark-mono.svg](./assets/logo-mark-mono.svg) | 单色透明 JQ 标记 | 与主标记相同的几何 |
+| [assets/app-icon.svg](./assets/app-icon.svg) | 深底圆角应用图标源 | favicon、PNG 和 Windows ICO 共用轮廓 |
+| [assets/index.html](./assets/index.html) | JQ 素材的深浅底、小尺寸和下载预览 | 网页与 Desktop 使用 SVG，CLI 采用 JQ 字符标记 |
+| [assets/geist-license.txt](./assets/geist-license.txt) | Geist 字体 SIL OFL 许可 | 随路径字标保留字体来源与许可 |
+| [assets/app-icon.ico](./assets/app-icon.ico) | Windows 多尺寸图标，16/24/32/48/64/128/256px | Desktop 窗口与安装器的同源素材 |
+| [icons/16x16.png](./assets/icons/16x16.png) · [24x24.png](./assets/icons/24x24.png) · [32x32.png](./assets/icons/32x32.png) | 原生小尺寸 PNG | 文件名就是实际像素尺寸 |
+| [icons/48x48.png](./assets/icons/48x48.png) · [64x64.png](./assets/icons/64x64.png) · [128x128.png](./assets/icons/128x128.png) | 中尺寸 PNG | 从同一 SVG 导出 |
+| [icons/256x256.png](./assets/icons/256x256.png) · [512x512.png](./assets/icons/512x512.png) · [1024x1024.png](./assets/icons/1024x1024.png) | 大尺寸 PNG | 从同一 SVG 导出 |
+
+文件采用小写短横线命名：`logo-mark` 为标记，`logo-wordmark` 为字标，`logo-lockup-{dark,light,mono}` 为组合标识（dark/light 指使用背景），`app-icon` 为应用图标；当前预览为 `workspace-preview`，历史设计参考为 `workspace-design-reference`。`icons/` 参照 [ZCode](https://github.com/zai-org/ZCode/tree/main/public/logo/icons) 用 `宽x高.png`，不额外拆目录。品牌规范见根目录 [DESIGN.md](../DESIGN.md#brand-rules)。素材直接维护，不再保留单独的品牌生成脚本或重复的 Desktop PNG 集合。产品预览统一从官网截取并复用，具体状态见 [官网维护说明](../site/README.md#工作台预览)；旧终端参考、独立 CLI 预览和重复 logo.png 已删除。
 
 ### 博客机制图（12）
 

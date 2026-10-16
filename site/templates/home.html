@@ -52,7 +52,7 @@
           <div class="terminal-window">
             <div class="terminal-title">
               <span
-                ><b class="gold">Q_</b> WhyJ Quant
+                ><img class="brand-mark" src="/logo-mark.svg" width="20" height="20" alt="" aria-hidden="true" /> WhyJ Quant
                 <span class="terminal-subtitle"
                   >/ research workspace</span
                 ></span
@@ -253,10 +253,15 @@
             </div>
           </div>
           <div class="preview-footnote">
-            <span>{{demo.terminal}}</span
-            ><a href="#settings"
-              >{{demo.trySettings}}
-              <svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#settings-2" /></svg></a>
+            <span>{{demo.terminal}}</span>
+            <div class="preview-footnote-actions">
+              <a href="/workspace-preview.png" target="_blank" rel="noopener"
+                >{{demo.liveWorkspace}}
+                <svg class="icon icon-small" aria-hidden="true" focusable="false"><use href="/icons.svg#arrow-up-right" /></svg></a
+              ><a href="#settings"
+                >{{demo.trySettings}}
+                <svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#settings-2" /></svg></a>
+            </div>
           </div>
         </div>
       </section>

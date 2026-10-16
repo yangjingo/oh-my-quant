@@ -6,7 +6,7 @@ An open-source AI research terminal for exploring markets, testing ideas, and ke
 
 [Website](https://oh-my-quant.vercel.app/en/) / [中文](https://oh-my-quant.vercel.app) / [Documentation](#documentation) / [Blog](https://oh-my-quant.vercel.app/en/blog/)
 
-[![WhyJ Quant website demo: research tools, sample analysis, and a market overview](./docs/assets/website-workspace.png)](https://oh-my-quant.vercel.app/en/)
+[![WhyJ Quant website demo: research tools, sample analysis, and a market overview](./docs/assets/workspace-preview.png)](https://oh-my-quant.vercel.app/en/)
 
 *Interactive website demo with synthetic data. The CLI runs in your own terminal.*
 

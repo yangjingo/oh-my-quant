@@ -12,7 +12,7 @@
 
 ### 金融终端与日常布局
 
-- F04：以 [terminal.png](../assets/terminal.png) 为参考，统一面板、字体呈现和克制的皮肤设计。
+- F04：以选定的 [workspace-design-reference.png](../assets/workspace-design-reference.png) 为参考，统一面板、字体呈现和克制的皮肤设计；具体规范以根目录 DESIGN.md 为准。
 - F05：布局贴合 quant 的日常研究工作。
 - F06：统一金色层级、淡色、间隔与涨跌红绿语义。
 - F07：简化 slash，评审每个命令与 quant 术语的对应及可发现性。

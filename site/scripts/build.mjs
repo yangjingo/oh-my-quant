@@ -10,9 +10,11 @@ const allowed = new Set([
   "styles.css",
   "app.js",
   "favicon.svg",
+  "logo-mark.svg",
   "icons.svg",
   "licenses",
   "fonts",
+  "workspace-preview.png",
 ]);
 const files = await readdir(source);
 const content = await loadContent();
