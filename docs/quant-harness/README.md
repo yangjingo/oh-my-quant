@@ -13,7 +13,7 @@
 | 数据、工具与技能 | [数据源](./source-data-providers.md) · [工具与计算](./quant-tools-design.md) · [Skills](./trader-skills.md) |
 | 领域研究 | [组合比较](./portfolio-comparison.md) · [新闻](./news-research.md) · [Alpha 回测](./alpha-backtest.md) |
 | 账户与执行 | [账户业绩](./performance.md) · [执行](./execution.md) |
-| 报告与交互 | [制品](./artifacts-design.md) · [年报](./annual-reports.md) · [UI/UX](./quant-uiux.md) · [Windows 桌面宿主](./desktop.md) |
+| 报告与交互 | [制品](./artifacts-design.md) · [年报](./annual-reports.md) · [UI/UX](./quant-uiux.md) · [Windows 桌面宿主](./desktop.md) · [Web 研究工作台](./research-workspace.md) |
 | 使用与验证 | [配置](./configuration.md) · [手册](./user-guide.md) · [命令](./slash-commands.md) · [评测](./evaluation.md) |
 
 文档在此归为一个应用体系，代码仍按 Source、Quant、Storage、Execution、Artifact、Runtime 与 TUI 的职责分开。UI/UX 不是研究结束后的包装，它承担输入、过程可见性、错误恢复和结果呈现；数据与计算也不是 Harness 外部的附录，而是研究得以成立的组成部分。返回[全部文档](../README.md)。

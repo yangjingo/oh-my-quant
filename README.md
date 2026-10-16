@@ -44,6 +44,8 @@ The checkout and npm release may differ. Check `whyj --version` and the [changel
 
 </details>
 
+Source checkouts also include an experimental local Web research workspace: `bun run workspace:dev`, then open <http://127.0.0.1:4175/>. It connects the configured Agent to one explicit-stock daily-bar task, with citations, manual saving and independent review. Requires Python with AKShare and pandas; see [scope, setup and verification limits](./docs/quant-harness/research-workspace.md). This entrypoint is not part of the published CLI package or the website demo.
+
 ## Features
 
 - **Research in context.** Connect market data and quantitative tools in one conversation.

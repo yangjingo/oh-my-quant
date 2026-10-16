@@ -36,12 +36,12 @@ docs/
 
 Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/runtime/quant-harness.ts` 实现其中的任务装配与守卫；Source、Quant、Storage、Execution、Artifact 和 UI/UX 是这一应用体系内职责不同的组成部分。归入同一目录不抹平模块边界，不表示执行能力已经接入默认研究 Agent，也不放宽账户授权。
 
-当前共 **62 个文件**：39 份 Markdown、2 份 HTML、3 个 TypeScript、5 张 PNG、13 张 SVG。23 份原顶层文档已迁入两个目录；桌面宿主设计也归入 Quant Harness。顶层 Markdown 只保留本页。
+当前共 **63 个文件**：40 份 Markdown、2 份 HTML、3 个 TypeScript、5 张 PNG、13 张 SVG。23 份原顶层文档已迁入两个目录；桌面宿主设计也归入 Quant Harness。顶层 Markdown 只保留本页。
 
 | 位置 | 文件数 | 内容 |
 |---|---:|---|
 | `agent-runtime/` | 2 | 通用运行时与扩展契约 |
-| `quant-harness/` | 22 | 完整量化应用的设计、产品与使用文档 |
+| `quant-harness/` | 23 | 完整量化应用的设计、产品与使用文档 |
 | `blog/` | 30 | 12 篇正文、目录与编辑说明、12 张 SVG、构建/检查脚本、私有证据路径规则和离线 HTML |
 | `assets/` | 6 | 共用产品与设计素材 |
 | 顶层 | 2 | 本页和讲解演示 |
@@ -97,6 +97,7 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 | [年度报告](./quant-harness/annual-reports.md) | 年度/YTD、组合版本、观点来源与私有导出 |
 | [UI/UX](./quant-harness/quant-uiux.md) | 工作台、布局、队列投影、异步状态与文本渲染；视觉真源为根 [DESIGN](../DESIGN.md) |
 | [Windows 桌面宿主](./quant-harness/desktop.md) | Electron/ConPTY、随包运行时、数据目录、构建与安装验收 |
+| [Web 研究工作台](./quant-harness/research-workspace.md) | 本地对话入口、真实取证与计算、引用、保存和独立复核的首个任务 |
 
 <a id="reference"></a>
 

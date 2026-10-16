@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WhyJ · 研究工作台</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <aside>
+      <a class="brand" href="/">▥ WhyJ <span>投资研究工作台</span></a>
+      <button id="new" class="primary btn-new-study" title="发起全局新研究">＋ 新建研究</button>
+      <form id="project-form" class="project-inline-form" hidden>
+        <div class="form-title">新建标的专题项目</div>
+        <input id="new-project-symbol" placeholder="标的代码，如 600519.SH" required maxlength="12" />
+        <input id="new-project-name" placeholder="项目名称（可选）" maxlength="30" />
+        <div class="form-btns">
+          <button type="submit" class="primary small">创建</button>
+          <button type="button" id="cancel-project" class="small">取消</button>
+        </div>
+      </form>
+      <div class="projects-meta-bar">
+        <span class="eyebrow">研究项目 · PROJECTS</span>
+        <div class="meta-right">
+          <span id="projects-count" class="badge-count">0</span>
+          <button id="new-project" class="btn-icon-add" title="新建标的专题项目">＋</button>
+        </div>
+      </div>
+      <div id="studies" class="projects-tree" role="tree"></div>
+      <footer>本机服务 · 单股日线研究<br />证据与版本保存在本机</footer>
+      <div id="aside-resizer" class="resizer" role="separator" aria-orientation="vertical" aria-valuenow="268" aria-valuemin="210" aria-valuemax="500" title="按住拖拽调整侧边栏宽度，双击恢复默认" tabindex="0"></div>
+    </aside>
+    <main>
+      <header>
+        <div>
+          <nav id="breadcrumb" class="breadcrumb" aria-label="路径导航">
+            <span class="bc-part">WhyJ</span>
+            <span class="bc-sep">/</span>
+            <span id="bc-project" class="bc-part">全部项目</span>
+            <span class="bc-sep">/</span>
+            <span id="bc-study" class="bc-part active">新研究</span>
+          </nav>
+          <h1>把问题研究清楚。</h1>
+        </div>
+        <div class="header-tools">
+          <span class="badge">真实 Agent · 实验版</span>
+          <button id="toggle-inspector" aria-expanded="false">研究面板</button>
+        </div>
+      </header>
+      <div class="workspace">
+        <section class="conversation">
+          <div
+            id="thread"
+            role="log"
+            aria-label="研究对话"
+            aria-live="polite"
+            tabindex="0"
+          >
+            <div class="intro">
+              <span class="eyebrow">与你一起，形成有依据的判断</span>
+              <h2>先聊一个投资问题。</h2>
+              <p>
+                我会取证、复算，再说明判断与边界。你可以接着追问；结论、图表与证据随时在右侧展开。
+              </p>
+            </div>
+            <div id="answer"></div>
+            <div id="progress" aria-live="off"></div>
+          </div>
+          <div class="actions">
+            <button id="cancel" hidden>停止回复 · Ctrl+G</button>
+            <button id="continue" hidden>继续未完成工作</button>
+            <button id="save" hidden>保存本轮</button>
+            <button id="review" hidden>用新证据复核</button>
+          </div>
+          <form id="research">
+            <label for="question" id="composer-label"
+              >和 WhyJ 聊聊你的研究问题</label
+            ><textarea id="question" rows="3" required maxlength="4000">
+研究 002048.SZ 最近的回撤结构：相对沪深300表现如何？哪些证据支持继续观察，哪些变化会破坏当前结构？</textarea
+            >
+            <details>
+              <summary>研究范围 · 明确代码与日期</summary>
+              <div class="scope">
+                <label
+                  >股票代码<input
+                    id="symbol"
+                    value="002048.SZ"
+                    required /></label
+                ><label
+                  >大盘基准<select id="benchmark">
+                    <option>000300.SH</option>
+                    <option>000001.SH</option>
+                    <option>399001.SZ</option>
+                  </select></label
+                ><label>起始日期<input id="start" type="date" required /></label
+                ><label>截至日期<input id="end" type="date" required /></label>
+              </div>
+            </details>
+            <div class="compose-actions">
+              <span id="composer-hint">Enter 发送 · Shift+Enter 换行</span
+              ><button type="submit" class="primary" id="submit">
+                发送 ↗
+              </button>
+            </div>
+          </form>
+          <div id="alert" role="alert"></div>
+        </section>
+        <section class="inspector">
+          <nav aria-label="研究视图">
+            <button data-tab="conclusion" aria-selected="true">结论</button
+            ><button data-tab="chart">图表</button
+            ><button data-tab="evidence">证据</button
+            ><button data-tab="review">复核</button>
+          </nav>
+          <p id="inspection-context" class="small"></p>
+          <div id="inspect">
+            <h2>研究将从这里展开</h2>
+            <p>结论说明判断，图表呈现结构，证据提供出处，复核记录变化。</p>
+          </div>
+        </section>
+      </div>
+      <p class="footnote">
+        模型解释与程序计算分别呈现。当前缺少板块证据与交易所终态认证，结果用于结构观察，不能认证买点。
+      </p>
+    </main>
+    <div id="context-menu" class="context-menu" hidden></div>
+    <div id="app-modal" class="modal-overlay" hidden role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modal-title">标题</h3>
+          <button id="modal-close" class="btn-icon" title="关闭">✕</button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
+        <div id="modal-footer" class="modal-footer"></div>
+      </div>
+    </div>
+  </body>
+</html>

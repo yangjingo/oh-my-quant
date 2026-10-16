@@ -37,6 +37,7 @@
   ],
   "scripts": {
     "dev": "bun run --watch src/index.ts",
+    "workspace:dev": "bun run src/app/research-workspace/server.ts",
     "build": "bun run src/cli/dev/build.ts",
     "start": "node dist/index.js",
     "check:architecture": "bun run tests/architecture/check-architecture.ts",
