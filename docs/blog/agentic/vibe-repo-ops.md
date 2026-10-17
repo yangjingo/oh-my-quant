@@ -332,6 +332,14 @@ GitHub 对有 merge conflict 的 PR 不运行普通 `pull_request` 工作流；`
 
 合理的上线顺序是先接上已有的 CI/policy 检查，再交付能对所有 PR 稳定报告的 Desktop 检查，最后将 Desktop 纳入必需条件。否则要求一个旧 workflow 从不报告的检查，只会让 PR 一直等待。保存设置以后，核对 API 与实际 PR 的阻塞原因；需要专门验证拒绝行为时使用受控测试 PR，不能用破坏性推送测试 main。这里记录了配置审计，尚未声称完成“故意失败且被 CI 规则拒绝合并”的端到端验收。
 
+### 线性历史解决的是追溯与回滚，不替代质量检查
+
+GitHub 的 `Require linear history` 禁止 merge commit 进入受保护分支，因此 PR 必须通过 squash 或 rebase 合并。它没有要求所有工作分支都只有一个提交，也没有要求个人在开发中反复改写提交。[官方分支保护说明](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-linear-history)
+
+对本仓库，**WhyJ 分析**建议短期 issue 分支保留调试过程，合入 main 时采用 squash：例如 Agent 的实现、修 lint、修 Windows、补文档四个提交，最终形成 `fix(ci): make refresh recovery deterministic (#41)` 这样的一个完整变更。main 上可以直接看到每个 PR 的效果，回滚通常只需 revert 一个提交。Rebase merge 同样能生成线性历史，却会保留多个提交，因此“线性”与“一个 PR 一个提交”是两项选择。无论哪种方式，后续代码依赖仍可能导致 revert 冲突，不能保证任意回滚都无损。
+
+代价是 squash 后 main 不再保留逐步调试的提交结构；长期堆叠分支也要处理父 PR squash 后的基线变化。因此这只是当前维护方式的建议，没有在本次修改平台设置。线性历史、强制签名、CI、评审和部署门槛各自独立：维护者取消强制签名不会关闭其他保护；线性历史也不能证明 Agent 的代码正确。
+
 ## 10. 三个公开仓库提供了什么可以迁移的机制
 
 外部源码采用固定提交，避免文章中的判断随 main 漂移。下面只陈述公开文件能支持的事实，不推断私有 ruleset、内部运行统计和未公开流程。
@@ -454,6 +462,16 @@ Desktop 本次增加发布前的 main 分支、稳定版本与 CLI/Desktop 版�
 补充对照将 `runPython` 替换为永不结算的测试 Promise：旧 handler 测试在 5 秒处稳定失败；修复版仍通过，并验证报告包含显式 dependency fixture。这个故障注入没有启动真实挂死进程，证明的是格式化测试不再依赖宿主探针，不证明生产 Python 的任意挂死都已解决。
 
 <a id="review"></a>
+
+### 参考资料改动后 CI 又失败：刷新时间跨过了分钟边界
+
+[CI 39052800266](https://github.com/yangjingo/oh-my-quant/actions/runs/39052800266) 对 head `b35b10c` 的 Windows 检查报告 Overview 恢复测试失败。日志中首次面板为 `2026-10-17 17:15`，恢复后为 `17:16`；唯一 diff 是 Source 的更新时间。该 head 新增的是参考资料，不能据此把失败归因于博客。继续追踪发现 [Issue #34](https://github.com/yangjingo/oh-my-quant/issues/34) 已记录相同假设在 08:59 → 09:00 时失败；这是基线已有测试问题。#41 在 2026-10-18 01:28（Asia/Shanghai）已合入 `ab5d5ec`，早于时钟修复提交；因此该补丁由 #34 单独交付，不能把后续分支提交算作已经随 #41 进入 main。
+
+旧测试先成功取值，再模拟 error，等待约一秒 timeout，最后成功恢复。它用 `expect(lastPanel).toEqual(firstPanel)` 验证恢复，隐含要求两次真实刷新发生在同一分钟。生产代码每次发布面板调用 `new Date()`，更新时间变化是正确行为。把 timeout 调大只会扩大跨分钟窗口，重复 rerun 只是赌下一次没有碰到边界。
+
+最小修复只改测试：用 Bun `setSystemTime` 固定首次时间为 17:15:59，恢复前推进到 17:16:00；以首次完整面板为预期基底，仅把 Source 的更新时间明确改为 17:16。还断言首次字段确实是 17:15，避免选择错字段；其他字段仍逐项完整比较，行情与 stale 清除并未被略过。`afterEach` 最先恢复时钟，真实 timeout 和单调计时保持原行为。[测试源码](../../../src/runtime/test/overview-refresh.test.ts) · [Bun 时间控制说明](https://bun.sh/docs/test/dates-times)
+
+验证按反例进行：同一受控跨分钟输入配合旧断言稳定失败，diff 仍只有 17:15 → 17:16；修复后整个文件 12 项通过，其中 timeout 仍实际等待约一秒。这证明改变的是错误的测试前提，不是把失败状态过滤掉。完整 release gate 与远端矩阵的最终结果仍需以 PR 的最新 head 回执为准；后续偶然全绿不会抹掉这次已确认的失败。
 
 ### PR #39 的审查案例与协作经验
 
