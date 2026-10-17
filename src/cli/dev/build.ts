@@ -11,7 +11,3 @@ if (!result.success) {
   process.exit(1);
 }
 console.log(`Built ${result.outputs.length} files (${result.outputs.reduce((sum, file) => sum + file.size, 0)} bytes).`);
-// A self-contained extension loaded by Pi's Jiti runtime, with host-owned peer modules.
-const extension = await Bun.build({ entrypoints: [resolve(root, "src/runtime/pi-extension.ts")], outdir,
-  target: "node", naming: "[name].ts", packages: "external" });
-if (!extension.success) { console.error(...extension.logs); process.exit(1); }

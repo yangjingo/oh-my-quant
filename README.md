@@ -53,18 +53,6 @@ The checkout and npm release may differ. Check `whyj --version` and the [changel
 
 ## Commands
 
-The current source also provides a native Pi host with JQ quant tools and Pi community plugins:
-
-```sh
-whyj pi presets
-whyj pi install ticker
-whyj pi
-whyj pi config
-whyj pi remove ticker
-```
-
-Pi owns model authentication, plugin loading, UI and package selection. See [native plugin setup and host boundaries](./docs/agent-runtime/extensions.md#pi-原生入口). Availability in npm depends on the installed release.
-
 | Command | Purpose |
 | --- | --- |
 | `/config` | Connect models and data; adjust the workspace |

@@ -1,13 +1,22 @@
 import { createAgent, type QuantAgentOptions, type QuantAgentSession } from "../agent/src/session.ts";
 import { createDefaultSessionDependencies } from "./session-dependencies.ts";
-import { validateResearchTaskEvent } from "../research/tasks.ts";
+import { checkResearchTaskCall, validateResearchTaskEvent } from "../research/tasks.ts";
 import { validatePortfolioTaskDeclaration } from "../research/task-portfolio-scope.ts";
 import type { ResearchTaskEvent, ResearchTaskSpec } from "../types/research-task.ts";
-import { taskToolDenial } from "./research/task-tool-policy.ts";
+import { record } from "../research/references.ts";
 import { RESEARCH_TASK_GUIDANCE } from "../tools/research-task-tool.ts";
 import { bindResearchTools } from "../tools/registry.ts";
 import { projectResearchState } from "../research/state.ts";
+import type { ResearchState } from "../research/state.ts";
 import type { AgentTool } from "../agent/src/session-runtime/index.ts";
+
+function taskToolDenial(task: ResearchState["task"], toolName: string, input: unknown): string | null {
+  if (!task || toolName === "research_task") return null;
+  if (task.status === "cancelled") return "Research task is cancelled. Declare a new task before continuing.";
+  const parameters = record(input);
+  if (!parameters) return "Research task tools require object parameters.";
+  return checkResearchTaskCall(task.spec, toolName, parameters);
+}
 
 /** Quant policy around the existing Pi session; no replacement loop or parallel state store. */
 export function createQuantResearchAgent(options: QuantAgentOptions = {}): QuantAgentSession {

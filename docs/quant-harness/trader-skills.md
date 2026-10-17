@@ -11,36 +11,8 @@
 | 内置行情与量化工具 | 数据适配器、因子、回测、风险与报告 | `/config → Market Data`，按需填写凭证，检查并保存 |
 | 预制 Skills | 两个仓库的下载版本和十个可选入口 | `/skill install` 查看选项，再按名称安装；`/skill remove` 移除 |
 | MCP 扩展 | 预制目录、Pi 配置增删和模板导出 | `/mcp` 选择服务；连接与认证由 Pi 等 MCP 宿主负责 |
-| Pi 社区插件 | 量化推荐目录与原生宿主入口 | `whyj pi presets`；按需 `install`、`config`、`remove` |
 
 行情接入范围见[数据源](./source-data-providers.md)，配置见 [Market Data](./configuration.md#market-data-与凭证)。MCP 参数不放入 `.ohquant/settings.json`。安装 Pi SDK 以复用 Skills API，不意味着 JQ 自动启动了 Pi 的 MCP 会话。
-
-<a id="pi-plugins"></a>
-
-### Pi 社区插件
-
-`whyj pi` 启动完整的 Pi 原生宿主并加载 JQ 量化工具。编辑器、组件、命令、会话与 provider 插件直接使用 Pi 的接口，具体边界见[扩展文档](../agent-runtime/extensions.md#pi-原生入口)。普通 `whyj` 的 TUI 仍使用原来的 API 1。
-
-| 推荐项 | 固定来源 | 用途与依赖 |
-|---|---|---|
-| [pi-ticker](https://github.com/narumiruna/pi-extensions/tree/main/packages/pi-ticker) | `npm:@narumitw/pi-ticker@0.1.1`，别名 `ticker` | Yahoo Finance 行情 widget 和 `/ticker` 菜单；宿主提供 Pi TUI，包依赖 `@narumitw/pi-tui-kit ^0.59.0` |
-
-```sh
-whyj pi presets
-whyj pi install ticker
-whyj pi
-# 在 Pi 内输入 /ticker，选择想看的品种
-whyj pi config
-whyj pi remove ticker
-```
-
-初始列表为空，不自动请求行情。来源与设置说明由上游维护，Yahoo 可能延迟或限流；该 widget 不自动生成已核验研究证据。固定的是推荐包版本，传递依赖仍按上游声明解析。其他社区包直接 `whyj pi install npm:<name>@<version>` 或 Git/local 来源；资源可在 `config` 中选择，默认不批量安装。
-
-Pi 的配置选择会保留包文件；`remove` 使用 Pi 自己的卸载语义，准备编辑安装包时应使用独立本地目录，并由用户保存修改。JQ 不承诺 npm/git 托管目录卸载后仍保留源码。与旧 `/skill remove` 仅撤销缓存选择的语义不同。
-
-验证于 2026-10-17，Windows、Node 25.8.1、Pi 1.2.0、pi-ticker 0.1.1：隔离 agent 目录实际安装，原生 RPC 命令清单包含 ticker；`extensions: []` 后消失；原生 remove 后包声明移除，无关设置和旧 Skills 本地修改保留。选择两个本地技能中的一个时，原生清单仅包含所选项。
-
-[120 × 36 终端菜单](../assets/pi-native-ticker-wide.png) · [80 × 28 终端菜单](../assets/pi-native-ticker-narrow.png)。截图来自当前实现的 `node dist/index.js pi --offline --no-context-files --no-skills --no-session --no-mcp --model fixture/fixture`，在 ConPTY 中输入 `/ticker`、搜索和 Escape，再调整窗口打开菜单；捕获真实 ANSI 输出后由 xterm/Chromium 渲染截屏。界面使用空 ticker 列表和不可联网的 fixture 模型，没有请求模型或 Yahoo 行情；不是实时行情效果图。窄屏底部快捷键提示由上游截断，Escape 已实测可退出。offline 下缺少 fd 的提示是 Pi 对可选工具下载的说明。
 
 ### 预制研究技能
 

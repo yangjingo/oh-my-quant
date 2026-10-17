@@ -7,7 +7,7 @@ import type { Static } from "typebox";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import type { AgentTool, AgentToolResult } from "../agent/src/session-runtime/index.ts";
-import { executeShellWithCapture } from "../agent/src/session-runtime/harness/utils/shell-output.ts";
+import { executeShellWithCapture } from "../agent/src/session-runtime/index.ts";
 import { NodeExecutionEnv } from "../agent/src/session-runtime/node.ts";
 import { shellDisplayName } from "./shell.ts";
 

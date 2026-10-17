@@ -37,14 +37,14 @@ docs/
 
 Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/runtime/quant-harness.ts` 实现其中的任务装配与守卫；Source、Quant、Storage、Execution、Artifact 和 UI/UX 是这一应用体系内职责不同的组成部分。归入同一目录不抹平模块边界，不表示执行能力已经接入默认研究 Agent，也不放宽账户授权。
 
-当前共 **70 个文件**：41 份 Markdown、2 份 HTML、3 个 TypeScript、11 张 PNG、13 张 SVG。23 份原顶层文档已迁入两个目录；桌面宿主设计也归入 Quant Harness。顶层 Markdown 只保留本页。
+当前共 **68 个文件**：41 份 Markdown、2 份 HTML、3 个 TypeScript、9 张 PNG、13 张 SVG。23 份原顶层文档已迁入两个目录；桌面宿主设计也归入 Quant Harness。顶层 Markdown 只保留本页。
 
 | 位置 | 文件数 | 内容 |
 |---|---:|---|
 | `agent-runtime/` | 2 | 通用运行时与扩展契约 |
 | `quant-harness/` | 23 | 完整量化应用的设计、产品、使用与仓库维护文档 |
 | `blog/` | 31 | 12 篇系列正文、1 篇工程补篇、目录与编辑说明、12 张 SVG、构建/检查脚本、私有证据路径规则和离线 HTML |
-| `assets/` | 12 | 共用产品与设计素材、实际博客阅读视图及社区工具命令渲染证据 |
+| `assets/` | 10 | 共用产品与设计素材、实际博客阅读视图及社区工具命令渲染证据 |
 | 顶层 | 2 | 本页和讲解演示 |
 
 <a id="agent-design"></a>
@@ -175,8 +175,6 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 | [assets/blog-product-plan-narrow-20261015.png](./assets/blog-product-plan-narrow-20261015.png) | 同一博客的 390×844 阅读视图 | 同上；正文不溢出，机制图沿用带提示、可键盘横滚的容器 |
 | [assets/community-tools-60x20.png](./assets/community-tools-60x20.png) | Skills/MCP 选择与移除的窄终端连续帧 | 当前命令与 QuantTui 字符缓冲区的浏览器截图；隔离合成输入，不证明原生终端或外部服务可用 |
 | [assets/community-tools-120x32.png](./assets/community-tools-120x32.png) | 同一命令流程的宽终端连续帧 | 同上；复现步骤见 Skills 与 MCP 指南 |
-| [assets/pi-native-ticker-wide.png](./assets/pi-native-ticker-wide.png) | Pi 原生入口加载真实 pi-ticker 的 120×36 菜单 | 真实 ConPTY 输出经 xterm 浏览器截屏；fixture 模型、空品种，不验证金融服务 |
-| [assets/pi-native-ticker-narrow.png](./assets/pi-native-ticker-narrow.png) | 同一原生菜单的 80×28 终端 | 同上；搜索、Escape 和复现说明见社区工具指南 |
 
 ### 博客机制图（12）
 
