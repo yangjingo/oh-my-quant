@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it } from "bun:test";
+import { afterEach, beforeEach, expect, it, setSystemTime } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
@@ -19,6 +19,7 @@ beforeEach(() => {
   savePanelPortfolio({ updated: "", groups: [], symbols: [{ code: "000300.SH", name: "shared index", added: "" }, { code: "AAPL", name: "Apple", added: "" }] });
 });
 afterEach(() => {
+  setSystemTime();
   disposables.splice(0).forEach(item => item.dispose());
   if (previous === undefined) delete process.env.OHQUANT_DIR; else process.env.OHQUANT_DIR = previous;
   if (!resolve(root).startsWith(resolve(tmpdir()) + sep)) throw new Error("Unexpected refresh fixture directory");
@@ -73,6 +74,7 @@ it("supersedes a hung generation immediately, reads the latest portfolio, and re
 });
 
 it("keeps the last values visibly stale after failure or timeout and recovers on the following refresh", async () => {
+  setSystemTime(new Date(2026, 9, 17, 17, 15, 59));
   let mode = "success";
   const panels: PanelSection[][] = [], measures: OverviewRefreshMeasurement[] = [];
   // Test lifecycle outcomes, not whether filesystem reads finish within a 10 ms deadline.
@@ -99,8 +101,18 @@ it("keeps the last values visibly stale after failure or timeout and recovers on
     const text = JSON.stringify(panel);
     expect(text).toContain(mode); expect(text).toContain("stale"); expect(text).not.toContain("PRIVATE");
   }
+  setSystemTime(new Date(2026, 9, 17, 17, 16, 0));
   mode = "success"; await refresh.refresh();
-  expect(panels.at(-1)).toEqual(first);
+  // Quotes and cleared stale state must match; the successful refresh owns a new timestamp.
+  const expected = structuredClone(first);
+  const source = expected.find(section => section.kind === "keyvalue" && section.title === "Source");
+  expect(source?.kind).toBe("keyvalue");
+  if (source?.kind === "keyvalue") {
+    const updated = source.rows.find(row => row.label === "更新");
+    expect(updated).toEqual({ label: "更新", value: "2026-10-17 17:15" });
+    updated!.value = "2026-10-17 17:16";
+  }
+  expect(panels.at(-1)).toEqual(expected);
   expect(measures.map(value => value.outcome)).toEqual(["success", "error", "timeout", "success"]);
 });
 

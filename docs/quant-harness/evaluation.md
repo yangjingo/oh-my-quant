@@ -1,6 +1,6 @@
 # 评测与验证指南
 
-更新：2026-10-14。这里统一维护怎样验证、输入来自哪里、自动检查能证明什么；旧结果汇编已删除，有解释力的失败与修正写入[评测博客](../blog/05-evaluation-beyond-green.md)；原始回执留在内部输出，产品完成度回到 [PRD](./PRD.md)。六份旧评测文档已合并，历史版本的案例数和通过数不再混入现行操作入口。
+更新：2026-10-18。这里统一维护怎样验证、输入来自哪里、自动检查能证明什么；旧结果汇编已删除，有解释力的失败与修正写入[评测博客](../blog/05-evaluation-beyond-green.md)；原始回执留在内部输出，产品完成度回到 [PRD](./PRD.md)。六份旧评测文档已合并，历史版本的案例数和通过数不再混入现行操作入口。
 
 - [跨领域套件](#suite)
 - [任务与恢复](#tasks)
@@ -38,8 +38,6 @@ bun run eval:research -- --case all --timeout-ms 180000 --max-requests 12 --outp
 
 工程验收和模型验收分别记录。全量测试或真实模型验收运行时冻结生产源码和测试；先保留失败，再修复，再对相关规则和真实案例复查，不放宽归档核验来制造通过。
 
-<a id="tasks"></a>
-
 ## CI 测试生命周期
 
 集成测试的业务期限应先于测试框架的外层期限到达；外层超时不等于异步工作已经停止。[research-evaluation.test.ts](../../src/runtime/test/research-evaluation.test.ts) 使用 10 秒 fixture 操作预算和 30 秒测试预算，显式超时反例保留自己的期限，生产默认值不变。清理开始后拒绝新评测，先取消并等待所有在途评测，再停止服务器、恢复环境和移除临时目录；清理 hook 有独立 15 秒预算。
@@ -51,6 +49,14 @@ bun run eval:research -- --case all --timeout-ms 180000 --max-requests 12 --outp
 [Doctor handler 测试](../../src/cli/test/handlers/system.test.ts) 通过现有 collector/dependency 注入口固定 Python 状态，保留真实格式化与面板状态推送；仅设置 skip-network 并不能阻止本机 Python 探针。真实依赖检查由 Doctor 依赖矩阵和 CLI 进程测试承担。
 
 完整历史、首次失败 attempt 与相应取舍见 [Agentic / Vibe Repo Ops](../blog/agentic/vibe-repo-ops.md)。这些合成测试不调用真实市场或模型。
+
+### Overview 跨分钟恢复的时钟边界
+
+[Overview 刷新测试](../../src/runtime/test/overview-refresh.test.ts)通过 Bun `setSystemTime` 将首次成功固定在 17:15:59，将 error、真实 timeout 后的恢复固定在 17:16:00。完整面板仍须一致，唯一预期变化是 Source 的“更新”从 17:15 变为 17:16；行情数值、stale 清除、敏感错误隐藏及 `success/error/timeout/success` 序列继续断言。`afterEach` 首先恢复真实时钟，避免污染后续用例。
+
+这里只控制日历时间，不使用 fake timers 跳过真实 timeout；生产刷新仍使用 `new Date()`，deadline 仍由单调时钟和真实计时器约束。验证时先让受控跨分钟场景配合旧整面板相等断言失败，再运行修复后的整个文件及完整 release gate。参见 [Issue #34](https://github.com/yangjingo/oh-my-quant/issues/34) 与 [本次 CI 修复 #40](https://github.com/yangjingo/oh-my-quant/issues/40)。
+
+<a id="tasks"></a>
 
 ## 任务与恢复
 
