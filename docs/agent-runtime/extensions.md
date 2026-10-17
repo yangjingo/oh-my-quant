@@ -1,6 +1,44 @@
-# WhyJ 扩展宿主
+# Pi 原生插件与 WhyJ 扩展宿主
 
-更新：2026-10-13。协议为 WhyJ Extension API 1，使用 Pi AgentTool/Skill 数据类型；不实现 Pi Coding Agent ExtensionAPI，也不承诺安装 npm Pi 包即可运行。
+更新：2026-10-17。`whyj pi` 新增原生 Pi 1.2.0 入口，完整插件接口由 Pi 自己提供。默认 `whyj` 仍使用下面记录的 WhyJ Extension API 1；两种宿主不互相冒充兼容层。
+
+## Pi 原生入口
+
+```sh
+whyj pi presets
+whyj pi install ticker
+whyj pi
+whyj pi list
+whyj pi config
+whyj pi remove ticker
+```
+
+进入原生 TUI 后用 `/login`、`/model` 配置模型，`/ticker` 打开已安装插件的菜单。`ticker` 是固定来源 `npm:@narumitw/pi-ticker@0.1.1` 的便捷别名；默认不安装社区包。任意原生 npm/git/local 来源均可使用 `whyj pi install <source>`、`remove <source>`。`config` 按资源启停，`--local` 使用项目配置，信任判断仍由 Pi 完成。命令和选项的准确范围见 `whyj pi --help`。
+
+| 能力 | 负责方与边界 |
+|---|---|
+| npm/git/local 安装、移除、更新、资源过滤 | Pi 原生 CLI / PackageManager；JQ 不保存另一份 package registry |
+| 插件事件、命令、快捷键、provider、编辑器、组件、主题 | Pi 原生 ExtensionAPI / TUI；支持范围就是锁定的 Pi 版本，不能推断兼容未来 API |
+| print、JSON、RPC、会话树、压缩与恢复 | Pi 原生会话；参数完整转交，`whyj pi -c` 表示 Pi 的 continue |
+| 量化工具与任务 | [quant extension](../../src/runtime/pi-extension.ts) 注册原工具，保留 Pi 自带 shell/file 工具；复用研究投影与共享任务 guard |
+| 原有 JQ Skills | [launcher](../../src/runtime/pi-launcher.ts) 将 `.selection.json` 选中的已缓存路径作为 `--skill` 传入；`--no-skills` / `-ns` 跳过；重启读取新选择 |
+| MCP | Pi 自带 MCP 扩展负责实际连接；JQ `/mcp` 仍只维护预制配置；`whyj pi mcp list` 检查原生宿主配置 |
+
+Pi 使用 `PI_CODING_AGENT_DIR`（默认 `~/.pi/agent`）和项目 `.pi` 的模型、认证、包、MCP 与会话设置。量化工具继续使用 JQ 的 `.ohquant` 数据与服务设置。不会复制 JQ 的模型凭证、会话或 `disabledExtensions`；默认 JQ 的 `/config`、`/artifact`、Overview 不是 Pi 内的页面。`research_task` 可以读取原生当前分支的证据；原生入口不提供 JQ 的自动报告会话接线，因此在此入口声明任务时使用 `reportRequired: false`，报告要求请在默认 JQ 宿主完成。
+
+任务 guard 覆盖模型工具调用和原生 `ctx.executeTool()` 嵌套调用，取消的任务阻止后续研究工具；量化工具执行接收原生取消信号。社区结果只有经过现有研究验证器才能成为核验证据；嵌套结果不冒充顶层研究日志。`research_task` 仅允许模型直接调用，避免嵌套声明没有独立日志提交。原生工具列表由 Pi 管理，范围外工具仍可能显示，但调用会被阻止。同进程插件和用户直接 shell 操作不是安全沙箱的对象。
+
+Pi `/reload` 会先关闭旧 runner，再加载资源；失败时显示诊断，**不保证原子回退**。用 `whyj pi config` 禁用问题资源或 `remove` 移除，再重启；保留的会话可以恢复。下文旧 WhyJ Host 的事务承诺仅适用于默认入口。插件命令和组件须遵守 Pi 当前模式：原生 TUI 支持完整 UI，RPC 只提供协议支持的交互，print/JSON 没有交互式编辑器。
+
+生产构建将量化扩展单独打包为 `dist/pi-extension.ts`，保留宿主提供的模块，不捆绑另一份 Pi。Bun 开发入口也通过 PATH 中的 Node 启动 Pi 发布包（Node 22.19+）；Pi 发布包的 undici 不兼容当前 Bun 1.3.14。未安装 Node 时启动明确失败。
+
+现有 Git 缓存和 `.selection.json` 为默认 JQ 保留，原生入口只读取选择、不转换或删除用户文件。新 Pi 包采用其 settings `packages` 对象过滤：`extensions: []` / `skills: []` 禁用整类资源，精确路径和 glob 选择子集。这样无需维护第二套插件包管理，也不会自动启用曾被移除的旧技能。
+
+验证：`bun test src/runtime/test/pi-native.test.ts` 使用本地合成模型，验证原生加载、任务声明、社区工具拦截、取消和会话重启恢复。真实社区包、打包安装和 TUI 证据见[工具目录](../quant-harness/trader-skills.md#pi-plugins)。这不代表每个第三方插件或实时金融服务均已通过测试。
+
+## 默认 JQ 宿主（API 1）
+
+协议为 WhyJ Extension API 1，使用 Pi AgentTool/Skill 数据类型；此宿主不实现 Pi Coding Agent ExtensionAPI。需要社区 Pi 插件时使用上面的原生入口。
 
 扩展由显式静态 import 后交给宿主加载，不扫描或动态执行任意目录。manifest 声明 ID、发行版本、精确 API 版本，以及工具、skills、命令和 capability 名称；实现与声明必须完全一致。`capabilities` 是 API 1 的可选增量字段，旧定义省略时按空集合处理。命令通过扩展宿主 API 调用，公开 slash 命令保持单一 catalog。
 

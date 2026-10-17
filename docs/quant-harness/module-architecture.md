@@ -25,6 +25,7 @@
 | `src/market/` | 无 IO 的代码、日期和 Bar 规范化 | source/storage 共用，保留交易所与基金后缀身份 |
 | `src/runtime/research/portfolio.ts` | 自定义组合编辑服务 | TUI 与 CLI 共用校验和增删改逻辑 |
 | `src/runtime/quant-harness.ts` | 结构化研究任务宿主与工具执行守卫 | 组合现有 Session/Pi；任务事件仍存原 session，状态由 research/tasks 投影 |
+| `src/runtime/pi-launcher.ts` / `pi-extension.ts` | `whyj pi` 原生入口与量化扩展 | Pi 管理插件、UI、包、认证与会话；JQ 只注入已有工具、研究投影和任务 guard；不扩展 API 1 |
 | `src/tools/research-task-tool.ts` | 会话绑定的研究控制工具 | registry.bindResearchTools 组装，注入分支读口；成功结果提交事件，不在工具内等待自身 idle |
 | `src/runtime/workspace/research-task-view.ts` / `src/tui/src/research-task-panel.ts` | 任务投影文本与只读终端面板 | `/resume --task` 经 AppRuntime 回调传入快照；渲染与按键不执行模型、行情或状态写入 |
 | `src/runtime/data/analysis-data.ts` | 量化工具数据入口 | 按分析窗口自动取数 |

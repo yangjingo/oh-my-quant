@@ -24,6 +24,15 @@ interface CliEnvelope {
 
 // Parse output mode before loading files so startup errors retain the CLI envelope.
 const args = process.argv.slice(2);
+if (args[0] === "pi") {
+  try {
+    const { runNativePi } = await import("./runtime/pi-launcher.ts");
+    process.exit(await runNativePi(args.slice(1)));
+  } catch (error) {
+    console.error(`Pi startup failed: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
+}
 const idxC = args.indexOf("-c");
 const idxCmd = args.indexOf("--command");
 const json = args.includes("--json");
@@ -235,6 +244,7 @@ function writeHelp(json: boolean) {
       { command: "whyj -c \"/help\"", description: "Run one slash command and exit" },
       { command: "whyj --json -c \"/portfolio\"", description: "Run one slash command and emit a stable JSON envelope" },
       { command: "whyj private-annual ...", description: "Explicitly export a verified private annual report from a selected history file" },
+      { command: "whyj pi [args...]", description: "Native Pi host with quant tools; presets/install/remove/config manage community resources" },
       { command: "whyj paper ...", description: "Operate an explicitly selected local paper account outside app state" },
       { command: "whyj paper agent --root ABS --account ID", description: "Start a private paper-only Agent with reviewed submit/cancel actions" },
       { command: "whyj alpaca-paper ...", description: "Operate a selected Alpaca paper account with separate paper credentials" },
@@ -257,6 +267,7 @@ function writeHelp(json: boolean) {
     "  whyj paper account --root ABS --account ID",
     "  whyj paper submit|lookup|cancel --root ABS --account ID --intent-file ABS.json",
     "  whyj paper agent --root ABS --account ID",
+    "  whyj pi [args...]                 Native Pi host, quant tools and community plugins",
     "  whyj alpaca-paper account --root ABS --account ID",
     "  whyj alpaca-paper submit|lookup|cancel --root ABS --account ID --intent-file ABS.json",
     "",
