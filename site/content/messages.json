@@ -580,7 +580,7 @@
     "en": "Mobile navigation"
   },
   "nav.features": {
-    "zh": "Feature · 功能",
+    "zh": "Features",
     "en": "Features"
   },
   "nav.allFeatures": {
@@ -606,10 +606,6 @@
   "nav.settings": {
     "zh": "工作区设置",
     "en": "Workspace settings"
-  },
-  "nav.docs": {
-    "zh": "文档",
-    "en": "Docs"
   },
   "nav.github": {
     "zh": "在 GitHub 查看源码",
@@ -690,5 +686,121 @@
   "footer.npm": {
     "zh": "在 npm 查看软件包",
     "en": "View package on npm"
+  },
+  "blog.articles": {
+    "zh": "文章列表",
+    "en": "Articles"
+  },
+  "blog.articleLanguage": {
+    "zh": "中文",
+    "en": "Chinese"
+  },
+  "blog.repoOpsTitle": {
+    "zh": "代码产出变快以后，仓库怎样继续可信",
+    "en": "Keeping a repository trustworthy as code generation accelerates"
+  },
+  "blog.repoOpsSummary": {
+    "zh": "从测试全绿却算错、文档漂移到 CI 生命周期竞态：我们如何让 AGENTS.md、Skills、验证与合并对同一次交付负责。",
+    "en": "What green tests missed, why documentation drifted, and how CI lifecycle races exposed the gaps between agent instructions, verification and delivery."
+  },
+  "blog.readArticle": {
+    "zh": "阅读文章",
+    "en": "Read in Chinese"
+  },
+  "download.headingFirst": {
+    "en": "Your research. Your workspace.",
+    "zh": "你的研究，你的工作区。"
+  },
+  "download.headingSecond": {
+    "en": "Desktop or CLI.",
+    "zh": "Desktop 或 CLI，由你选择。"
+  },
+  "download.intro": {
+    "en": "One research toolkit, two ways to work. Choose a dedicated desktop window or your favorite terminal.",
+    "zh": "同一套研究工具，两种工作方式。选择独立桌面窗口，或继续使用熟悉的终端。"
+  },
+  "download.windowsAction": {
+    "zh": "下载 Windows 版",
+    "en": "Download for Windows"
+  },
+  "download.releaseNotes": {
+    "zh": "发布说明",
+    "en": "Release notes"
+  },
+  "download.releaseNote": {
+    "zh": "此处下载的是最新公开版本。网站预览展示的新视觉设计，可能尚未包含在该安装包中。",
+    "en": "Downloads follow the latest public release. The installer may not yet include the design updates shown on this website."
+  },
+  "download.installGuide": {
+    "zh": "完整安装说明",
+    "en": "Full installation guide"
+  },
+  "download.stepInstallBody": {
+    "zh": "运行安装包，然后从桌面或开始菜单打开 WhyJ Quant。",
+    "en": "Run the installer, then open WhyJ Quant from your desktop or Start Menu."
+  },
+  "download.stepConnectBody": {
+    "zh": "按 Ctrl+P 配置模型连接，检查数据源后开始研究。",
+    "en": "Press Ctrl+P to configure your model connection and check your data sources."
+  },
+  "download.unsignedNote": {
+    "zh": "此 Windows 安装包未作代码签名，系统可能提示未知发布者。模型与行情服务需要网络及相应账号权限。",
+    "en": "The Windows installer is unsigned, so your system may identify an unknown publisher. Model and market-data services require a network connection and appropriate access."
+  },
+  "download.editionLabel": {
+    "en": "Choose Desktop or CLI",
+    "zh": "选择 Desktop 或 CLI"
+  },
+  "download.desktopFormat": {
+    "en": "Desktop app",
+    "zh": "桌面应用"
+  },
+  "download.cliFormat": {
+    "en": "Terminal app",
+    "zh": "终端应用"
+  },
+  "download.desktopSummary": {
+    "en": "A dedicated window for your research, data and reports. Runtimes included.",
+    "zh": "在独立窗口中管理研究、数据与报告，安装包内含运行环境。"
+  },
+  "download.cliSummary": {
+    "en": "The same research tools, directly in the terminal you already use.",
+    "zh": "在你熟悉的终端中，使用同一套研究工具。"
+  },
+  "download.desktopPlatforms": {
+    "en": "Windows desktop available. macOS and Linux users can use the CLI.",
+    "zh": "已提供 Windows 桌面版；macOS 和 Linux 可使用 CLI。"
+  },
+  "download.setupDetails": {
+    "en": "Setup details",
+    "zh": "安装与配置说明"
+  },
+  "download.cliRequirement": {
+    "en": "Requires Node.js / npm or Bun",
+    "zh": "需要 Node.js / npm 或 Bun"
+  },
+  "download.thenRun": {
+    "en": "Then run",
+    "zh": "然后运行"
+  },
+  "download.cliSetup": {
+    "en": "After launching whyj, use /config to connect your model and review data-source settings.",
+    "zh": "启动 whyj 后，使用 /config 连接模型并检查数据源设置。"
+  },
+  "download.networkNote": {
+    "en": "Model and market-data services require a network connection and appropriate access.",
+    "zh": "模型与行情服务需要网络连接及相应账号权限。"
+  },
+  "download.copyNpm": {
+    "en": "Copy npm install command",
+    "zh": "复制 npm 安装命令"
+  },
+  "download.copyBun": {
+    "en": "Copy Bun install command",
+    "zh": "复制 Bun 安装命令"
+  },
+  "download.copyLaunch": {
+    "en": "Copy launch command",
+    "zh": "复制启动命令"
   }
 }

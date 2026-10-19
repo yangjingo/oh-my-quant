@@ -1,0 +1,50 @@
+<section id="download" class="download-hero-scene" aria-labelledby="download-title">
+        <div class="download-aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="download-grain" aria-hidden="true"></div>
+        <div class="container">
+          <a class="download-badge" href="{{download.releaseUrl}}">
+            <span class="download-badge-dot" aria-hidden="true"></span>
+            <span>WhyJ Quant · v{{download.version}}</span><svg class="icon" width="14" height="14" aria-hidden="true" focusable="false"><use href="/icons.svg#arrow-right" /></svg>
+          </a>
+          <h2 id="download-title">{{download.headingFirst}}<br />{{download.headingSecond}}</h2>
+          <p class="download-intro">{{download.intro}}</p>
+          <div class="download-options">
+      <fieldset class="download-edition-selector">
+        <legend class="sr-only">{{download.editionLabel}}</legend>
+        <input class="sr-only" type="radio" name="download-edition" id="download-desktop-choice" checked />
+        <label for="download-desktop-choice"><svg class="icon" width="16" height="16" aria-hidden="true" focusable="false"><use href="/icons.svg#monitor" /></svg>Desktop</label>
+        <input class="sr-only" type="radio" name="download-edition" id="download-cli-choice" />
+        <label for="download-cli-choice"><svg class="icon" width="16" height="16" aria-hidden="true" focusable="false"><use href="/icons.svg#terminal" /></svg>CLI</label>
+      </fieldset>
+      <div class="download-options-grid">
+        <article class="download-option download-option-desktop" aria-labelledby="desktop-title">
+          <div class="download-option-heading"><svg class="icon" width="22" height="22" aria-hidden="true" focusable="false"><use href="/icons.svg#monitor" /></svg><h3 id="desktop-title">Desktop</h3><span class="download-option-format">{{download.desktopFormat}}</span></div>
+          <p class="download-option-description">{{download.desktopSummary}}</p>
+          <p class="download-option-platforms">Windows x64</p>
+          <a class="button download-primary" href="{{download.url}}" data-desktop-download=""><svg class="icon" width="18" height="18" aria-hidden="true" focusable="false"><use href="/icons.svg#arrow-down" /></svg>{{download.windowsAction}}</a>
+          <p class="download-option-meta">v{{download.version}} <span>·</span> {{download.size}} <span>·</span> Windows 10 1809+ / 11</p>
+          <p class="download-option-note">{{download.desktopPlatforms}}</p>
+          <details class="download-option-details"><summary>{{download.setupDetails}}</summary><div><p>{{download.stepInstallBody}}</p><p>{{download.stepConnectBody}}</p><p>{{download.unsignedNote}}</p></div></details>
+          <div class="download-option-footer"><a class="text-link" href="{{download.releaseUrl}}">{{download.releaseNotes}}<svg class="icon" width="14" height="14" aria-hidden="true" focusable="false"><use href="/icons.svg#arrow-up-right" /></svg></a><a class="text-link" href="{{download.checksumsUrl}}">SHA256SUMS<svg class="icon" width="14" height="14" aria-hidden="true" focusable="false"><use href="/icons.svg#arrow-down" /></svg></a></div>
+        </article>
+        <article class="download-option download-option-cli" aria-labelledby="cli-title">
+          <div class="download-option-heading"><svg class="icon" width="22" height="22" aria-hidden="true" focusable="false"><use href="/icons.svg#terminal" /></svg><h3 id="cli-title">CLI</h3><span class="download-option-format">{{download.cliFormat}}</span></div>
+          <p class="download-option-description">{{download.cliSummary}}</p>
+          <p class="download-option-platforms">macOS <span>·</span> Windows <span>·</span> Linux</p>
+          <div class="download-command-list">
+<div class="install-command"><span class="download-package-manager">npm</span><code>npm i -g whyj-quant</code><button class="copy-button" type="button" data-copy="npm i -g whyj-quant" aria-label="{{download.copyNpm}}" title="{{download.copyNpm}}"><svg class="icon" width="16" height="16" aria-hidden="true" focusable="false"><use href="/icons.svg#copy" /></svg></button></div>
+<div class="install-command"><span class="download-package-manager">Bun</span><code>bun add -g whyj-quant</code><button class="copy-button" type="button" data-copy="bun add -g whyj-quant" aria-label="{{download.copyBun}}" title="{{download.copyBun}}"><svg class="icon" width="16" height="16" aria-hidden="true" focusable="false"><use href="/icons.svg#copy" /></svg></button></div>
+
+          </div>
+          <p class="download-option-meta">{{download.cliRequirement}}</p>
+          <div class="download-launch"><span>{{download.thenRun}}</span><code>whyj</code><button class="copy-button" type="button" data-copy="whyj" aria-label="{{download.copyLaunch}}" title="{{download.copyLaunch}}"><svg class="icon" width="16" height="16" aria-hidden="true" focusable="false"><use href="/icons.svg#copy" /></svg></button></div>
+          <details class="download-option-details"><summary>{{download.setupDetails}}</summary><div><p>{{download.cliSetup}}</p><p>{{download.networkNote}}</p></div></details>
+          <div class="download-option-footer"><a class="text-link" href="https://github.com/yangjingo/oh-my-quant#quick-start" target="_blank" rel="noopener">{{download.installGuide}}<svg class="icon" width="14" height="14" aria-hidden="true" focusable="false"><use href="/icons.svg#arrow-up-right" /></svg></a></div>
+          <p id="copy-status" class="copy-status" role="status"></p>
+        </article>
+      </div>
+    </div>
+          <p class="download-release-note">{{download.releaseNote}}</p>
+
+      </div>
+    </section>

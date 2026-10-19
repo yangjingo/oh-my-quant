@@ -2,15 +2,15 @@
       <div class="eyebrow"><span class="gold-line"></span> BLOG / WHYJ QUANT</div>
       <h1>{{blog.heading}}</h1>
       <p class="blog-intro">{{blog.intro}}</p>
-      <section class="blog-empty" aria-labelledby="blog-empty-title">
-        <p class="blog-status">{{blog.status}}</p>
-        <div>
-          <h2 id="blog-empty-title">{{blog.emptyTitle}}</h2>
-          <p>{{blog.emptyBody}}</p>
-          <div class="blog-actions">
-            <a class="text-link" href="{{route.home}}#features">{{blog.explore}} <svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#arrow-right" /></svg></a>
-            <a class="text-link muted" href="https://github.com/yangjingo/oh-my-quant" target="_blank" rel="noopener">{{blog.follow}} <svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#arrow-up-right" /></svg></a>
+      <section class="blog-list" aria-label="{{blog.articles}}">
+        <article class="blog-entry">
+          <div class="blog-entry-meta"><time datetime="2026-10-18">2026.10.18</time><span>Engineering</span><span>{{blog.articleLanguage}}</span></div>
+          <div class="blog-entry-body">
+            <p class="blog-entry-series">Agentic / Vibe Repo Ops</p>
+            <h2><a href="/blog/vibe-repo-ops/" hreflang="zh-CN">{{blog.repoOpsTitle}}</a></h2>
+            <p>{{blog.repoOpsSummary}}</p>
+            <a class="text-link" href="/blog/vibe-repo-ops/" hreflang="zh-CN">{{blog.readArticle}} <svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#arrow-right" /></svg></a>
           </div>
-        </div>
+        </article>
       </section>
     </main>

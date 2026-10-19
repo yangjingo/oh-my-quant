@@ -1,277 +1,194 @@
----
+# WhyJ Quant Design System
 
-version: alpha
-name: WhyJ-Quant-Design-System
-description: An AI-native quantitative research terminal built around a single premium gold accent. Deep-black canvases, geometric sans-serif typography, generous whitespace, and signal-first information architecture create a terminal experience that feels closer to Claude Code, Linear, and Bloomberg than traditional retail trading software. The interface removes decorative finance tropes and focuses on clarity, conviction, and research workflows.
+Updated: 2026-10-19
 
-colors:
-primary: "#D4AF37"
-primary-focus: "#E2BE4D"
-primary-on-dark: "#F0D77A"
-ink: "#F5F5F5"
-body: "#F5F5F5"
-body-on-dark: "#F5F5F5"
-body-muted: "#A6A6A6"
-divider-soft: "#1A1A1A"
-hairline: "#242424"
-canvas: "#0B0B0C"
-surface: "#111111"
-surface-elevated: "#171717"
-surface-terminal: "#000000"
-on-primary: "#0B0B0C"
-on-dark: "#F5F5F5"
+This is the visual specification for the website, CLI/TUI, Desktop, and generated reports. It defines the target warm palette across these surfaces. This website integration implements the website and blog roles; it does not establish that CLI/TUI, Desktop, or report renderers have migrated. The canonical workspace preview is captured from the updated website. Desktop installation and shortcut-icon acceptance remain separate release checks.
 
-typography:
-hero-display:
-fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
-fontSize: 56px
-fontWeight: 700
-lineHeight: 1.05
-letterSpacing: -1.2px
+## 1. Visual Direction
 
-display-lg:
-fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
-fontSize: 40px
-fontWeight: 700
-lineHeight: 1.1
-letterSpacing: -0.8px
+**A quiet research workspace: warm black, cream text, restrained gold, and generous working space.**
 
-display-md:
-fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
-fontSize: 32px
-fontWeight: 700
-lineHeight: 1.15
-letterSpacing: -0.6px
+Use the [historical design reference](./docs/assets/workspace-design-reference.png) for color relationships, spacing, and the balance between the research area and the secondary sidebar. This is a design input, not the current workspace preview.
 
-lead:
-fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
-fontSize: 24px
-fontWeight: 400
-lineHeight: 1.4
-letterSpacing: 0px
+![Current warm workspace preview: JQ identity, Market research, Overview visible, red-up convention, synthetic demonstration data](./docs/assets/workspace-preview.png)
 
-tagline:
-fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
-fontSize: 18px
-fontWeight: 500
-lineHeight: 1.4
-letterSpacing: 0px
+The preview above shows the current website workspace. The linked historical reference is retained only as design input; its staircase logo, version label, example data, and market-color convention are not current product requirements. The current brand mark is JQ.
 
-body-strong:
-fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
-fontSize: 16px
-fontWeight: 600
-lineHeight: 1.5
-letterSpacing: 0px
+The single current product preview is [workspace-preview.png](./docs/assets/workspace-preview.png), captured from the website's `#workspace` in English with Market research selected, Overview visible, and the red-up convention. README and presentation materials may still use their prior captures until separately updated. The website's translated, interactive, and responsive states may vary deliberately; they are not independently maintained mockups. Do not label the website preview as a CLI screenshot.
 
-body:
-fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
-fontSize: 16px
-fontWeight: 400
-lineHeight: 1.6
-letterSpacing: 0px
+Prioritize the research answer, its evidence, and the next action. Keep chrome quiet. Use alignment and spacing to establish hierarchy before adding containers, borders, or color.
 
-caption:
-fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
-fontSize: 13px
-fontWeight: 400
-lineHeight: 1.4
-letterSpacing: 0px
+## 2. Design Foundation
 
-caption-strong:
-fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
-fontSize: 13px
-fontWeight: 600
-lineHeight: 1.4
-letterSpacing: 0px
+Use Google's Material Design 3 as a vocabulary for roles and reusable decisions, adapted to this product's visual identity. This specification does not adopt the default Material palette, Android components, or dynamic wallpaper colors.
 
-button:
-fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
-fontSize: 14px
-fontWeight: 500
-lineHeight: 1
-letterSpacing: 0px
+- **Color roles:** distinguish a surface, content placed on that surface, an action, and content placed on that action. Apply intended foreground/background pairs. See [Material color roles](https://m3.material.io/styles/color/roles).
+- **Tokens:** name reusable decisions rather than copying hex values into each component. See [Material foundations](https://m3.material.io/foundations/).
+- **Typography:** use a small set of display, headline, title, body, and label roles with product-specific fonts. See [Material theming](https://developer.android.com/develop/ui/compose/designsystems/material3) and [applying type](https://m3.material.io/styles/typography/applying-type).
+- **Accessibility:** verify contrast, focus, labels, and input behavior in the implemented interface. See [Google's accessibility guidance](https://developer.android.com/guide/topics/ui/accessibility/apps).
 
-nav-link:
-fontFamily: "Geist Sans, Inter, system-ui, sans-serif"
-fontSize: 13px
-fontWeight: 500
-lineHeight: 1
-letterSpacing: 0px
+Keep three levels of responsibility clear:
 
-rounded:
-none: 0px
-xs: 4px
-sm: 8px
-md: 12px
-lg: 16px
-pill: 9999px
-full: 9999px
+| Level | Example | Responsibility |
+|---|---|---|
+| Reference value | `ref.color.gold = #C99A2E` | A reusable palette value |
+| Semantic role | `sys.color.primary = ref.color.gold` | What that value means in the interface |
+| Component assignment | `button.primary.background = sys.color.primary` | Where a role is used |
 
-spacing:
-xxs: 4px
-xs: 8px
-sm: 12px
-md: 16px
-lg: 24px
-xl: 32px
-xxl: 48px
-section: 80px
+These semantic names describe the design contract; the implementation uses the existing shared token names. The shared implementation owner remains [theme-colors.ts](./src/types/theme-colors.ts).
 
-components:
-button-primary:
-backgroundColor: "{colors.primary}"
-textColor: "{colors.on-primary}"
-typography: "{typography.button}"
-rounded: "{rounded.pill}"
-padding: 10px 18px
+## 3. Color System
 
-button-secondary:
-backgroundColor: transparent
-textColor: "{colors.primary}"
-typography: "{typography.button}"
-rounded: "{rounded.pill}"
-padding: 10px 18px
+### Reference-derived palette
 
-terminal-panel:
-backgroundColor: "{colors.surface-terminal}"
-textColor: "{colors.body}"
-rounded: "{rounded.none}"
+The following exact colors were sampled from the supplied PNG, excluding antialiased edge pixels:
 
-card:
-backgroundColor: "{colors.surface}"
-textColor: "{colors.body}"
-rounded: "{rounded.lg}"
-padding: 24px
+| Reference color | Value | Visual purpose |
+|---|---|---|
+| Warm black | `#0C0C0C` | Continuous workspace background |
+| Cream | `#FFF3C4` | Important text and the product name |
+| Gold | `#C99A2E` | Brand identity and selective emphasis |
+| Warm gray | `#8F8A7B` | Supporting text |
+| Quiet bronze-gray | `#8C856B` | Low-emphasis labels in the reference |
+| Warm divider | `#3A362C` | Subtle separation |
 
-card-elevated:
-backgroundColor: "{colors.surface-elevated}"
-textColor: "{colors.body}"
-rounded: "{rounded.lg}"
-padding: 24px
+Cream is for titles, the product name, essential values, and selective emphasis, including a key sentence within a paragraph. Do not use it as the default color of long paragraphs. Long-form reading uses a softer warm gray, `#B8B4A8`, with restrained links at `#C4B68E`; these are editorial role choices, not sampled reference colors. Supporting text stays `#8F8A7B`. Gold remains the only brand accent; it should not dominate paragraphs or data tables.
 
-navigation:
-backgroundColor: "{colors.canvas}"
-textColor: "{colors.body}"
-typography: "{typography.nav-link}"
-height: 48px
+### Semantic roles
 
-portfolio-widget:
-backgroundColor: "{colors.surface}"
-textColor: "{colors.body}"
-rounded: "{rounded.md}"
-padding: 20px
+| Role | Value | Use |
+|---|---|---|
+| `surface` | `#0C0C0C` | Main canvas and terminal background |
+| `surfaceContainer` | `#141312` | Quiet panels, menus, and input regions |
+| `surfaceContainerHigh` | `#1C1B18` | Raised controls or overlays when separation is needed |
+| `onSurface` | `#FFF3C4` | Titles, emphasized phrases or key sentences, product identity, and essential values |
+| `readingText` | `#B8B4A8` | Long-form paragraphs, list items, table values, code, and bibliography text |
+| `readingLink` | `#C4B68E` | Underlined links within reading prose; gold on hover/focus |
+| `onSurfaceVariant` | `#8F8A7B` | Supporting text on the three surfaces above |
+| `primary` | `#C99A2E` | JQ mark, selected indicator, primary action, and focus ring |
+| `onPrimary` | `#0C0C0C` | Text and icons on a gold fill |
+| `primaryContainer` | `#2A2416` | Restrained selected or highlighted container |
+| `onPrimaryContainer` | `#FFF3C4` | Text inside that highlighted container |
+| `outline` | `#817F77` | Control boundaries that must remain identifiable |
+| `outlineVariant` | `#3A362C` | Decorative dividers and grouping rules |
 
-command-input:
-backgroundColor: "{colors.surface-terminal}"
-textColor: "{colors.body}"
-rounded: "{rounded.none}"
-height: 44px
+The surface ladder, selection container, and role assignments are product design decisions derived from the reference; they are not an automatically generated Material tonal palette. Do not introduce secondary or tertiary brand accents without a concrete information need.
 
-footer:
-backgroundColor: "{colors.canvas}"
-textColor: "{colors.body-muted}"
-typography: "{typography.caption}"
-padding: 48px
--
-Wordmark:
+### Pairing and contrast
 
-WhyJ Quant
+Use at least 4.5:1 contrast for ordinary text and 3:1 for large text. Measure the actual size, weight, background, and state; Android `sp` values are not CSS pixels or terminal cells. Google documents these text-contrast thresholds in its [accessibility guidance](https://developer.android.com/guide/topics/ui/accessibility/apps#contrast).
 
-Font:
+Calculated against `surface` (`#0C0C0C`):
 
-Geist Sans
+| Pair | Contrast |
+|---|---|
+| Cream text / warm black | 17.58:1 |
+| Reading text (`#B8B4A8`) / warm black | 9.44:1 |
+| Supporting warm-gray text (`#8F8A7B`) / warm black | 5.67:1 |
+| Gold / warm black, including dark text on gold | 7.59:1 |
+| Decorative divider / warm black | 1.62:1 |
 
-Weight:
+The decorative divider must not be the only cue for a control or an important boundary. On selected containers, use `onPrimaryContainer`; warm-gray text on `#2A2416` is only about 4.47:1 and is unsuitable for ordinary text. Avoid opacity-based dimming of essential copy.
 
-600
+### Market and status semantics
 
-Tracking:
+Brand, market movement, and operation status are separate responsibilities. Gold does not mean profit, success, or investment quality.
 
--0.02em
+The reference's dark green (`#3D603A`) and dark red (`#713228`) have only about 2.73:1 and 2.04:1 contrast against its canvas. Preserve their restrained character through these more readable domain colors:
 
-Color:
+| Domain role | Target value | Meaning |
+|---|---|---|
+| `marketGreen` | `#75A26F` | Green side of the selected market convention |
+| `marketRed` | `#D87565` | Red side of the selected market convention |
+| `positive` | `#75A26F` | Successful operation or explicitly positive outcome |
+| `negative` | `#D87565` | Failed operation or explicitly negative outcome |
+| `neutral` | `#8F8A7B` | Flat movement or unavailable value, with distinct labels |
 
-#F5F5F5
+The adjusted green and red exceed 5.4:1 against all three ordinary surfaces. They are product extensions, not colors prescribed by Google or literal samples from the image.
 
-Accent:
+`/config > Market Colors` selects one explicit convention for the entire workspace: `red-up` by default, or `green-up`. Map rise/fall roles through that setting; never switch conventions silently per instrument. Operation success/failure and risk semantics do not flip with market colors.
 
-#D4AF37
+Keep signs, numbers, labels, and legends visible. Distinguish `0.00%` from `N/A` and `--`. Risk amounts must not become positive simply because they are unsigned. New reports capture the convention used at generation time; historical reports remain unchanged. Changing a visual preference must not trigger an unrelated data request.
 
-Background:
+## 4. Typography
 
-#0B0B0C
+For blog reading, use `--reading-text` for prose and preserve `--ink` for headings and selective strong emphasis. A key sentence within a paragraph may use cream `#FFF3C4`, not just an individual word or phrase. Mark the selected sentence with Markdown `**...**` / HTML `<strong>` so color and font weight convey emphasis together. Keep surrounding prose in the reading color; avoid highlighting whole paragraphs or many consecutive sentences. References inherit the prose role; their annotations use the supporting role. Expanded tables must keep the same reading color as inline tables. Use opaque semantic colors rather than reducing opacity on a whole article, which would also dim images and controls. Diagrams retain their own readable label and data-series roles. Print overrides reading text to `#222` and links to `#111` on white.
+
+Use Geist Sans for website copy and graphical chrome. Use Geist Mono for commands, code, prices, dates, and aligned numbers. Keep fonts self-hosted and retain the [Geist license](./site/public/fonts/OFL-Geist.txt).
+
+The roles follow Material's naming model; the values below are a compact WhyJ scale, not the default Roboto scale.
+
+| Role | Size / line height | Weight | Use |
+|---|---|---|---|
+| Display | 56 / 64px | 700 | Website hero; reduce to fit narrow screens |
+| Headline | 32 / 40px | 600 | Section titles |
+| Title | 22 / 28px | 600 | Panel or report titles |
+| Body | 16 / 24px | 400 | Reading text and explanations |
+| Label | 14 / 20px | 600 | Controls and navigation |
+| Supporting | 13 / 20px | 400 | Secondary metadata |
+| Data / code | 14 / 20px | 400 | Monospaced values and commands |
+
+Use tabular numbers and right alignment for comparable numeric columns. Keep units, currency, dates, and missing-value conventions explicit. Reading paragraphs should normally stay within 65 characters per line. Use weight and spacing before adding more colors. These choices follow [Material's typography guidance](https://m3.material.io/styles/typography/applying-type).
+
+Terminal font family and physical size belong to the user's terminal. The Desktop host supplies its own terminal font controls. Pixel typography rules do not imply that the CLI can enforce fonts, line height, or rounded shapes. Preserve CJK-aware width calculations and allow localized content to wrap normally.
+
+## 5. Layout, Shape, and Interaction
+
+- Keep the research area primary, Overview secondary, and Composer reachable. On a narrow terminal, hide the secondary pane before sacrificing input or readable research text. The current TUI threshold is 78 columns; it is an implementation rule, not a Material breakpoint.
+- Use a spacing scale of `4, 8, 12, 16, 24, 32, 48, 80px` for graphical surfaces. In the CLI, budget rows and columns instead of translating pixels into cells.
+- Prefer a continuous canvas, open sections, and a single quiet divider over repeated card borders. Leave working space without hiding useful content or creating artificial empty rows.
+- Use square terminal/data regions, 4px compact controls, and up to 12px graphical overlays. Keep pill shapes for the website's primary call to action; do not turn every data region into a rounded card.
+- Keep website navigation around 64px high and the Desktop utility bar around 48px. Maintain one clear brand group and stable alignment.
+- Use a visible 2px gold focus ring with separation from the component. Focus, selection, and hover must be distinguishable. Every icon-only control needs an accessible name.
+- Provide at least 44px graphical pointer targets where practical, and prefer 48px for touch. These are product target sizes, not a conversion of Android density-independent units.
+- Keep motion functional: focus, opening, loading, and state feedback. Avoid moving logos, decorative market motion, and repeated entrance effects. Respect reduced-motion preferences.
+- Make loading, empty, partial, stale, failed, and completed states explicit. Do not communicate them through color alone.
 
 ## Brand Rules
 
-Only one accent color exists:
+The full product name is **WhyJ Quant**. The mark is the compact **JQ** monogram. The product line is **Research before conviction.**
 
-{colors.primary}
+J sits inside Q and joins its short tail. Keep the approved geometry: a 64-unit viewBox; Q centered at `(31, 31)` with radius `19`; a `13 x 14` tail diagonal and a `3`-unit terminal horizontal. The monochrome, favicon, and application versions share the same geometry.
 
-Never introduce:
+The following links retain the design revision's brand asset references; variants not present in this website checkout link to that exact revision. The website uses [its local mark](./site/public/logo-mark.svg) and [favicon](./site/public/favicon.svg).
 
-* Green
-* Red
-* Blue
-* Purple
+| Asset | Role |
+|---|---|
+| [logo-mark.svg](https://github.com/yangjingo/oh-my-quant/blob/10184e1a2ad99d976c33e6c55d6872d7083fe827/docs/assets/logo-mark.svg) | Master JQ geometry |
+| [logo-wordmark.svg](https://github.com/yangjingo/oh-my-quant/blob/10184e1a2ad99d976c33e6c55d6872d7083fe827/docs/assets/logo-wordmark.svg) | Outlined Geist Semibold wordmark |
+| [logo-lockup-dark.svg](https://github.com/yangjingo/oh-my-quant/blob/10184e1a2ad99d976c33e6c55d6872d7083fe827/docs/assets/logo-lockup-dark.svg) / [logo-lockup-light.svg](https://github.com/yangjingo/oh-my-quant/blob/10184e1a2ad99d976c33e6c55d6872d7083fe827/docs/assets/logo-lockup-light.svg) | Dark-background and light-background lockups |
+| [logo-lockup-mono.svg](https://github.com/yangjingo/oh-my-quant/blob/10184e1a2ad99d976c33e6c55d6872d7083fe827/docs/assets/logo-lockup-mono.svg) | Single-color lockup |
+| [app-icon.svg](https://github.com/yangjingo/oh-my-quant/blob/10184e1a2ad99d976c33e6c55d6872d7083fe827/docs/assets/app-icon.svg) | Application container source |
+| [app-icon.ico](https://github.com/yangjingo/oh-my-quant/blob/10184e1a2ad99d976c33e6c55d6872d7083fe827/docs/assets/app-icon.ico) | Seven Windows icon sizes, 16 through 256px |
+| [icons/](https://github.com/yangjingo/oh-my-quant/tree/10184e1a2ad99d976c33e6c55d6872d7083fe827/docs/assets/icons/) | PNG exports named `16x16.png` through `1024x1024.png` |
+| [Asset preview](https://github.com/yangjingo/oh-my-quant/blob/10184e1a2ad99d976c33e6c55d6872d7083fe827/docs/assets/index.html) | Actual exported variants and downloads |
 
-as brand colors.
+Use lowercase kebab-case filenames based on asset role: `logo-mark` for the JQ symbol, `logo-wordmark` for the product name, `logo-lockup-{dark,light,mono}` for symbol-and-name combinations, and `app-icon` for the application container. The dark/light suffix identifies the intended background. Keep the nine raster exports as `icons/widthxheight.png`; `workspace-preview.png` is current, while `workspace-design-reference.png` is historical. The website retains the conventional public name `favicon.svg`, copied from `app-icon.svg`. Preserve the existing [ZCode naming reference](https://github.com/zai-org/ZCode/tree/main/public/logo/icons).
 
-Market movement colors are data visualization concerns and not brand identity.
+Use the same SVG in website and Desktop chrome. Use ASCII `JQ` in terminal headers and loading copy. Retain the existing self-hosted Lucide family for interface controls. Do not reintroduce feather, W, or staircase alternatives as active brand marks.
 
-## Market and status semantics
+## 6. Implementation and Verification
 
-The shared brand gold is `#D4AF37`, focus gold `#E2BE4D`, text `#F5F5F5`, muted text `#A6A6A6`, and hairline `#242424`.
+The [website tokens](./site/public/styles.css) and blog reading template implement this palette in this integration. The [shared theme](./src/types/theme-colors.ts), [Desktop chrome](./desktop/src/style.css), report renderers, and application icon exports require separate implementation and verification; this document does not certify their current state.
 
-`/config → Market Colors` selects one explicit convention for the workspace, including mixed-market portfolios: `red-up` (default, red up / green down) or `green-up` (green up / red down). Overview, tables, candles and newly generated HTML use the same convention; report versions retain the convention captured when generated.
+| Area | Implemented roles |
+|---|---|
+| Canvas and panels | `#0C0C0C`, `#141312`, `#1C1B18` |
+| Headings/emphasis, reading text, and supporting text | `#FFF3C4`, `#B8B4A8`, `#8F8A7B` |
+| Brand and focus | `#C99A2E` |
+| Decorative dividers | `#3A362C` |
+| Domain green / red | `#75A26F` / `#D87565` |
+| Current design preview | Website capture; README and slides may retain earlier captures |
 
-Movement and outcome use separate tokens. Positive/negative command status, scores and risk amounts do not change when the market convention changes. Rounded zero, flat candles and unavailable values use neutral gray; gains/losses retain signs, and reports include a legend. Brand gold does not imply a positive financial result.
+Preserve semantic mappings, explicit market conventions, and immutable historical reports. When report renderers adopt this design, apply it to newly generated reports; saved historical reports retain their original bytes. The historical reference remains unchanged and is labeled as design input. Never create a second current palette in a report template or a client-specific patch.
 
-### 色彩规范与实现映射（2026-10-13）
+Maintain the committed assets directly. When a master changes, update its SVG variants, website/Desktop copies, size-named PNGs, and Windows ICO together. Keep the PNG set only in `docs/assets/icons/`; Desktop consumes its committed `app-icon.ico` and `logo-mark.svg`. Builds use those files directly, without a separate brand-generation script. Verify both the color assignments and the rendered result.
 
-本文件是产品、TUI、报告、文档站与演示的视觉规范。共享实现为 [theme-colors.ts](./src/types/theme-colors.ts)；终端和报告消费同一组语义，不各自发明主题。下表登记已有规范及实现映射，不新增品牌色。
+For visual acceptance and subsequent changes, verify:
 
-| 用途 | 规范值 / 行为 | 约束 |
-|---|---|---|
-| 品牌主色、选中背景 | `#D4AF37` | 唯一品牌强调色；不表示盈利、买入或成功 |
-| 焦点强调 | `#E2BE4D` | 键盘焦点与活动态，同属金色层级 |
-| 深色背景上的亮金 | `#F0D77A` | 标题或局部强调，不另立 cash gold 主色 |
-| 正文 / 次要文字 | `#F5F5F5` / `#A6A6A6` | 信息层级不依赖颜色；重要限制不能只用极暗灰 |
-| 画布 / 面板 / 细分隔线 | `#0B0B0C` / `#111111` / `#242424` | 终端画布可使用既定纯黑；分隔线不承担文字含义 |
-| 行情 `red-up` | 涨 `#E5494D`、跌 `#1E9F4D` | 默认约定，同一工作区跨市场一致 |
-| 行情 `green-up` | 涨 `#1E9F4D`、跌 `#E5494D` | 由 Market Colors 显式选择，不按单个标的自动反转 |
-| 操作成功 / 失败 | `#1E9F4D` / `#E5494D` | 不随行情约定翻转，必须同时显示状态文字 |
-| 风险量 / 评分 | 独立的 `negative` / `positive` 语义 | 回撤、VaR 等不能因为数值带正号就着盈利色；评分色不证明投资价值 |
-| 平盘、显示精度下的零变化、缺失 | `#A6A6A6` | 仍区分 `0.00%` 与 `N/A` / `--`，缺失不能伪造为零 |
-
-品牌、行情和状态是三种职责，不是三个主题。红绿只用于数据和状态，不进入 Logo、主导航或营销装饰；金色也不用于暗示金融结果的好坏。文字、正负号、箭头、数值、图例共同表达含义，单色下仍应可读。
-
-`/config → Market Colors` 修改工作区偏好后重绘，不额外触发行情请求；新报告捕获生成时约定，历史报告字节不随设置改写。演示中采用合成数字须标注，旧参考截图不可充当默认涨跌约定或运行证明。
-
-旧渲染稿的 amber / `#E8B339` cash gold 和固定 A 股配色不再是并行规范；保留原因与代价见 [终端演进记录](./docs/blog/10-layout-and-visual-language.md#visual-language)。具体语义映射与验证见 [渲染指南](./docs/quant-harness/quant-uiux.md#structured-render)。
-
-## Layout Principles
-
-Left aligned.
-
-Whitespace first.
-
-Content over decoration.
-
-Signal over chrome.
-
-Research over excitement.
-
-## Product Motto
-
-Research.
-Backtest.
-Analyze.
-
-Alternative:
-
-Think in Signals.
-
-Alternative:
-
-Research Before Conviction.
+- Shared tokens, graphical surfaces, reports, and brand exports use the same role assignments.
+- Reading text, numeric values, focused controls, and error states meet contrast requirements on their actual backgrounds.
+- Small JQ icons remain recognizable at 16/24/32px in dark and light contexts.
+- The website works on narrow screens and with keyboard navigation; CLI regions remain usable at small character-grid sizes.
+- Desktop resource loading, window icons, and installer/shortcut icons are checked in the built application. A successful build is not installation proof.
+- Synthetic illustrations and historical references remain labeled; they do not become evidence of live data, model performance, or deployment.

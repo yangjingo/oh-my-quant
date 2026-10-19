@@ -151,6 +151,7 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 |---|---|
 | [README.md](./README.md) | 本页只登记现行入口和内容职责 |
 | [blog/README.md](./blog/README.md) | 系列阅读路径与写作约定 |
+| [blog/website-publishing.md](./blog/website-publishing.md) | 文章更新、完整网站 Preview、入库、Vercel 正式发布与回滚流程 |
 | [blog/editorial-notes.md](./blog/editorial-notes.md) | 当前编辑约定、来源与证据边界，不保存整理流水 |
 | [blog/build.ts](./blog/build.ts) | 从 Markdown/SVG 重建离线图文版 |
 | [blog/check.ts](./blog/check.ts) | 文件覆盖、链接、锚点及生成物检查 |
@@ -179,6 +180,27 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 
 | [assets/ci-panel-transition-failure.png](./assets/ci-panel-transition-failure.png) | Desktop 面板切换的历史失败截图 | Actions 38156420320 原始 artifact；不是当前产品验收 |
 | [assets/ci-multiline-paste-failure.png](./assets/ci-multiline-paste-failure.png) | Desktop 多行粘贴的历史失败截图 | Actions 38234986954 原始 artifact；不是当前产品验收 |
+
+### Repo Ops 合并稿与网站素材
+
+[合并稿](./blog/agentic/vibe-repo-ops-merged-draft.md)已用于网站阅读预览；原有三篇博客继续保留，待内容确认后再合并清理并调整阅读路径。网站生成链与维护命令见 [网站说明](../site/README.md)，模板规则见 [blog-skill](../.agents/skills/blog-skill/SKILL.md)。以下仅补登记本次文件，避免出现无法发现的稿件和素材。
+
+| 文件 | 用途 |
+|---|---|
+| [下载区桌面验收](./assets/site-download-desktop-20261019.png) · [博客手机阅读验收](./assets/blog-reading-mobile-20261019.png) | 2026-10-19 本地 Chromium 实际渲染；对应已确认网站预览，不是线上端到端证据 |
+| [网站设计预览](./assets/workspace-preview.png) · [历史设计参考](./assets/workspace-design-reference.png) | 当前设计展示与历史输入，均不证明真实行情或运行状态 |
+| [repo-ops-actions.svg](./blog/agentic/images/repo-ops-actions.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
+| [repo-ops-artifacts-mobile.svg](./blog/agentic/images/repo-ops-artifacts-mobile.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
+| [repo-ops-artifacts.svg](./blog/agentic/images/repo-ops-artifacts.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
+| [repo-ops-evidence-mobile.svg](./blog/agentic/images/repo-ops-evidence-mobile.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
+| [repo-ops-evidence.svg](./blog/agentic/images/repo-ops-evidence.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
+| [repo-ops-governance-mobile.svg](./blog/agentic/images/repo-ops-governance-mobile.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
+| [repo-ops-governance.svg](./blog/agentic/images/repo-ops-governance.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
+| [repo-ops-jq-evidence.png](./blog/agentic/images/repo-ops-jq-evidence.png) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
+| [repo-ops-jq-trust.png](./blog/agentic/images/repo-ops-jq-trust.png) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
+| [repo-ops-merge-flow-mobile.svg](./blog/agentic/images/repo-ops-merge-flow-mobile.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
+| [repo-ops-merge-flow.svg](./blog/agentic/images/repo-ops-merge-flow.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
+| [repo-ops-rsi.svg](./blog/agentic/images/repo-ops-rsi.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
 
 ### 博客机制图（12）
 

@@ -38,3 +38,7 @@ SEO 基线：四个页面原有的标题含义、description、Open Graph 文案
 README 使用 GitHub 原生 Markdown；保留真实安装命令、官网链接和演示说明。没有为排版引入第三方运行依赖。
 
 验证和发布结果见 [部署记录](./DEPLOYMENT.md)。
+
+## 2026-10-19 · Restore the reviewed Download section
+
+The blog integration initially copied committed JQ design files and missed the uncommitted Download work in `feat/website-warm-preview`. The reviewed Hero2 composition and Desktop/CLI options are now ported to the existing static template system. Native radio inputs, details and download links preserve the no-JavaScript fallback; the existing script handles command copying. The warm gold/bronze background, adjacent desktop options and mobile selector follow that source. Chinese remains at `/` and English at `/en/`; Features remains English in both headers. The separate homepage conversation redesign and workspace gallery are outside this restoration.

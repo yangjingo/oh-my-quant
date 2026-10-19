@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0B0B0C"/><circle cx="29" cy="29" r="15" fill="none" stroke="#D4AF37" stroke-width="6"/><path d="m38 39 12 12" stroke="#D4AF37" stroke-width="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" color="#C99A2E" role="img" aria-labelledby="title">
+  <title id="title">WhyJ Quant app icon</title>
+<rect width="64" height="64" rx="14" fill="#0C0C0C"/>
+<circle cx="31" cy="31" r="19" fill="none" stroke="currentColor" stroke-width="5.5"/>
+  <path d="M25 21h11v14c0 4.4-2.8 7-7 7s-7-2.6-7-6" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="m36 35 13 14h3" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="square" stroke-linejoin="miter"/>
+</svg>

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0B0B0C" />
+    <meta name="theme-color" content="#0C0C0C" />
     <meta name="description" content="{{page.description}}" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{page.title}}" />
@@ -23,6 +23,7 @@
     />
     <link rel="stylesheet" href="/styles.css" />
     <script src="/app.js" type="module"></script>
+    <link rel="stylesheet" href="/download.css" />
   </head>
   <body>
 {{partial.header}}
@@ -30,8 +31,8 @@
     <footer class="site-footer container">
       <div class="footer-top">
         <a class="brand" href="{{route.home}}"
-          ><span class="brand-mark" aria-hidden="true">Q<span>_</span></span
-          ><span>WhyJ Quant</span></a
+          ><img class="brand-mark" src="/logo-mark.svg" width="32" height="32" alt="" aria-hidden="true" />
+          <span>WhyJ Quant</span></a
         ><span>Research. Backtest. Analyze.</span>
         <div>
           <a
