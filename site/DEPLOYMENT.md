@@ -1,8 +1,28 @@
 # 官网交付与部署记录
 
+## 2026-10-20：补齐 Production 发布与旧下载地址修复（Issue #57）
+
+PR #54 已合并为 main `1c7e58202a8d7395667238bb6bd1b484e7bfba70`，但本轮开始时正式域名仍指向 v14 `dpl_2tXXYp3oRuDWYgFJ4UXAEWuTQm9S`。这次从该 main 提取完整网站的公开构建输入，独立 Node 构建通过后发布 Preview 并提升 Production。没有上传主工作树中其他尚未提交的修改。
+
+- 补发 Preview：`dpl_EZutd6yRUvRdqwN6ofFRo5RTaiPK`。
+- 补发 Production：`dpl_tGL9oH7hVT85WFTc3ptaEaQXeDCh`，使新版 Desktop / CLI 下载区在 `/en/#install` 生效。
+- 随后的线上检查发现：`/en/download` 被 `trailingSlash: true` 先转到 `/en/download/`，原不带尾斜杠的 redirect source 未命中，结果 404。中文两种旧路径也受影响。本地服务器的直接跳转检查未覆盖平台的处理顺序。
+- 修复只将 `site/vercel.json` 的三个 redirect source 改为带尾斜杠；页面 HTML、正文、样式和资源未变。来源是上述 main 加 Issue #57 的三行路由配置修复，部署时尚未提交，后续提交可按该差异复现。
+- 修复 Preview：`dpl_4oLBmMLzpkonmbdmrpYeDrHEs9vC` / <https://oh-my-quant-1w5pvdesd-yangjing-s-projects.vercel.app>。
+- 修复 Production：`dpl_EJBM6M7D21rJRBkBqYj7Q42iJ4RY` / <https://oh-my-quant-easxxv9qn-yangjing-s-projects.vercel.app>。inspect 确认 `production / Ready` 且正式域名已绑定。
+- 回滚目标：`dpl_tGL9oH7hVT85WFTc3ptaEaQXeDCh`；该版本有新版 UI，但保留旧路径缺陷。
+- 英文首页 HTML SHA-256：`97e2f03ced23942c2476994b94074ee12d32a0a773d528968eb191861be1468b`。
+- 文章 HTML SHA-256：`801399b7ff9882334600b1284b7472c88a94bc15ba1f3a4c3c91cfdd0c6392cb`。
+
+实际 Chromium 检查覆盖 `/en/#install` 的 1440px 双列布局、390px Desktop / CLI 切换、320px 无横向溢出；中文顶部仍为 Features，文章正文计算颜色为 `#B8B4A8`。五个公开页面返回 200，在线 HTML 哈希与本地构建一致。Preview HTTP 检查和修复后的 Production 浏览器导航均验证三条旧路径的带斜杠/不带斜杠六种形式，保留 `?via=verify`，最终到达正确语言首页的 `#download` 且返回 200。
+
+最终效果图于 2026-10-20 在 Chromium 以 1440 × 1000 视口打开 `/en/#install` 截取，对应上述修复 Production；该页面 HTML 与 `5c7a7ee` 的构建一致。该图曾被误提交到 `docs/assets/` 用作 PR 附图，现按维护者要求从当前源码移除，保留在外部交付证据归档。PR 截图应使用 GitHub 附件或 CI artifact，不能以入库图片代替附件。
+
+其他截图和构建回执保留在专用交付证据目录。首次补充颜色检查用了不正确的 `#section-2 p` selector 而超时，修正为实际段落后通过；不将该超时视为网页故障。未重新下载安装包或调用业务模型服务。后续发布应分别记录合并、Preview、Production 和线上核验；具体流程见 [博客发布说明](../docs/blog/website-publishing.md)。
+
 ## 2026-10-19：已确认预览的入库准备（Issue #52）
 
-用户确认 v17 并要求完成入库与对应 Issue/PR。本分支已快进到 main `439fb6b` 后恢复本次改动，未改动主工作树。最新完整 `bun run check:release` 通过；网站独立构建、文档与 skill 检查通过。新增 `docs/blog/website-publishing.md` 并加入文档/博客导览；`.gitattributes` 固定稿件 LF 和哈希敏感生成包的原始字节。公开截图存入 docs/assets，临时回执仍在 output。PR 合并和 Production 提升须分别记录，本文不预先宣称已完成。
+用户确认 v17 并要求完成入库与对应 Issue/PR。本分支已快进到 main `439fb6b` 后恢复本次改动，未改动主工作树。最新完整 `bun run check:release` 通过；网站独立构建、文档与 skill 检查通过。新增 `docs/blog/website-publishing.md` 并加入文档/博客导览；`.gitattributes` 固定稿件 LF 和哈希敏感生成包的原始字节。当时误将两张验收截图存入 `docs/assets/`；现已从当前源码移除并保留外部证据归档，后续禁止重复该做法。PR 合并和 Production 提升须分别记录，本文不预先宣称已完成。
 
 ## 2026-10-19：Features 文案与 Download 恢复（v17，待用户确认）
 
