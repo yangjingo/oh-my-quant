@@ -188,6 +188,7 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 | 文件 | 用途 |
 |---|---|
 | [下载区桌面验收](./assets/site-download-desktop-20261019.png) · [博客手机阅读验收](./assets/blog-reading-mobile-20261019.png) | 2026-10-19 本地 Chromium 实际渲染；对应已确认网站预览，不是线上端到端证据 |
+| [正式站下载区最终效果](./assets/site-download-production-20261020.png) | 2026-10-20 正式域名 `/en/#install`，Chromium 1440×1000；部署与源版本见 [发布记录](../site/DEPLOYMENT.md) |
 | [网站设计预览](./assets/workspace-preview.png) · [历史设计参考](./assets/workspace-design-reference.png) | 当前设计展示与历史输入，均不证明真实行情或运行状态 |
 | [repo-ops-actions.svg](./blog/agentic/images/repo-ops-actions.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
 | [repo-ops-artifacts-mobile.svg](./blog/agentic/images/repo-ops-artifacts-mobile.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |

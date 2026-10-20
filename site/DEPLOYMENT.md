@@ -16,7 +16,9 @@ PR #54 已合并为 main `1c7e58202a8d7395667238bb6bd1b484e7bfba70`，但本轮�
 
 实际 Chromium 检查覆盖 `/en/#install` 的 1440px 双列布局、390px Desktop / CLI 切换、320px 无横向溢出；中文顶部仍为 Features，文章正文计算颜色为 `#B8B4A8`。五个公开页面返回 200，在线 HTML 哈希与本地构建一致。Preview HTTP 检查和修复后的 Production 浏览器导航均验证三条旧路径的带斜杠/不带斜杠六种形式，保留 `?via=verify`，最终到达正确语言首页的 `#download` 且返回 200。
 
-截图和构建回执保留在专用交付证据目录。首次补充颜色检查用了不正确的 `#section-2 p` selector 而超时，修正为实际段落后通过；不将该超时视为网页故障。未重新下载安装包或调用业务模型服务。后续发布应分别记录合并、Preview、Production 和线上核验；具体流程见 [博客发布说明](../docs/blog/website-publishing.md)。
+最终效果图：[正式站英文下载区](../docs/assets/site-download-production-20261020.png)，2026-10-20 在 Chromium 以 1440 × 1000 视口打开 `/en/#install` 截取，对应上述修复 Production。图中为实际网页，不是设计稿；该页面 HTML 与 `5c7a7ee` 的构建一致。
+
+其他截图和构建回执保留在专用交付证据目录。首次补充颜色检查用了不正确的 `#section-2 p` selector 而超时，修正为实际段落后通过；不将该超时视为网页故障。未重新下载安装包或调用业务模型服务。后续发布应分别记录合并、Preview、Production 和线上核验；具体流程见 [博客发布说明](../docs/blog/website-publishing.md)。
 
 ## 2026-10-19：已确认预览的入库准备（Issue #52）
 
