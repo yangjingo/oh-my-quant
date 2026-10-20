@@ -35,17 +35,17 @@
   ],
   "redirects": [
     {
-      "source": "/download",
+      "source": "/download/",
       "destination": "/#download",
       "permanent": true
     },
     {
-      "source": "/en/download",
+      "source": "/en/download/",
       "destination": "/en/#download",
       "permanent": true
     },
     {
-      "source": "/zh/download",
+      "source": "/zh/download/",
       "destination": "/#download",
       "permanent": true
     }

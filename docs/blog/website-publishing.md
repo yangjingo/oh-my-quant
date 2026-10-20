@@ -1,6 +1,6 @@
 # 博客更新与 Vercel 发布流程
 
-更新：2026-10-19。适用于本仓库 `docs/blog` → `site` → `oh-my-quant.vercel.app` 的文章维护。它与十二篇离线合集的构建是两条独立流程。本文是维护操作说明，不会自动作为公开文章出现在 Blog 列表。
+更新：2026-10-20。适用于本仓库 `docs/blog` → `site` → `oh-my-quant.vercel.app` 的文章维护。它与十二篇离线合集的构建是两条独立流程。本文是维护操作说明，不会自动作为公开文章出现在 Blog 列表。
 
 ## TL;DR
 
@@ -101,6 +101,8 @@ vercel inspect oh-my-quant.vercel.app --scope yangjing-s-projects
 ```
 
 提升可能创建新的 Production ID。核对正式域名指向这个新 ID 且状态 Ready，再在可用的浏览器中检查实际页面、正文/插图、站内导航和资源。需要精确版本证据时比较线上 HTML 与本地构建的 SHA-256。平台 Ready、本地截图、线上页面核验是三种不同证据，分别记录。
+
+2026-10-20 的补发暴露了两个不同缺口：PR #54 已合入 main，但正式域名仍指向旧部署；发布后又发现旧下载路径在 Vercel 上返回 404。因此，完成 Git 交付后必须另外核对 Production，不能将 Preview 或 CI 通过视为发布完成。当前 `trailingSlash: true` 会先将 `/en/download` 规范化为 `/en/download/`；redirect 的 source 也必须匹配带尾斜杠的路径。三个旧入口 `/download`、`/en/download`、`/zh/download` 都要检查带斜杠和不带斜杠的形式，并携带查询参数验证最终 URL、`#download` 锚点和 HTTP 200。本地服务器的直接跳转没有覆盖 Vercel 的规范化顺序；回归验收以实际部署为准。行为依据见 [Vercel trailingSlash 配置](https://vercel.com/docs/project-configuration/vercel-json#trailingslash)。
 
 [DEPLOYMENT.md](../../site/DEPLOYMENT.md)记录本次 commit 或未提交来源、稿件/生成 HTML 哈希、Preview 与 Production ID/URL、前一 Production 回滚 ID、实际执行的检查和未验证项。更新该记录后随交付入库。当前正式地址是 [官网](https://oh-my-quant.vercel.app/)，具体版本以实时 inspect 为准。
 
