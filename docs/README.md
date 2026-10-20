@@ -161,7 +161,7 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 <a id="assets"></a>
 ## 配图素材
 
-### 公共视觉素材（8）
+### 公共视觉素材（5）
 
 这些素材不是独立的设计规范或运行证明。无正文引用只能作为使用情况线索，不能单独作为删除依据。
 
@@ -170,9 +170,6 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 | [assets/website-workspace.png](./assets/website-workspace.png) | 网站研究工作台演示，含市场研究、组合比较、报告入口及 Synthetic data 标记 | 当前英文 README 使用；合成演示素材，不证明真实模型、行情或网站部署状态 |
 | [assets/terminal-renderer-2026-10-13.png](./assets/terminal-renderer-2026-10-13.png) | 当前 QuantTui 的 120×32 缓冲区投影，默认 red-up | 讲解演示使用；隔离合成输入，非真实行情/模型回答或实体终端证明 |
 | [assets/terminal.png](./assets/terminal.png) | 早期终端首页视觉参考 | 保留 GOALS / PRD 的设计来源；已退出项目首页和演示，不作为当前界面截图 |
-| [assets/image.png](./assets/image.png) | 另一版终端画面参考，含 Portfolio / Watchlist / Market | 保留素材；本轮分类前未在 docs、项目 README、DESIGN 的文本引用中找到入口 |
-| [assets/logo.png](./assets/logo.png) | 羽毛、柱形图与 WhyJ Quant 字标 | 品牌素材，同上范围未发现原入口 |
-| [assets/poste.svg](./assets/poste.svg) | 1200×1700 SVG 版面素材 | 展示素材，同上范围未发现原入口；不从文件名推断其发布或验收状态 |
 
 
 ### Repo Ops 合并稿与网站素材
