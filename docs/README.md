@@ -44,7 +44,7 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 | `agent-runtime/` | 通用运行时与扩展契约 |
 | `quant-harness/` | 完整量化应用的设计、产品、使用与仓库维护文档 |
 | `blog/` | 系列正文、工程补篇、目录与编辑说明、配图、构建/检查脚本、私有证据路径规则和离线 HTML |
-| `assets/` | 共用产品与设计素材、实际博客阅读视图、社区工具命令渲染证据及历史 CI 失败截图 |
+| `assets/` | 共用产品与设计素材和正式文档插图；PR 验收及历史失败截图使用附件或 CI artifact 链接，不入库 |
 | 顶层 | 本页和讲解演示 |
 
 <a id="agent-design"></a>
@@ -173,13 +173,7 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 | [assets/image.png](./assets/image.png) | 另一版终端画面参考，含 Portfolio / Watchlist / Market | 保留素材；本轮分类前未在 docs、项目 README、DESIGN 的文本引用中找到入口 |
 | [assets/logo.png](./assets/logo.png) | 羽毛、柱形图与 WhyJ Quant 字标 | 品牌素材，同上范围未发现原入口 |
 | [assets/poste.svg](./assets/poste.svg) | 1200×1700 SVG 版面素材 | 展示素材，同上范围未发现原入口；不从文件名推断其发布或验收状态 |
-| [assets/blog-product-plan-wide-20261015.png](./assets/blog-product-plan-wide-20261015.png) | 第 08 篇离线博客的实际浏览器阅读视图，1440×1000 | 本地 Chromium、2026-10-15；仅文档渲染证据，不是新桌面 UI 截图或网站部署证明 |
-| [assets/blog-product-plan-narrow-20261015.png](./assets/blog-product-plan-narrow-20261015.png) | 同一博客的 390×844 阅读视图 | 同上；正文不溢出，机制图沿用带提示、可键盘横滚的容器 |
-| [assets/community-tools-60x20.png](./assets/community-tools-60x20.png) | Skills/MCP 选择与移除的窄终端连续帧 | 当前命令与 QuantTui 字符缓冲区的浏览器截图；隔离合成输入，不证明原生终端或外部服务可用 |
-| [assets/community-tools-120x32.png](./assets/community-tools-120x32.png) | 同一命令流程的宽终端连续帧 | 同上；复现步骤见 Skills 与 MCP 指南 |
 
-| [assets/ci-panel-transition-failure.png](./assets/ci-panel-transition-failure.png) | Desktop 面板切换的历史失败截图 | Actions 38156420320 原始 artifact；不是当前产品验收 |
-| [assets/ci-multiline-paste-failure.png](./assets/ci-multiline-paste-failure.png) | Desktop 多行粘贴的历史失败截图 | Actions 38234986954 原始 artifact；不是当前产品验收 |
 
 ### Repo Ops 合并稿与网站素材
 
@@ -187,8 +181,6 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 
 | 文件 | 用途 |
 |---|---|
-| [下载区桌面验收](./assets/site-download-desktop-20261019.png) · [博客手机阅读验收](./assets/blog-reading-mobile-20261019.png) | 2026-10-19 本地 Chromium 实际渲染；对应已确认网站预览，不是线上端到端证据 |
-| [正式站下载区最终效果](./assets/site-download-production-20261020.png) | 2026-10-20 正式域名 `/en/#install`，Chromium 1440×1000；部署与源版本见 [发布记录](../site/DEPLOYMENT.md) |
 | [网站设计预览](./assets/workspace-preview.png) · [历史设计参考](./assets/workspace-design-reference.png) | 当前设计展示与历史输入，均不证明真实行情或运行状态 |
 | [repo-ops-actions.svg](./blog/agentic/images/repo-ops-actions.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
 | [repo-ops-artifacts-mobile.svg](./blog/agentic/images/repo-ops-artifacts-mobile.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |

@@ -16,13 +16,13 @@ PR #54 已合并为 main `1c7e58202a8d7395667238bb6bd1b484e7bfba70`，但本轮�
 
 实际 Chromium 检查覆盖 `/en/#install` 的 1440px 双列布局、390px Desktop / CLI 切换、320px 无横向溢出；中文顶部仍为 Features，文章正文计算颜色为 `#B8B4A8`。五个公开页面返回 200，在线 HTML 哈希与本地构建一致。Preview HTTP 检查和修复后的 Production 浏览器导航均验证三条旧路径的带斜杠/不带斜杠六种形式，保留 `?via=verify`，最终到达正确语言首页的 `#download` 且返回 200。
 
-最终效果图：[正式站英文下载区](../docs/assets/site-download-production-20261020.png)，2026-10-20 在 Chromium 以 1440 × 1000 视口打开 `/en/#install` 截取，对应上述修复 Production。图中为实际网页，不是设计稿；该页面 HTML 与 `5c7a7ee` 的构建一致。
+最终效果图于 2026-10-20 在 Chromium 以 1440 × 1000 视口打开 `/en/#install` 截取，对应上述修复 Production；该页面 HTML 与 `5c7a7ee` 的构建一致。该图曾被误提交到 `docs/assets/` 用作 PR 附图，现按维护者要求从当前源码移除，保留在外部交付证据归档。PR 截图应使用 GitHub 附件或 CI artifact，不能以入库图片代替附件。
 
 其他截图和构建回执保留在专用交付证据目录。首次补充颜色检查用了不正确的 `#section-2 p` selector 而超时，修正为实际段落后通过；不将该超时视为网页故障。未重新下载安装包或调用业务模型服务。后续发布应分别记录合并、Preview、Production 和线上核验；具体流程见 [博客发布说明](../docs/blog/website-publishing.md)。
 
 ## 2026-10-19：已确认预览的入库准备（Issue #52）
 
-用户确认 v17 并要求完成入库与对应 Issue/PR。本分支已快进到 main `439fb6b` 后恢复本次改动，未改动主工作树。最新完整 `bun run check:release` 通过；网站独立构建、文档与 skill 检查通过。新增 `docs/blog/website-publishing.md` 并加入文档/博客导览；`.gitattributes` 固定稿件 LF 和哈希敏感生成包的原始字节。公开截图存入 docs/assets，临时回执仍在 output。PR 合并和 Production 提升须分别记录，本文不预先宣称已完成。
+用户确认 v17 并要求完成入库与对应 Issue/PR。本分支已快进到 main `439fb6b` 后恢复本次改动，未改动主工作树。最新完整 `bun run check:release` 通过；网站独立构建、文档与 skill 检查通过。新增 `docs/blog/website-publishing.md` 并加入文档/博客导览；`.gitattributes` 固定稿件 LF 和哈希敏感生成包的原始字节。当时误将两张验收截图存入 `docs/assets/`；现已从当前源码移除并保留外部证据归档，后续禁止重复该做法。PR 合并和 Production 提升须分别记录，本文不预先宣称已完成。
 
 ## 2026-10-19：Features 文案与 Download 恢复（v17，待用户确认）
 

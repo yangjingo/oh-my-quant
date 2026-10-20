@@ -60,6 +60,8 @@ git diff --check
 
 入库包含稿件、图源、渲染器、生成文章包、设计/skill 规则和对应文档。检查 untracked 文件，避免漏掉未提交模板。临时 `output/`、`site/dist/`、`.vercel/`、node_modules、个人数据、凭证不入库。一个实施 Issue 对应一个 PR；提交和推送后检查最终 head 的 CI 与最终 PR 描述触发的 policy。合并状态与网站上线状态分别记录。
 
+PR 验收截图、录屏和浏览器输出属于验证证据，不是博客或产品素材。它们只能保存在忽略的 `output/` 或外部证据归档中，通过 GitHub PR 附件或可访问的 CI artifact 提供给评审；禁止为了给 PR 添加效果图而提交到 `docs/assets/`、其他受版本控制的目录或专门的证据分支。无法上传附件时应说明限制，不能改成提交图片。博客正文确实需要的插图按内容素材维护，不能用“最终效果图”作为验收截图入库的理由。完整约定见 [PR Visual Evidence](../../.agents/skills/pr-skill/SKILL.md#visual-evidence)。
+
 ## 4. 准备独立发布副本并部署 Preview
 
 先核对账户、项目与线上回滚目标；项目应是 `yangjing-s-projects/oh-my-quant`。截至本记录，CLI 发布根目录是网站本身，项目构建为 `node scripts/build.mjs`，输出 `dist`，安装命令 `node --version`。不要假设远程配置永远不变。若将来连接 Git 自动部署并导入整个仓库，Root Directory 才是 `site`；当前不应把 push 当成自动部署。
