@@ -10,7 +10,7 @@ import { createQuantResearchAgent } from "../quant-harness.ts";
 
 let root: string, previous: string | undefined, proxy: string | undefined;
 let server: ReturnType<typeof Bun.serve>, agent: QuantAgentSession;
-let requests: number, delayed: boolean, onRequest: () => void;
+let requests: number, delayed: boolean, prepareDelayMs: number, onRequest: () => void;
 let response: ReturnType<typeof Promise.withResolvers<void>>, responseSent: boolean;
 const routes = [["run", "command-fixture", "Use supplied text"], ["trigger", "command-fixture", "Use supplied text"],
   ["command-fixture", "Use supplied text"]];
@@ -22,9 +22,10 @@ beforeEach(() => {
   const path = join(root, ".agents", "skills", "command-fixture");
   mkdirSync(join(root, ".git")); mkdirSync(path, { recursive: true });
   writeFileSync(join(path, "SKILL.md"), "---\nname: command-fixture\ndescription: Synthetic command fixture\n---\nUse supplied text only; no market or account access.");
-  requests = 0; delayed = true; responseSent = false; onRequest = () => {};
+  requests = 0; delayed = true; prepareDelayMs = 0; responseSent = false; onRequest = () => {};
   response = Promise.withResolvers<void>();
   server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(incoming) {
+    if (prepareDelayMs > 0) await new Promise(resolve => setTimeout(resolve, prepareDelayMs));
     await incoming.json(); requests++; onRequest();
     const chunk = { id: "command-cancel", object: "chat.completion.chunk", created: 0, model: "command-cancel-test" };
     const body = [{ ...chunk, choices: [{ index: 0, delta: { role: "assistant", content: "Synthetic completed answer." }, finish_reason: null }] },
@@ -78,9 +79,37 @@ test.each(routes)("cancelling text skill route %j interrupts Pi and cannot retur
   expect(agent.state.messages.some(message => message.role === "assistant" && message.stopReason === "stop")).toBe(false);
 }, 15_000);
 
+test.each(routes)("cancelling text skill route %j with delayed request preparation still verifies cancellation", async (...route) => {
+  prepareDelayMs = 1100;
+  const controller = new AbortController(), received = Promise.withResolvers<void>();
+  onRequest = received.resolve;
+  let error: unknown, succeeded = false;
+  const operation = skillHandler({}, route, { agentSession: agent, commandSignal: controller.signal })
+    .then(result => { succeeded = result.success; }, caught => { error = caught; });
+  await received.promise;
+  controller.abort(new Error("cancel after slow preparation"));
+  await operation;
+  expect(requests).toBe(1); expect(responseSent).toBe(false);
+  expect(succeeded).toBe(false); expect(error).toBe(controller.signal.reason);
+  expect(agent.state.isStreaming).toBe(false);
+  expect(agent.state.messages.some(message => message.role === "assistant" && message.stopReason === "stop")).toBe(false);
+}, 15_000);
+
 test("an uncancelled text skill still completes normally through the command and real Pi loop", async () => {
   delayed = false;
   const result = await skillHandler({}, routes[0]!, { agentSession: agent, commandSignal: new AbortController().signal });
   expect(result.success).toBe(true); expect(requests).toBe(1);
+  expect(agent.state.messages.some(message => message.role === "assistant" && message.stopReason === "stop")).toBe(true);
+});
+
+test("releasing response barrier when cancellation signal is ignored yields normal success rather than cancellation", async () => {
+  const ignoredSignal = new AbortController().signal;
+  onRequest = () => {
+    setTimeout(() => response.resolve(), 10);
+  };
+  const result = await skillHandler({}, routes[0]!, { agentSession: agent, commandSignal: ignoredSignal });
+  expect(requests).toBe(1);
+  expect(responseSent).toBe(true);
+  expect(result.success).toBe(true);
   expect(agent.state.messages.some(message => message.role === "assistant" && message.stopReason === "stop")).toBe(true);
 });

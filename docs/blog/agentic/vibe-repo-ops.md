@@ -227,13 +227,11 @@ Doctor 的“所有提示为空”则依赖开发机已有 Python/AKShare。干�
 
 第一次，[38156420320](https://github.com/yangjingo/oh-my-quant/actions/runs/38156420320) 在面板轮换时等待标题超时。原始截图仍显示 portfolio 面板，下面已经出现下一条命令的部分输入。脚本发出 Escape 后立即开始下一次输入，没有确认旧面板已关闭。后续修复增加关闭状态等待，并使用具体面板标题匹配。[修复 4aaf630](https://github.com/yangjingo/oh-my-quant/commit/4aaf630a9a10e24b1d210e3cf5eedb7718125c58)
 
-![历史失败：旧面板仍显示，下一条命令已经开始输入](../../assets/ci-panel-transition-failure.png)
-
-图为上述 Windows Actions 运行保留的 `failure.png`，属于历史失败证据，不是本次修复后的产品截图。它支持状态交接没有完成的判断，不能据此还原所有按键调度时刻。
+[历史失败证据：面板切换的 desktop-evidence artifact](https://github.com/yangjingo/oh-my-quant/actions/runs/38156420320/artifacts/11709445008)。其中的 `failure.png` 属于历史失败证据，不是本次修复后的产品截图。它支持状态交接没有完成的判断，不能据此还原所有按键调度时刻；不再将副本提交到文档素材目录。
 
 第二次，[38234986954](https://github.com/yangjingo/oh-my-quant/actions/runs/38234986954) 已经走到多行粘贴，等待第二行 `/exit` 可见却失败。原始图中只看到第一行中文，第二行没有显示。这次后续修复落在 TUI composer 的多行绘制、换行和输入窗口，并补了 paste 回归；原 smoke 随后成功。[产品修复 8ba86ae](https://github.com/yangjingo/oh-my-quant/commit/8ba86ae3d6ab335d5013ffa797f8993e6373812b) · [后续成功运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38236094545)
 
-![历史失败：多行粘贴后第二行不可见](../../assets/ci-multiline-paste-failure.png)
+[历史失败证据：多行粘贴的 desktop-evidence artifact](https://github.com/yangjingo/oh-my-quant/actions/runs/38234986954/artifacts/11740049274)。2026-10-20 核对这两份 artifact 均未过期；下载可能需要 GitHub 登录，且受运行的保留期限限制，不能将其当作永久公开图床。过期后应明确证据不可下载，不能因此宣称已经复验。
 
 这里不能把超时全部归为 runner 慢。第二次暴露的正是发布应用的可见行为缺陷。正确措施是保留 E2E 的拒绝能力，修产品，再用同一行为检查验证；用更宽泛的文本匹配让它通过，会丢掉原本有效的保护。
 

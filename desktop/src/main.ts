@@ -1,3 +1,4 @@
+import { WHYJ_THEME } from "../../src/types/theme-colors.ts";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, net, protocol, screen, session, shell } from "electron";
 import type { IpcMainEvent, IpcMainInvokeEvent } from "electron";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -94,7 +95,7 @@ else {
     protocol.handle("app", request => {
       const url = new URL(request.url);
       const filename = url.pathname.slice(1);
-      if (url.host !== "desktop" || !["index.html", "renderer.js", "style.css", "xterm.css"].includes(filename)) return new Response("Not found", { status: 404 });
+      if (url.host !== "desktop" || !["index.html", "renderer.js", "style.css", "xterm.css", "logo-mark.svg"].includes(filename)) return new Response("Not found", { status: 404 });
       return net.fetch(pathToFileURL(join(app.getAppPath(), "dist", filename)).href);
     });
     let saved: { width?: number; height?: number; maximized?: boolean } = {};
@@ -103,7 +104,7 @@ else {
     const width = Math.min(area.width, Math.max(800, Number(saved.width) || 1280));
     const height = Math.min(area.height, Math.max(540, Number(saved.height) || 820));
     window = new BrowserWindow({ width, height, minWidth: 720, minHeight: 480, show: false,
-      title: `WhyJ Quant ${app.getVersion()}`, backgroundColor: "#0B0B0C", icon: join(app.getAppPath(), "dist", "icon.ico"),
+      title: `WhyJ Quant ${app.getVersion()}`, backgroundColor: WHYJ_THEME.canvas, icon: join(app.getAppPath(), "dist", "app-icon.ico"),
       autoHideMenuBar: true,
       webPreferences: { preload: join(app.getAppPath(), "dist", "preload.cjs"), contextIsolation: true,
         nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false },

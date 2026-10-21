@@ -56,7 +56,7 @@ it("executes chart scripts using the report CSS convention and keeps flat candle
     expect(option!.series.find(series => series.name === "MA20(20日均)")!.lineStyle?.color).toBe(WHYJ_THEME.muted);
     expect(css).toContain(`--up:${up};--down:${down}`);
     expect(css).toContain(`--positive:${WHYJ_THEME.positive};--negative:${WHYJ_THEME.negative}`);
-    expect(css).toContain("--gold:#D4AF37;");
+    expect(css).toContain(`--gold:${WHYJ_THEME.gold};`);
     expect(css).toContain(".k-neutral line{stroke:var(--muted)");
   }
 });

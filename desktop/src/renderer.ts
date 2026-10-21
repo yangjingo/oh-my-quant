@@ -1,3 +1,4 @@
+import { WHYJ_THEME } from "../../src/types/theme-colors.ts";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -7,7 +8,7 @@ const terminal = new Terminal({
   fontFamily: '"Cascadia Mono", Consolas, "Microsoft YaHei", monospace',
   fontSize: Math.max(11, Math.min(22, Number(localStorage.getItem("fontSize")) || 14)),
   lineHeight: 1.18, cursorBlink: false, scrollback: 1000, screenReaderMode: true,
-  theme: { background: "#0B0B0C", foreground: "#F5F5F5", cursor: "#D4AF37", selectionBackground: "#D4AF3744" },
+  theme: { background: WHYJ_THEME.canvas, foreground: WHYJ_THEME.cream, cursor: WHYJ_THEME.gold, selectionBackground: `${WHYJ_THEME.gold}44` },
 });
 const fit = new FitAddon();
 terminal.loadAddon(fit);

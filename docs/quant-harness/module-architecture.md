@@ -197,12 +197,12 @@ storage
 
 | 位置 | 责任 |
 |---|---|
-| `src/cli/dev/` | CLI 构建、模型连接 smoke、Skill 命令和 reviewed 上游的显式核验 |
+| `src/cli/dev/` | CLI 构建、provider smoke 与公开宏观输入捕获；不再提供已撤销的 Skill 资格/审计命令 |
 | `src/runtime/dev/` | 研究评测、数据编排、模型测量与 AKShare 参数签名生成；`overview/` 与 `chart/` 维护对应应用输入路径 |
 | `src/tui/dev/`、`src/artifact/dev/` | 终端绘制/流写入/合成长对话 CPU 测量与合成报告生成；测量不证明实体终端输入延迟 |
 | `src/source/dev/`、`src/quant/dev/` | 公共新闻 adapter 检查、独立 Decimal 数值参考复核 |
 | `src/alpha/dev/`、`src/performance/dev/` | 显式真实引擎核验和合成账户计算示例 |
-| `src/storage/dev/`、`src/skill/dev/`、`src/insight/dev/` | 会话 IO 基准、已留存证据包重算、Insight 生成 |
+| `src/storage/dev/`、`src/insight/dev/` | 会话 IO 基准与 Insight 生成；旧 `src/skill/dev/` 已移除 |
 | `tests/architecture/`、`tests/app/` | 仓库工程门槛及跨模块回归，不承担产品功能 |
 
 开发探针是模块的可选消费者，可能注入生产 adapter、合成夹具或显式请求真实服务。架构检查不把 `dev/` 按生产依赖规则约束，但禁止生产文件反向导入 `dev/` 或任意测试目录；[反向依赖回归](../../tests/architecture/module-boundaries.test.ts)和[打包闭包检查](../../tests/architecture/development-entrypoints.test.ts)分别核对源码边界与实际 CLI 构建。它们不获得 Agent 默认执行资格。

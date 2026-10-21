@@ -1,6 +1,6 @@
 # 11｜用户不知道下一条命令时，界面应该做什么？
 
-Agent Engineering / oh-my-quant · 初稿 2026-10-13 · 修订 2026-10-13 · 产品交互与功能发现
+Agent Engineering / oh-my-quant · 初稿 2026-10-13 · 修订 2026-10-21 · 产品交互与功能发现
 
 熟练用户记得命令，初次使用者只知道要做什么。同一个终端要同时服务两者：既不能让每次操作都经过向导，也不能要求用户先背下完整手册。
 
@@ -8,7 +8,7 @@ Agent Engineering / oh-my-quant · 初稿 2026-10-13 · 修订 2026-10-13 · 产
 
 自然语言让研究入口更开放，但不会自动解释应用的全部操作。用户仍需要知道怎样配置、查看诊断、维护观察组合、找回报告。把这些动作全部交给模型推测，会让本应明确的本地控制变成一次不确定的对话。
 
-当前产品保留十个公开 slash 入口。名称优先使用 `/config`、`/resume`、`/help` 等可识别动作，描述再说明研究对象；业务分析经 Agent 工具完成，没有为每个因子或比较再增加一条顶层命令。[命令参考](../quant-harness/slash-commands.md)维护现行行为。
+当前公开 slash 入口以 command catalog 为准，包含 Skills 与 MCP 管理。名称优先使用 `/config`、`/resume`、`/help` 等可识别动作，描述再说明研究对象；业务分析经 Agent 工具完成，没有为每个因子或比较再增加一条顶层命令。[命令参考](../quant-harness/product-guide.md#commands)维护现行行为。
 
 这是对入口数量的控制，却还没有解决“下一步在哪里”。一个未知命令如果只返回 unknown，用户仍需要离开当前任务找文档；一个空列表如果只显示 empty，也没有告诉用户如何获得第一份结果。
 
@@ -48,6 +48,6 @@ Help 改为全宽 Commands / Hotkeys 两类视图，Tab 或 Shift+Tab 切换，�
 
 - [统一命令目录](../../src/runtime/workspace/command-catalog.ts)、[详细帮助](../../src/runtime/workspace/command-help.ts)、[静态预检](../../src/runtime/workspace/command-preflight.ts)。
 - [Help 交互](../../src/tui/src/help-panel.ts)、[键盘发现回归](../../src/tui/test/help-navigation.test.ts)。
-- [用户命令参考](../quant-harness/slash-commands.md)。
+- [用户命令参考](../quant-harness/product-guide.md#commands)。
 
 [← 上一篇](./10-layout-and-visual-language.md) · [下一篇：失败后的恢复 →](./12-recovery-as-ux.md)

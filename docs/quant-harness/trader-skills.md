@@ -171,4 +171,4 @@ bun run src/tui/dev/render-terminal-audit.ts --community --output output/communi
 python -m http.server 8132 --bind 127.0.0.1 --directory output/community-review
 ```
 
-[60×20 窄终端连续帧](../assets/community-tools-60x20.png)与 [120×32 宽终端连续帧](../assets/community-tools-120x32.png)覆盖缓存 Skill 的选择、PageUp、移除，以及 MCP 空配置、添加、移除和未知名称错误。窄屏长清单需要滚动，名称和来源按文本换行；Composer 的短错误沿用单行省略显示。未新增加载面板，网络下载取消由安装器回归测试覆盖。这些是实际渲染器的 SVG 投影截图，不是原生终端字体、IME 或真实服务连接验收。
+用上述命令在本地生成 60×20 与 120×32 连续帧，覆盖缓存 Skill 的选择、PageUp、移除，以及 MCP 空配置、添加、移除和未知名称错误；实现与当时的核验记录见 [PR #35](https://github.com/yangjingo/oh-my-quant/pull/35)。验收图片保留在忽略的 `output/community-review` 或外部证据归档中，不再复制到 `docs/assets/`。窄屏长清单需要滚动，名称和来源按文本换行；Composer 的短错误沿用单行省略显示。未新增加载面板，网络下载取消由安装器回归测试覆盖。这些是实际渲染器的 SVG 投影截图，不是原生终端字体、IME 或真实服务连接验收。

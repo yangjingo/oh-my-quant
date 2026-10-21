@@ -15,7 +15,7 @@
 <a href="#chapter-09"><span>09</span>模块与变化边界</a>
 <a href="#chapter-10"><span>10</span>布局与视觉语义</a>
 <a href="#chapter-11"><span>11</span>功能发现与交互</a>
-<a href="#chapter-12"><span>12</span>反馈与失败恢复</a></nav><a class="back" href="../README.md">← 项目文档</a></aside><main id="main"><header class="hero" id="top"><p class="eyebrow">TWELVE NOTES ON BUILDING A RESEARCH AGENT</p><h1>Agent Engineering<span>产品、架构与体验，如何一起演进</span></h1><p class="lead">oh-my-quant 的十二个问题，十二组取舍。从研究工作流到模块边界，从证据与状态到界面的空间、反馈和恢复。</p><p class="scope">技术负责人阅读版 · 系列始于 2026-10-12 / 2026-10-16 最近修订 · 非发布说明<br>配图为机制与布局示意，不是真实终端截图或效果测量。<a href="./editorial-notes.md">证据与编辑说明</a></p></header><section class="contents" id="contents" aria-labelledby="contents-title"><h2 id="contents-title">沿着产品、技术架构与 UI/UX 阅读</h2><p class="scope">产品：08 → 11 → 12 → 07　·　架构：01 → 09 → 02 → 03 → 04 → 05　·　UI/UX：10 → 11 → 12 → 06</p><nav aria-label="文章目录"><a href="#chapter-01"><span>01</span>内核与所有权</a>
+<a href="#chapter-12"><span>12</span>反馈与失败恢复</a></nav><a class="back" href="../README.md">← 项目文档</a></aside><main id="main"><header class="hero" id="top"><p class="eyebrow">TWELVE NOTES ON BUILDING A RESEARCH AGENT</p><h1>Agent Engineering<span>产品、架构与体验，如何一起演进</span></h1><p class="lead">oh-my-quant 的十二个问题，十二组取舍。从研究工作流到模块边界，从证据与状态到界面的空间、反馈和恢复。</p><p class="scope">技术负责人阅读版 · 系列始于 2026-10-12 / 2026-10-21 最近修订 · 非发布说明<br>配图为机制与布局示意，不是真实终端截图或效果测量。<a href="./editorial-notes.md">证据与编辑说明</a></p></header><section class="contents" id="contents" aria-labelledby="contents-title"><h2 id="contents-title">沿着产品、技术架构与 UI/UX 阅读</h2><p class="scope">产品：08 → 11 → 12 → 07　·　架构：01 → 09 → 02 → 03 → 04 → 05　·　UI/UX：10 → 11 → 12 → 06</p><nav aria-label="文章目录"><a href="#chapter-01"><span>01</span>内核与所有权</a>
 <a href="#chapter-02"><span>02</span>数据与成功语义</a>
 <a href="#chapter-03"><span>03</span>上下文与恢复</a>
 <a href="#chapter-04"><span>04</span>工具与 Skill</a>
@@ -347,10 +347,10 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 </ul>
 <p><a href="#chapter-06">← 上一篇</a> · <a href="#chapter-08">下一篇：研究产品的工作流 →</a></p>
 </article>
-<article id="chapter-08" aria-labelledby="chapter-08-title"><p class="eyebrow">FIELD NOTES / 08</p><h2 id="chapter-08-title">桌面优先之后，CLI 如何延续同一份研究？</h2><p class="article-meta">初稿 2026-10-13 · 修订 2026-10-16 · oh-my-quant · <a href="./08-research-workbench.md">Markdown 原文</a></p><p>用户今天比较两组标的，明天再问“换一个基准会怎样”。在终端里可以接着说，换到桌面应用以后，研究还能接得上吗？如果需要重新输入日期、解释数据来源、寻找旧报告，我们交付的就只是两个入口，而不是一份能够继续的工作。</p>
+<article id="chapter-08" aria-labelledby="chapter-08-title"><p class="eyebrow">FIELD NOTES / 08</p><h2 id="chapter-08-title">桌面优先之后，CLI 如何延续同一份研究？</h2><p class="article-meta">初稿 2026-10-13 · 修订 2026-10-21 · oh-my-quant · <a href="./08-research-workbench.md">Markdown 原文</a></p><p>用户今天比较两组标的，明天再问“换一个基准会怎样”。在终端里可以接着说，换到桌面应用以后，研究还能接得上吗？如果需要重新输入日期、解释数据来源、寻找旧报告，我们交付的就只是两个入口，而不是一份能够继续的工作。</p>
 <p>本文以当前实现为起点，讨论已经选择的维护方向：<strong>优先维护 Desktop，同时保留 CLI</strong>。当前 <code>desktop/</code> 仍是 Electron 中的终端宿主；下面的 <code>apps/cli</code>、<code>apps/desktop</code>、共享包和独立桌面界面均是改造提案，尚未实施。目录与发布方法仍以<a href="../quant-harness/module-architecture.md">模块架构</a>和<a href="../quant-harness/desktop.md">桌面宿主文档</a>为准。</p>
 <h3>一次研究，为什么要在两种界面里延续？</h3>
-<p>自然语言适合尚未成形的问题。用户可以先表达研究意图，再逐步明确对象、窗口、币种和基准。但一段回答不是全部研究状态：下一次工作还需要知道采用了哪个组合版本、哪些数据能重算、报告固定了什么，以及失败后有没有可用的草稿。<a href="../quant-harness/PRD.md">PRD</a>因此把主要路径串成“配置 → 获取数据 → 分析与比较 → 报告 → 恢复”。</p>
+<p>自然语言适合尚未成形的问题。用户可以先表达研究意图，再逐步明确对象、窗口、币种和基准。但一段回答不是全部研究状态：下一次工作还需要知道采用了哪个组合版本、哪些数据能重算、报告固定了什么，以及失败后有没有可用的草稿。<a href="../quant-harness/product-guide.md#requirements">产品范围与验收</a>因此把主要路径串成“配置 → 获取数据 → 分析与比较 → 报告 → 恢复”。</p>
 <p>已有<a href="../../src/tui/test/research-workflow.test.ts">键盘流程回归</a>经过设置自动报告、维护两组观察标的、带日期与基准的比较、<code>/clear</code> 和报告恢复。这条路径提醒我们：局部的取数、计算、导出都成功，仍不保证研究能连续进行。恢复必须保留原数据引用与报告版本，不能为了“打开成功”悄悄换成今天的数据。</p>
 <p>两种入口并非两份独立产品。CLI 仍适合终端研究、明确的 JSON one-shot 读取和可组合命令；Desktop 优先承担安装、发现、配置与长时间工作的体验。这里优先的是日常产品迭代与体验验收，不是取消 CLI 的兼容、测试或发布维护。桌面应用让用户不必先组织终端环境，也给对象、参数与报告更稳定的展示位置；这仍是需要验证的产品判断，不是已经测得的效率提升。</p>
 <p>真正应该共享的是研究事实，而不是窗口布局。配置快照、会话分支、任务条件、数据引用和报告身份应有一致解释；焦点、滚动、面板展开和暂时的输入状态属于各自界面。强行复用整个 TUI 布局会限制桌面体验，复制业务逻辑又会让两个入口产生不同答案。我们需要的是同一套约束下的两种投影。</p>
@@ -412,7 +412,7 @@ site/         产品网站、Docs、Blog、手册与公开 Demo
 <p>如果用户的主要工作仍是提示、读取报告和终端操作，现有 PTY 可能继续是成本最低的方案。只有当对象控制与研究恢复反复被字符流限制时，独立 renderer 才有足够理由承担新的状态协议、交互测试和发布成本。Desktop-first 不意味着越早重写越好；它意味着让下一次工程投入优先修复桌面用户的真实中断，并用 CLI 的兼容约束守住共享事实。</p>
 <h3>实现索引</h3>
 <ul>
-<li>当前产品与宿主：<a href="../quant-harness/PRD.md">PRD</a>、<a href="../quant-harness/desktop.md">Desktop</a>、<a href="../../desktop/src/main.ts">main</a>、<a href="../../desktop/src/bridge.ts">Bridge</a>、<a href="../../desktop/scripts/build.ts">构建</a>。这些链接定位现状，不是未来 apps 目录的实现证据。</li>
+<li>当前产品与宿主：<a href="../quant-harness/product-guide.md#requirements">产品范围与验收</a>、<a href="../quant-harness/desktop.md">Desktop</a>、<a href="../../desktop/src/main.ts">main</a>、<a href="../../desktop/src/bridge.ts">Bridge</a>、<a href="../../desktop/scripts/build.ts">构建</a>。这些链接定位现状，不是未来 apps 目录的实现证据。</li>
 <li>当前边界与待解耦点：<a href="../quant-harness/module-architecture.md">模块架构</a>、<a href="../../src/app-runtime.ts">AppRuntime</a>、<a href="../agent-runtime/README.md">通用运行时</a>。</li>
 <li>可复用的验收基础：<a href="../../src/tui/test/research-workflow.test.ts">连续键盘流程</a>、<a href="../quant-harness/configuration.md">配置</a>、<a href="../quant-harness/artifacts-design.md">报告与恢复</a>。</li>
 <li>相关讨论：<a href="#chapter-10">布局与视觉语言</a>、<a href="#chapter-11">功能发现</a>、<a href="#chapter-12">失败后的继续工作</a>。</li>
@@ -494,10 +494,10 @@ site/         产品网站、Docs、Blog、手册与公开 Demo
 </ul>
 <p><a href="#chapter-09">← 上一篇</a> · <a href="#chapter-11">下一篇：让功能被发现 →</a></p>
 </article>
-<article id="chapter-11" aria-labelledby="chapter-11-title"><p class="eyebrow">FIELD NOTES / 11</p><h2 id="chapter-11-title">用户不知道下一条命令时，界面应该做什么？</h2><p class="article-meta">初稿 2026-10-13 · 修订 2026-10-13 · oh-my-quant · <a href="./11-discoverable-interactions.md">Markdown 原文</a></p><p>熟练用户记得命令，初次使用者只知道要做什么。同一个终端要同时服务两者：既不能让每次操作都经过向导，也不能要求用户先背下完整手册。</p>
+<article id="chapter-11" aria-labelledby="chapter-11-title"><p class="eyebrow">FIELD NOTES / 11</p><h2 id="chapter-11-title">用户不知道下一条命令时，界面应该做什么？</h2><p class="article-meta">初稿 2026-10-13 · 修订 2026-10-21 · oh-my-quant · <a href="./11-discoverable-interactions.md">Markdown 原文</a></p><p>熟练用户记得命令，初次使用者只知道要做什么。同一个终端要同时服务两者：既不能让每次操作都经过向导，也不能要求用户先背下完整手册。</p>
 <h3>能被调用，不代表能被发现</h3>
 <p>自然语言让研究入口更开放，但不会自动解释应用的全部操作。用户仍需要知道怎样配置、查看诊断、维护观察组合、找回报告。把这些动作全部交给模型推测，会让本应明确的本地控制变成一次不确定的对话。</p>
-<p>当前产品保留十个公开 slash 入口。名称优先使用 <code>/config</code>、<code>/resume</code>、<code>/help</code> 等可识别动作，描述再说明研究对象；业务分析经 Agent 工具完成，没有为每个因子或比较再增加一条顶层命令。<a href="../quant-harness/slash-commands.md">命令参考</a>维护现行行为。</p>
+<p>当前公开 slash 入口以 command catalog 为准，包含 Skills 与 MCP 管理。名称优先使用 <code>/config</code>、<code>/resume</code>、<code>/help</code> 等可识别动作，描述再说明研究对象；业务分析经 Agent 工具完成，没有为每个因子或比较再增加一条顶层命令。<a href="../quant-harness/product-guide.md#commands">命令参考</a>维护现行行为。</p>
 <p>这是对入口数量的控制，却还没有解决“下一步在哪里”。一个未知命令如果只返回 unknown，用户仍需要离开当前任务找文档；一个空列表如果只显示 empty，也没有告诉用户如何获得第一份结果。</p>
 <h3>帮助可能看不全，甚至会执行动作</h3>
 <p>早期 Help 把命令和快捷键并排显示，在 60×20 中把说明截为 <code>Compact resear…</code> 和 <code>Ope…</code>，80×24 也存在截断。屏幕里信息很多，但用户无法仅凭完整句子判断动作。</p>
@@ -519,7 +519,7 @@ site/         产品网站、Docs、Blog、手册与公开 Demo
 <ul>
 <li><a href="../../src/runtime/workspace/command-catalog.ts">统一命令目录</a>、<a href="../../src/runtime/workspace/command-help.ts">详细帮助</a>、<a href="../../src/runtime/workspace/command-preflight.ts">静态预检</a>。</li>
 <li><a href="../../src/tui/src/help-panel.ts">Help 交互</a>、<a href="../../src/tui/test/help-navigation.test.ts">键盘发现回归</a>。</li>
-<li><a href="../quant-harness/slash-commands.md">用户命令参考</a>。</li>
+<li><a href="../quant-harness/product-guide.md#commands">用户命令参考</a>。</li>
 </ul>
 <p><a href="#chapter-10">← 上一篇</a> · <a href="#chapter-12">下一篇：失败后的恢复 →</a></p>
 </article>

@@ -14,7 +14,7 @@
 
 ## 生成、保存和恢复
 
-Auto Artifacts 默认关闭。开启后，符合条件的研究 turn 完整落盘，再生成报告。`/artifact` 浏览已有版本；实际命令和键盘行为由 [Slash 参考](./slash-commands.md) 与 [Quant UI/UX](./quant-uiux.md) 维护。
+Auto Artifacts 默认关闭。开启后，符合条件的研究 turn 完整落盘，再生成报告。`/artifact` 浏览已有版本；实际命令和键盘行为由 [Slash 参考](./product-guide.md#commands) 与 [Quant UI/UX](./quant-uiux.md) 维护。
 
 HTML、元数据与 provenance 保存为不可变版本。恢复选中的 `id@revision` 时核对源 entries、顺序、leaf/parent 及内容指纹，准备成功才替换活动会话。打开原版本 HTML，不用当前行情重画历史报告。来源追加后续记录可以接受；原记录被改写或来源失效不能静默恢复。
 

@@ -115,7 +115,7 @@ Session JSONL
 whyj -c "/artifact"                 # 非 TUI 列出已有报告；交互模式直接输入 /artifact
 ```
 
-`/artifact` 不接受二级命令或参数。新报告只由 `/config` 中的 `Auto Artifacts` 控制：开启后，量化分析 turn 完成时生成并自动打开浏览器。TUI Artifacts 面板中，`Enter` 通过内部运行时动作恢复选中的 artifact session 并打开报告。恢复或生成成功后，agent session 会收到隐藏上下文 note，后续“这个报告 / 刚才的 artifact”等引用会指向当前选中的报告。公开命令措辞见 [`docs/quant-harness/slash-commands.md`](../../docs/quant-harness/slash-commands.md)。
+`/artifact` 不接受二级命令或参数。新报告只由 `/config` 中的 `Auto Artifacts` 控制：开启后，量化分析 turn 完成时生成并自动打开浏览器。TUI Artifacts 面板中，`Enter` 通过内部运行时动作恢复选中的 artifact session 并打开报告。恢复或生成成功后，agent session 会收到隐藏上下文 note，后续“这个报告 / 刚才的 artifact”等引用会指向当前选中的报告。公开命令措辞见 [`docs/quant-harness/product-guide.md#commands`](../../docs/quant-harness/product-guide.md#commands)。
 
 选择器逐版本显示时间与 revision，恢复携带固定 `id@revision`，验证源 entries/leaf 并打开已保存 HTML。后续研究可生成新版本；恢复不会重新渲染旧报告。来源缺失时隐藏不可恢复项并保留文件，恢复失败保留当前会话。存储快照和可修复 HTML 视图的规则见 [存储策略](../../docs/quant-harness/ohquant-storage-policy.md#artifacts)。
 

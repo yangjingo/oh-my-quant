@@ -27,6 +27,8 @@
 
 ## 保留的约束
 
+2026-10-15，按同一固定版本 taste-skill 的保留式改版与光学校正原则微调 JQ 标识。审查发现右下尾笔过长，主图形在方形容器内的重心偏向右下；本轮只收短尾笔并校正留白。尾笔路径长度约减少 31%，末端横段由 6 缩至 3（64 单位坐标）；JQ 主体、笔重、黑金和 Geist 字标沿用原稿。`DESIGN_VARIANCE=2`、`MOTION_INTENSITY=0`、`VISUAL_DENSITY=2`，对应静态品牌微调。网页内容、导航结构与交互沿用现有实现；CLI/Desktop UI 通过 Issue #25 跟踪；当前已接入同源素材，安装包的实际安装验收另行记录。
+
 黑金、Geist / Geist Mono、左对齐、自托管字体、纯静态 HTML/CSS/JS，以及现有圆角用途均继续沿用。行情红绿和风险语义独立于品牌色。产品演示使用明确标注的合成数据，不添加装饰性行情或生成截图。
 
 首页和 Blog 的四个语言路由、章节 ID、导航标签、演示标签、设置、复制、FAQ 与本地偏好保持可用。减少动效同时覆盖控件的伪元素。
@@ -38,3 +40,7 @@ SEO 基线：四个页面原有的标题含义、description、Open Graph 文案
 README 使用 GitHub 原生 Markdown；保留真实安装命令、官网链接和演示说明。没有为排版引入第三方运行依赖。
 
 验证和发布结果见 [部署记录](./DEPLOYMENT.md)。
+
+## 2026-10-19 · Restore the reviewed Download section
+
+The blog integration initially copied committed JQ design files and missed the uncommitted Download work in `feat/website-warm-preview`. The reviewed Hero2 composition and Desktop/CLI options are now ported to the existing static template system. Native radio inputs, details and download links preserve the no-JavaScript fallback; the existing script handles command copying. The warm gold/bronze background, adjacent desktop options and mobile selector follow that source. Chinese remains at `/` and English at `/en/`; Features remains English in both headers. The separate homepage conversation redesign and workspace gallery are outside this restoration.

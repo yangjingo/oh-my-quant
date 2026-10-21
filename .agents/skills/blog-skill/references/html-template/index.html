@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0C0C0C">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="从测试全绿却算错、文档漂移到 CI 生命周期竞态：oh-my-quant 如何让 AGENTS.md、Skills、验证与合并对同一次交付负责。">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Agentic / Vibe Repo Ops：代码产出变快以后，仓库怎样继续可信">
+  <meta property="og:description" content="从测试全绿却算错、文档漂移到 CI 生命周期竞态：oh-my-quant 如何让 AGENTS.md、Skills、验证与合并对同一次交付负责。">
+  <title>Agentic / Vibe Repo Ops：代码产出变快以后，仓库怎样继续可信 · WhyJ Quant</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./assets/theme.css">
+  <link rel="stylesheet" href="./assets/article.css?v=e5146a0f4c6d20a3">
+  <link rel="stylesheet" href="./assets/interactive.css?v=5e07fd9b0a032542">
+  <script defer src="./assets/article.js?v=d61eeb8ab13af061"></script>
+  <script defer src="./assets/interactive.js?v=bcbcf878843f1c46"></script>
+  <script defer src="./assets/tables.js?v=1f8a0f102f19b2a1"></script>
+  <script type="module" src="./assets/charts.js?v=496701c20e6f5eae"></script>
+</head>
+<body id="top">
+  <a class="skip-link" href="#article">跳到正文</a>
+  <header class="site-header">
+    <div class="nav-shell">
+      <a class="brand" href="https://oh-my-quant.vercel.app/" aria-label="WhyJ Quant 官网"><img class="brand-mark" src="./assets/logo-mark.svg" width="32" height="32" alt="" aria-hidden="true"><span>WhyJ Quant</span></a>
+      <nav class="site-nav" aria-label="网站导航"><a href="https://oh-my-quant.vercel.app/blog/">Blog</a><a class="icon-link" href="https://github.com/yangjingo/oh-my-quant" aria-label="GitHub 仓库" title="GitHub"><svg class="icon" data-icon="github" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+  <path d="M9 18c-4.51 2-5-2-7-2" />
+  </svg></a></nav>
+    </div>
+    <progress id="reading-progress" max="100" value="0" aria-label="文章阅读进度" hidden></progress>
+  </header>
+  <main class="reading-layout">
+      <header class="article-header">
+        <h1><span class="series-title" lang="en">Agentic / Vibe Repo Ops</span><span class="main-title">代码产出变快以后，仓库怎样继续可信</span></h1>
+        <div class="article-meta"><span class="author">WhyJ</span><span>oh-my-quant</span><time datetime="2026-10-18">2026.10.18</time><span class="draft-label">合并审阅稿</span></div>
+        <div class="article-utilities"><span class="reading-time" title="根据当前正文长度估算"><svg class="icon" data-icon="clock" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <circle cx="12" cy="12" r="10" />
+  <path d="M12 6v6l4 2" />
+</svg>预计阅读 33 分钟</span><div class="article-actions"><button id="share-article" class="article-action" type="button" aria-label="分享文章或复制链接" title="分享文章；不支持系统分享时复制链接" hidden><svg class="icon" data-icon="share-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <circle cx="18" cy="5" r="3" />
+  <circle cx="6" cy="12" r="3" />
+  <circle cx="18" cy="19" r="3" />
+  <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" />
+  <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
+</svg><span>分享</span></button><button id="print-article" class="article-action" type="button" aria-label="打印或保存为 PDF" title="打开打印窗口，可选择保存为 PDF" hidden><svg class="icon" data-icon="printer" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+  <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
+  <rect x="6" y="14" width="12" height="8" rx="1" />
+</svg><span>PDF</span></button></div></div>
+        <p id="article-action-status" class="action-status" role="status"></p><a id="share-fallback" class="share-fallback" hidden>当前页面链接</a>
+      </header>
+    <aside class="sidebar" aria-label="阅读辅助">
+      <div class="sidebar-inner"><div class="sidebar-reveal"><p class="sidebar-label">本文内容</p><nav aria-label="文章目录"><ol class="toc"><li><a class="toc-link" href="#section-1"><span class="toc-number">01</span><span>TL;DR</span></a><div class="toc-children-wrap"><div><ol class="toc-children"></ol></div></div></li>
+<li><a class="toc-link" href="#section-2"><span class="toc-number">02</span><span>产出加速后的问题</span></a><div class="toc-children-wrap"><div><ol class="toc-children"><li><a href="#section-2-1">691 项测试通过，账本仍然算错</a></li><li><a href="#section-2-2">文档留下了，当前设计却模糊了</a></li><li><a href="#section-2-3">PR 合并了，最后一轮检查还没结束</a></li></ol></div></div></li>
+<li><a class="toc-link" href="#section-3"><span class="toc-number">03</span><span>重新定义“完成”</span></a><div class="toc-children-wrap"><div><ol class="toc-children"><li><a href="#section-3-1">用 Issue 和 PR 固定交付范围</a></li><li><a href="#section-3-2">让规则找到执行者</a></li><li><a href="#section-3-3">按读者任务合并文档</a></li><li><a href="#section-3-4">淘汰重复规范，保留失败证据</a></li></ol></div></div></li>
+<li><a class="toc-link" href="#section-4"><span class="toc-number">04</span><span>让规则进入工作流</span></a><div class="toc-children-wrap"><div><ol class="toc-children"><li><a href="#section-4-1">先检查失败发生在哪一层</a></li><li><a href="#section-4-2">测试要有独立的判断依据</a></li><li><a href="#section-4-3">Windows 超时暴露的是资源生命周期</a></li><li><a href="#section-4-4">策略检查也必须对齐版本和状态</a></li><li><a href="#section-4-5">四条工作流分别回答四个问题</a></li><li><a href="#section-4-6">让 main 等待必需检查</a></li></ol></div></div></li>
+<li><a class="toc-link" href="#section-5"><span class="toc-number">05</span><span>结果、代价与边界</span></a><div class="toc-children-wrap"><div><ol class="toc-children"><li><a href="#section-5-1">用故障注入检查修复</a></li><li><a href="#section-5-2">把结果绑定到版本</a></li><li><a href="#section-5-3">规则也有维护成本</a></li></ol></div></div></li>
+<li><a class="toc-link" href="#section-6"><span class="toc-number">06</span><span>References</span></a><div class="toc-children-wrap"><div><ol class="toc-children"></ol></div></div></li></ol></nav></div></div>
+    </aside>
+    <div class="main-column">
+      <details class="mobile-contents"><summary>文章目录 <svg class="icon" data-icon="chevron-down" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="m6 9 6 6 6-6" />
+  </svg></summary><nav aria-label="移动端文章目录"><ol><li><a href="#section-1"><span>01</span>TL;DR</a></li><li><a href="#section-2"><span>02</span>产出加速后的问题</a></li><li><a href="#section-3"><span>03</span>重新定义“完成”</a></li><li><a href="#section-4"><span>04</span>让规则进入工作流</a></li><li><a href="#section-5"><span>05</span>结果、代价与边界</a></li><li><a href="#section-6"><span>06</span>References</a></li></ol></nav></details>
+      <article class="prose" id="article" tabindex="-1"><template id="blog-control-icons"><svg class="icon" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+  </svg><svg class="icon" data-icon="play" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+</svg><svg class="icon" data-icon="pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <rect x="14" y="3" width="5" height="18" rx="1" />
+  <rect x="5" y="3" width="5" height="18" rx="1" />
+</svg></template><h2 id="section-1" tabindex="-1">TL;DR</h2>
+<ul>
+<li>Agent 加快了代码、文档和 PR 的产出，也增加了核对它们是否一致的工作；测试全绿只能证明已检查的条件。</li>
+<li>我们把职责分开：AGENTS.md、Skills 和 Docs 指导执行者，脚本与 Workflow 产出检查证据，分支保护执行已配置的合并限制。</li>
+<li>完成一次交付，需要核对最终提交、最后一次元数据修改及相应检查。文中失败与修复带有版本和时间边界，不代表当前线上状态或产品整体正确性。</li>
+</ul>
+<hr />
+<p>让 Agent 参与开发以后，代码、测试、设计文档和 PR 都来得更快。我们原以为，给这些产物补齐检查，就能放心合并。</p>
+<p>oh-my-quant 的几次失败推翻了这个判断。测试全绿，独立计算却能发现账本错误；实现已经修复，旧文档仍在指导下一轮修改；代码检查通过，PR 描述触发的新检查却还没结束。每一份产物都像是完成了，它们之间却对不上。</p>
+<p>维护者的工作因此多了一层：确认需求、实现、验证和合并决定指向同一次交付。<strong>Agent 交出代码之后，我们还需要什么证据，才能说工作完成了？</strong></p>
+<p>这篇文章沿着这个问题展开：先复盘仓库里出现的失败，再解释我们如何分配 AGENTS.md、Skills、Docs 和 CI 的职责，最后检查修复留下的结果与成本。我们把这组实践称为 Agentic / Vibe Repo Ops。</p>
+<p>文中的记录带有时间和版本，不能据此计算 Agent 的缺陷率或生产率；我们没有做这两项测量。</p>
+<h2 id="section-2" tabindex="-1">一、产出加速后，三个判断失灵了</h2>
+<h3 id="section-2-1" tabindex="-1">691 项测试通过，账本仍然算错</h3>
+<p>2026-09-14 的一份核验记录里，项目测试有 691 项通过。同一轮独立回测探针却发现：零费用、本金 100000、买入 1000 股，价格从 100 到 100 再到 110，期末权益应为 110000，函数返回的却约为 111000。另一个先涨 10%、再跌 10% 的例子，累计收益约为 −1%，CAGR 却是 0。</p>
+<p>这些是当时的失败观察，不是本文写作时重新运行的结果。后续修复与可重复输入进入了<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/docs/quant-harness/quant-tools-design.md">计算契约</a>和<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/src/quant/test/backtest-correctness.test.ts">独立账本测试</a>。</p>
+<p>问题不在于 691 这个数字不够大。已有断言没有覆盖正确的现金、仓位和年化口径，增加同类断言仍可能漏掉它们。</p>
+<p>回答层也发生过类似的事情。2026-10-13，一份对冲回答通过了当时九项自动检查，却把市值 9240 相对成本 10000 的亏损写成 240、2.4%；正确结果应为 760、7.6%。单位、预算和期限检查通过，并没有顺带验证股票情景算术。原始样本属于内部运行材料，这里保留足以理解错误的输入，不把私有会话作为公开附件。</p>
+<p>新闻回答的错误更隐蔽：引用格式合法，数字却取自另一段文字；工具说明复权口径未知，回答却将它确定地说成未复权价格。测试检查了格式与调用，读者信任的却是解释。</p>
+<p>这使我们重新看待“通过”这个词。一个勾选只有带上它检查的对象和条件，才有意义。</p>
+<h3 id="section-2-2" tabindex="-1">文档留下了，当前设计却模糊了</h3>
+<p>我们最初倾向于保留材料。Agent 写下的方案、历史核验、阶段总结都有可能包含有用信息，立即删除似乎更容易丢失上下文。</p>
+<p>但保留原稿没有自动保留正确的历史。一轮清理发现，两份被标为早期与最新的 GOALS，在统一换行、去掉首尾空白后内容完全相同；旧核验说明却声称后一份新增了刷新、分类和 slides。文件没有丢，关于文件关系的解释却错了。</p>
+<p>另一类问题发生在实现修复之后。回测已经改为现金与仓位账本，并采用实际日历跨度，文档仍写着“初始名义本金且无现金约束”和统一的 <code>252/N</code> 年化简式。如果下一轮 Agent 依据旧规范改代码，修复过的错误就可能重新出现。</p>
+<p>旧 Artifact 设计也曾提出独立 recorder、<code>.traj.jsonl</code>、DAG 和 replay，而当前实现从 session 分支派生轨迹。两套材料都写得详细，并不使它们同时成为现行设计。读者仍要猜：哪部分已经实现，哪部分只是曾经考虑过？</p>
+<p>这些问题与“上下文不够长”并不等价。即使全部读到，如果没有区分材料的身份和有效期，更多上下文仍可能包含相互冲突的指令。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/docs/blog/07-artifacts-and-boundaries.md">当时的文档与制品复盘</a></p>
+<h3 id="section-2-3" tabindex="-1">PR 合并了，最后一轮检查还没结束</h3>
+<p>多个 PR 并行时，共享文档、目录入口与测试说明容易成为交叉修改点。文本冲突只是显眼的一种情况；同一功能被不同 PR 重复实现、架构计划尚未确定而实现位置先被固化，更需要评审发现。</p>
+<p>还有一种冲突发生在时间上。2026-10-16，PR #22 的代码 CI 和一轮 policy 已经通过。随后修改 PR 描述，触发新一轮 policy。PR 在这轮检查结束前合并，关联 Issue 自动关闭。检查器稍后读到关闭的 Issue，又按“开放 PR 必须关联开放 Issue”的条件判定失败。<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/38908970604">原始失败运行</a></p>
+<p>编辑描述、合并 PR、关闭 Issue 都是合理动作，错误发生在它们之间：检查器没有识别对象已经结束，合并流程也没有等待最后一次描述编辑触发的检查。</p>
+<p>更早审计 main 时，GitHub API 返回 <code>Branch not protected</code>，rulesets 也是空的。仓库里已经有一个名为 <code>CI required</code> 的 job，却没有平台规则要求它成功后才能合并。命名表达了意图，设置并未实现这个意图。</p>
+<p><strong>WhyJ 分析：Agent 让我们更容易同时生成和修改多个产物，也让维护者更频繁地面对它们之间的关系。</strong> 这些故障并非 Agent 开发独有；在本仓库里，它们共同暴露了一个薄弱点：需求、实现、证据和合并决定之间缺少足够明确的对应关系。</p>
+<h2 id="section-3" tabindex="-1">二、把“完成”拆成可复查的责任</h2>
+<h3 id="section-3-1" tabindex="-1">用 Issue 和 PR 固定交付范围</h3>
+<p>面对这些问题，一个自然反应是扩写 AGENTS.md，把所有教训都放进去。我们最终选择让入口保持简短，把需要不同执行者承担的事情分开。</p>
+<p>首先约束交付单元：一份实现 Issue、一个主要功能模块、一个实现 PR。Issue 写清问题、允许修改的路径、非目标，以及可以观察的验收条件。PR 对应说明改变了什么，用什么证据支持完成。</p>
+<p>“主要模块”不意味着只能修改一个目录。CI 的生命周期修复可能同时涉及 YAML、策略脚本、测试 fixture 和操作文档；为了满足目录数限制把它们拆散，反而会破坏同一问题的完整交付。我们希望限制的是语义范围，让评审者知道这次工作究竟承诺了什么。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/.agents/skills/issue-skill/SKILL.md">Issue Skill</a></p>
+<p>这也改变了我们对评审的要求。评论应该指出具体触发条件、影响和修复目标。例如：两个标签页基于同一快照编辑不同项目，后提交可能覆盖前一个新增项目；这需要检查过期写入或更新粒度。让作者顺便替换框架、整理无关命名，只会扩大当前问题。</p>
+<p>这类元数据写入风险来自固定版本的 PR 审查，不能因为本文引用它，就把它写成已经合入的产品修复。评审方法由 <a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/.agents/skills/review-skill/SKILL.md">review-skill</a> 维护；发现问题、实施修复与最终验证分别需要证据。</p>
+<h3 id="section-3-2" tabindex="-1">让规则找到执行者</h3>
+<p>我们按“谁真正执行这条规则”重新分配责任：</p>
+<section class="interactive-table" id="table-1" aria-label="规则与职责"><div class="component-header"><p class="component-title">表 1 · 规则与职责</p><div class="table-tools" hidden><button class="quiet-icon" type="button" data-settings aria-label="筛选与显示列" title="筛选与显示列" aria-expanded="false" aria-controls="table-settings-1"><svg class="icon" data-icon="settings-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M14 17H5" />
+  <path d="M19 7h-9" />
+  <circle cx="17" cy="17" r="3" />
+  <circle cx="7" cy="7" r="3" />
+  </svg></button><button class="quiet-icon" type="button" data-select aria-label="选择项目对比" title="选择项目对比" aria-pressed="false"><svg class="icon" data-icon="columns-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M12 3v18" />
+</svg></button><button class="quiet-icon" type="button" data-expand aria-label="展开阅读" title="展开阅读"><svg class="icon" data-icon="maximize-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M15 3h6v6" />
+  <path d="m21 3-7 7" />
+  <path d="m3 21 7-7" />
+  <path d="M9 21H3v-6" />
+</svg></button></div></div><div class="table-settings" id="table-settings-1" hidden><label class="table-search">搜索全表<input type="search" autocomplete="off" aria-controls="table-data-1"></label><div class="column-options"></div><button class="text-action" type="button" data-reset>重置筛选与列</button></div><div class="table-state" hidden><output aria-live="polite"></output><button class="text-action" type="button" data-compare hidden>对比所选</button><button class="quiet-icon" type="button" data-cancel aria-label="退出对比" title="退出对比" hidden><svg class="icon" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+  </svg></button></div><div class="table-scroll" tabindex="0" role="region" aria-label="规则与职责，可横向滚动"><table id="table-data-1">
+<thead>
+<tr><th>放在哪里</th><th>承担什么</th><th>本仓库中的例子</th></tr>
+</thead>
+<tbody>
+<tr><td><code>AGENTS.md</code></td><td>稳定原则与知识入口</td><td>理解范围、保护已有改动、让结论对应验证</td></tr>
+<tr><td>仓库 Skills</td><td>特定任务的操作步骤与例外</td><td>完成 PR 描述后，再核对最后触发的检查</td></tr>
+<tr><td>当前 Docs</td><td>实现契约、命令与维护方法</td><td>数据口径、模块职责、CI 和发布操作</td></tr>
+<tr><td>脚本与测试</td><td>可机械判定的条件</td><td>检查 Issue 引用、账本不变量、依赖边界</td></tr>
+<tr><td>GitHub Workflow</td><td>调度事件、版本、环境和权限</td><td>哪个提交在 Linux、Windows 上执行什么</td></tr>
+<tr><td>分支保护</td><td>接收合并时执行限制</td><td>必需检查通过，分支与 main 保持同步</td></tr>
+<tr><td>Blog</td><td>解释为什么作出这些选择</td><td>失败反例、被推翻的判断、成本和重审条件</td></tr>
+</tbody>
+</table></div><p class="table-empty" hidden>没有匹配的行，请修改关键词或重置。</p></section>
+<p>这些层次彼此连接，但不能互相代替。Skill 说“等待 CI”不等于 GitHub 已阻止提前合并；YAML 跑了检查不等于它覆盖业务语义；模板里填了 Verification，也不等于作者真的验证了最终代码。</p>
+<figure class="article-figure" id="figure-1"><a class="figure-link" href="./assets/figures/repo-ops-governance.svg?v=ed80dd68bc3be21e" data-figure aria-label="放大图 1" aria-describedby="figure-caption-1"><picture><source media="(max-width: 600px)" srcset="./assets/figures/repo-ops-governance-mobile.svg?v=ff7b45803a8796c2" width="480" height="1880"><img src="./assets/figures/repo-ops-governance.svg?v=ed80dd68bc3be21e" width="1120" height="1072" alt="AGENTS.md、Skills 和 Docs 指导执行者；Workflow 调度脚本与测试产出检查状态；分支保护在合并时执行已配置的限制。" loading="lazy" decoding="async"></picture><span class="figure-zoom"><svg class="icon" data-icon="maximize-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M15 3h6v6" />
+  <path d="m21 3-7 7" />
+  <path d="m3 21 7-7" />
+  <path d="M9 21H3v-6" />
+</svg><span>放大查看</span></span></a><figcaption id="figure-caption-1">图 1｜规则的执行边界：文件提供指导，脚本执行检查，平台实施已配置的合并限制。图示整理本文的职责关系，不代表本轮读取了线上设置。</figcaption></figure>
+<p>我们在 AGENTS 中保留原则与 Skill 索引，具体操作分别交给 issue-skill、pr-skill 和 review-skill。若确定性条件可以由脚本判断，就让脚本拒绝，而不是每轮依赖 Agent 重新理解同一段文字。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/AGENTS.md">仓库入口</a></p>
+<p>这也有成本。“每个 PR 修改 docs Markdown”可以被路径检查强制，但脚本不能判断那句话有没有价值。为了通过检查而改一个标点，并没有补齐行为说明。因此文档门槛仍需要评审解释其相关性；普通小修也不需要强行产出一篇博客。</p>
+<h3 id="section-3-3" tabindex="-1">按读者任务合并文档</h3>
+<p>我们的第一次整理仍然保守：把旧稿汇成 13 份主题归档，再建一份设计决策账。入口看起来少了，但读者仍要在当前规范、历史汇编、决策账和博客之间拼出答案。阅读负担只是换了位置。</p>
+<p>后来删除归档与决策账，把现行契约放回 Docs，把错误判断、修正理由和代价直接写进 Blog。继续检查才发现，research-<em>、skill-</em> 仍把一个生命周期拆在很多页里：任务 ID 一处要求必填，另一处已经允许首次声明由宿主补齐。只删除 archive 并没有解决重复规范。</p>
+<p>那轮工作最终把 16 份相关文档收敛为 Harness、Skills、量化工具、数据源和 UI/UX 五个主入口，吸收并删除了其中 11 份。它减少了同一责任的重复解释，也让主文档变长、部分旧链接失效。这里能确认的是结构与冲突的变化，不能据此宣布读者理解速度提高。</p>
+<p>第三方 Skill 的功能目录也遵循同样判断：上游维护功能介绍，我们维护采用的版本、安装与发现方式、本地装配边界。复制整个上游目录，会多出一份随时可能过期的说明。移除重复说明不等于移除运行依赖，用来复现错误的测试 Skill 夹具也不能顺手删掉。</p>
+<p>代码中的辅助材料同样需要身份。开发脚本归所属模块的 <code>dev</code>，跨模块集成测试归根 <code>tests</code>，生产代码不能反向依赖这些入口。默认回归通过围栏检查后运行 <code>src</code> 与 <code>tests</code>；生成报告的演示用例使用显式入口，参考仓库的测试不混入默认集合。否则连一次失败是否属于产品回归，都需要临时猜测。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/package.json">测试入口与围栏</a></p>
+<h3 id="section-3-4" tabindex="-1">淘汰重复规范，保留失败证据</h3>
+<p>文档整理还需要另一条边界：设计应当更新，历史观察应当固定。</p>
+<p>一份报告保存为 <code>id@revision</code> 后，应该继续呈现当时保存的 HTML、元数据与 provenance。原数据缺失就标记 unavailable，不能拿今天缓存中的相似曲线填回昨天的研究。恢复时核对源 entries、顺序、分支关系和内容指纹，也不能只凭“页面还能打开”就认定证据完整。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/docs/quant-harness/artifacts-design.md">Artifact 契约</a></p>
+<p>但保存字节不意味着永远保留核验资格。修正 RSI 公式以后，如果旧报告不能按归档输入重现，就应该保留旧结果，同时撤销原来的 verified 判断。离线修改检查器后重读一份回答，也只能得到新的重审结论，不能把旧失败改写成一次新的模型成功。</p>
+<p>这个区别同样适用于删除旧设计。我们放弃独立 recorder、复用 session 分支来派生轨迹，减少了两套记录的身份和顺序协调；代价是只能呈现实际捕获的事件，不能补出未记录的决策，也不承诺任意执行重放。真实的跨进程因果需求若超出当前表达能力，再重新考虑独立记录器。</p>
+<p>旧方案里的独有约束还必须迁移。曾有一次摘要漏掉了采集限制：可审计事件与可展示的推理摘要，不等于模型底层隐藏思维链原文；新增采集器也不应收集系统提示、密钥和认证材料。这些约束需要保留，不能被当成现有报告已经完成全面过滤的证明。</p>
+<p>完整研究报告仍可能包含用户原文、资金金额、内部路径和可见会话记录，应按私有材料处理。公开分享另从白名单数据构造，放弃完整会话与私人研究的可恢复性；研究完成也不意味着获得账户下单授权。报告保存、公开分享、真实执行，各自有单独的契约。完整报告部分图表还依赖 CDN，分享副本的本地 CSS/SVG 路径不能替它证明离线能力。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/src/artifact/README.md">报告与分享实现说明</a></p>
+<figure class="article-figure" id="figure-2"><a class="figure-link" href="./assets/figures/repo-ops-artifacts.svg?v=211b02c196cd7fee" data-figure aria-label="放大图 2" aria-describedby="figure-caption-2"><picture><source media="(max-width: 600px)" srcset="./assets/figures/repo-ops-artifacts-mobile.svg?v=e8ad1e15995e00cb" width="480" height="1222"><img src="./assets/figures/repo-ops-artifacts.svg?v=211b02c196cd7fee" width="1120" height="752" alt="研究分支与固定数据经过核验，分别形成私有完整报告和白名单分享；真实下单需要独立的执行授权。" loading="lazy" decoding="async"></picture><span class="figure-zoom"><svg class="icon" data-icon="maximize-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M15 3h6v6" />
+  <path d="m21 3-7 7" />
+  <path d="m3 21 7-7" />
+  <path d="M9 21H3v-6" />
+</svg><span>放大查看</span></span></a><figcaption id="figure-caption-2">图 2｜报告、分享与执行的边界。根据 WhyJ / oh-my-quant <a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/docs/blog/images/07-artifacts.svg">第 07 篇原图</a>改绘；三类产物各有职责，图示不代表本轮运行验收。</figcaption></figure>
+<p>这也是合并博客时最需要保住的东西：可以改变材料的组织方式，但不能补写不存在的需求、删掉独有约束，或者把历史失败润色成一条从未走错的路线。</p>
+<h2 id="section-4" tabindex="-1">三、让检查对准真正的失败</h2>
+<h3 id="section-4-1" tabindex="-1">先检查失败发生在哪一层</h3>
+<p>开始排查 Actions 时，我们没有只盯着最新一个红灯，而是分页读取历史 runs，继续检查 jobs、steps、attempts 与可取得的 artifacts。2026-10-17 冻结的扩展快照有 61 次 run：35 成功、18 失败、8 取消，共 62 个 attempt。后续修复运行不混入这个分母。</p>
+<p>多出来的 attempt 很关键。<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/39039089298/attempts/1">一次最终成功的 run</a>，首次尝试其实因 Windows 取消测试失败。如果只查询最终状态为 failure 的运行，就会漏掉它。反过来，一个平台测试失败会让平台 job 与聚合门槛同时变红，也不能算成两个独立缺陷。</p>
+<figure class="chart-card" id="chart-bar" data-chart="bar"><div class="chart-inner" lang="en"><div class="chart-heading"><div><p class="chart-title">Actions outcomes</p><p class="chart-state">2026-10-17 · All 61 runs · Count</p></div><details class="chart-settings" hidden><summary class="quiet-icon" aria-label="Chart settings" title="Chart settings"><svg class="icon" data-icon="settings-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M14 17H5" />
+  <path d="M19 7h-9" />
+  <circle cx="17" cy="17" r="3" />
+  <circle cx="7" cy="7" r="3" />
+  </svg></summary><div class="chart-controls"><label>Scope <select data-scope aria-label="Run denominator"><option value="all">All 61 runs</option><option value="completed">53 non-cancelled runs</option></select></label><label>Measure <select data-metric aria-label="Count or share"><option value="count">Count</option><option value="share">Share (%)</option></select></label><button class="text-action" type="button" data-chart-reset>Reset</button></div></details></div><div class="chart-plot"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 312" width="680" height="312" font-family="Arial,Helvetica,sans-serif" role="img" aria-label="Actions final run outcomes; frozen on 2026-10-17" xml:lang="en"><text x="40" y="17" text-anchor="start" fill="var(--muted)" font-size="12">Runs</text><path d="M40 252H662" stroke="var(--hairline)"/><text x="31" y="256" text-anchor="end" fill="var(--muted)" font-size="12">0</text><path d="M40 198H662" stroke="var(--hairline)"/><text x="31" y="202" text-anchor="end" fill="var(--muted)" font-size="12">10</text><path d="M40 144H662" stroke="var(--hairline)"/><text x="31" y="148" text-anchor="end" fill="var(--muted)" font-size="12">20</text><path d="M40 90H662" stroke="var(--hairline)"/><text x="31" y="94" text-anchor="end" fill="var(--muted)" font-size="12">30</text><path d="M40 36H662" stroke="var(--hairline)"/><text x="31" y="40" text-anchor="end" fill="var(--muted)" font-size="12">40</text><text x="143.66666666666669" y="277" text-anchor="middle" fill="var(--muted)" font-size="12">Success</text><g class="chart-point" aria-label="Success · 35 / 61 runs · 57.4%" data-value="Success · 35 / 61 runs · 57.4%"><rect x="104.66666666666669" y="36" width="78" height="216" fill="transparent"/><rect class="bar-mark" x="104.66666666666669" y="63" width="78" height="189" rx="2" fill="var(--ink)" fill-opacity=".6"/><text x="143.66666666666669" y="55" text-anchor="middle" fill="var(--muted)" font-size="12">35</text></g><text x="351" y="277" text-anchor="middle" fill="var(--muted)" font-size="12">Failure</text><g class="chart-point" aria-label="Failure · 18 / 61 runs · 29.5%" data-value="Failure · 18 / 61 runs · 29.5%"><rect x="312" y="36" width="78" height="216" fill="transparent"/><rect class="bar-mark" x="312" y="154.8" width="78" height="97.19999999999999" rx="2" fill="var(--gold)" fill-opacity="1"/><text x="351" y="146.8" text-anchor="middle" fill="var(--muted)" font-size="12">18</text></g><text x="558.3333333333334" y="277" text-anchor="middle" fill="var(--muted)" font-size="12">Cancelled</text><g class="chart-point" aria-label="Cancelled · 8 / 61 runs · 13.1%" data-value="Cancelled · 8 / 61 runs · 13.1%"><rect x="519.3333333333334" y="36" width="78" height="216" fill="transparent"/><rect class="bar-mark" x="519.3333333333334" y="208.8" width="78" height="43.19999999999999" rx="2" fill="var(--ink)" fill-opacity=".35"/><text x="558.3333333333334" y="200.8" text-anchor="middle" fill="var(--muted)" font-size="12">8</text></g></svg></div><output class="chart-readout" aria-live="polite">61 runs · 62 attempts · Failure 18 / 61 = 29.5% · Final run outcomes only</output></div><figcaption>图 3｜先分清统计对象，再解释红灯。来源：<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/docs/blog/agentic/vibe-repo-ops.md">2026-10-17 历史审计记录</a>。这是冻结记录的重绘，本轮未刷新 Actions；设置中可切换分母与统计单位。</figcaption><details class="chart-data"><summary>Source data</summary><div class="chart-values" lang="en"><dl><div><dt>Success</dt><dd>35 runs / 61 · 57.4%</dd></div><div><dt>Failure</dt><dd>18 runs / 61 · 29.5%</dd></div><div><dt>Cancelled</dt><dd>8 runs / 61 · 13.1%</dd></div><div><dt>Counting unit</dt><dd>61 runs · 62 attempts · Frozen 2026-10-17</dd></div></dl></div></details></figure>
+<p>把取消保留在分母中，失败占比是 18/61，约 29.5%；只看成功或失败的运行，分母变为 53，占比约 34.0%。这两个数描述同一份快照，变化来自统计口径，不能解释为可靠性变差。图中没有把“失败 run”转换成“独立缺陷”，也没有据此估计修复后的提升。</p>
+<p>这次审计逐渐把问题分成几类：真实产品行为错误、测试前提与环境不符、异步工作与清理竞态、策略版本或生命周期错误，以及工具链与安装阶段故障。同样是红灯，修复位置完全不同。</p>
+<p>例如，多行粘贴时第二行不可见，是用户会遇到的产品问题；Linux 测试使用 <code>C:\private-paper</code>，是 fixture 误用了 Windows 路径；干净 Windows 上还没有卸载注册表根键，是安装验收前提需要处理。把它们统一称为 flaky，再统一增加等待时间，会抹掉最有价值的区别。<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/38234986954">产品失败</a>、<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/38602368594">路径失败</a>、<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/38591545423">安装前提失败</a></p>
+<h3 id="section-4-2" tabindex="-1">测试要有独立的判断依据</h3>
+<p>对账本错误，我们采用独立现金与股数计算生成预期值。在定义好的成交价格约定下，至少核对：</p>
+<pre tabindex="0" aria-label="代码示例，可横向滚动"><code class="language-text">cash[t] = cash[t-1] - tradeShares[t] × price[t] - cost[t]
+equity[t] = cash[t] + positionShares[t] × price[t]
+</code></pre>
+<p>如果期望值也调用被测函数生成，测试可能只是在确认函数与自己一致。这些不变量能检出一类算术错误，但真实成交、停牌、滑点与复权仍需要各自的条件。</p>
+<p>样本也必须能区分错误实现。旧 RSI 在递推时重复消费播种期末变化，持续上涨时，新旧结果都可能是 100。换成收盘价 <code>[10, 11, 12, 11, 10]</code>、周期 2，正确末两项为 50、25，旧实现却为 100、50。再增加十个单调上涨样本，也不如这个转折样本有效。</p>
+<figure class="chart-card" id="chart-line" data-chart="line"><div class="chart-inner" lang="en"><div class="chart-heading"><div><p class="chart-title">A turn exposes the RSI bug</p><p class="chart-state">Reversal · Period 2 · Both series</p></div><details class="chart-settings" hidden><summary class="quiet-icon" aria-label="Chart settings" title="Chart settings"><svg class="icon" data-icon="settings-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M14 17H5" />
+  <path d="M19 7h-9" />
+  <circle cx="17" cy="17" r="3" />
+  <circle cx="7" cy="7" r="3" />
+  </svg></summary><div class="chart-controls"><label class="series-0"><input type="checkbox" data-series="0" checked><span class="legend-mark" aria-hidden="true"></span>Legacy</label><label class="series-1"><input type="checkbox" data-series="1" checked><span class="legend-mark" aria-hidden="true"></span>Correct</label><label>Input <select data-sample aria-label="Price sample"><option value="reversal">Reversal</option><option value="uptrend">Uptrend control</option></select></label><button class="text-action" type="button" data-chart-reset>Reset</button></div></details></div><div class="chart-plot"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 312" width="680" height="312" font-family="Arial,Helvetica,sans-serif" role="img" aria-label="RSI regression counterexample; warm-up values are unavailable" xml:lang="en"><text x="40" y="17" text-anchor="start" fill="var(--muted)" font-size="12">RSI (period 2)</text><path d="M40 252H662" stroke="var(--hairline)"/><text x="31" y="256" text-anchor="end" fill="var(--muted)" font-size="12">0</text><path d="M40 198H662" stroke="var(--hairline)"/><text x="31" y="202" text-anchor="end" fill="var(--muted)" font-size="12">25</text><path d="M40 144H662" stroke="var(--hairline)"/><text x="31" y="148" text-anchor="end" fill="var(--muted)" font-size="12">50</text><path d="M40 90H662" stroke="var(--hairline)"/><text x="31" y="94" text-anchor="end" fill="var(--muted)" font-size="12">75</text><path d="M40 36H662" stroke="var(--hairline)"/><text x="31" y="40" text-anchor="end" fill="var(--muted)" font-size="12">100</text><rect x="40" y="36" width="171.5" height="216" fill="var(--muted)" fill-opacity=".08"/><text x="119.75" y="62" text-anchor="middle" fill="var(--muted)" font-size="12">Warm-up</text><text x="48" y="276" text-anchor="middle" fill="var(--muted)" font-size="12">T1</text><text x="48" y="297" text-anchor="middle" fill="var(--muted)" font-size="12">10</text><text x="199.5" y="276" text-anchor="middle" fill="var(--muted)" font-size="12">T2</text><text x="199.5" y="297" text-anchor="middle" fill="var(--muted)" font-size="12">11</text><text x="351" y="276" text-anchor="middle" fill="var(--muted)" font-size="12">T3</text><text x="351" y="297" text-anchor="middle" fill="var(--muted)" font-size="12">12</text><text x="502.5" y="276" text-anchor="middle" fill="var(--muted)" font-size="12">T4</text><text x="502.5" y="297" text-anchor="middle" fill="var(--muted)" font-size="12">11</text><text x="654" y="276" text-anchor="middle" fill="var(--muted)" font-size="12">T5</text><text x="654" y="297" text-anchor="middle" fill="var(--muted)" font-size="12">10</text><polyline points="351,36 502.5,36 654,144" fill="none" stroke="var(--ink)" stroke-width="2.5" stroke-dasharray="6 5"/><g class="chart-point" aria-label="Legacy · T3 · Close 12 · RSI 100" data-value="Legacy · T3 · Close 12 · RSI 100"><circle cx="351" cy="36" r="18" fill="transparent"/><circle class="point-mark" cx="351" cy="36" r="7" fill="var(--canvas)" stroke="var(--ink)" stroke-width="2.5"/></g><g class="chart-point" aria-label="Legacy · T4 · Close 11 · RSI 100" data-value="Legacy · T4 · Close 11 · RSI 100"><circle cx="502.5" cy="36" r="18" fill="transparent"/><circle class="point-mark" cx="502.5" cy="36" r="7" fill="var(--canvas)" stroke="var(--ink)" stroke-width="2.5"/></g><g class="chart-point" aria-label="Legacy · T5 · Close 10 · RSI 50" data-value="Legacy · T5 · Close 10 · RSI 50"><circle cx="654" cy="144" r="18" fill="transparent"/><circle class="point-mark" cx="654" cy="144" r="7" fill="var(--canvas)" stroke="var(--ink)" stroke-width="2.5"/></g><polyline points="351,36 502.5,144 654,198" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-dasharray=""/><g class="chart-point" aria-label="Correct · T3 · Close 12 · RSI 100" data-value="Correct · T3 · Close 12 · RSI 100"><circle cx="351" cy="36" r="18" fill="transparent"/><circle class="point-mark" cx="351" cy="36" r="3.5" fill="var(--canvas)" stroke="var(--gold)" stroke-width="2.5"/></g><g class="chart-point" aria-label="Correct · T4 · Close 11 · RSI 50" data-value="Correct · T4 · Close 11 · RSI 50"><circle cx="502.5" cy="144" r="18" fill="transparent"/><circle class="point-mark" cx="502.5" cy="144" r="3.5" fill="var(--canvas)" stroke="var(--gold)" stroke-width="2.5"/></g><g class="chart-point" aria-label="Correct · T5 · Close 10 · RSI 25" data-value="Correct · T5 · Close 10 · RSI 25"><circle cx="654" cy="198" r="18" fill="transparent"/><circle class="point-mark" cx="654" cy="198" r="3.5" fill="var(--canvas)" stroke="var(--gold)" stroke-width="2.5"/></g></svg></div><p class="chart-legend"><span class="series-0"><i class="legend-mark" aria-hidden="true"></i>Legacy</span><span class="series-1"><i class="legend-mark" aria-hidden="true"></i>Correct</span><span>Bottom labels: close prices · Warm-up: N/A</span></p><output class="chart-readout" aria-live="polite">T4 / T5: Correct 50 / 25 · Legacy 100 / 50 · Turn exposes the bug</output></div><figcaption>图 4｜转折让旧实现暴露出来。转折输入与正确结果来自<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/src/quant/test/factor-method-regression.test.ts">独立回归用例</a>，旧结果来自<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/docs/blog/05-evaluation-beyond-green.md">第 05 篇失败记录</a>。前两项为 N/A。设置中的上涨对照 <code>[10, 11, 12, 13, 14]</code> 是构造输入，用来说明单调上涨为何漏掉错误；不属于历史实测。</figcaption><details class="chart-data"><summary>Source data</summary><div class="chart-values" lang="en"><dl><div><dt>T1 · Close 10</dt><dd>Legacy N/A · Correct N/A</dd></div><div><dt>T2 · Close 11</dt><dd>Legacy N/A · Correct N/A</dd></div><div><dt>T3 · Close 12</dt><dd>Legacy 100 · Correct 100</dd></div><div><dt>T4 · Close 11</dt><dd>Legacy 100 · Correct 50</dd></div><div><dt>T5 · Close 10</dt><dd>Legacy 50 · Correct 25</dd></div></dl></div></details></figure>
+<p>切换到上涨对照，两条线都停在 100，测试就无法区分这两种实现。切回转折，第四次观察已经出现差异：正确计算消费了新出现的下跌，旧结果仍滞后。选择反例的价值，在于让错误假设和正确行为产生可观察的不同，而不是单纯增加测试条数。</p>
+<p>回答层则把已经观察到的错误变成有限检查：显式股数、成本和收盘价交给无 IO 的情景计算，再核对能识别的股票算术；评分通过贡献与合计检查，区分“原始分最高”和“加权贡献最大”。这些规则不会自动证明任意自然语言解释正确，更不核验完整期权策略。后续样本即使股票算术正确，仍可能作出缺少同条件报价的保费比较。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/src/quant/position-scenarios.ts">持仓情景计算</a>、<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/src/runtime/evidence/hedge-scenario-answer.ts">有限回答检查</a></p>
+<p>因此我们把确定性工程回归、真实服务样本、任务轨迹与回答主张核对分开理解。前一层通过，不能替后一层签字。真实服务的一次成功也只覆盖选定连接、权限和时间窗口，不代表长期可用。</p>
+<figure class="article-figure" id="figure-3"><a class="figure-link" href="./assets/figures/repo-ops-evidence.svg?v=253e451ec429a7a9" data-figure aria-label="放大图 5" aria-describedby="figure-caption-3"><picture><source media="(max-width: 600px)" srcset="./assets/figures/repo-ops-evidence-mobile.svg?v=36f02c32049b05a9" width="480" height="1032"><img src="./assets/figures/repo-ops-evidence.svg?v=253e451ec429a7a9" width="1120" height="616" alt="工程回归、真实服务样本、任务轨迹和回答主张分别检查不同条件；失败反例回流到下一轮检查，各层仍保留未知。" loading="lazy" decoding="async"></picture><span class="figure-zoom"><svg class="icon" data-icon="maximize-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M15 3h6v6" />
+  <path d="m21 3-7 7" />
+  <path d="m3 21 7-7" />
+  <path d="M9 21H3v-6" />
+</svg><span>放大查看</span></span></a><figcaption id="figure-caption-3">图 5｜四类验证与各自的未知。根据 WhyJ / oh-my-quant <a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/docs/blog/images/05-evaluation.svg">第 05 篇原图</a>改绘；各层证据相互补充，不能折算成未经定义的总体正确率。</figcaption></figure>
+<h3 id="section-4-3" tabindex="-1">Windows 超时暴露的是资源生命周期</h3>
+<p>有一项研究评测在约 5.4 秒时被测试框架终止，内部操作却默认允许 120 秒。外层开始删除目录、恢复环境时，内部 HTTP、归档和后续回答可能仍在运行，随后出现迟到断言或目录不存在错误。<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/38680849899">失败运行</a></p>
+<p>把外层期限调大可以减少一次过早中断，却没有回答：如果下一次仍然超时，谁负责停止内部工作？</p>
+<p>我们在测试 fixture 中显式持有 AbortController 和在途 Promise。清理时先禁止新工作进入，再发出取消，等待已有工作结算，然后停服务器、清定时器、恢复环境与删除临时目录。测试操作预算设为 10 秒，文件内测试预算 30 秒，清理预算 15 秒；这些是 fixture 的预算，没有修改生产评测默认值。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/src/runtime/test/research-evaluation.test.ts">修复后的测试</a></p>
+<p>这里真正改变的是事件顺序：</p>
+<pre tabindex="0" aria-label="代码示例，可横向滚动"><code class="language-text">结束测试 → 拒绝新任务 → 取消在途工作 → 等待退出 → 释放资源
+</code></pre>
+<p><code>abort()</code> 发出信号，只能证明请求取消，不能证明再也没有回调。YTD 归档测试进一步说明，等待一个底层 <code>saveBars</code> 也可能不够，因为测试体随后还会创建另一份归档。清理需要等待完整的资源使用者结束。若 Promise 无限挂起，预算仍应报告失败，不能把“等待结算”写成 JavaScript 可以强制终止任意工作。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/src/runtime/test/research-decisions.test.ts">归档测试</a></p>
+<p>取消测试还有另一处错误：旧用例从命令启动开始计时，再要求取消小于 1000ms。Windows 上请求发出前的准备时间也被算进来，测试因此混合了启动耗时与取消行为。</p>
+<p>新用例等服务器实际收到请求后才取消，并让正常响应停在一个受控关口。命令必须在响应尚未放行时结束，同时保留取消原因、没有成功结果、streaming 已停止等断言。外层期限用来发现挂死；取消语义由事件先后验证。如果产品忽略取消，命令就会一直等正常响应，测试仍然失败。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/src/runtime/test/skill-command-cancellation.test.ts">取消回归</a></p>
+<p>Doctor 的问题则来自机器环境。测试假设没有提示，隐含要求开发机已装好 Python/AKShare；另一项 handler 测试即使跳过网络，仍可能执行真实 Python 探针。前者需要显式构造缺依赖并检查结构化失败，后者使用已有依赖注入边界提供确定的就绪结果。测试应该声明它要的世界，而不是偶然继承维护者的电脑。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/tests/app/index.test.ts">入口回归</a>、<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/39047623864">handler 失败运行</a></p>
+<h3 id="section-4-4" tabindex="-1">策略检查也必须对齐版本和状态</h3>
+<p>PR policy 曾两次报找不到 <code>.github/scripts/pr-policy.mjs</code>。工作流已经更新，但 checkout 使用旧 PR payload 里的 <code>base.sha</code>；那个提交早于脚本引入。结果是新工作流执行旧代码，两个版本在同一 job 中相遇。<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/38907862456">第一次失败</a>、<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/38918415702">再次失败</a></p>
+<p>只让一个 PR 同步 main 可以暂时避开问题，下一个旧 PR 还会再失败。修复落在事件与策略版本的对应关系上：该 <code>pull_request_target</code> 工作流使用事件的 <code>github.sha</code> 检出可信策略，并记录策略 SHA 与 PR head。</p>
+<p>这个 job 只读取 PR 描述、文件和 Issue，不检出 PR head，不安装 PR 依赖，也不执行 PR 提供的脚本。权限限于 contents、issues、pull-requests 的 read，checkout 不持久保存凭证。贡献者提交的内容是检查输入，不能同时成为决定自己是否合格的可信检查器。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/.github/workflows/pr-policy.yml">策略工作流</a></p>
+<p>这一选择依赖 GitHub 的事件语义，维护时仍要核对<a href="https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows">官方事件说明</a>。不能把 target 工作流的 checkout 方式直接复制到普通代码测试，更不能把两种事件的权限边界混为一谈。</p>
+<p>针对“合并后 Issue 关闭”的误报，策略增加了生命周期判断：开放 PR 的无效 Issue 仍然拒绝；PR 已关闭或合并则返回不适用；API 错误不能被当成成功。每轮校验前后重新读取 PR，若 body、head、base 或文件数变化，最多重试三轮；持续变化则明确失败，要求重检。<a href="https://github.com/yangjingo/oh-my-quant/tree/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/.github/scripts">策略脚本与回归</a></p>
+<p>重新读取减少了旧快照误判，却没有让多次 REST 请求成为事务。最后一次读取之后 Issue 仍可能改变，当前工作流也没有覆盖所有 Issue-only 变化。因此我们没有宣称得到原子唯一性或完全一致的合并服务。</p>
+<p>稳定快照上的机械条件也尽量具体：一个规范的关闭引用指向一个开放 Issue，正文包含 Outcome、Scope and Documentation、Acceptance、Verification、Visual Evidence、Risks and Rollback，存在非删除的 docs Markdown 改动，并检查其他开放 PR 是否已用可识别的关闭引用关联同一 Issue。它们能发现缺项与已知冲突，却不能证明范围合理、截图对应最终代码，或文档真的解释了行为变化。</p>
+<p>操作流程也必须配合：先完成 PR 描述，再检查最后触发的运行。同一个 head 上，旧成功和新 pending 可以同时存在。“最终代码 SHA 通过过”仍不足以证明最终描述已经检查。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/.agents/skills/pr-skill/SKILL.md">PR Skill</a></p>
+<h3 id="section-4-5" tabindex="-1">四条工作流分别回答四个问题</h3>
+<p>我们保留四个 workflow，让代码回归、协作策略、安装包验收和真正发布有明确分工。</p>
+<section class="interactive-table" id="table-2" aria-label="工作流与验证边界"><div class="component-header"><p class="component-title">表 2 · 工作流与验证边界</p><div class="table-tools" hidden><button class="quiet-icon" type="button" data-settings aria-label="筛选与显示列" title="筛选与显示列" aria-expanded="false" aria-controls="table-settings-2"><svg class="icon" data-icon="settings-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M14 17H5" />
+  <path d="M19 7h-9" />
+  <circle cx="17" cy="17" r="3" />
+  <circle cx="7" cy="7" r="3" />
+  </svg></button><button class="quiet-icon" type="button" data-select aria-label="选择项目对比" title="选择项目对比" aria-pressed="false"><svg class="icon" data-icon="columns-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M12 3v18" />
+</svg></button><button class="quiet-icon" type="button" data-expand aria-label="展开阅读" title="展开阅读"><svg class="icon" data-icon="maximize-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M15 3h6v6" />
+  <path d="m21 3-7 7" />
+  <path d="m3 21 7-7" />
+  <path d="M9 21H3v-6" />
+</svg></button></div></div><div class="table-settings" id="table-settings-2" hidden><label class="table-search">搜索全表<input type="search" autocomplete="off" aria-controls="table-data-2"></label><div class="column-options"></div><button class="text-action" type="button" data-reset>重置筛选与列</button></div><div class="table-state" hidden><output aria-live="polite"></output><button class="text-action" type="button" data-compare hidden>对比所选</button><button class="quiet-icon" type="button" data-cancel aria-label="退出对比" title="退出对比" hidden><svg class="icon" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+  </svg></button></div><div class="table-scroll" tabindex="0" role="region" aria-label="工作流与验证边界，可横向滚动"><table id="table-data-2">
+<thead>
+<tr><th>工作流</th><th>触发与职责</th><th>结果的边界</th></tr>
+</thead>
+<tbody>
+<tr><td><code>CI</code></td><td>PR、main push、手动或复用调用；Linux/Windows 完整 release gate</td><td>检查规定的代码、文档与打包入口</td></tr>
+<tr><td><code>PR policy</code></td><td>PR 打开、编辑、同步等；读取可信策略</td><td>检查 Issue 引用、正文结构与 docs 改动，不裁定全部语义</td></tr>
+<tr><td><code>Windows desktop</code></td><td>PR、main push、手动；构建并安装实际交付程序</td><td>检查指定 Windows runner 上的安装与交互</td></tr>
+<tr><td><code>Publish npm</code></td><td>手动输入 main 上的确切稳定版本，默认 dry-run</td><td>分开发布预演与真实上传</td></tr>
+</tbody>
+</table></div><p class="table-empty" hidden>没有匹配的行，请修改关键词或重置。</p></section>
+<p>根 CI 固定 Bun 1.3.14，使用 Node 24 和 frozen lockfile，在 Linux、Windows 上运行类型、架构、策略、测试、CLI 构建与文档检查。Node 固定到主版本，并非所有工具都固定到补丁版本；第三方 Actions 当前也仍使用版本标签，不能把这套配置描述为所有依赖已经锁定到提交。</p>
+<p>两个平台使用 <code>fail-fast: false</code>，让一个平台失败后，另一个仍有机会留下证据。执行输出写入日志，同时检查原命令退出码，避免日志管道掩盖失败。日志在结束时尝试上传并保留 14 天；没有文件就不能声称已经取得诊断。</p>
+<p>随后对 npm 包做一次更接近使用者的检查：打包，安装到 checkout 外的临时目录，运行实际包中的 Node CLI，校验 JSON 版本。它能发现只在源码目录成立的入口假设，但 <code>--version</code> 成功仍不能证明所有真实行情、模型和 UI 功能可用。</p>
+<p>最后，<code>CI required</code> 以 <code>always()</code> 执行，只接受矩阵结果为 success。failed、cancelled、skipped 都不能被聚合成成功。聚合器的意义在于给分支保护一个稳定名称，同时明确它到底依赖哪些检查。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/.github/workflows/ci.yml">CI 实现</a></p>
+<p>Desktop 曾只在较晚阶段暴露安装问题，因此我们把它放到所有 PR 上，包括只改文档的 PR。目前接受这笔成本，换取稳定报告的检查；以后若按路径裁剪，仍需设计一个始终返回结论的入口，避免必需检查永远 pending。PR 和 main 已有根 CI，Desktop 不再重复跑一份根检查；手动构建则复用完整 CI，真正发布依赖检查和安装验收两者成功。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/.github/workflows/desktop.yml">Desktop 实现</a></p>
+<p>并发策略也按对象区分：同一 PR 的旧运行可以取消，main 和手动发布不因新运行主动取消在途任务。但 GitHub concurrency 不是持久化 FIFO 队列；<code>cancel-in-progress: false</code> 不能被理解为每个排队请求都会执行。若将来需要发布排队语义，需要单独设计。</p>
+<p>发布权限只出现在需要写操作的 job。Desktop 发布检查 main、CLI/Desktop 稳定版本一致，上传验收过的安装包与 SHA-256；npm 发布复用 CI，以 OIDC Trusted Publishing 为目标配置，只给发布 job <code>id-token: write</code>。npm 的 <code>prepublishOnly</code> 还会再次执行生成与 release gate，带来重复验证成本。<a href="https://github.com/yangjingo/oh-my-quant/blob/cc9c9354b6baf0d0ff71581cf93d43f813e5dbc6/.github/workflows/npm-publish.yml">npm 发布实现</a></p>
+<p>预演只证明执行了预演路径，不证明 npm 端的信任关系已经生效。构建得到 exe，也不证明所有用户机器的签名、杀毒与 Code Integrity 策略都会接受它。我们把这些保留为不同的验收阶段。</p>
+<h3 id="section-4-6" tabindex="-1">让 main 等待必需检查</h3>
+<p>配置分支保护时，需要填写的是稳定的检查名称，例如 <code>CI required</code>、<code>PR policy</code>，不是工作流标题 <code>CI</code>。保存以后还要重新读取平台设置，确认 required checks 中确实存在这些条目。仅仅在搜索框输入名称，并不代表已经添加。</p>
+<p><code>Require branches to be up to date before merging</code> 对应 strict 检查：要求分支与最新 main 对齐后再验收。它减少“分支自己通过，合在一起出错”的风险，代价是 main 更新后需要同步和重跑。前提是已经指定至少一个必需检查。<a href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches">GitHub 分支保护说明</a></p>
+<figure class="article-figure" id="figure-4"><a class="figure-link" href="./assets/figures/repo-ops-merge-flow.svg?v=a3a1a7ac67587d9b" data-figure aria-label="放大图 6" aria-describedby="figure-caption-4"><picture><source media="(max-width: 600px)" srcset="./assets/figures/repo-ops-merge-flow-mobile.svg?v=ba639eff85ff603e" width="480" height="1850"><img src="./assets/figures/repo-ops-merge-flow.svg?v=a3a1a7ac67587d9b" width="1120" height="996" alt="Issue 约束实现分支，PR 候选分别接受 CI、policy 与 Review；最新版本满足配置的条件后合并，失败或变更返回分支重新验证。" loading="lazy" decoding="async"></picture><span class="figure-zoom"><svg class="icon" data-icon="maximize-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M15 3h6v6" />
+  <path d="m21 3-7 7" />
+  <path d="m3 21 7-7" />
+  <path d="M9 21H3v-6" />
+</svg><span>放大查看</span></span></a><figcaption id="figure-caption-4">图 6｜从改动到 main：自动检查与评审判断各有职责，合并门槛取决于平台配置。虚线表示反馈或评审关系；是否强制审批、是否要求同步最新 main，均需核对实际规则。</figcaption></figure>
+    <section class="flow-demo" id="flow-demo" aria-label="合并流程分步演示" hidden>
+      <div class="flow-tools" lang="en"><output aria-live="polite">Overview</output><div class="flow-actions"><button class="quiet-icon" type="button" data-previous aria-label="Previous step" title="Previous step"><svg class="icon" data-icon="chevron-left" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="m15 18-6-6 6-6" />
+</svg></button><button class="quiet-icon" type="button" data-play aria-label="Play" title="Play"><svg class="icon" data-icon="play" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+</svg></button><button class="quiet-icon" type="button" data-next aria-label="Next step" title="Next step"><svg class="icon" data-icon="chevron-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="m9 18 6-6-6-6" />
+</svg></button><button class="quiet-icon" type="button" data-overview aria-label="Reset flow" title="Reset flow"><svg class="icon" data-icon="rotate-ccw" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+  <path d="M3 3v5h5" />
+</svg></button></div></div>
+      <div class="flow-canvas" lang="en"><div class="flow-desktop"><svg xml:lang="en" xmlns="http://www.w3.org/2000/svg" width="1120" height="996" viewBox="0 0 1120 996" role="img" aria-labelledby="flow-0-title flow-0-desc"><title id="flow-0-title">The verification path to main</title><desc id="flow-0-desc">An issue scopes the feature branch. The PR receives checks and review. Merge only when the final revision meets configured conditions. Failures or changes return to the branch.</desc><defs><marker id="flow-0-normal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10" fill="#8F8A7B"/></marker><marker id="flow-0-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10" fill="#C99A2E"/></marker></defs><rect width="1120" height="996" fill="#0C0C0C"/><text x="24" y="48" fill="#FFF3C4" font-size="32" font-weight="600" font-family="Arial,Helvetica,sans-serif">From change to main</text><text x="24" y="86" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Verify the candidate; retry after changes</text><g data-node="Issue"><rect x="40" y="136" width="320" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="60" y="173" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">Issue</text><text x="60" y="209" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Problem / scope / acceptance</text><text x="60" y="239" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Define the delivery scope</text></g><g data-node="Feature branch"><rect x="400" y="136" width="320" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="420" y="173" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">Feature branch</text><text x="420" y="209" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Code / docs / tests</text><text x="420" y="239" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Revalidate after changes</text></g><g data-node="PR candidate"><rect x="760" y="136" width="320" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="780" y="173" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">PR candidate</text><text x="780" y="209" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Commit SHA + PR metadata</text><text x="780" y="239" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Verify the final revision</text></g><path d="M360 198H394" fill="none" stroke="#8F8A7B" stroke-width="2" marker-end="url(#flow-0-normal)"/><path d="M720 198H754" fill="none" stroke="#8F8A7B" stroke-width="2" marker-end="url(#flow-0-normal)"/><path d="M920 260V316H200V370" fill="none" stroke="#8F8A7B" stroke-width="2" marker-end="url(#flow-0-normal)"/><path d="M920 316H560V370" fill="none" stroke="#8F8A7B" stroke-width="2" marker-end="url(#flow-0-normal)"/><path d="M920 316V370" fill="none" stroke="#8F8A7B" stroke-width="2" marker-end="url(#flow-0-normal)"/><text x="40" y="286" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Independent checks; Review is a separate judgment</text><g data-node="CI required"><rect x="40" y="378" width="320" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="60" y="415" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">CI required</text><text x="60" y="451" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Aggregate engineering checks</text><text x="60" y="481" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Fail / cancel / skip blocks</text></g><g data-node="PR policy"><rect x="400" y="378" width="320" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="420" y="415" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">PR policy</text><text x="420" y="451" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Check links and lifecycle</text><text x="420" y="481" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Body edits can trigger checks</text></g><g data-node="Review"><rect x="760" y="378" width="320" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="780" y="415" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">Review</text><text x="780" y="451" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Scope / correctness / fit</text><text x="780" y="481" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Rules define approval needs</text></g><path d="M200 502V554H560V612" fill="none" stroke="#C99A2E" stroke-width="2" marker-end="url(#flow-0-gold)"/><path d="M560 502V612" fill="none" stroke="#C99A2E" stroke-width="2" marker-end="url(#flow-0-gold)"/><path d="M920 502V554H560" fill="none" stroke="#8F8A7B" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#flow-0-normal)"/><g data-node="Pre-merge verification"><rect x="320" y="620" width="480" height="124" rx="6" fill="#141312" stroke="#C99A2E" stroke-width="2"/><text x="340" y="657" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">Pre-merge verification</text><text x="340" y="693" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Latest SHA + final metadata checks</text><text x="340" y="723" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">All configured requirements satisfied</text></g><path d="M800 682H844" fill="none" stroke="#C99A2E" stroke-width="2" marker-end="url(#flow-0-gold)"/><g data-node="main"><rect x="852" y="620" width="228" height="124" rx="6" fill="#141312" stroke="#C99A2E" stroke-width="2"/><text x="872" y="657" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">main</text><text x="872" y="693" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Merge</text><text x="872" y="723" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Retain evidence</text></g><path d="M320 682H16V298H560V266" fill="none" stroke="#8F8A7B" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#flow-0-normal)"/><text x="40" y="598" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Failure / change</text><path d="M24 794H1096" stroke="#3A362C"/><text x="24" y="828" fill="#C99A2E" font-size="20" font-weight="400" font-family="Arial,Helvetica,sans-serif">Before merging</text><text x="24" y="868" fill="#FFF3C4" font-size="23" font-weight="400" font-family="Arial,Helvetica,sans-serif">Strict mode: sync with latest main and rerun checks.</text><text x="24" y="912" fill="#FFF3C4" font-size="23" font-weight="400" font-family="Arial,Helvetica,sans-serif">Configure required check names; a workflow alone does not enforce them.</text><text x="24" y="956" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Dashed: feedback / review   Gold: merge gate   Deployment is not shown</text></svg>
+</div><div class="flow-mobile"><svg xml:lang="en" xmlns="http://www.w3.org/2000/svg" width="480" height="1850" viewBox="0 0 480 1850" role="img" aria-labelledby="flow-1-title flow-1-desc"><title id="flow-1-title">The verification path to main</title><desc id="flow-1-desc">CI, policy and Review are independent checks. Merge only after configured requirements pass; return failures to the feature branch.</desc><defs><marker id="flow-1-normal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10" fill="#8F8A7B"/></marker><marker id="flow-1-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10" fill="#C99A2E"/></marker></defs><rect width="480" height="1850" fill="#0C0C0C"/><text x="24" y="48" fill="#FFF3C4" font-size="27" font-weight="600" font-family="Arial,Helvetica,sans-serif">From change to main</text><text x="24" y="86" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Verify the candidate; retry after changes</text><g data-node="Issue"><rect x="48" y="136" width="408" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="68" y="173" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">Issue</text><text x="68" y="209" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Problem / scope / acceptance</text><text x="68" y="239" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Define the delivery scope</text></g><path d="M252 260V304" fill="none" stroke="#8F8A7B" stroke-width="2" marker-end="url(#flow-1-normal)"/><g data-node="Feature branch"><rect x="48" y="310" width="408" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="68" y="347" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">Feature branch</text><text x="68" y="383" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Code / docs / tests</text><text x="68" y="413" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Revalidate after changes</text></g><path d="M252 434V478" fill="none" stroke="#8F8A7B" stroke-width="2" marker-end="url(#flow-1-normal)"/><g data-node="PR candidate"><rect x="48" y="484" width="408" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="68" y="521" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">PR candidate</text><text x="68" y="557" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Commit SHA + PR metadata</text><text x="68" y="587" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Verify the final revision</text></g><text x="48" y="652" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Checks</text><path d="M252 608V674H24V756H42" fill="none" stroke="#8F8A7B" stroke-width="2" marker-end="url(#flow-1-normal)"/><path d="M24 756V930H42" fill="none" stroke="#8F8A7B" stroke-width="2" marker-end="url(#flow-1-normal)"/><path d="M24 930V1104H42" fill="none" stroke="#8F8A7B" stroke-width="2" marker-end="url(#flow-1-normal)"/><g data-node="CI required"><rect x="48" y="694" width="384" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="68" y="731" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">CI required</text><text x="68" y="767" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Aggregate engineering checks</text><text x="68" y="797" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Fail / cancel / skip blocks</text></g><g data-node="PR policy"><rect x="48" y="868" width="384" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="68" y="905" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">PR policy</text><text x="68" y="941" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Check links and lifecycle</text><text x="68" y="971" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Body edits can trigger checks</text></g><g data-node="Review"><rect x="48" y="1042" width="384" height="124" rx="6" fill="#141312" stroke="#3A362C" stroke-width="2"/><text x="68" y="1079" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">Review</text><text x="68" y="1115" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Scope / correctness / fit</text><text x="68" y="1145" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Rules define approval needs</text></g><path d="M432 756H464V1220H252V1254" fill="none" stroke="#C99A2E" stroke-width="2" marker-end="url(#flow-1-gold)"/><path d="M432 930H464V1220" fill="none" stroke="#C99A2E" stroke-width="2" marker-end="url(#flow-1-gold)"/><path d="M432 1104H464V1220" fill="none" stroke="#8F8A7B" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#flow-1-normal)"/><g data-node="Pre-merge verification"><rect x="48" y="1262" width="408" height="124" rx="6" fill="#141312" stroke="#C99A2E" stroke-width="2"/><text x="68" y="1299" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">Pre-merge verification</text><text x="68" y="1335" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Latest SHA + final metadata checks</text><text x="68" y="1365" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">All configured requirements satisfied</text></g><path d="M252 1386V1440" fill="none" stroke="#C99A2E" stroke-width="2" marker-end="url(#flow-1-gold)"/><text x="276" y="1420" fill="#C99A2E" font-size="20" font-weight="400" font-family="Arial,Helvetica,sans-serif">Pass</text><g data-node="main"><rect x="48" y="1448" width="408" height="124" rx="6" fill="#141312" stroke="#C99A2E" stroke-width="2"/><text x="68" y="1485" fill="#FFF3C4" font-size="26" font-weight="600" font-family="Arial,Helvetica,sans-serif">main</text><text x="68" y="1521" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Merge and retain evidence</text><text x="68" y="1551" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Passing checks is not deployment</text></g><path d="M48 1324H8V372H42" fill="none" stroke="#8F8A7B" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#flow-1-normal)"/><path d="M24 1612H456" stroke="#3A362C"/><text x="24" y="1646" fill="#C99A2E" font-size="20" font-weight="400" font-family="Arial,Helvetica,sans-serif">Feedback and revision checks</text><text x="24" y="1680" fill="#FFF3C4" font-size="22" font-weight="400" font-family="Arial,Helvetica,sans-serif">Failure / change: return and recheck.</text><text x="24" y="1720" fill="#FFF3C4" font-size="22" font-weight="400" font-family="Arial,Helvetica,sans-serif">Strict: sync latest main and recheck.</text><text x="24" y="1760" fill="#FFF3C4" font-size="22" font-weight="400" font-family="Arial,Helvetica,sans-serif">Configure required check names.</text><text x="24" y="1810" fill="#8F8A7B" font-size="21" font-weight="400" font-family="Arial,Helvetica,sans-serif">Dashed: feedback / review   Gold: gate</text></svg>
+</div></div>
+      <p class="component-note">示意流程，可逐步查看；不代表当前 GitHub 检查状态。静态原图保留在上方。</p>
+    </section><details id="local-video" class="body-video"><summary aria-controls="local-video-player"><img class="video-thumbnail" src="./assets/figures/repo-ops-merge-flow.svg" width="1120" height="1200" loading="lazy" alt="合并流程演示的静态图封面"><span class="video-preview-copy"><strong>合并流程 · 无声演示</strong><span>查看一次改动如何经过 CI、PR 策略和最终核验。图 6 的示意录屏，非实时 Actions。</span><span class="video-preview-action"><svg class="icon" data-icon="play" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+</svg><span class="video-expand-label">展开视频</span><span class="video-collapse-label">收起视频</span></span></span></summary><figure class="media-card" id="local-video-player">
+      <div class="media-stage media-native"><video controls playsinline preload="none" width="1120" height="1200" poster="./assets/figures/repo-ops-merge-flow.svg" aria-label="Merge flow — illustrative UI demonstration" aria-describedby="local-video-caption"><source src="./assets/media/merge-flow-demo.mp4" type="video/mp4">浏览器无法播放此视频，请使用下方下载链接。</video></div>
+      <figcaption id="local-video-caption"><strong lang="en">Merge flow — illustrative UI demonstration</strong><span>图 6 分步演示的无声录屏，不代表当前 Actions 状态。完整解释见相邻正文。</span><div class="media-actions"><a href="./assets/media/merge-flow-demo.mp4" download>下载演示视频</a><a href="#figure-4">查看静态图与交互演示</a></div><p class="media-status" data-native-status role="status" hidden></p></figcaption>
+    </figure></details>
+<p>另外几个开关解决的是不同问题。签名提交验证提交来源与内容完整性，不能证明代码正确；线性历史禁止 merge commit，可配合 squash 让 main 上一条提交对应一个 PR，但不能保留完整的逐步调试结构；部署成功要求选定环境已经成功部署，前提是确实存在这样的部署流程；Lock branch 则使分支只读，不适合日常持续集成的 main。</p>
+<p>在个人维护阶段，我们选择保留 PR、CI 和最新基线约束，没有强制另一位 reviewer 批准，也暂不要求 Agent 提交必须签名。这是在当前账号与维护成本下的取舍，不能解释为 Agent 无法签名。PR #39 曾因三个未签名提交而被拒绝合并，说明一项来源规则确实会独立于绿色 CI 生效；解除它不会自动解除其他规则。</p>
+<p>对于线性历史，本文倾向短期 issue 分支配合 squash，让 main 上的变更与 PR 更容易对应。启用前要确认已有 PR 的依赖方式和合并习惯，尤其是堆叠分支；它也不能保证回滚无冲突。截至本文设置快照，该开关仍未开启。</p>
+<p>合并后的分支清理同样不能只靠一句“删掉多余分支”。需要确认实际合入、没有依赖分支和未交付提交，再分别处理远端 ref 与本地 worktree；后者可能保存未入库的证据和私人数据。远端自动删除开关也不会代替本地清理。短期分支减少长期分叉，清理流程则负责保住尚未交付的工作。</p>
+<h2 id="section-5" tabindex="-1">四、修复的结果与维护成本</h2>
+<h3 id="section-5-1" tabindex="-1">用故障注入检查修复</h3>
+<p>仅在维护者的快机器上重新通过，不能证明 Windows 的问题已经解决。我们为关键修复做了对照，也刻意破坏正确行为，检查测试是否还会拒绝。</p>
+<section class="interactive-table" id="table-3" aria-label="故障注入与验证结果"><div class="component-header"><p class="component-title">表 3 · 故障注入与验证结果</p><div class="table-tools" hidden><button class="quiet-icon" type="button" data-settings aria-label="筛选与显示列" title="筛选与显示列" aria-expanded="false" aria-controls="table-settings-3"><svg class="icon" data-icon="settings-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M14 17H5" />
+  <path d="M19 7h-9" />
+  <circle cx="17" cy="17" r="3" />
+  <circle cx="7" cy="7" r="3" />
+  </svg></button><button class="quiet-icon" type="button" data-select aria-label="选择项目对比" title="选择项目对比" aria-pressed="false"><svg class="icon" data-icon="columns-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M12 3v18" />
+</svg></button><button class="quiet-icon" type="button" data-expand aria-label="展开阅读" title="展开阅读"><svg class="icon" data-icon="maximize-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M15 3h6v6" />
+  <path d="m21 3-7 7" />
+  <path d="m3 21 7-7" />
+  <path d="M9 21H3v-6" />
+</svg></button></div></div><div class="table-settings" id="table-settings-3" hidden><label class="table-search">搜索全表<input type="search" autocomplete="off" aria-controls="table-data-3"></label><div class="column-options"></div><button class="text-action" type="button" data-reset>重置筛选与列</button></div><div class="table-state" hidden><output aria-live="polite"></output><button class="text-action" type="button" data-compare hidden>对比所选</button><button class="quiet-icon" type="button" data-cancel aria-label="退出对比" title="退出对比" hidden><svg class="icon" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+  </svg></button></div><div class="table-scroll" tabindex="0" role="region" aria-label="故障注入与验证结果，可横向滚动"><table id="table-data-3">
+<thead>
+<tr><th>对照输入</th><th>旧测试或错误实现</th><th>修改后的结果</th></tr>
+</thead>
+<tbody>
+<tr><td>请求进入 fixture 前增加 1100ms 准备时间</td><td>三条取消路由都因总耗时断言失败</td><td>三条路由通过；取消完成时正常响应仍未放行</td></tr>
+<tr><td>临时副本不再向 handler 传取消信号</td><td>命令等待尚未放行的响应</td><td>新测试三条路由均失败，保留对取消失效的检出能力</td></tr>
+<tr><td>每次归档 fixture 增加 5500ms 延迟</td><td>外层 5 秒先超时</td><td>新测试约 11.8 秒完成，原证据范围断言通过</td></tr>
+<tr><td>保留慢归档，把外层期限故意缩为 1 秒</td><td>仍然制造测试超时</td><td>新清理等待工作结算，没有伴随 ENOENT 或迟到未处理错误</td></tr>
+</tbody>
+</table></div><p class="table-empty" hidden>没有匹配的行，请修改关键词或重置。</p></section>
+<p>这些对照使用临时验证副本，故意引入的错误没有进入生产代码。它们支持的是几个具体结论：启动耗时不会再冒充取消语义；正常取消仍必须发生；超时仍然会失败；清理顺序不再依赖正常路径恰好很快。它们不能证明所有异步竞态已经消失。</p>
+<p>这也是我们现在判断测试修复时更看重的一点：<strong>减少误报以后，检查还是否保留拒绝真正错误的能力？</strong> 只删除断言、吞掉异常或无限扩大期限，可能让图标变绿，却失去这项能力。</p>
+<h3 id="section-5-2" tabindex="-1">把结果绑定到版本</h3>
+<p>截至 2026-10-18 本文核对时，CI 与工作流修复 PR #41 已合入，main 为 <code>cc9c935</code>。合并后同一提交的<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/39053926566">根 CI</a>和<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/39053928922">Windows Desktop</a>均成功。这比“本地检查通过”多了一层真实平台证据。</p>
+<p>但后续还有一个独立问题：Overview 恢复测试对比整个面板，真实时钟恰好从 17:15 跨到 17:16 时，只因刷新时间变化而失败。修复在 PR #42 中固定墙上时钟，显式跨越分钟边界，同时保留真实定时器和整块面板断言，避免通过忽略时间字段掩盖显示错误。<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/39052800266">原失败运行</a>、<a href="https://github.com/yangjingo/oh-my-quant/pull/42">修复 PR</a></p>
+<p>该 PR 在核对时仍是 OPEN，head 为 <code>1cdbcd1</code>。其 <a href="https://github.com/yangjingo/oh-my-quant/actions/runs/39054251705">CI</a> 对合并候选 <code>79abc16</code> 报告 Windows 2686 项通过、Linux 2678 项通过及 8 项平台跳过，无失败；<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/39054251765">Desktop 运行</a>与<a href="https://github.com/yangjingo/oh-my-quant/actions/runs/39055002948">最终描述的 policy</a>也成功。安装回执包含 11 项应用检查与 4 项安装器检查。这些是候选版本的结果，不能算成 main 已包含该修复。</p>
+<p>分支保护的同一轮快照中，必需检查为 <code>CI required</code> 和 <code>PR policy</code>，strict 已开启，管理员也受约束。<code>Desktop required</code> 已有全 PR 工作流覆盖，但还没有加入必需列表；签名与线性历史均未强制。仓库也未启用合并后自动删除远端分支。因此，检查存在、检查通过、检查强制、分支已清理，是四件需要分别确认的事情。</p>
+<p>Actions 的仓库默认 token 权限为 read，未允许工作流创建并批准 PR；允许使用的 Actions 范围仍为 all，也没有平台级的完整 SHA 固定要求。这说明最小写权限已经在默认设置和具体 job 中有所落实，第三方 Action 的来源约束却没有同时收紧。以后若调整，应该先盘点正在使用的 Action 与更新方式，而不是把一个开关的开启描述为整个供应链已经可信。</p>
+<p>这里记录的是有时间边界的设置快照，后续应以平台实时状态为准。我们尚未完成一个故意失败、再尝试合并并确认被 CI 规则拒绝的完整受控验收，不能把配置读取当成所有拒绝路径都经过实测。</p>
+<h3 id="section-5-3" tabindex="-1">规则也有维护成本</h3>
+<p>现在，一些历史失败有了明确归属和可重复输入；策略与工作流版本对齐，开放与结束的 PR 分开处理；测试持有自己的异步工作，取消后等待退出；根 CI 与 Desktop 的职责更清楚，main 也有实际的必需检查。</p>
+<p>这些变化没有让仓库变得零成本。跨平台完整检查与全 PR Desktop 构建增加运行时间；strict 要求跟随 main 重跑；固定失败样本与有限回答检查需要持续维护；文档合并会使主文档变长，也可能遗漏旧材料中不起眼但关键的约束。</p>
+<p>因此，后续应该观察首次失败率、同版本重跑恢复率、修复后复发率、各阶段耗时，以及逃逸到 main 的缺陷。取消旧 PR 的运行需要单列，一个错误造成的多个聚合红灯需要去重。现在的样本规模、触发条件与检查集合都在变化，还不足以给出一个可信的“效率提升百分比”。</p>
+<p>CI 之外也仍有空白。本次没有验证真实 npm 上传与 OIDC 授权，没有证明所有目标 Windows 机器都接受安装包，也没有重新执行全部真实模型与行情任务。仓库有 provider 检查命令，但没有据此建立定时运维探针；网络、权限、限流、缓存新鲜度仍是另一类运行问题。</p>
+<p>后续可以单独设计只读、预算受控的 provider 探针，把缺凭证、权限拒绝、限流、空数据与陈旧缓存分开报告，再决定告警频率和接收者。这是待实施方案，不应在博客里提前写成持续监控已经上线。</p>
+<p><strong>WhyJ 分析：这轮实践改变了我们判断“完成”的方式。</strong> 代码、测试、文档和 PR 都是需要检查的产物；完成意味着某个明确范围的改变，在指定版本和环境里获得了足够证据，并通过真正执行的交付规则。它始终带有剩余未知。</p>
+<p>一次失败之后，值得留下的也不只是一句“下次注意”。我们需要保留能重现它的输入，找到错误假设，把修复交给正确的责任层，再检查正常路径与错误路径。最后更新现行契约，让下一轮工作能够找到这个变化。</p>
+<p>当 Agent 可以很快再写一份实现、再补一份解释时，这条从问题通往证据的路径，需要比产物本身更容易被找到。</p>
+<p><strong>读后小练习</strong></p>
+<p>读完可以做一个小练习：选一次自己仓库的历史失败，写出错误假设、责任层、可重复反例与拒绝错误的检查。再沿着实际命令追踪一次，确认这项检查究竟有没有成为交付条件。</p>
+<section class="references" aria-labelledby="section-6"><h2 id="section-6" tabindex="-1">References</h2>
+<ol class="reference-list" start="1">
+<li id="ref-1">
+<p>Martin Fowler. <a href="https://martinfowler.com/articles/branching-patterns.html">Patterns for Managing Source Code Branches</a>. MartinFowler.com, 2020.</p>
+<p>优先读 Mainline、Healthy Branch 与 Integration Frequency，再决定分支模型。可以据此画出自己的 Issue → 分支 → PR → main → 发布关系，检查哪些地方仍在长期分叉。</p>
+</li>
+<li id="ref-2">
+<p>GitHub. <a href="https://docs.github.com/en/get-started/using-github/github-flow">GitHub flow</a>. GitHub Docs.</p>
+<p>适合作为短期分支与 PR 工作流的起点；本地 worktree 与私人证据的清理仍需补充自己的规则。</p>
+</li>
+<li id="ref-3">
+<p>Will Smythe and Lawrence Gripper. <a href="https://github.blog/engineering/engineering-principles/how-github-uses-merge-queue-to-ship-hundreds-of-changes-every-day/">How GitHub uses merge queue to ship hundreds of changes every day</a>. The GitHub Blog.</p>
+<p>关注多个 PR 各自通过后，组合验证为何仍然必要。merge queue 是本仓库的未来选项，尚未启用；采用前需要确认资格、事件覆盖与构建成本。</p>
+</li>
+<li id="ref-4">
+<p>OpenAI Codex. <a href="https://github.com/openai/codex/blob/4eb4a65407d98cebc4c83bf13be440b9fbc78a7c/.github/workflows/README.md">Workflow Strategy</a>; <a href="https://github.com/openai/codex/blob/4eb4a65407d98cebc4c83bf13be440b9fbc78a7c/.github/workflows/blocking-ci.yml">blocking-ci.yml</a>. GitHub source snapshot, commit <code>4eb4a65407d9</code>.</p>
+<p>可借鉴：合并候选、可复用工作流、聚合器的 <code>needs</code>，以及合并前后的责任划分。边界：Rust/Bazel 矩阵与重检查后置策略；我们的安装错误有不同的逃逸成本。</p>
+</li>
+<li id="ref-5">
+<p>DeepSeek Harness. <a href="https://github.com/deepseek-ai/deepseek-harness/blob/1517a4dbca0a2789ff1d41ba439600f8547d23fa/.agents/skills/dsh-ci-test-reliability/SKILL.md">CI reliability Skill</a>; <a href="https://github.com/deepseek-ai/deepseek-harness/blob/1517a4dbca0a2789ff1d41ba439600f8547d23fa/.github/workflows/ci.yml">CI</a>. GitHub source snapshot, commit <code>1517a4dbca0a</code>.</p>
+<p>可借鉴：动态端口、临时目录、进程退出、取消与清理责任。边界：超时数字与聚合覆盖假设；该快照的 <code>windows-coverage</code> 不在 <code>all checks passed</code> 依赖中。</p>
+</li>
+<li id="ref-6">
+<p>ZCode. <a href="https://github.com/zai-org/ZCode/blob/aac4755666d09fdcd70272fcf063c077a639015f/architecture-policy.yaml">architecture-policy.yaml</a>; <a href="https://github.com/zai-org/ZCode/blob/aac4755666d09fdcd70272fcf063c077a639015f/.agents/skills/architecture-governance/SKILL.md">architecture-governance</a>. GitHub source snapshot, commit <code>aac4755666d0</code>.</p>
+<p>可借鉴：明确管理范围、遗留 baseline、带理由的例外与依赖边界。边界：不能把它写成已核验的 Actions 范本；所读快照未见 <code>.github</code>，这里借鉴的是架构治理。</p>
+</li>
+<li id="ref-7">
+<p>rhysd/actionlint. <a href="https://github.com/rhysd/actionlint/blob/011a6d15e749bb3f2d771eed9c7aa0e7e3e10ee7/README.md">README</a>. GitHub source snapshot, commit <code>011a6d15e749</code>.</p>
+<p>可借鉴：在运行之前发现 YAML、表达式、matrix 和部分输入错误。边界：静态检查不能证明平台保护、异步清理或安装体验；本仓库尚未接入。</p>
+</li>
+<li id="ref-8">
+<p>Anthropic Claude Code Action. <a href="https://github.com/anthropics/claude-code-action/blob/f27be6b65a4652f08a2ba3cff79114829b588967/docs/security.md">Security</a>. GitHub source snapshot, commit <code>f27be6b65a46</code>.</p>
+<p>可借鉴：Issue/PR 事件接入 Agent 后的身份、token 与写权限边界。边界：不要把带写权限的 Agent 与当前只读 policy 当成同一种职责；本文没有引入该 Action。</p>
+</li>
+<li id="ref-9">
+<p>Dave Farley. <a href="https://www.infoq.com/presentations/technology-practice-continuous-delivery/">The Process, Technology &amp; Practice of Continuous Delivery</a>. InfoQ / QCon. Talk.</p>
+<p>带着一个问题看：如果现在交付，哪一步仍依赖维护者的记忆？</p>
+</li>
+<li id="ref-10">
+<p>Ken Mugrage. <a href="https://www.infoq.com/presentations/cd-deployment-pipelines/">It's Not Continuous Delivery if You Can't Deploy Right Now</a>. Agile India / InfoQ. Talk, 2018.</p>
+<p>对照 build、安装和真实发布，找出最晚才获得反馈的那一段。</p>
+</li>
+<li id="ref-11">
+<p>Barry Zhang. <a href="https://www.youtube.com/watch?v=D7_ipDqhtwk">How We Build Effective Agents</a>. AI Engineer. Talk; <a href="https://ai.engineer/talks/D7_ipDqhtwk-effective-ai-agents">transcript</a>.</p>
+<p>关注何时需要 Agent 判断，何时应把步骤交给确定性工具。</p>
+</li>
+<li id="ref-12">
+<p>Barry Zhang and Mahesh Murag. <a href="https://www.youtube.com/watch?v=CEvIs9y1uog">Don't Build Agents, Build Skills Instead</a>. AI Engineer. Talk; <a href="https://ai.engineer/talks/CEvIs9y1uog-agent-skills">transcript</a>.</p>
+<p>对照一次实际故障，考虑经验应该进入 Skill、脚本还是稳定原则。</p>
+</li>
+<li id="ref-13">
+<p>Ryan Lopopolo. <a href="https://openai.com/index/harness-engineering/">Harness engineering: leveraging Codex in an agent-first world</a>. OpenAI, 2026-02-11.</p>
+<p>可借鉴：让知识入口、工具与检查形成可执行的工作环境。</p>
+</li>
+<li id="ref-14">
+<p>Anthropic. <a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">Effective harnesses for long-running agents</a>. Anthropic Engineering, 2025-11-26.</p>
+<p>可借鉴：跨会话的增量工作与交接产物。持久文件提供恢复线索，但下一轮仍需要主动读取并核对其有效性。</p>
+</li>
+<li id="ref-15">
+<p>Anthropic. <a href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills">Equipping agents for the real world with Agent Skills</a>. Anthropic Engineering, 2025-10-16.</p>
+<p>可借鉴：把程序性知识组织为可复用操作；再区分哪些需要由脚本与检查强制执行。</p>
+</li>
+<li id="ref-16">
+<p>Langfuse. <a href="https://langfuse.com/blog/2026-02-26-evaluate-ai-agent-skills">Evaluating AI Agent Skills</a>. Engineering blog.</p>
+<p>把输入、轨迹、评分和迭代联系起来；引用这套思路不表示本仓库已经接入其服务。</p>
+</li>
+<li id="ref-17">
+<p>Manus. <a href="https://www.manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus">Context Engineering for AI Agents: Lessons from Building Manus</a>. Engineering blog.</p>
+<p>看团队如何从实际选择出发，用缓存、工具和文件系统的具体机制解释经验；本文也参考这种从问题走向决策的写法。</p>
+</li>
+<li id="ref-18">
+<p>Langfuse. <a href="https://langfuse.com/blog/2026-06-05-agentic-setup-for-operational-work">How we use agents to review production infrastructure</a>. Engineering blog.</p>
+<p>对照数据来源、仓库内 Skills 与固定评审产物之间的关系，以及如何把一次漏检转化为 Skill 修改；这是一份外部实践，不是本仓库的实施记录。</p>
+</li>
+</ol>
+</section></article>
+      <div class="article-end"><span>WhyJ <span class="end-dot" aria-hidden="true">·</span> 2026</span><a href="#top">返回顶部 <svg class="icon" data-icon="arrow-up" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="m5 12 7-7 7 7" />
+  <path d="M12 19V5" />
+</svg></a></div>
+    </div>
+  </main>
+  <footer class="site-footer"><a class="footer-brand" href="https://oh-my-quant.vercel.app/">WhyJ Quant</a><span>Research. Backtest. Analyze.</span></footer>
+  <dialog class="figure-dialog" aria-labelledby="figure-dialog-title"><div class="figure-dialog-bar"><h2 id="figure-dialog-title">插图</h2><button class="icon-link" type="button" id="close-figure" aria-label="关闭放大图"><svg class="icon" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+  </svg></button></div><div class="figure-dialog-canvas" tabindex="0" aria-label="放大图，可滚动查看"><img alt=""></div><p class="figure-dialog-caption"></p></dialog>
+</body>
+</html>

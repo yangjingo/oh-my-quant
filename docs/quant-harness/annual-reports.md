@@ -200,7 +200,7 @@ bun run output/playwright/private-annual-preview.ts
 
 ## 显式文件终端导出（2026-09-15）
 
-`whyj private-annual` 是单独的非交互 shell 子命令，不进入十个 slash 命令或 Agent 工具；交互 TUI 另有本地面板入口，见下节。用户必须先有请求窗口完全一致的观察组合比较 ID，并显式提供符合 [AccountHistory v1](../../src/performance/types.ts) 的完整规范化 JSON。这个文件不是任意券商原始 CSV：需由用户或已授权的转换器确认两端权益、每次外部资金流前估值、全部出入金/费用、同一报告币种、`after-fees` 与完整性声明。程序先核对公开比较及选定决策，再读取私有文件；渲染时再次核对，以防证据中途变化。账户输入只做内部一致性校验，不认证原始账单、转换器或券商服务。
+`whyj private-annual` 是单独的非交互 shell 子命令，不进入公开 slash 命令或 Agent 工具；交互 TUI 另有本地面板入口，见下节。用户必须先有请求窗口完全一致的观察组合比较 ID，并显式提供符合 [AccountHistory v1](../../src/performance/types.ts) 的完整规范化 JSON。这个文件不是任意券商原始 CSV：需由用户或已授权的转换器确认两端权益、每次外部资金流前估值、全部出入金/费用、同一报告币种、`after-fees` 与完整性声明。程序先核对公开比较及选定决策，再读取私有文件；渲染时再次核对，以防证据中途变化。账户输入只做内部一致性校验，不认证原始账单、转换器或券商服务。
 
 ```powershell
 whyj private-annual --comparison <comparison UUID> --year 2025 --cutoff 2025-12-31 `
@@ -245,6 +245,6 @@ bun run build
 
 ## F15 本地验收收口（2026-10-09）
 
-按 [PRD 的完成度口径](./PRD.md#2-完成度口径)重新核对，F15 更新为已完成。年度/YTD 区间、观察组合 revision、截止日、币种与基准、收益/风险口径、缺项和限制均进入报告；两位作者观点保留原始出处，并与本次 WhyJ 推演分区。报告生成和恢复核对原比较、行情/NAV/FX、决策 ID 与哈希，缺失、矛盾、损坏、越界和超限都失败可见。
+按 [产品指南的状态口径](./product-guide.md#status)重新核对，F15 更新为已完成。年度/YTD 区间、观察组合 revision、截止日、币种与基准、收益/风险口径、缺项和限制均进入报告；两位作者观点保留原始出处，并与本次 WhyJ 推演分区。报告生成和恢复核对原比较、行情/NAV/FX、决策 ID 与哈希，缺失、矛盾、损坏、越界和超限都失败可见。
 
 公开年报、私有账户内存端口、独立文件 CLI 和双确认 TUI 导出构成四个可调用入口。私有账户值不进入默认 Agent、研究 session、公共年报或分享副本；用户选择的导出文件明确标记为私有。真实券商原始账单、账户授权与订单执行继续属于 F16，任意模型的表达正确性继续属于 F12/F24，不重复阻塞 F15 的本地报告闭环。当前工程基线为 `bun run test` **1878/1878、224 个文件、23789 次断言**；typecheck、architecture（0 baseline violations）、test fence 与生产构建通过。

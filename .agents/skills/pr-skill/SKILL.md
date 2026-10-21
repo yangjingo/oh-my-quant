@@ -19,7 +19,7 @@ description: Prepare and review single-issue PRs for oh-my-quant targeting stabl
 2. Read current `package.json` scripts and workflows. Run `bun run check:release`; confirm coverage of type checking, architecture, test organization, the full test suite, and build. Run documentation checks separately if not included.
 3. Add applicable module and end-to-end checks. Desktop changes require desktop typecheck/build; installer changes require actual package verification of paths, shortcuts, upgrade/reinstall behavior, and data retention in an isolated environment.
 4. Record commands, environment, results, and evidence. Distinguish synthetic tests from live-service validation. Rerun affected checks after edits; ensure the complete gate remains valid for the final content.
-5. Inspect the staged diff and run `git diff --check`. Commit only issue-related files. Report baseline failures without weakening assertions or claiming success. Push an incomplete WIP/draft only when explicitly requested.
+5. Inspect the staged diff and run `git diff --check`. Commit only issue-related files; reject PR verification screenshots, recordings, and browser artifacts from the staged files. Report baseline failures without weakening assertions or claiming success. Push an incomplete WIP/draft only when explicitly requested.
 6. Before handoff, inspect tracked and untracked changes for omitted issue work. Commit intended deliverables and explicitly report any preserved unrelated changes; a clean Git status does not prove ignored local data is disposable.
 
 Local checks precede the final commit and push. Before opening a non-Draft PR or marking a Draft ready for review, confirm the complete release gate and applicable local checks passed for the submitted content; after further edits, rerun affected checks and keep the complete gate valid. If checks fail or cannot run, report the exact blocker and missing evidence; use an explicitly requested Draft for early collaboration. Do not weaken assertions to obtain a pass. CI follows the push and must pass before merge readiness; pending CI is not a successful result.
@@ -38,7 +38,11 @@ For visible Web, desktop, TUI, or HTML-report changes:
 - Record the code revision, environment, viewport, state, and reproduction steps. Cover affected normal, empty, loading, and error states; include narrow/wide layouts where relevant.
 - Check affected text layout, overflow, keyboard/focus behavior, and runtime errors.
 - Label mockups as design intent. Do not substitute generated or outdated images for implementation evidence.
-- Use reviewer-accessible links or CI artifacts; redact private data. Store lasting images under `docs/assets/` and exclude temporary captures.
+- Keep PR verification screenshots, recordings, and browser artifacts in ignored `output/` directories or an external evidence archive. Never commit them to `docs/assets/`, another tracked asset directory, or a dedicated evidence branch just to embed them in a PR.
+- Attach redacted images directly to the GitHub PR description/comment using GitHub-hosted attachments, or link accessible CI artifacts with their run and retention limits. A request to add a final screenshot to a PR authorizes an attachment, not adding an image file to the repository.
+- If attachment upload is unavailable, retain the local evidence and report the limitation; do not substitute a committed image or claim that a local path is reviewer-accessible.
+- Product assets and deliberately authored documentation/blog illustrations have their own content purpose. A capture made only to prove a PR was checked is review evidence, even if called a final preview or lasting screenshot.
+- Link historical failure captures from their original CI artifacts, including retention/access limits. Citing review evidence in a blog does not require copying its screenshots into the repository.
 
 For internal changes, briefly explain why visual evidence is inapplicable.
 

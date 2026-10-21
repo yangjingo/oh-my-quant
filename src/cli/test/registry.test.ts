@@ -330,13 +330,13 @@ describe("catalog", () => {
 
   it("keeps the user-facing command references aligned with the catalog", () => {
     const readme = readFileSync("README.md", "utf8");
-    const manual = readFileSync("docs/quant-harness/slash-commands.md", "utf8");
+    const manual = readFileSync("docs/quant-harness/product-guide.md", "utf8");
     const advertisedCommands = [...readme.matchAll(/`(\/[a-z-]+)`/g)].map(match => match[1]!);
     expect(advertisedCommands.length).toBeGreaterThan(0);
     for (const command of advertisedCommands) {
       expect(COMMAND_CATALOG.some(entry => entry.name === command)).toBe(true);
     }
-    expect(readme).toContain("(./docs/quant-harness/slash-commands.md)");
+    expect(readme).toContain("(./docs/quant-harness/product-guide.md#commands)");
     for (const entry of COMMAND_CATALOG) {
       expect(manual).toContain(`\`${entry.name}\``);
       expect(manual).toContain(entry.desc);

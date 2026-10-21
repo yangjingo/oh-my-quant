@@ -106,4 +106,4 @@ bun run src/runtime/dev/check-alpha-research.ts --python $alphaPython
 
 独立检查脚本使用真实 Pi 循环与 AKQuant，模型由本地 SSE 固定，行情来自临时目录的合成缓存；检查默认工具可达、成交/账本、HTML 报告、固定来源和重启恢复。不使用真实模型或联网行情，也不证明自然语言策略选择、市场数据质量或实盘可用。
 
-引擎接口测试、默认 Agent 接入和真实市场研究是三种不同验收。完成度由 [PRD](./PRD.md)维护，早期独立模块构建与后续产品入口之间的误判见[模块边界反思](../blog/09-boundaries-for-change.md#alpha)；本页不保存中间测试数量和构建体积。
+引擎接口测试、默认 Agent 接入和真实市场研究是三种不同验收。完成度由 [产品范围与验收](./product-guide.md#requirements)维护，早期独立模块构建与后续产品入口之间的误判见[模块边界反思](../blog/09-boundaries-for-change.md#alpha)；本页不保存中间测试数量和构建体积。

@@ -401,7 +401,7 @@ bun run dist/index.js --json doctor --phase tools
 bun run eval:research -- --case skill-risk-hedge --timeout-ms 300000 --max-requests 12 --output output/hedge-scenario-next.json
 ```
 
-工程测试、模型自动门槛与人工解释审阅分别记录。当前完整特性状态只在 [PRD](./PRD.md) 维护；F12/F24 的其它解释、真实任务和服务缺口不因局部通过而消失。
+工程测试、模型自动门槛与人工解释审阅分别记录。当前完整特性状态只在 [产品范围与验收](./product-guide.md#requirements) 维护；F12/F24 的其它解释、真实任务和服务缺口不因局部通过而消失。
 
 <a id="registry"></a>
 
@@ -435,7 +435,7 @@ bun run eval:research -- --case skill-risk-hedge --timeout-ms 300000 --max-reque
 
 Tool capabilities / Doctor 的 Endpoint check 复用 CLI/TUI 的 runtime/tool-probe。每次只执行选定公开数据路由及参数，不执行量化计算或 shell，不写缓存、报告、设置。日线路径继续做 bars 校验；具名端点的 endpoint-response 仅表示非空响应，不认证全部字段语义、实时性或财务事实。目录接口可能返回全量，不能把本地 limit 叫上游分页。
 
-基金具名端点使用真实 API 参数 schema，排除只影响工具呈现的 fund_code/keyword/limit；指数通用接口沿用白名单和 kwargs 约束。参数/连接变更使检查回执失效，关闭后不保存成长期权限；取消/超时不接受晚到结果。完整操作见 [Slash](./slash-commands.md)。
+基金具名端点使用真实 API 参数 schema，排除只影响工具呈现的 fund_code/keyword/limit；指数通用接口沿用白名单和 kwargs 约束。参数/连接变更使检查回执失效，关闭后不保存成长期权限；取消/超时不接受晚到结果。完整操作见 [Slash](./product-guide.md#commands)。
 
 ### 添加工具
 

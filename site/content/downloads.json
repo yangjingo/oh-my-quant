@@ -1,0 +1,11 @@
+{
+  "version": "1.3.1",
+  "verifiedAt": "2026-10-19",
+  "releaseUrl": "https://github.com/yangjingo/oh-my-quant/releases/tag/v1.3.1",
+  "checksumsUrl": "https://github.com/yangjingo/oh-my-quant/releases/download/v1.3.1/SHA256SUMS.txt",
+  "windows": {
+    "architecture": "x64",
+    "sizeBytes": 287582110,
+    "url": "https://github.com/yangjingo/oh-my-quant/releases/download/v1.3.1/WhyJ-Quant-Setup-1.3.1-win-x64.exe"
+  }
+}

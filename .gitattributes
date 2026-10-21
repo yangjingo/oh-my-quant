@@ -1,0 +1,9 @@
+# Preserve reproducible article/template bytes across Windows and Linux.
+docs/blog/agentic/vibe-repo-ops-merged-draft.md text eol=lf
+docs/blog/agentic/images/*.svg text eol=lf
+site/public/icons.svg text eol=lf
+site/previews/vibe-repo-ops/** text=auto eol=lf
+site/content/blog/** text=auto eol=lf
+.agents/skills/blog-skill/references/html-template/** text=auto eol=lf
+site/public/fonts/*.txt text eol=lf
+site/public/licenses/*.txt text eol=lf

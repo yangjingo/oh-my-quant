@@ -7,7 +7,7 @@
           </h1>
           <p class="hero-description">{{hero.description}}</p>
           <div class="hero-actions">
-            <a href="#install" class="button"
+            <a href="#download" class="button"
               >{{nav.start}}
               <svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#arrow-right" /></svg></a
             ><a href="#workspace" class="text-link"
@@ -52,7 +52,7 @@
           <div class="terminal-window">
             <div class="terminal-title">
               <span
-                ><b class="gold">Q_</b> WhyJ Quant
+                ><img class="brand-mark" src="/logo-mark.svg" width="20" height="20" alt="" aria-hidden="true" /> WhyJ Quant
                 <span class="terminal-subtitle"
                   >/ research workspace</span
                 ></span
@@ -522,109 +522,8 @@
           </div>
         </div>
       </section>
-      <section
-        class="install-section section"
-        id="install"
-        aria-labelledby="install-title"
-      >
-        <div class="container install-grid">
-          <div>
-            <h2 id="install-title">{{install.titleFirst}}<br />{{install.titleSecond}}</h2>
-            <p>{{install.intro}}</p>
-            <div class="platforms">
-              <span>macOS</span><span>Windows</span><span>Linux</span>
-            </div>
-          </div>
-          <div class="install-box">
-            <div class="install-header">
-              <svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#terminal" /></svg><span>{{install.terminal}}</span
-              ><span class="install-requirement"
-                >{{install.requirement}}</span
-              >
-            </div>
-            <div
-              class="install-tabs tab-list"
-              role="tablist"
-              aria-label="{{install.methods}}"
-            >
-              <button
-                id="install-tab-npm"
-                role="tab"
-                aria-selected="true"
-                aria-controls="install-npm"
-                tabindex="0"
-                data-install="npm"
-              >
-                npm</button
-              ><button
-                id="install-tab-bun"
-                role="tab"
-                aria-selected="false"
-                aria-controls="install-bun"
-                tabindex="-1"
-                data-install="bun"
-              >
-                Bun
-              </button>
-            </div>
-            <div
-              class="install-command"
-              id="install-npm"
-              role="tabpanel"
-              aria-labelledby="install-tab-npm"
-            >
-              <span class="gold">$</span><code>npm i -g whyj-quant</code
-              ><button
-                class="copy-button"
-                data-copy="npm i -g whyj-quant"
-                aria-label="{{install.copyNpm}}"
-                title="{{install.copyNpm}}"
-              >
-                <svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#copy" /></svg>
-              </button>
-            </div>
-            <div
-              class="install-command"
-              id="install-bun"
-              role="tabpanel"
-              aria-labelledby="install-tab-bun"
-              hidden
-            >
-              <span class="gold">$</span><code>bun add -g whyj-quant</code
-              ><button
-                class="copy-button"
-                data-copy="bun add -g whyj-quant"
-                aria-label="{{install.copyBun}}"
-                title="{{install.copyBun}}"
-              >
-                <svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#copy" /></svg>
-              </button>
-            </div>
-            <div class="launch-command">
-              <span class="muted">{{install.then}}</span><code>whyj</code
-              ><button
-                class="copy-button"
-                data-copy="whyj"
-                aria-label="{{install.copyLaunch}}"
-                title="{{install.copyLaunch}}"
-              >
-                <svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#copy" /></svg>
-              </button>
-            </div>
-            <p class="install-next">
-              {{install.nextFirst}} <code>/config</code>{{install.nextSecond}}
-            </p>
-            <a
-              class="install-docs"
-              href="https://github.com/yangjingo/oh-my-quant#quick-start"
-              target="_blank"
-              rel="noopener"
-              >{{install.docs}}
-              <svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#arrow-up-right" /></svg></a>
-            <p id="copy-status" class="copy-status" role="status"></p>
-          </div>
-        </div>
-      </section>
+      <span id="install" class="legacy-download-anchor" aria-hidden="true"></span>
+      {{partial.download}}
       <section
         class="faq-section container section"
         aria-labelledby="faq-title"

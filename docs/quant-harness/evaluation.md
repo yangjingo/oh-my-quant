@@ -1,6 +1,6 @@
 # 评测与验证指南
 
-更新：2026-10-18。这里统一维护怎样验证、输入来自哪里、自动检查能证明什么；旧结果汇编已删除，有解释力的失败与修正写入[评测博客](../blog/05-evaluation-beyond-green.md)；原始回执留在内部输出，产品完成度回到 [PRD](./PRD.md)。六份旧评测文档已合并，历史版本的案例数和通过数不再混入现行操作入口。
+更新：2026-10-18。这里统一维护怎样验证、输入来自哪里、自动检查能证明什么；旧结果汇编已删除，有解释力的失败与修正写入[评测博客](../blog/05-evaluation-beyond-green.md)；原始回执留在内部输出，产品完成度回到 [产品范围与验收](./product-guide.md#requirements)。六份旧评测文档已合并，历史版本的案例数和通过数不再混入现行操作入口。
 
 - [跨领域套件](#suite)
 - [任务与恢复](#tasks)
@@ -44,7 +44,7 @@ bun run eval:research -- --case all --timeout-ms 180000 --max-requests 12 --outp
 
 [research-decisions.test.ts](../../src/runtime/test/research-decisions.test.ts) 多次写入真实锁定归档并生成报告，使用 30 秒测试预算。夹具持有完整测试 Promise；超时后的清理也先等待写入和其后续步骤结算，再恢复环境、删除工作目录，避免迟到写入报 ENOENT。预算不是性能目标；仍保留全部报告范围与证据断言。
 
-[skill-command-cancellation.test.ts](../../src/runtime/test/skill-command-cancellation.test.ts) 等待 provider 实际收到请求后取消，并用受控响应 barrier 验证取消先于正常回答完成。启动时间不计入取消性能断言；测试仍要求原始取消原因、无成功结果、无正常 assistant stop、streaming=false 和未取消路径成功。外层期限只负责发现挂死，不把放宽机器速度要求当作放宽取消契约。
+[skill-command-cancellation.test.ts](../../src/runtime/test/skill-command-cancellation.test.ts) 等待 provider 实际收到请求后取消，并用受控响应 barrier 验证取消先于正常回答完成。启动与请求准备时间（含 1100ms 慢准备复现）不计入取消性能断言；测试通过受控响应 barrier 明确因果次序，若忽略取消信号放行响应则回归失败；仍严格要求保留 1 次请求、原始取消原因、无成功结果、无正常 assistant stop、streaming=false 和未取消路径正常完成。外层 15 秒期限只负责发现挂死，不把放宽机器速度要求当作放宽取消契约。
 
 [Doctor handler 测试](../../src/cli/test/handlers/system.test.ts) 通过现有 collector/dependency 注入口固定 Python 状态，保留真实格式化与面板状态推送；仅设置 skip-network 并不能阻止本机 Python 探针。真实依赖检查由 Doctor 依赖矩阵和 CLI 进程测试承担。
 
@@ -304,8 +304,8 @@ CLI 在创建第一个 Session 前把选定技能的 `SKILL.md` 与目标 workfl
 
 ### 九项自动检查
 
-1. 精选 skill 的 source-backed 模式 blocked，limited supplied evidence 为 needs-input。
-2. 显式 skill XML、受限模式 preflight 和本例原始任务进入首个 provider payload。
+1. 所选 skill 已通过 Pi 加载并被当前会话发现。
+2. 显式 skill 调用及本例要求的输入进入首个 provider payload；不再检查已撤销的模式 preflight。
 3. 模型恰好调用一次只读工具，并选择本例预期 workflow；恐慌评分案例还须恰好调用一次指定计算工具。
 4. workflow 正文进入下一次 provider 请求。
 5. 工具调用没有错误。

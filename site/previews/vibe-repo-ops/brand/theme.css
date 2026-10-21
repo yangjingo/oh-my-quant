@@ -1,0 +1,21 @@
+/* Brand preview from 10184e1a2ad99d976c33e6c55d6872d7083fe827; see README.md. */
+:root {
+  color-scheme: dark;
+  --gold: #C99A2E;
+  --focus: #C99A2E;
+  --light-gold: #FFF3C4;
+  --ink: #FFF3C4;
+  --reading-text: #B8B4A8;
+  --reading-link: #C4B68E;
+  --muted: #8F8A7B;
+  --canvas: #0C0C0C;
+  --surface: #141312;
+  --elevated: #1C1B18;
+  --hairline: #3A362C;
+  --terminal: #0C0C0C;
+  --up: #D87565;
+  --down: #75A26F;
+  --risk: #D87565;
+  --sans: Geist, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono: "Geist Mono", "SFMono-Regular", Consolas, monospace;
+}

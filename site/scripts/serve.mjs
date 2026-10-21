@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { loadContent, renderPage, renderRuntimeMessages, routes } from "./render.mjs";
+import { articlePath, articleDirectory } from "./article.mjs";
 
 const preview = process.argv.includes("--dist");
 const root = fileURLToPath(
@@ -18,12 +19,24 @@ const mime = {
   ".svg": "image/svg+xml",
   ".ttf": "font/ttf",
   ".txt": "text/plain; charset=utf-8",
+  ".mp4": "video/mp4",
 };
+const deployment = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
 const server = createServer(async (req, res) => {
+  for (const rule of deployment.headers ?? []) {
+    if (rule.source === "/(.*)") for (const header of rule.headers) res.setHeader(header.key, header.value);
+  }
   try {
     const pathname = decodeURIComponent(
       new URL(req.url, "http://localhost").pathname,
     );
+    const redirect = (deployment.redirects ?? []).find(entry => entry.source === pathname.replace(/\/$/, ""));
+    if (redirect) {
+      const target = new URL(redirect.destination, "http://localhost");
+      target.search = new URL(req.url, "http://localhost").search;
+      res.writeHead(308, { Location: `${target.pathname}${target.search}${target.hash}` }).end();
+      return;
+    }
     const route = routes.find((entry) => entry.path === pathname);
     if (!pathname.endsWith("/") && routes.some((entry) => entry.path === `${pathname}/`)) {
       res.writeHead(308, { Location: `${pathname}/${new URL(req.url, "http://localhost").search}` }).end();
@@ -38,11 +51,10 @@ const server = createServer(async (req, res) => {
       }).end(body);
       return;
     }
-    const file = path.resolve(
-      root,
-      `.${route ? `${pathname}index.html` : pathname}`,
-    );
-    if (!file.startsWith(root)) {
+    const articleAsset = !preview && pathname.startsWith(articlePath) && !route;
+    const assetRoot = articleAsset ? articleDirectory : root;
+    const file = path.resolve(assetRoot, articleAsset ? `.${pathname.slice(articlePath.length - 1)}` : `.${route ? `${pathname}index.html` : pathname}`);
+    if (!file.startsWith(assetRoot)) {
       res.writeHead(403).end();
       return;
     }
@@ -59,6 +71,7 @@ const server = createServer(async (req, res) => {
       .end("Not found");
   }
 });
-server.listen(4173, "127.0.0.1", () =>
-  console.log("WhyJ Quant website: http://127.0.0.1:4173"),
+const port = Number(process.env.PORT || 4173);
+server.listen(port, "127.0.0.1", () =>
+  console.log(`WhyJ Quant website: http://127.0.0.1:${port}`),
 );

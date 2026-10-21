@@ -8,13 +8,13 @@
 
 | 组成部分 | 现行文档 |
 |---|---|
-| 目标、状态与演进 | [GOALS](./GOALS.md) · [PRD](./PRD.md) · [Roadmap](./roadmap.md) |
+| 目标、状态与演进 | [产品范围与需求](./product-guide.md#requirements) · [Roadmap](./roadmap.md) |
 | 应用骨架与持久化 | [模块架构](./module-architecture.md) · [存储策略](./ohquant-storage-policy.md) |
 | 数据、工具与技能 | [数据源](./source-data-providers.md) · [工具与计算](./quant-tools-design.md) · [精选 Skills 与 MCP 配置](./trader-skills.md#toolkit) |
 | 领域研究 | [组合比较](./portfolio-comparison.md) · [新闻](./news-research.md) · [Alpha 回测](./alpha-backtest.md) |
 | 账户与执行 | [账户业绩](./performance.md) · [执行](./execution.md) |
-| 报告与交互 | [制品](./artifacts-design.md) · [年报](./annual-reports.md) · [UI/UX](./quant-uiux.md) · [Windows 桌面宿主](./desktop.md) |
-| 使用与验证 | [配置](./configuration.md) · [手册](./user-guide.md) · [命令](./slash-commands.md) · [评测](./evaluation.md) |
+| 报告与交互 | [制品](./artifacts-design.md) · [年报](./annual-reports.md) · [UI/UX](./quant-uiux.md) · [Windows 桌面宿主](./desktop.md) · [Web 研究工作台](./research-workspace.md) |
+| 使用与验证 | [配置](./configuration.md) · [使用流程与命令](./product-guide.md#workflow) · [评测](./evaluation.md) |
 | 仓库质量与发布 | [CI and npm Releases](./ci-release.md) |
 
 文档在此归为一个应用体系，代码仍按 Source、Quant、Storage、Execution、Artifact、Runtime 与 TUI 的职责分开。UI/UX 不是研究结束后的包装，它承担输入、过程可见性、错误恢复和结果呈现；数据与计算也不是 Harness 外部的附录，而是研究得以成立的组成部分。返回[全部文档](../README.md)。
@@ -155,4 +155,4 @@ bun run typecheck
 bun run check:architecture
 ```
 
-本地 Pi/SSE、JSONL 与合成输入回归可以检验调用、分支、压缩和拒绝行为，不证明任意模型解释或真实服务均正确。完整状态和真实模型评测方法分别由 [PRD](./PRD.md)、[评测指南](./evaluation.md#tasks) 维护；本页不保存容易过时的阶段通过数。
+本地 Pi/SSE、JSONL 与合成输入回归可以检验调用、分支、压缩和拒绝行为，不证明任意模型解释或真实服务均正确。完整状态和真实模型评测方法分别由 [产品范围与验收](./product-guide.md#requirements)、[评测指南](./evaluation.md#tasks) 维护；本页不保存容易过时的阶段通过数。

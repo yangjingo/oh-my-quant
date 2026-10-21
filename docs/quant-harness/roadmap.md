@@ -1,6 +1,6 @@
 # WhyJ Quant 实施路线
 
-更新：2026-10-13。特性范围、状态与验收条件以 [PRD](./PRD.md) 为准；本文只安排切片与依赖，不再复制阶段完成度。旧路线的[模块治理取舍](../blog/01-own-the-harness.md#ownership)与[Alpha 边界](../blog/09-boundaries-for-change.md#alpha)直接进入博客。下表保留切片编号以说明依赖，不是所有项目仍待实施；未完成部分的优先级是建议，无人力或日历承诺。
+更新：2026-10-13。特性范围、状态与验收条件以 [产品范围与验收](./product-guide.md#requirements) 为准；本文只安排切片与依赖，不再复制阶段完成度。旧路线的[模块治理取舍](../blog/01-own-the-harness.md#ownership)与[Alpha 边界](../blog/09-boundaries-for-change.md#alpha)直接进入博客。下表保留切片编号以说明依赖，不是所有项目仍待实施；未完成部分的优先级是建议，无人力或日历承诺。
 
 保留已经验收的模型 API-key 引导、观察组合 CRUD、报告生成恢复和组合元数据存储。Pi 内核已接入不代表扩展宿主完成；旧文件存在不代表公开入口可用。
 

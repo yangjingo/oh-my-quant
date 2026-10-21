@@ -45,6 +45,7 @@ For substantial work, briefly communicate **Assumption**, **Changed**, **Verifie
 | `issue-skill` | [SKILL.md](.agents/skills/issue-skill/SKILL.md) | Defining issues, scope, and acceptance criteria. |
 | `pr-skill` | [SKILL.md](.agents/skills/pr-skill/SKILL.md) | Implementing issues and preparing or reviewing PRs. |
 | `review-skill` | [SKILL.md](.agents/skills/review-skill/SKILL.md) | Reviewing correctness, simplicity, integration conflicts, and evidence with convergent feedback. |
+| `blog-skill` | [SKILL.md](.agents/skills/blog-skill/SKILL.md) | Consolidating and reviewing blogs, rendering SVG figures, interactive tables and charts, maintaining bilingual pages, and publishing authorized Vercel updates. |
 
 Read applicable skills first; use issue-skill and pr-skill for issue-to-PR work, and review-skill for review. Reuse an existing compliant issue. Drafting and review requests do not authorize publication or implementation.
 

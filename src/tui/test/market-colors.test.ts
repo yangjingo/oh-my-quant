@@ -66,7 +66,7 @@ it("repaints cached table lines per buffer while risk, status, zero and missing 
   }
   expect(colorAt(red, "+2.50%")).toBe(WHYJ_THEME.marketUp);
   red.text(0, 0, "selected", S.selection);
-  expect(red.cells[0]?.bg).toBe("#D4AF37");
+  expect(red.cells[0]?.bg).toBe(WHYJ_THEME.selectionBg);
 });
 
 it("renders mixed-market Overview with the chosen convention, signed values and neutral rounded zeros", () => {

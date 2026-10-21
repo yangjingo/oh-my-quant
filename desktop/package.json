@@ -33,7 +33,7 @@
     "extraResources": [{ "from": "runtime", "to": "runtime", "filter": ["**/*", "!**/__pycache__/**", "!**/*.pyc"] }],
     "asarUnpack": ["node_modules/node-pty/**/*"],
     "npmRebuild": false,
-    "win": { "target": "nsis", "icon": "assets/icon.ico", "artifactName": "WhyJ-Quant-Setup-${version}-win-${arch}.${ext}" },
+    "win": { "target": "nsis", "icon": "assets/app-icon.ico", "artifactName": "WhyJ-Quant-Setup-${version}-win-${arch}.${ext}" },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

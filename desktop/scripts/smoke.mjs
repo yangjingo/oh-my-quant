@@ -40,6 +40,9 @@ try {
   assert.equal(await page.locator("#status").textContent(), `Desktop ${version}`);
   record("fresh profile starts the bundled CLI with no Node/Bun/Python/Git on PATH");
   await page.screenshot({ path: join(evidence, "startup.png") });
+  assert.equal(await page.locator('img.mark').evaluate(img => img.complete && img.naturalWidth > 0), true);
+  assert.equal(await page.locator('body').evaluate(body => getComputedStyle(body).color), 'rgb(255, 243, 196)');
+  record("shared JQ mark loads through the app protocol and warm text is rendered");
   const preferences = await application.evaluate(({ BrowserWindow }) => {
     const prefs = BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences();
     return { nodeIntegration: prefs.nodeIntegration, sandbox: prefs.sandbox, contextIsolation: prefs.contextIsolation };

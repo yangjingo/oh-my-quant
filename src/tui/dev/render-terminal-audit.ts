@@ -1,3 +1,4 @@
+import { WHYJ_THEME } from "../../types/theme-colors.ts";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -68,9 +69,9 @@ for (const [columns, rows] of [[60, 20], [80, 24], [120, 32]] as const) {
     const elements = buf.cells.flatMap((cell, index) => {
       if (cell.cont || cell.ch === " " && !cell.bg) return [];
       const x = index % columns * 10, y = Math.floor(index / columns) * 20;
-      return [`${cell.bg ? `<rect x="${x}" y="${y}" width="${charWidth(cell.ch) * 10}" height="20" fill="${cell.bg}"/>` : ""}<text x="${x}" y="${y + 16}" fill="${cell.fg ?? "#F5F5F5"}"${cell.bold ? ' font-weight="700"' : ""}${cell.dim ? ' opacity="0.6"' : ""}>${escape(cell.ch)}</text>`];
+      return [`${cell.bg ? `<rect x="${x}" y="${y}" width="${charWidth(cell.ch) * 10}" height="20" fill="${cell.bg}"/>` : ""}<text x="${x}" y="${y + 16}" fill="${cell.fg ?? WHYJ_THEME.cream}"${cell.bold ? ' font-weight="700"' : ""}${cell.dim ? ' opacity="0.6"' : ""}>${escape(cell.ch)}</text>`];
     });
-    writeFileSync(join(root, `${name}.svg`), `<svg xmlns="http://www.w3.org/2000/svg" width="${columns * 10}" height="${rows * 20}" viewBox="0 0 ${columns * 10} ${rows * 20}"><rect width="100%" height="100%" fill="#000000"/><g font-family="Cascadia Mono, Consolas, monospace" font-size="16">${elements.join("")}</g></svg>`);
+    writeFileSync(join(root, `${name}.svg`), `<svg xmlns="http://www.w3.org/2000/svg" width="${columns * 10}" height="${rows * 20}" viewBox="0 0 ${columns * 10} ${rows * 20}"><rect width="100%" height="100%" fill="${WHYJ_THEME.canvas}"/><g font-family="Cascadia Mono, Consolas, monospace" font-size="16">${elements.join("")}</g></svg>`);
     writeFileSync(join(root, `${name}.ansi`), buf.render());
     frames.push({ name, columns, rows });
   };
@@ -119,6 +120,6 @@ for (const [columns, rows] of [[60, 20], [80, 24], [120, 32]] as const) {
     key("\x1b"); capture("doctor-closed");
   } finally { panel.close(); }
 }
-writeFileSync(join(root, "index.html"), `<!doctype html><meta charset="utf-8"><title>WhyJ terminal renderer audit</title><style>body{background:#171717;color:#eee;font:16px system-ui;margin:24px}section{margin:32px 0}img{display:block;max-width:100%;border:1px solid #555}a{color:#D4AF37}</style><h1>Terminal renderer audit</h1><p>Production QuantTui frames with synthetic data. SVG cell projection; not a native terminal or font/IME certification. Each frame includes the emitted ANSI stream.</p>${frames.map(frame => `<section id="${frame.name}"><h2>${frame.name}</h2><a href="${frame.name}.ansi">ANSI output</a><img src="${frame.name}.svg" alt="${frame.name}"></section>`).join("")}`);
+writeFileSync(join(root, "index.html"), `<!doctype html><meta charset="utf-8"><title>WhyJ terminal renderer audit</title><style>body{background:${WHYJ_THEME.surfaceHigh};color:${WHYJ_THEME.cream};font:16px system-ui;margin:24px}section{margin:32px 0}img{display:block;max-width:100%;border:1px solid ${WHYJ_THEME.hairline}}a{color:${WHYJ_THEME.gold}}</style><h1>Terminal renderer audit</h1><p>Production QuantTui frames with synthetic data. SVG cell projection; not a native terminal or font/IME certification. Each frame includes the emitted ANSI stream.</p>${frames.map(frame => `<section id="${frame.name}"><h2>${frame.name}</h2><a href="${frame.name}.ansi">ANSI output</a><img src="${frame.name}.svg" alt="${frame.name}"></section>`).join("")}`);
 writeFileSync(join(root, "evidence.json"), JSON.stringify({ createdAt: new Date().toISOString(), bun: Bun.version, scope: "Production QuantTui, in-memory panel data and raw key decoder. No user settings, credentials, real model or market requests. SVG projects cells; native terminal rendering remains unverified.", frames }, null, 2));
 process.stdout.write(`Rendered ${frames.length} frames in ${root}\n`);

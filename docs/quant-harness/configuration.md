@@ -178,7 +178,7 @@ Azure、Bedrock、Vertex、Mistral 的原生协议也可导入并在各自 provi
 
 `contextWindow`、`maxTokens` 必须为正整数，输出限制不超过窗口。覆写能力仅描述服务实际支持的限制，不会提升服务端容量。自动压缩阈值仍使用 `env.WHYJ_QUANT_COMPACT_TRIGGER_TOKENS`，默认 `contextWindow - 16384`，上限为当前模型窗口。
 
-`/config`、`/doctor` 与 `/artifact` 的 TUI/非 TUI 边界见 [Slash Command 参考](./slash-commands.md)。
+`/config`、`/doctor` 与 `/artifact` 的 TUI/非 TUI 边界见 [Slash Command 参考](./product-guide.md#commands)。
 
 ## 用户可见设置
 
@@ -203,7 +203,7 @@ Azure、Bedrock、Vertex、Mistral 的原生协议也可导入并在各自 provi
 
 ## 扩展管理
 
-扩展管理使用 `/config --extensions list|enable|disable|reload [id]`，详见 [Slash 参考](./slash-commands.md)。`disabledExtensions` 是当前构建扩展 ID 的禁用数组，缺失或空数组表示默认启用全部注册扩展。它由 storage 校验、去重并排序，未知 ID 保留但显示 unavailable；类型错误或非法名称拒绝读取并保留原文件。启停保存复用 settings revision 与进程锁，其他运行中的终端需重启读取新选择。此字段不包含包路径、脚本或凭证；不决定独立 Overview/Doctor 数据服务的可用性。
+扩展管理使用 `/config --extensions list|enable|disable|reload [id]`，详见 [Slash 参考](./product-guide.md#commands)。`disabledExtensions` 是当前构建扩展 ID 的禁用数组，缺失或空数组表示默认启用全部注册扩展。它由 storage 校验、去重并排序，未知 ID 保留但显示 unavailable；类型错误或非法名称拒绝读取并保留原文件。启停保存复用 settings revision 与进程锁，其他运行中的终端需重启读取新选择。此字段不包含包路径、脚本或凭证；不决定独立 Overview/Doctor 数据服务的可用性。
 
 ## Market Data 与凭证
 
@@ -249,7 +249,7 @@ Doctor 的 `Run diagnostics` 检查已保存的模型、工具和数据，不保
 
 缺凭证、缺 Python/包、鉴权、权限、空响应、超时与取消分别呈现；分类是已知作用范围，不承诺找出所有底层根因，也不回显可能含密钥的供应商原始异常。Doctor 不后台监控、不自动修复、不全量扫描端点，更不是性能或历史数据质量验收。
 
-三阶段 Doctor 的 exit 0 / `ok` / `ready` 只表示报告生成；自动化须读取 overall、requestedPhases、各阶段 status，并排除 `WHYJ_DOCTOR_SKIP_NETWORK` 引发的跳过提示。`/doctor --tool` 是不同契约：选定端点确实 ready 才 exit 0。具体调用见[命令参考](./slash-commands.md)，不要混用两种退出码。
+三阶段 Doctor 的 exit 0 / `ok` / `ready` 只表示报告生成；自动化须读取 overall、requestedPhases、各阶段 status，并排除 `WHYJ_DOCTOR_SKIP_NETWORK` 引发的跳过提示。`/doctor --tool` 是不同契约：选定端点确实 ready 才 exit 0。具体调用见[命令参考](./product-guide.md#commands)，不要混用两种退出码。
 
 实现与回归：[Doctor](../../src/cli/doctor.ts)、[数据检查](../../src/runtime/data/data-readiness.ts)、[配置草稿](../../src/runtime/test/data-settings.test.ts)、[诊断导航](../../src/tui/test/doctor-navigation.test.ts)。离线 fixture 只证明相应分支；真实账户和端点需显式复验。
 
@@ -289,7 +289,7 @@ Doctor 的 `Run diagnostics` 检查已保存的模型、工具和数据，不保
 }
 ```
 
-`preferences.currentPortfolioFile` 仅供显式旧文件导入时的去重排序，已经不决定 Overview 内容或自动读取路径。组合入口见 [Slash Command 参考](./slash-commands.md)。
+`preferences.currentPortfolioFile` 仅供显式旧文件导入时的去重排序，已经不决定 Overview 内容或自动读取路径。组合入口见 [Slash Command 参考](./product-guide.md#commands)。
 
 ## 兼容迁移
 
@@ -334,4 +334,4 @@ Doctor 保留原有命令返回约定：退出码 `0`、JSON `ok: true` 和 `rea
 
 连接选择与请求绑定分别由 [配置回归](../../src/agent/test/model-config.test.ts)和[连接回归](../../src/agent/test/model-connection.test.ts)检查；它们不证明真实账号权限。
 
-单独的 `/doctor --tool …` 是端点请求检查：`data.status === "ready"` 才返回 `ok: true` 和退出码 0，失败/空响应为非零；不是三阶段诊断报告的 `ready` 约定。用法见 [Slash 参考](./slash-commands.md)。
+单独的 `/doctor --tool …` 是端点请求检查：`data.status === "ready"` 才返回 `ok: true` 和退出码 0，失败/空响应为非零；不是三阶段诊断报告的 `ready` 约定。用法见 [Slash 参考](./product-guide.md#commands)。

@@ -1,6 +1,6 @@
 # 08｜桌面优先之后，CLI 如何延续同一份研究？
 
-Agent Engineering / oh-my-quant · 初稿 2026-10-13 · 修订 2026-10-16 · 产品形态与架构演进
+Agent Engineering / oh-my-quant · 初稿 2026-10-13 · 修订 2026-10-21 · 产品形态与架构演进
 
 用户今天比较两组标的，明天再问“换一个基准会怎样”。在终端里可以接着说，换到桌面应用以后，研究还能接得上吗？如果需要重新输入日期、解释数据来源、寻找旧报告，我们交付的就只是两个入口，而不是一份能够继续的工作。
 
@@ -8,7 +8,7 @@ Agent Engineering / oh-my-quant · 初稿 2026-10-13 · 修订 2026-10-16 · 产
 
 ## 一次研究，为什么要在两种界面里延续？
 
-自然语言适合尚未成形的问题。用户可以先表达研究意图，再逐步明确对象、窗口、币种和基准。但一段回答不是全部研究状态：下一次工作还需要知道采用了哪个组合版本、哪些数据能重算、报告固定了什么，以及失败后有没有可用的草稿。[PRD](../quant-harness/PRD.md)因此把主要路径串成“配置 → 获取数据 → 分析与比较 → 报告 → 恢复”。
+自然语言适合尚未成形的问题。用户可以先表达研究意图，再逐步明确对象、窗口、币种和基准。但一段回答不是全部研究状态：下一次工作还需要知道采用了哪个组合版本、哪些数据能重算、报告固定了什么，以及失败后有没有可用的草稿。[产品范围与验收](../quant-harness/product-guide.md#requirements)因此把主要路径串成“配置 → 获取数据 → 分析与比较 → 报告 → 恢复”。
 
 已有[键盘流程回归](../../src/tui/test/research-workflow.test.ts)经过设置自动报告、维护两组观察标的、带日期与基准的比较、`/clear` 和报告恢复。这条路径提醒我们：局部的取数、计算、导出都成功，仍不保证研究能连续进行。恢复必须保留原数据引用与报告版本，不能为了“打开成功”悄悄换成今天的数据。
 
@@ -94,7 +94,7 @@ site/         产品网站、Docs、Blog、手册与公开 Demo
 
 ## 实现索引
 
-- 当前产品与宿主：[PRD](../quant-harness/PRD.md)、[Desktop](../quant-harness/desktop.md)、[main](../../desktop/src/main.ts)、[Bridge](../../desktop/src/bridge.ts)、[构建](../../desktop/scripts/build.ts)。这些链接定位现状，不是未来 apps 目录的实现证据。
+- 当前产品与宿主：[产品范围与验收](../quant-harness/product-guide.md#requirements)、[Desktop](../quant-harness/desktop.md)、[main](../../desktop/src/main.ts)、[Bridge](../../desktop/src/bridge.ts)、[构建](../../desktop/scripts/build.ts)。这些链接定位现状，不是未来 apps 目录的实现证据。
 - 当前边界与待解耦点：[模块架构](../quant-harness/module-architecture.md)、[AppRuntime](../../src/app-runtime.ts)、[通用运行时](../agent-runtime/README.md)。
 - 可复用的验收基础：[连续键盘流程](../../src/tui/test/research-workflow.test.ts)、[配置](../quant-harness/configuration.md)、[报告与恢复](../quant-harness/artifacts-design.md)。
 - 相关讨论：[布局与视觉语言](./10-layout-and-visual-language.md)、[功能发现](./11-discoverable-interactions.md)、[失败后的继续工作](./12-recovery-as-ux.md)。

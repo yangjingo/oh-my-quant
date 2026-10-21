@@ -1,10 +1,10 @@
 # Quant UI/UX：把异步状态变成可理解的界面
 
-更新：2026-10-13。本文统一维护界面职责、异步一致性、结构化文本渲染与色彩消费规则。视觉真源是 [DESIGN](../../DESIGN.md)，字段与键位由 [配置](./configuration.md)、[Slash 参考](./slash-commands.md) 维护。旧布局与命令方案的取舍见 [终端演进记录](../blog/10-layout-and-visual-language.md#visual-language)，复验入口见文末；工程叙述分为 [状态一致性](../blog/06-terminal-consistency.md)、[布局与视觉语义](../blog/10-layout-and-visual-language.md)、[功能发现](../blog/11-discoverable-interactions.md)和[失败恢复体验](../blog/12-recovery-as-ux.md)，不以博客分析替代本页行为契约。
+更新：2026-10-13。本文统一维护界面职责、异步一致性、结构化文本渲染与色彩消费规则。视觉真源是 [DESIGN](../../DESIGN.md)，字段与键位由 [配置](./configuration.md)、[Slash 参考](./product-guide.md#commands) 维护。旧布局与命令方案的取舍见 [终端演进记录](../blog/10-layout-and-visual-language.md#visual-language)，复验入口见文末；工程叙述分为 [状态一致性](../blog/06-terminal-consistency.md)、[布局与视觉语义](../blog/10-layout-and-visual-language.md)、[功能发现](../blog/11-discoverable-interactions.md)和[失败恢复体验](../blog/12-recovery-as-ux.md)，不以博客分析替代本页行为契约。
 
 ## 用户任务与界面责任
 
-主要研究流程为配置 → 观察组合 → 数据检查 → 分析/比较 → 报告 → 恢复。Portfolio 是观察标的/分组；公开价格和模拟曲线不等于个人账户业绩。完整任务质量由 [PRD](./PRD.md) 与带日期验收记录维护。
+主要研究流程为配置 → 观察组合 → 数据检查 → 分析/比较 → 报告 → 恢复。Portfolio 是观察标的/分组；公开价格和模拟曲线不等于个人账户业绩。完整任务质量由 [产品范围与验收](./product-guide.md#requirements) 与带日期验收记录维护。
 
 ```text
 Header：品牌 / 活动

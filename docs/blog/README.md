@@ -54,6 +54,10 @@ bun run docs/blog/check.ts
 
 第一条从正文和 SVG 生成单文件 HTML；第二条核对本次整理涉及的链接、正文分节、修订日期和配图。结构检查不判断论证质量，独立读者复核另行进行；验证范围见[编辑与证据说明](./editorial-notes.md)。
 
+## 文章更新与网站发布
+
+[博客更新与 Vercel 发布流程](./website-publishing.md)说明源文件、生成文章包、完整网站 Preview、验收、入库、正式发布与回滚。十二篇离线合集与 Vercel 网站分别构建；博客不是修改后自动上线。
+
 ## 写作参照
 
 结构上参考 Lilian Weng 的概念分解，以及 Anthropic、OpenAI、Manus、Langfuse 工程博客中常见的「问题—机制—证据—限制」叙事。这里不复制它们的版式或示意图，也不把外部经验当作本项目验证。具体原文与使用边界集中在[参考来源](./editorial-notes.md#外部参考)。
