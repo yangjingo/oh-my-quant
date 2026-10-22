@@ -10,6 +10,8 @@
 
 ## 系列文章
 
+架构定稿：[给 Agent 做桌面，先想清楚关窗之后](./agentic/agent-desktop-lifecycle.html)（2026-10-22，[官网阅读](https://oh-my-quant.vercel.app/blog/agent-desktop-lifecycle/)）。保留确认后的单文件 HTML 为唯一正文，讨论 Electron＋React、共享 Host、窗口关闭后的执行归属、恢复与跨入口验收。这是后续架构计划，尚未完成重构；覆盖旧文中尚未定框架与默认桌面 PTY 的演进建议，不改称已交付能力。
+
 工程实践补篇：[Agentic / Vibe Repo Ops：让 AGENTS.md、Skills 与 CI 对同一次交付负责](./agentic/vibe-repo-ops.md)。统一说明 AGENTS、Skills、Issue、PR 评审、CI、合并与 npm 发布的分工；结合冲突、验证漂移和元数据反例讨论简洁与协作，配套仓库 review-skill。这篇独立 Markdown 不加入下方十二篇离线合集。
 
 | 篇章 | 核心问题 | 主要取舍 |

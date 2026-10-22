@@ -4,6 +4,22 @@
 
 保留已经验收的模型 API-key 引导、观察组合 CRUD、报告生成恢复和组合元数据存储。Pi 内核已接入不代表扩展宿主完成；旧文件存在不代表公开入口可用。
 
+## 2026-10-22：Desktop 与共享 Host 的新计划
+
+[确认后的架构文章](../blog/agentic/agent-desktop-lifecycle.html)选择 Electron＋React＋TypeScript＋Vite，首阶段使用 Bun HTTP/SSE Host。CLI/TUI 与浏览器入口保留，Desktop 目标改为共享 React GUI；关闭窗口与取消任务分开，关窗后通过托盘/Host 继续运行。显式退出整个应用、常驻 daemon 和系统休眠不在“关窗继续”的承诺内。这替代早期默认 PTY、框架待定的提案，**不表示 main 已实现这些能力**。
+
+依赖按可独立验收的模块组织，未承诺排期或代替贡献者认领：
+
+1. [#51](https://github.com/yangjingo/oh-my-quant/issues/51) 收敛当前 Docs 与目标契约，明确 `apps/{cli,desktop,web}` 薄入口、`src/app` 服务/Host、`src/commands` 和 `src/tui` 的归属。其余领域模块留在 src，官网仍是 site。
+2. [#46](https://github.com/yangjingo/oh-my-quant/issues/46) 提取无界面的应用服务；[#75](https://github.com/yangjingo/oh-my-quant/issues/75) 实现 Host 发现、复用、启动锁、就绪与断连语义，保证跨入口连接同一运行实例。
+3. [#50](https://github.com/yangjingo/oh-my-quant/issues/50) 负责共享 React UI；[#76](https://github.com/yangjingo/oh-my-quant/issues/76) 保留 CLI/TUI 兼容并加入 `whyj web`；[#47](https://github.com/yangjingo/oh-my-quant/issues/47) 负责 Electron 窗口、托盘和原生桥接。三者消费前述契约，避免各自创建独立 Agent。
+4. [#77](https://github.com/yangjingo/oh-my-quant/issues/77) 负责中断恢复、副作用核对和资源回收；[#78](https://github.com/yangjingo/oh-my-quant/issues/78) 将跨入口真实操作、测试发现和迁移后的交付检查接入 CI。保存过成果不等于任务已可恢复。
+5. [#48](https://github.com/yangjingo/oh-my-quant/issues/48) 构建固定 Windows 候选；[#56](https://github.com/yangjingo/oh-my-quant/issues/56) 对同一哈希执行目标机器验收，可验收未合并候选以避免循环依赖。正式发布单独授权。
+
+#46、#50 复用并重新打开；#49 比较框架的试点已被选型取代，保持关闭；[#29](https://github.com/yangjingo/oh-my-quant/issues/29) 保留为历史决策入口，当前契约由 #51 承担。博客已获授权先上线，博客 PR 按要求保持未合并，邀请 @Liears 讨论组织、执行所有权和迁移顺序；完成 Issue 描述不等于完成实现或验收。
+
+## 既有领域能力切片
+
 | 切片 | 优先级 / 特性 | 修改边界与退出条件 |
 |---|---|---|
 | R01 | P0 / F13 | 回测与指标：独立股数/现金账本；修正权益、复利年化、费用和日期契约；人工反例与参考实现交叉校验 |

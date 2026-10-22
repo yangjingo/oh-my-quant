@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { loadContent, renderPage, renderRuntimeMessages, routes } from "./render.mjs";
-import { articlePath, articleDirectory } from "./article.mjs";
+import { articles } from "./article.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const source = path.join(root, "public");
@@ -45,8 +45,10 @@ for (const { route, html } of pages) {
   await writeFile(path.join(directory, "index.html"), html);
 }
 await writeFile(path.join(output, "messages.js"), renderRuntimeMessages(content));
-for (const directory of ["assets", "images"]) {
-  await cp(path.join(articleDirectory, directory), path.join(output, articlePath, directory), { recursive: true });
+for (const article of articles) {
+  for (const entry of await readdir(article.directory, { withFileTypes: true })) {
+    if (entry.isDirectory()) await cp(path.join(article.directory, entry.name), path.join(output, article.path, entry.name), { recursive: true });
+  }
 }
 console.log(
   `Built ${pages.length} localized pages and ${files.length} public entries → site/dist. No application data included.`,

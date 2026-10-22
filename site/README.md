@@ -15,6 +15,7 @@
 
 ```sh
 node site/scripts/prepare-blog.mjs # Run from repository root after article edits; requires Bun
+node site/scripts/prepare-desktop-blog.mjs # Approved HTML article; uses root linkedom dependency
 bun run --cwd site dev
 bun run --cwd site build
 bun run --cwd site preview
@@ -38,7 +39,9 @@ bun run --cwd site preview
 | `public/app.js` | 标签切换、演示偏好、导航与复制命令 |
 | `public/fonts/` | 自托管 Geist / Geist Mono 及 SIL OFL 许可；页面不请求第三方字体 |
 | `scripts/render.mjs` | 路由、静态语言渲染和浏览器交互文案；缺失翻译会使构建失败 |
-| `scripts/build.mjs` | 生成四个中英文入口和一篇中文文章，复制经校验的公开资产到 `dist/` |
+| `scripts/article.mjs` | 显式登记两篇中文文章的源文件、路径与哈希校验 |
+| `scripts/prepare-desktop-blog.mjs` | 将已确认的架构文章 HTML 适配到生产 CSP，保留原稿作为真源 |
+| `scripts/build.mjs` | 生成四个中英文入口和两篇中文文章，复制经校验的公开资产到 `dist/` |
 | `scripts/prepare-blog.mjs` | 从 Markdown 和已认可的阅读模板生成文章与哈希清单 |
 | `content/blog/vibe-repo-ops/` | 生成内容，不手工编辑；独立上传 site 时无需访问根目录 docs |
 | `scripts/article.mjs` | 检查文章文件哈希，本地存在稿件时同时拒绝过期的生成版本 |
@@ -66,6 +69,7 @@ bun run --cwd site preview
 | 首页 | `/` | `/en/` |
 | Blog | `/blog/` | `/en/blog/` |
 | Repo Ops 文章 | `/blog/vibe-repo-ops/` | 英文列表标注 Chinese 并链接中文原文，尚未发布译文 |
+| Desktop 架构文章 | `/blog/agent-desktop-lifecycle/` | 英文列表标注 Chinese；已确认 HTML 为真源，不另写一份译稿 |
 
 页面在构建时生成完整的语言内容，直接访问或禁用 JavaScript 仍能阅读。语言按钮切换同一页面的另一种语言，并保留章节锚点；站内导航保持当前语言。`html lang`、页面标题、description、hreflang、无障碍标签和交互提示同步翻译。URL 决定语言，不依赖浏览器存储；演示偏好在两种语言之间共用。
 

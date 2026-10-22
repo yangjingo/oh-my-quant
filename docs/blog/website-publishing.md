@@ -129,7 +129,18 @@ vercel inspect oh-my-quant.vercel.app --scope yangjing-s-projects
 
 ## 7. 新增另一篇文章
 
-当前 `prepare-blog.mjs`、`article.mjs` 和 Repo Ops renderer 绑定一个稿件、slug 和章节结构；它们不是自动发现所有 Markdown 的 CMS。新增文章时显式实现对应生成入口、资产清单、路由和中英文列表条目，并调整文章自己的结构检查。不要把新 Markdown 丢进 `docs/blog` 就当成已经发布，也不要让整个 docs 目录成为公开资产。若文章数量增加，再将已验证模式提炼为文章登记表。
+`article.mjs` 显式登记文章的源文件、slug 与生成包；构建和本机服务器遍历同一登记表。新增文章仍须实现相应准备入口、资产清单、中英文列表条目和结构检查，不自动扫描整个 docs 目录。
+
+2026-10-22 的《给 Agent 做桌面，先想清楚关窗之后》以用户确认的 [单文件 HTML](./agentic/agent-desktop-lifecycle.html) 为唯一正文，不另建独立 Markdown。它保留定稿的摘要、行内源码引用和章节形式，属于本篇明确的编辑例外；不是取消后续文章的 TL;DR / References 规范。源文件按原字节保存（`.gitattributes` 中 `-text`），初次确认 SHA-256 为 `9cae452c9c15f1865717363b025a674ea986ae8e8e120b915c867f062de6d2a3`。保留旧工作树中的早期技术选型草稿，不把它混入正式文章。
+
+```powershell
+node site/scripts/prepare-desktop-blog.mjs
+node site/scripts/build.mjs
+```
+
+准备脚本使用仓库已有的 `linkedom`，从定稿提取字体、插图、许可证、CSS 和 JS，补上 canonical、正常分享和两张表格的轻量筛选/隐藏/对比。保留正文和图源，不放宽官网 CSP；生成包在 `site/content/blog/agent-desktop-lifecycle/`，每个文件和原稿都有哈希。生产构建只依赖 Node 和生成包，无需 `linkedom` 或根目录 docs。修改此文章后使用它自己的准备命令；`prepare-blog.mjs` 仍只生成 Repo Ops。
+
+两个列表均链接中文正文；英文列表标注 Chinese，不生成未审阅的译文。博客发布与代码合并是两个状态：本次用户授权先上线，但要求博客 PR 保持未合并并邀请 @Liears 审阅架构。部署记录需明确记录候选内容及生产 ID；后续从 main 发布前，应先合入或显式携带这份候选，防止覆盖已上线文章。
 
 ## References
 

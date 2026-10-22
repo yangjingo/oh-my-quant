@@ -1,0 +1,170 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0C0C0C"><meta name="color-scheme" content="dark"><meta name="description" content="从现有 CLI 演进到持续工作台：一次围绕执行归属、窗口生命周期与进度恢复的源码审阅和技术取舍。"><title>给 Agent 做桌面，先想清楚关窗之后 · WhyJ Quant</title><link rel="icon" href="/blog/agent-desktop-lifecycle/assets/f8447b51f6ce90440629.svg" type="image/svg+xml"><link href="https://oh-my-quant.vercel.app/blog/agent-desktop-lifecycle/" rel="canonical"><link href="/blog/agent-desktop-lifecycle/assets/article.css" rel="stylesheet"></head><body id="top"><a class="skip-link" href="#article">跳到正文</a><header class="site-header"><div class="nav-shell"><a class="brand" href="https://oh-my-quant.vercel.app/" aria-label="WhyJ Quant 官网"><img class="brand-mark" src="/blog/agent-desktop-lifecycle/assets/15160f69381971508bc6.svg" width="32" height="32" alt="" aria-hidden="true"><span>WhyJ Quant</span></a><nav class="site-nav" aria-label="网站导航"><a href="https://oh-my-quant.vercel.app/blog/">Blog</a><a class="icon-link" href="https://github.com/yangjingo/oh-my-quant" aria-label="GitHub 仓库" title="GitHub"><svg class="icon" data-icon="github" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+  <path d="M9 18c-4.51 2-5-2-7-2" />
+  </svg></a></nav></div><progress id="reading-progress" max="100" value="0" aria-label="文章阅读进度" hidden></progress></header><main class="reading-layout"><header class="article-header"><h1><span class="series-title">oh-my-quant 的架构演进</span><span class="main-title">给 Agent 做桌面，先想清楚关窗之后</span></h1><p class="article-subtitle">从 oh-my-quant 的现有代码出发，记录借鉴 DSH 与 ZCode 时改变的判断、保留的约束和待验证的风险。</p><div class="article-meta"><span class="author">WhyJ</span><time datetime="2026-10-19">2026.10.19</time><span>更新于 <time datetime="2026-10-22">2026.10.22</time></span></div><p class="source-meta">源码审阅与架构取舍 · 2026-10-22</p><div class="article-utilities"><span class="reading-time" title="按中文每分钟 350 字、英文每分钟 220 词估算"><svg class="icon" data-icon="clock" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <circle cx="12" cy="12" r="10" />
+  <path d="M12 6v6l4 2" />
+</svg>预计阅读 9 分钟</span><div class="article-actions"><button id="share-article" class="article-action" type="button" aria-label="分享文章" title="分享或复制文章链接" hidden><svg class="icon" data-icon="share-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <circle cx="18" cy="5" r="3" />
+  <circle cx="6" cy="12" r="3" />
+  <circle cx="18" cy="19" r="3" />
+  <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" />
+  <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
+</svg><span>分享</span></button><button id="print-article" class="article-action" type="button" aria-label="打印或保存为 PDF" title="打开打印窗口，可选择保存为 PDF" hidden><svg class="icon" data-icon="printer" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+  <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
+  <rect x="6" y="14" width="12" height="8" rx="1" />
+</svg><span>PDF</span></button></div></div><p id="article-action-status" class="action-status" role="status"></p><a id="share-fallback" class="share-fallback" hidden>当前页面链接</a></header><aside class="sidebar" aria-label="阅读辅助"><div class="sidebar-inner"><div class="sidebar-reveal"><p class="sidebar-label">本文内容</p><nav aria-label="文章目录"><ol class="toc"><li><a class="toc-link" href="#section-1"><span class="toc-number">01</span><span>一句关窗继续，改变了问题</span></a><div class="toc-children-wrap"><div><ol class="toc-children"></ol></div></div></li><li><a class="toc-link" href="#section-2"><span class="toc-number">02</span><span>参考项目，先看它划开的边界</span></a><div class="toc-children-wrap"><div><ol class="toc-children"></ol></div></div></li><li><a class="toc-link" href="#section-3"><span class="toc-number">03</span><span>共享代码，还要明确谁在执行</span></a><div class="toc-children-wrap"><div><ol class="toc-children"><li><a href="#web-launch">网页与 CLI／TUI 并行保留</a></li></ol></div></div></li><li><a class="toc-link" href="#section-4"><span class="toc-number">04</span><span>保存过成果，不代表任务能恢复</span></a><div class="toc-children-wrap"><div><ol class="toc-children"></ol></div></div></li><li><a class="toc-link" href="#section-5"><span class="toc-number">05</span><span>测试跟着职责迁移，验收跨越入口</span></a><div class="toc-children-wrap"><div><ol class="toc-children"></ol></div></div></li></ol></nav></div></div></aside><div class="main-column"><details class="mobile-contents"><summary>文章目录 <svg class="icon" data-icon="chevron-down" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="m6 9 6 6 6-6" />
+  </svg></summary><nav aria-label="移动端文章目录"><ol><li><a href="#section-1"><span>01</span>一句关窗继续，改变了问题</a></li><li><a href="#section-2"><span>02</span>参考项目，先看它划开的边界</a></li><li><a href="#section-3"><span>03</span>共享代码，还要明确谁在执行</a></li><li><a href="#section-4"><span>04</span>保存过成果，不代表任务能恢复</a></li><li><a href="#section-5"><span>05</span>测试跟着职责迁移，验收跨越入口</a></li></ol></nav></details><article class="prose" id="article">
+<p class="section-lead"><strong>给已有 Agent 加桌面界面，最先要拆的是任务与窗口的生命周期。</strong>复用 TS 核心、保留三个入口，需要补齐执行归属与恢复。本文来自讨论和源码审阅，重构与长期验证尚未完成。</p>
+<h2 id="section-1" tabindex="-1">一句关窗继续，改变了问题</h2>
+<p>最初，我们希望把已有 Ink 界面做成 exe，保留分析、行情和输入功能。讨论自然落在桌面框架与 TS 复用上。</p>
+<figure class="article-figure" id="figure-2">
+<a class="figure-link" data-figure="" href="/blog/agent-desktop-lifecycle/assets/778fe446aa8e88cf96e9.png" aria-describedby="figure-caption-2" aria-label="放大图 1：当前 CLI 终端界面">
+<img src="/blog/agent-desktop-lifecycle/assets/778fe446aa8e88cf96e9.png" width="3120" height="1984" loading="lazy" decoding="async" alt="当前 WhyJ Quant CLI 终端界面：左侧分析与工具执行记录，右侧 Overview 行情与数据源，底部 Composer 输入框和状态栏。">
+<span class="figure-zoom">放大查看</span></a>
+<figcaption id="figure-caption-2">图 1 · 当前 CLI 终端界面（用户提供）：分析区、Overview、Composer 与状态栏，是桌面图形界面的功能与布局起点。</figcaption>
+</figure>
+<p>直到需求补上了一句：<strong>关闭窗口后，还要继续工作。</strong>任务的寿命必须长于界面连接，成果还要支持回看与追问。</p>
+<p>我们查看现有 <a href="https://github.com/yangjingo/oh-my-quant/blob/0c8c5a9bfefe7d709cab302630d1b7653edbcb39/desktop/src/main.ts">Electron 入口</a>，发现它通过 PTY 和 xterm 展示终端；关窗处理先隐藏窗口，再发送 Ctrl+D，随后用定时器结束进程树，渲染进程异常也会触发清理。这套行为适合“窗口承载一次终端会话”，却与新的持续工作要求冲突。尚未做故障复现。</p>
+<p>我们选定 Electron＋React＋TypeScript＋Vite。Ink 的布局思路可以延续，图形组件仍需重写；同用 TS，无法省掉生命周期的拆分。</p>
+<h2 id="section-2" tabindex="-1">参考项目，先看它划开的边界</h2>
+<p>DSH 与 ZCode 提供了两个值得借鉴的拆分边界。</p>
+<figure class="reference-diagrams" aria-labelledby="reference-diagrams-caption">
+<div class="reference-diagrams-grid">
+<div class="reference-diagram">
+<div class="reference-diagram-heading"><strong>DSH</strong><span>共享启动</span></div>
+<svg viewBox="0 0 340 190" role="img" aria-label="DSH：Electron 启动 Host，Host 与 CLI 都调用共享 runProfile。">
+<defs><marker id="dsh-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M1 1L7 4L1 7" class="svg-arrow-head" /></marker></defs>
+<rect class="svg-box" x="10" y="18" width="125" height="48" rx="5" /><text x="72.5" y="48">Electron</text>
+<rect class="svg-box" x="205" y="18" width="125" height="48" rx="5" /><text x="267.5" y="48">Host</text>
+<path class="svg-connector" d="M135 42H200" marker-end="url(#dsh-arrow)" />
+<path class="svg-connector" d="M267 67V121" marker-end="url(#dsh-arrow)" />
+<rect class="svg-box" x="10" y="126" width="125" height="48" rx="5" /><text x="72.5" y="156">CLI</text>
+<rect class="svg-box svg-accent" x="205" y="126" width="125" height="48" rx="5" /><text class="svg-gold" x="267.5" y="156">runProfile</text>
+<path class="svg-connector" d="M135 150H200" marker-end="url(#dsh-arrow)" />
+</svg>
+</div>
+<div class="reference-diagram">
+<div class="reference-diagram-heading"><strong>ZCode</strong><span>共享界面</span></div>
+<svg viewBox="0 0 340 190" role="img" aria-label="ZCode：桌面与 Web 入口共享 React Root，各自适配连接。">
+<defs><marker id="zcode-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M1 1L7 4L1 7" class="svg-arrow-head" /></marker></defs>
+<rect class="svg-box" x="10" y="18" width="145" height="60" rx="5" /><text x="82.5" y="43">桌面入口</text><text class="svg-small" x="82.5" y="64">MessagePort</text>
+<rect class="svg-box" x="185" y="18" width="145" height="60" rx="5" /><text x="257.5" y="43">Web 入口</text><text class="svg-small" x="257.5" y="64">WebSocket</text>
+<path class="svg-connector" d="M82 79V100H257V79" /><path class="svg-connector" d="M170 100V121" marker-end="url(#zcode-arrow)" />
+<rect class="svg-box svg-accent" x="60" y="126" width="220" height="48" rx="5" /><text class="svg-gold" x="170" y="156">共享 React Root</text>
+</svg>
+</div></div>
+<figcaption id="reference-diagrams-caption">图 2 · 源码关系简图：<a href="https://github.com/deepseek-ai/deepseek-harness/blob/687f282e8625c6b8d11ff58211a90524be2e4317/apps/desktop-host/src/index.ts">DSH Host</a>；ZCode 的<a href="https://github.com/zai-org/ZCode/blob/3c5b227649371507ddc4eb46ac5133afe6db1cab/packages/desktop/src/renderer/src/main.tsx">桌面</a>与<a href="https://github.com/zai-org/ZCode/blob/3c5b227649371507ddc4eb46ac5133afe6db1cab/packages/web/src/main.tsx">Web</a>入口。只展示本轮借鉴的边界。</figcaption>
+</figure>
+<p><a href="https://github.com/deepseek-ai/deepseek-harness/blob/687f282e8625c6b8d11ff58211a90524be2e4317/apps/desktop-host/src/index.ts">DSH 的桌面 Host</a>调用共享 <code>runProfile</code>，CLI 与桌面沿用启动能力，窗口由 Electron 管理。这让我们看到：可以保留多个入口，而不让每个入口重新组装模型、工具和配置。但 Host 独立成子进程并不意味着它永远存活；该实现收到父进程断连后仍会停止。</p>
+<p>ZCode 的<a href="https://github.com/zai-org/ZCode/blob/3c5b227649371507ddc4eb46ac5133afe6db1cab/packages/desktop/src/renderer/src/main.tsx">桌面</a>和<a href="https://github.com/zai-org/ZCode/blob/3c5b227649371507ddc4eb46ac5133afe6db1cab/packages/web/src/main.tsx">网页</a>加载同一个 React Root，连接分别适配 MessagePort 与 WebSocket。我们借鉴它的界面共享方式，并以其工作台交互为布局参考：量化场景拟安排左侧工作空间与任务、中间对话与输入、右侧行情、证据和成果。这是我们的映射方案。</p>
+<p>先借边界，暂不搬完整插件体系和多包结构：额外的构建与版本协调，需要真实需求支撑。</p>
+<blockquote class="principle-pause"><p><mark class="decision-highlight">先让推荐接受现有系统的约束，再用最小的实际改动减少关键未知。</mark></p></blockquote>
+<h2 id="section-3" tabindex="-1">共享代码，还要明确谁在执行</h2>
+<p>现有 agent、runtime、quant、source、storage 已有职责划分，保留这些资产比重排目录更重要。需要先处理的是 <a href="https://github.com/yangjingo/oh-my-quant/blob/0c8c5a9bfefe7d709cab302630d1b7653edbcb39/src/app-runtime.ts">AppRuntime</a>：它已有提交、取消和状态能力，同时也带着打开配置、恢复面板等界面回调，还引用了 TUI 的类型。若直接给网页调用，界面耦合也会一起带过去。</p>
+<p>先提取应用服务，面板、焦点和快捷键留给界面。三个入口共享契约，浏览器与桌面共享 React UI，CLI 保留 Ink TUI；逐条迁移调用链。</p>
+<figure class="runtime-map" aria-labelledby="runtime-map-caption">
+<div class="runtime-map-grid entry-grid"><div class="runtime-map-node"><strong>CLI / TUI</strong><span>apps/cli 启动<br>src/tui 渲染</span></div><div class="runtime-map-node"><strong>Electron 桌面</strong><span>apps/web · React UI</span></div><div class="runtime-map-node"><strong>浏览器</strong><span>apps/web · React UI</span></div></div>
+<div class="runtime-map-connector" aria-hidden="true">↓</div>
+<div class="runtime-map-host"><strong>Host · 共享应用服务</strong><span>提交、取消、会话、状态同步</span></div>
+<div class="runtime-map-connector" aria-hidden="true">↓</div>
+<div class="runtime-map-grid"><div class="runtime-map-node"><strong>Agent / Runtime</strong><span>研究、行情、计算</span></div><div class="runtime-map-node"><strong>Storage</strong><span>进度与成果</span></div></div>
+<figcaption id="runtime-map-caption">图 3 · 拟议结构：三个入口，共享能力。CLI 可独立调用服务；访问同一任务时，各入口连接同一 Host。</figcaption></figure>
+<p><strong>共享代码，不等于共享正在执行的任务。</strong>各自创建 Agent 会产生两份状态。跨入口接续任务，必须连接同一 Host，并对齐工作空间、会话和运行标识；独立单次 CLI 可直调服务。</p>
+<p>因此，目录先收敛为下面的目标结构，尚未实施迁移：</p>
+<pre class="evolution-tree"><code>apps/
+  cli/          启动参数、终端／单次命令／网页模式
+  desktop/      Electron、preload、窗口与安装
+  web/          桌面与浏览器共用的 React UI
+src/
+  app/          bootstrap、Host、应用服务
+  commands/     命令解析与分发（逐步由 src/cli 收敛）
+  tui/          Ink 布局、输入与终端刷新
+  agent/ runtime/ quant/ source/ storage/ types/
+site/           公开网站</code></pre>
+<p><code>apps/cli</code> 决定怎么启动，<code>commands</code> 解释命令，<code>tui</code> 和 <code>apps/web</code> 分别渲染两种界面。两套渲染器分别处理终端按键和网页焦点。</p>
+<h3 id="web-launch" tabindex="-1">网页是正式入口，也是调试入口</h3>
+<p><strong>保留 whyj CLI 与 Ink TUI，一个命令名承接不同入口。</strong>沿用现有默认行为和专业子命令，只新增网页模式：</p>
+<section aria-label="启动方式与状态" class="interactive-table"><div class="component-header"><p class="component-title">表 1 · 启动方式与状态</p><div class="table-tools" hidden><button class="quiet-icon" type="button" data-settings="" aria-label="筛选与显示列" title="筛选与显示列" aria-expanded="false" aria-controls="table-settings-1"><svg class="icon" data-icon="settings-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M14 17H5" />
+  <path d="M19 7h-9" />
+  <circle cx="17" cy="17" r="3" />
+  <circle cx="7" cy="7" r="3" />
+  </svg></button><button class="quiet-icon" type="button" data-select="" aria-label="选择项目对比" title="选择项目对比" aria-pressed="false"><svg class="icon" data-icon="columns-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M12 3v18" />
+</svg></button><button class="quiet-icon" type="button" data-expand="" aria-label="展开阅读" title="展开阅读"><svg class="icon" data-icon="maximize-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M15 3h6v6" />
+  <path d="m21 3-7 7" />
+  <path d="m3 21 7-7" />
+  <path d="M9 21H3v-6" />
+</svg></button></div></div><div class="table-settings" id="table-settings-1" hidden><label class="table-search">搜索全表<input type="search" autocomplete="off" aria-controls="table-data-1"></label><div class="column-options"></div><button class="text-action" type="button" data-reset="">重置筛选与列</button></div><div class="table-state" hidden><output aria-live="polite"></output><button class="text-action" type="button" data-compare="" hidden>对比所选</button><button class="quiet-icon" type="button" data-cancel="" aria-label="退出对比" title="退出对比" hidden><svg class="icon" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+  </svg></button></div><div class="table-scroll" tabindex="0" role="region" aria-label="启动方式与状态，可横向滚动"><table id="table-data-1" class="entry-roles launch-commands"><thead><tr><th>启动方式</th><th>用途与状态</th></tr></thead><tbody>
+<tr><td><code>whyj</code></td><td>保留交互式 TUI、终端布局与按键。</td></tr>
+<tr><td><code>whyj -c "/help"</code></td><td>保留单次命令；脚本可加 <code>--json</code>。</td></tr>
+<tr><td><code>whyj web</code></td><td>拟新增：连接或启动 Host，自动打开网页。</td></tr>
+<tr><td>双击桌面图标</td><td>拟改为加载共享 React UI，补充托盘与原生能力。</td></tr>
+<tr><td><code>whyj doctor</code></td><td>保留环境诊断。</td></tr>
+</tbody></table></div><p class="table-empty" hidden>没有匹配的行，请修改关键词或重置。</p></section>
+<p>交互入口共用 bootstrap：定位工作空间 → 查找兼容 Host → 连接或启动 → 打开界面。用启动锁与就绪检查避免并发创建两套后台；单次命令按需加载，帮助和版本查询不启动 Host。</p>
+<p>网页正式使用加载构建产物，无需 Vite；开发时再接热更新。默认绑定本机回环地址，保留来源与令牌检查。开发脚本拟统一如下，后两项尚待新增：</p>
+<pre class="evolution-tree"><code>bun run dev           # 保留 CLI／TUI 开发
+bun run dev:web       # Host + Vite
+bun run dev:desktop   # Host + Vite + Electron</code></pre>
+<p>开发编排负责就绪等待、日志与进程清理。关闭网页只断开连接，桌面关窗进入托盘；TUI 退出不误停共享 Host。明确停止后台时提示未完成任务，并按归属清理资源。</p>
+<h2 id="section-4" tabindex="-1">保存过成果，不代表任务能恢复</h2>
+<p>追问和保存已有实现，长期运行却仍有缺口。</p>
+<p><a href="https://github.com/yangjingo/oh-my-quant/blob/0c8c5a9bfefe7d709cab302630d1b7653edbcb39/src/app/research-workspace/manager.ts">研究 manager</a>在本次服务达到 50 次研究后要求保存并重启，追问历史也有上限；它还承担单股研究规则。对一个范围明确的实验，这些限制是合理护栏。要变成长期工作台，需要补上已完成 Agent、订阅和临时状态的回收，以及历史按需加载。直接去掉次数限制，只是把资源问题推迟暴露。</p>
+<p><a href="https://github.com/yangjingo/oh-my-quant/blob/0c8c5a9bfefe7d709cab302630d1b7653edbcb39/src/storage/src/workspace.ts">研究成果存储</a>只接受完成状态，保存的版本不可变。它保护引用依据，却无法单独说明中断时的工作现场。<strong>成果是可引用的版本，进度是可继续的工作现场。</strong>两者需要不同的保存语义。</p>
+<p>保留不可变成果，消息、运行状态与关键事件自动落盘，优先复用 session journal。若工具已写文件但结果未记录，恢复时必须核对副作用；无法判断就标为待确认，不能直接重跑。</p>
+<p>现有 HTTP＋SSE 推送会复制完整运行对象，长对话成本尚未测量。首版沿用 Bun 与 HTTP＋SSE，再决定是否采用快照加带序号的增量；节省流量的代价是缺口检测与重新同步。</p>
+<p>断开订阅只结束观察，取消必须是明确命令，避免刷新界面误停研究。</p>
+<h2 id="section-5" tabindex="-1">测试跟着职责迁移，验收跨越入口</h2>
+<p>现有 <a href="https://github.com/yangjingo/oh-my-quant/blob/0548a92b6d98d7d1270091de46eb9f00cf81bed4/package.json">测试入口</a>区分模块与集成测试：多数模块用例在 <code>src/*/test</code>，应用集成在 <code>tests/app</code>，架构约束在 <code>tests/architecture</code>；桌面另有 smoke 和安装检查。<a href="https://github.com/yangjingo/oh-my-quant/blob/0548a92b6d98d7d1270091de46eb9f00cf81bed4/src/app/research-workspace/test/workspace.test.ts">研究工作区</a>已有取消、追问、保存重载和断流不取消等用例。重构应继承这些行为资产。</p>
+<p>建议保留模块就近测试，将共享行为集中验证，各入口只补适配与少量端到端用例。以下是目标组织，尚未迁移：</p>
+<section aria-label="测试职责与位置" class="interactive-table"><div class="component-header"><p class="component-title">表 2 · 测试职责与位置</p><div class="table-tools" hidden><button class="quiet-icon" type="button" data-settings="" aria-label="筛选与显示列" title="筛选与显示列" aria-expanded="false" aria-controls="table-settings-2"><svg class="icon" data-icon="settings-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M14 17H5" />
+  <path d="M19 7h-9" />
+  <circle cx="17" cy="17" r="3" />
+  <circle cx="7" cy="7" r="3" />
+  </svg></button><button class="quiet-icon" type="button" data-select="" aria-label="选择项目对比" title="选择项目对比" aria-pressed="false"><svg class="icon" data-icon="columns-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M12 3v18" />
+</svg></button><button class="quiet-icon" type="button" data-expand="" aria-label="展开阅读" title="展开阅读"><svg class="icon" data-icon="maximize-2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M15 3h6v6" />
+  <path d="m21 3-7 7" />
+  <path d="m3 21 7-7" />
+  <path d="M9 21H3v-6" />
+</svg></button></div></div><div class="table-settings" id="table-settings-2" hidden><label class="table-search">搜索全表<input type="search" autocomplete="off" aria-controls="table-data-2"></label><div class="column-options"></div><button class="text-action" type="button" data-reset="">重置筛选与列</button></div><div class="table-state" hidden><output aria-live="polite"></output><button class="text-action" type="button" data-compare="" hidden>对比所选</button><button class="quiet-icon" type="button" data-cancel="" aria-label="退出对比" title="退出对比" hidden><svg class="icon" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+  </svg></button></div><div class="table-scroll" tabindex="0" role="region" aria-label="测试职责与位置，可横向滚动"><table id="table-data-2" class="entry-roles"><thead><tr><th>测试位置</th><th>应该守住的行为</th></tr></thead><tbody>
+<tr><td><code>src/*/test</code></td><td>保留计算、取数、存储及 TUI 的测试。服务提取后，用例随职责进入 <code>src/app/services/test</code>，复用固定数据与可控假 Agent。</td></tr>
+<tr><td><code>tests/app</code><br><code>tests/<wbr>contracts</code></td><td>保留应用组装测试，新增直连服务与 Host API 的共用契约用例：提交、取消、追问、保存，对齐状态和成果；不比较模型回复原文。</td></tr>
+<tr><td><code>apps/*/test</code></td><td>CLI 检查参数、输出与退出码；Web 检查输入、焦点和订阅；Electron 检查窗口、托盘与连接。TUI 仍检查按键、粘贴、滚动和窄终端。</td></tr>
+<tr><td><code>tests/e2e</code></td><td>少量跨入口场景使用真实 Host、临时工作空间与假模型；网页和桌面走真实界面，CLI／TUI 走进程或伪终端。</td></tr>
+</tbody></table></div><p class="table-empty" hidden>没有匹配的行，请修改关键词或重置。</p></section>
+<p>旧入口先锁定行为，新服务接过同组断言，旧入口保留接线测试。假 Agent 控制延迟、失败和迟到事件，各测试隔离目录、端口与时钟。</p>
+<p>启动回归还要检查：默认 <code>whyj</code> 与旧参数兼容，重复启动只创建一个 Host，退出单个界面不误停共享任务。</p>
+<p>验收链：网页提交 → 桌面接回同一运行 → 关窗仍执行 → CLI 取消 → 迟到事件不能覆盖取消状态 → 显式继续并保存、追问。另测运行中终止 Host 后能定位中断。检查运行标识、终态与成果版本，并验证重试不重复执行、副作用不明时不自动重跑。</p>
+<p>还有一个真实的迁移陷阱：当前<a href="https://github.com/yangjingo/oh-my-quant/blob/0548a92b6d98d7d1270091de46eb9f00cf81bed4/desktop/scripts/smoke.mjs">桌面 smoke</a>期待关窗后进程退出。新需求落地时，应拆成“关窗保活”和“明确退出后清理”两组断言，不能为了旧测试通过而保留旧行为。</p>
+<p><strong>CI 也要分层。</strong>每个 PR 跑类型、架构、模块与契约测试；改动入口再跑对应适配及端到端检查。定时任务跑长时间运行和真实 provider 冒烟；发布前在干净 Windows 环境验证安装、启动、升级及数据保留。真实模型的质量评估单列，记录模型、样本与预算。</p>
+<p>迁入 <code>apps/</code> 时同步更新测试发现规则、<code>test:fence</code> 和 CI；显式排除需独立运行的桌面与端到端套件，继续隔离手工产物生成器。现有 <code>npm test</code> 不包含桌面套件，全绿不等于三个入口都通过。</p>
+<p class="acceptance-pause">再测输入、滚动、重连延迟与跨日资源增长。完全退出后继续运行另做守护设计，休眠不在持续执行承诺内。顺序仍是本地工作台、桌面产品化、手机端。</p>
+<p>本文依据固定版本；测试组织另补查 oh-my-quant 0548a92，链接随文给出。图 1 是现有 CLI 截图；图 2 是源码关系简图；图 3 是演进建议。文中的风险来自代码审阅与设计推演，尚无性能测量或长期运行验收结果。</p>
+</article><div class="article-end"><span>WhyJ <span class="end-dot" aria-hidden="true">·</span> 2026</span><a href="#top">返回顶部 <svg class="icon" data-icon="arrow-up" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="m5 12 7-7 7 7" />
+  <path d="M12 19V5" />
+</svg></a></div></div></main><footer class="site-footer"><a class="footer-brand" href="https://oh-my-quant.vercel.app/">WhyJ Quant</a><span>Research. Backtest. Analyze.</span></footer><template id="blog-control-icons"><svg class="icon" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+  </svg></template><dialog class="figure-dialog" aria-labelledby="figure-dialog-title"><div class="figure-dialog-bar"><h2 id="figure-dialog-title">插图</h2><button class="icon-link" type="button" id="close-figure" aria-label="关闭放大图"><svg class="icon" data-icon="x" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+  </svg></button></div><div class="figure-dialog-canvas" tabindex="0" aria-label="放大图，可滚动查看"><img alt=""></div><p class="figure-dialog-caption"></p></dialog>
+
+<script defer src="/blog/agent-desktop-lifecycle/assets/article.js"></script><script defer src="/blog/agent-desktop-lifecycle/assets/tables.js"></script></body></html>

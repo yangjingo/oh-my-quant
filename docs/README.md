@@ -150,6 +150,7 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 | [README.md](./README.md) | 本页只登记现行入口和内容职责 |
 | [blog/README.md](./blog/README.md) | 系列阅读路径与写作约定 |
 | [blog/website-publishing.md](./blog/website-publishing.md) | 文章更新、完整网站 Preview、入库、Vercel 正式发布与回滚流程 |
+| [给 Agent 做桌面，先想清楚关窗之后](./blog/agentic/agent-desktop-lifecycle.html) | 2026-10-22 定稿：共享 Host、React GUI、关窗继续与恢复的架构计划；未完成实现 |
 | [blog/editorial-notes.md](./blog/editorial-notes.md) | 当前编辑约定、来源与证据边界，不保存整理流水 |
 | [blog/build.ts](./blog/build.ts) | 从 Markdown/SVG 重建离线图文版 |
 | [blog/check.ts](./blog/check.ts) | 文件覆盖、链接、锚点及生成物检查 |
