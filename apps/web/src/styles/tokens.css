@@ -1,0 +1,45 @@
+/*
+ * Design tokens shared by the browser entry and the Electron window.
+ *
+ * Values are taken verbatim from DESIGN.md so the workbench, the terminal and
+ * the marketing site read as one product. Nothing here is a new colour: if a
+ * value is missing, add it to DESIGN.md first, then reference it here.
+ */
+:root {
+  /* Surfaces */
+  --surface: #0c0c0c;
+  --surface-container: #141312;
+  --surface-container-high: #1c1b18;
+
+  /* Text */
+  --on-surface: #fff3c4;
+  --reading-text: #b8b4a8;
+  --reading-link: #c4b68e;
+  --on-surface-variant: #8f8a7b;
+
+  /* Accent */
+  --primary: #c99a2e;
+  --on-primary: #0c0c0c;
+  --divider: #3a362c;
+
+  /* Market direction: up is warm, down is cool. Matches the terminal. */
+  --market-up: #d87565;
+  --market-down: #75a26f;
+
+  /* Type */
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas,
+    "Microsoft YaHei", monospace;
+  --font-size-base: 12px;
+  --font-size-label: 11px;
+  --font-size-title: 14px;
+  --line-height: 1.65;
+
+  /* Density */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --rail-width: 236px;
+  --panel-width: 340px;
+}

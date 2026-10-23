@@ -59,7 +59,10 @@
     "check:docs": "bun run docs/blog/check.ts",
     "prepublishOnly": "npm run gen:insights && npm run check:release",
     "desktop:build": "bun run --cwd desktop build",
-    "desktop:dist": "bun run desktop:build && bun run --cwd desktop dist:win"
+    "desktop:dist": "bun run desktop:build && bun run --cwd desktop dist:win",
+    "web:dev": "bun run --cwd apps/web dev",
+    "web:build": "bun run --cwd apps/web build",
+    "web:typecheck": "bun run --cwd apps/web typecheck"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "1.2.0",

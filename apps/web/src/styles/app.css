@@ -1,0 +1,708 @@
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--reading-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 1px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Layout -------------------------------------------------------------- */
+
+.workbench {
+  display: grid;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr) var(--panel-width);
+  height: 100%;
+  min-height: 0;
+}
+
+.rail,
+.panel {
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface-container);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-3);
+  border-right: 1px solid var(--divider);
+}
+
+.rail__brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--divider);
+}
+
+.rail__mark {
+  color: var(--primary);
+  font-size: var(--font-size-title);
+  letter-spacing: 0.08em;
+}
+
+.rail__name {
+  color: var(--on-surface);
+  font-size: var(--font-size-title);
+}
+
+.rail__version {
+  margin-left: auto;
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+}
+
+.label {
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rail__new {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  text-align: left;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.rail__new:hover,
+.rail__new:focus-visible {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.rail__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-left: 1px solid transparent;
+  color: var(--reading-text);
+  text-align: left;
+  width: 100%;
+}
+
+.rail__item:hover {
+  background: var(--surface-container-high);
+}
+
+.rail__item[data-active="true"] {
+  border-left-color: var(--primary);
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+}
+
+.rail__item-code {
+  color: var(--on-surface-variant);
+}
+
+.rail__item-count {
+  margin-left: auto;
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+}
+
+.rail__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--divider);
+}
+
+.rail__icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 4px;
+  color: var(--reading-text);
+}
+
+.rail__icon svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rail__icon:hover {
+  color: var(--on-surface);
+  background: var(--surface-container-high);
+}
+
+/* Conversation -------------------------------------------------------- */
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.main__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--divider);
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+}
+
+.main__crumb--current {
+  color: var(--on-surface);
+}
+
+.main__thread {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  padding: var(--space-5);
+}
+
+.empty {
+  max-width: 62ch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.empty__title {
+  margin: 0;
+  color: var(--on-surface);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.empty__body {
+  margin: 0;
+  color: var(--reading-text);
+}
+
+.empty__example {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 1px solid var(--primary);
+  color: var(--on-surface-variant);
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.turn__role {
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.turn[data-role="user"] .turn__text {
+  color: var(--on-surface);
+}
+
+.turn__text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.turn[data-state="pending"] .turn__text::after {
+  content: "▍";
+  color: var(--primary);
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* Composer ------------------------------------------------------------ */
+
+.composer {
+  border-top: 1px solid var(--divider);
+  padding: var(--space-2) var(--space-5) var(--space-3);
+}
+
+/* One container holds the field and its controls, the way a prompt box does:
+   two rows inside one rounded surface read as a single object, while a field
+   plus a detached hint row reads as a table row. 4px is the compact-control
+   radius DESIGN.md allows; nothing here becomes a card. */
+.composer__box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 920px;
+  padding: 8px 8px 6px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  background: var(--surface-container);
+}
+
+/* DESIGN.md asks for a 2px gold focus ring separated from the component. */
+.composer__box:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.composer__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.composer__prompt {
+  color: var(--primary);
+  line-height: 1.6;
+}
+
+.composer__input {
+  flex: 1;
+  min-height: 20px;
+  max-height: 120px;
+  resize: none;
+  border: 0;
+  background: transparent;
+  color: var(--on-surface);
+  font: inherit;
+  line-height: 1.6;
+}
+
+.composer__input::placeholder {
+  color: var(--on-surface-variant);
+}
+
+.composer__input:focus {
+  outline: none;
+}
+
+.composer__strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+}
+
+.composer__keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* The status is the part that may be dropped when space runs out; the send
+   control never is, so it keeps its own size. */
+.composer__status {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer__send {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 4px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* Lighter gold token, used here only as the pressed-weight feedback. */
+.composer__send:hover:not(:disabled) {
+  background: var(--reading-link);
+}
+
+.composer__send:disabled {
+  background: transparent;
+  border: 1px solid var(--divider);
+  color: var(--divider);
+  cursor: not-allowed;
+}
+
+kbd {
+  padding: 0 4px;
+  border: 1px solid var(--divider);
+  color: var(--on-surface-variant);
+  font-family: inherit;
+  font-size: 10px;
+}
+
+kbd {
+  padding: 0 4px;
+  border: 1px solid var(--divider);
+  color: var(--on-surface-variant);
+  font-family: inherit;
+  font-size: 10px;
+}
+
+/* Right panel --------------------------------------------------------- */
+
+.panel {
+  border-left: 1px solid var(--divider);
+  padding: var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.section__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  color: var(--on-surface);
+}
+
+.section__bar {
+  width: 2px;
+  height: 12px;
+  background: var(--primary);
+}
+
+.kv {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 1px 0;
+}
+
+.kv__key {
+  color: var(--on-surface-variant);
+  white-space: nowrap;
+}
+
+.kv__value {
+  margin-left: auto;
+  text-align: right;
+  color: var(--reading-text);
+}
+
+.kv__value[data-tone="up"] {
+  color: var(--market-up);
+}
+
+.kv__value[data-tone="down"] {
+  color: var(--market-down);
+}
+
+.kv__value[data-tone="empty"] {
+  color: var(--on-surface-variant);
+}
+
+.panel__note {
+  margin: var(--space-2) 0 0;
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+}
+
+/* Panel tabs --------------------------------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--divider);
+}
+
+.tab {
+  padding: 2px 0;
+  color: var(--on-surface-variant);
+  border-bottom: 1px solid transparent;
+}
+
+.tab:hover {
+  color: var(--on-surface);
+}
+
+.tab[data-active="true"] {
+  color: var(--on-surface);
+  border-bottom-color: var(--primary);
+}
+
+.prose {
+  margin: 0 0 var(--space-2);
+  color: var(--reading-text);
+}
+
+.empty-block {
+  margin: 0;
+  padding: var(--space-2) 0;
+  color: var(--on-surface-variant);
+}
+
+/* Evidence and artifact rows ----------------------------------------- */
+
+.item {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.item__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.item__label {
+  color: var(--reading-text);
+}
+
+.item__state {
+  margin-left: auto;
+  font-size: var(--font-size-label);
+  color: var(--on-surface-variant);
+}
+
+.item__state[data-available="true"] {
+  color: var(--primary);
+}
+
+.item__meta {
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+}
+
+/* Status bar ---------------------------------------------------------- */
+
+.statusbar {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-5);
+  border-top: 1px solid var(--divider);
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+}
+
+/* Narrow screens: drop the rail, keep the composer reachable at 390px. */
+@media (max-width: 900px) {
+  .workbench {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail,
+  .panel {
+    display: none;
+  }
+
+  .main__thread,
+  .main__head {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+
+  .composer {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+}
+
+/* AC4 asks for a usable composer at 390px. Keyboard hints are noise on a
+   touch-width screen, and dropping them is what keeps the strip on one line. */
+@media (max-width: 560px) {
+  .composer__keys {
+    display: none;
+  }
+
+  .composer__status {
+    margin-left: 0;
+  }
+
+  .composer__send {
+    margin-left: auto;
+  }
+}
+
+
+/* Dialogs ------------------------------------------------------------- */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: rgba(6, 6, 6, 0.72);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(460px, 100%);
+  max-height: 82vh;
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  background: var(--surface-container);
+}
+
+.dialog__head {
+  display: flex;
+  align-items: center;
+  padding: 10px var(--space-3);
+  border-bottom: 1px solid var(--divider);
+  color: var(--on-surface);
+}
+
+.dialog__close {
+  margin-left: auto;
+  padding: 0 4px;
+  color: var(--on-surface-variant);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.dialog__close:hover {
+  color: var(--on-surface);
+}
+
+.dialog__body {
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.dialog__note {
+  margin: 0 0 var(--space-3);
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--space-3);
+}
+
+.field__label {
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+}
+
+.field__input {
+  padding: 6px var(--space-2);
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--on-surface);
+  font: inherit;
+}
+
+.field__input--area {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.dialog__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px var(--space-3);
+  border-top: 1px solid var(--divider);
+}
+
+.dialog__hint {
+  margin-right: auto;
+  color: var(--on-surface-variant);
+  font-size: var(--font-size-label);
+}
+
+.dialog__primary,
+.dialog__secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px var(--space-3);
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.dialog__primary {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.dialog__primary:hover {
+  background: var(--reading-link);
+}
+
+.dialog__secondary {
+  border: 1px solid var(--divider);
+  color: var(--on-surface);
+}
+
+
+.dialog__primary--off {
+  border: 1px solid var(--divider);
+  background: transparent;
+  color: var(--on-surface-variant);
+  cursor: not-allowed;
+}
+

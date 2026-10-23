@@ -39,6 +39,13 @@ jobs:
           package-manager-cache: false
       - name: Install locked dependencies
         run: bun install --frozen-lockfile
+      - name: Verify the shared workbench
+        working-directory: apps/web
+        run: |
+          bun install --frozen-lockfile; if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          bun run typecheck; if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          bun run test; if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          bun run build; if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Run complete release gate
         run: |
           New-Item -ItemType Directory -Force output/ci | Out-Null

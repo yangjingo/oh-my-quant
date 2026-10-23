@@ -116,3 +116,15 @@ Web 提问 /api/runs
 3. **并发冲突与损坏恢复**：
    - **真实并发冲突（409 ESTORAGECONFLICT）**：若其他标签页已修改并提交了新的元数据，服务端严格拒绝过期快照的写请求，保护并发编辑不被踩踏覆盖。
    - **磁盘损坏保护（500 ESTORAGEFORMAT）**：若元数据文件字节损坏或格式异常，所有读取与删除变更均中断并抛出 HTTP 500，磁盘损坏文件字节 100% 保持原样，供运维与用户安全修复或恢复。
+
+## 共享 React 工作台（Refs #50）
+
+`apps/web` 是浏览器与 Electron 共用的界面工程，形态与 `desktop/` 一致：自带 `package.json`、依赖与构建，通过根目录的 `web:dev`、`web:build`、`web:typecheck` 调用。它不进入 CLI 的依赖图，也不进入 `dist` 发布产物。
+
+界面只依赖 `apps/web/src/contract.ts` 里的 `WorkbenchClient`。契约明确了两条语义：`subscribe` 返回的释放函数仅解除监听，**不取消**共享任务；取消必须显式调用 `cancel`。切换会话或卸载组件只断开观察。
+
+当前实现是 `createFixtureClient()`，不连接 Host，也不调用模型：提交会进入运行态并结算，但不会产生研究结论。状态栏显示 `fixture client`，避免把演示误认为已接入。替换为真实客户端时，组件不需要改动。
+
+旧的原生实现 `src/app/research-workspace/web/**` 保持原样，直到新界面通过验收后再删除。
+
+尚未完成的部分：AC1/AC2/AC3 依赖 #46 与 #75 的 Host；AC4 的加载与重连态、AC5 的测量尚未实现。当前这一片只覆盖三栏布局、设计 token 映射、提交与取消链路，以及空态与错误态。
