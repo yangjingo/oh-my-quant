@@ -8,7 +8,7 @@ Two product forms share the research foundation: **Desktop for Windows/macOS use
 
 [Website](https://oh-my-quant.vercel.app/en/) / [中文](https://oh-my-quant.vercel.app) / [Documentation](#documentation) / [Blog](https://oh-my-quant.vercel.app/en/blog/)
 
-[![WhyJ Quant website demo: research tools, sample analysis, and a market overview](./docs/assets/workspace-preview.png)](https://oh-my-quant.vercel.app/en/)
+[![WhyJ Quant website demo: research tools, sample analysis, and a market overview](./site/public/workspace-preview.png)](https://oh-my-quant.vercel.app/en/)
 
 *Interactive website demo with synthetic data. The CLI runs in your own terminal.*
 

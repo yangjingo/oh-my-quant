@@ -89,9 +89,9 @@ Desktop 面向 Windows/macOS，CLI/TUI 面向 Linux 专业用户；Web 是共享
 
 ## 素材目录
 
-品牌、产品素材和正式插图可以入库；验收截图、录屏与浏览器输出通过附件或 CI artifact 提供。当前 workspace-preview 是官网合成工作台素材，历史 workspace-design-reference 仅供设计参考；两者都不是实际行情或运行验收证明。视觉规则由 [DESIGN](../DESIGN.md)维护，不在目录复制色表。
+品牌、产品素材和正式插图可以入库；验收截图、录屏与浏览器输出通过附件或 CI artifact 提供。官网工作台预览归属 [site/public](../site/public/workspace-preview.png)，展示合成数据，不是实际行情或运行验收证明；不在 docs/assets 保留网站截图。视觉规则由 [DESIGN](../DESIGN.md)维护，不在目录复制色表。
 
-**品牌与产品**：[app-icon.ico](./assets/app-icon.ico) · [app-icon.svg](./assets/app-icon.svg) · [geist-license.txt](./assets/geist-license.txt) · [index.html](./assets/index.html) · [logo-lockup-dark.svg](./assets/logo-lockup-dark.svg) · [logo-lockup-light.svg](./assets/logo-lockup-light.svg) · [logo-lockup-mono.svg](./assets/logo-lockup-mono.svg) · [logo-mark-mono.svg](./assets/logo-mark-mono.svg) · [logo-mark.svg](./assets/logo-mark.svg) · [logo-wordmark.svg](./assets/logo-wordmark.svg) · [workspace-design-reference.png](./assets/workspace-design-reference.png) · [workspace-preview.png](./assets/workspace-preview.png)
+**品牌与产品**：[app-icon.ico](./assets/app-icon.ico) · [app-icon.svg](./assets/app-icon.svg) · [geist-license.txt](./assets/geist-license.txt) · [index.html](./assets/index.html) · [logo-lockup-dark.svg](./assets/logo-lockup-dark.svg) · [logo-lockup-light.svg](./assets/logo-lockup-light.svg) · [logo-lockup-mono.svg](./assets/logo-lockup-mono.svg) · [logo-mark-mono.svg](./assets/logo-mark-mono.svg) · [logo-mark.svg](./assets/logo-mark.svg) · [logo-wordmark.svg](./assets/logo-wordmark.svg)
 
 **图标尺寸**：[1024x1024.png](./assets/icons/1024x1024.png) · [128x128.png](./assets/icons/128x128.png) · [16x16.png](./assets/icons/16x16.png) · [24x24.png](./assets/icons/24x24.png) · [256x256.png](./assets/icons/256x256.png) · [32x32.png](./assets/icons/32x32.png) · [48x48.png](./assets/icons/48x48.png) · [512x512.png](./assets/icons/512x512.png) · [64x64.png](./assets/icons/64x64.png)
 

@@ -85,7 +85,7 @@ Feature 目录指向首页已有的自然语言研究、因子与回测、报告
 
 ### 工作台预览
 
-工作台展示以 `templates/home.html` 的 `#workspace` 为交互内容来源。README 和 `docs/slides.html` 共用 `docs/assets/workspace-preview.png`，不另外绘制 CLI 或维护第二份示例。`docs/assets/workspace-design-reference.png` 只是历史配色与留白参考，不作为当前产品预览。
+工作台展示以 `templates/home.html` 的 `#workspace` 为交互内容来源。官网产品预览由 `site/public/workspace-preview.png` 维护，README、DESIGN 和 `docs/slides.html` 引用同一文件，不另外绘制 CLI 或维护第二份示例。网站截图归属 `site/public/`；`docs/assets/` 不保存网站预览或历史界面截图。验收截图仍放在忽略的 `output/` 或外部附件中。
 
 更新静态预览时：访问英文 `/en/`，清除 `whyj-quant-site-preferences-v1` 后刷新，选择 Market research、Overview 开启、red-up，并关闭动效；桌面视口设为 1440px，再截取 `#workspace`。不裁掉 Interactive demo / Synthetic data 标记。刷新同一 PNG 后，README 与幻灯片同时更新；不要增加根目录生成脚本。页面翻译、用户切换场景/偏好和响应式重排是预期变化，不应从某个保存了偏好的浏览器状态制作默认截图。
 

@@ -14,6 +14,7 @@ const allowed = new Set([
   "favicon.svg",
   "logo-mark.svg",
   "icons.svg",
+  "workspace-preview.png",
   "licenses",
   "fonts",
 ]);
