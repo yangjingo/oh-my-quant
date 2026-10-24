@@ -46,7 +46,7 @@ The checkout and npm release may differ. Check `whyj --version` and the [changel
 
 </details>
 
-Source checkouts also include an experimental local Web research workspace: `bun run workspace:dev`, then open <http://127.0.0.1:4175/>. It connects the configured Agent to one explicit-stock daily-bar task, with citations, manual saving and independent review. Requires Python with AKShare and pandas; see [research scope and evidence requirements](./docs/quant-harness/README.md#tasks). This entrypoint is not part of the published CLI package or the website demo.
+Source checkouts also include an experimental local Web research workspace: `bun run workspace:dev`, then open <http://127.0.0.1:4175/>. It connects the configured Agent to one explicit-stock daily-bar task, with citations, manual saving and independent review. Requires Python with AKShare and pandas; see [current persistence and recovery boundaries](./docs/agent-runtime/architecture.md#current-web). This entrypoint is not part of the published CLI package or the website demo.
 
 ## Features
 

@@ -15,6 +15,10 @@
 
 共享代码仍在 `src/`：agent/runtime 管运行，research/quant/market 管证据与计算，source/storage 管数据，tools/skill/extensions 管能力，artifact/insight 管报告与笔记，performance/execution/alpha 管私有业绩、执行与回测。跨模块契约归 types，专属类型留在模块；详细机制见[模块导览](../quant-harness/README.md)。
 
+<a id="current-web"></a>
+
+当前 Web 原型的运行与取消由独立[研究宿主](../../src/app/research-workspace/manager.ts)管理，未保存进度只在内存中：页面刷新可接回，服务重启则只从显式保存的对话和固定证据重建上下文，不重放完整 journal 或自动获取新行情。关闭浏览器只断开订阅，不停止任务。首次研究须有结构化发布结果才能保存，后续解释型对话不冒充新研究；复核另开会话取证并关联旧版本。这些现状边界不能由下方目标 Host 的恢复承诺代替。
+
 ## 当前依赖契约
 
 1. UI 经 facade 交互，不直接修改 Agent、调用 provider 或拼接 `.ohquant` 路径。`runtime` 不导入 CLI/TUI，包括类型；`AppState`、`UIMessage` 等共享契约归 `types`。

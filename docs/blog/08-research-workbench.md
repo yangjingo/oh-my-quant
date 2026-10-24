@@ -20,7 +20,7 @@ Agent Engineering / oh-my-quant · 初稿 2026-10-13 · 修订 2026-10-22 · 产
 
 共享代码也存在耦合。[AppRuntime](../../src/app-runtime.ts)仍导入 CLI 执行器与 TUI 类型；直接放进 `packages/core` 不会解除终端依赖。早期方案先讨论 `apps/cli`、`apps/desktop` 和领域 packages，却没有充分回答谁持有正在运行的 Agent、关窗后谁继续执行、两端如何找到同一实例。
 
-后续[定稿文章](https://oh-my-quant.vercel.app/blog/agent-desktop-lifecycle/)将生命周期放在目录之前：先分离应用服务和宿主所有权，UI 与薄入口再消费它们。前端框架和首阶段传输已经选定；原先“技术栈仍待定”“正式 UI 只属于 Desktop renderer”的表述不再作为实施依据。
+后续[定稿文章的 PR #79 审阅稿](https://github.com/yangjingo/oh-my-quant/pull/79)将生命周期放在目录之前：先分离应用服务和宿主所有权，UI 与薄入口再消费它们。前端框架和首阶段传输已经选定；原先“技术栈仍待定”“正式 UI 只属于 Desktop renderer”的表述不再作为实施依据。
 
 ## 同一份服务之外，还需要同一个运行实例
 
@@ -54,6 +54,6 @@ React＋TypeScript＋Vite 负责 GUI，Electron 提供受限原生桥接，首�
 
 1. oh-my-quant，[产品定义（PRD）](../prd.md)、[模块架构](../agent-runtime/architecture.md)，2026-10-22 修订。维护现状、目标与验收边界。
 2. oh-my-quant，[Electron 主进程](https://github.com/yangjingo/oh-my-quant/blob/0548a92b6d98d7d1270091de46eb9f00cf81bed4/desktop/src/main.ts)、[AppRuntime](https://github.com/yangjingo/oh-my-quant/blob/0548a92b6d98d7d1270091de46eb9f00cf81bed4/src/app-runtime.ts)，源码基线 `0548a92`。定位当前终端宿主和待解耦点，不是未来结构的实现证明。
-3. oh-my-quant，[Agent 时代的技术选型](https://oh-my-quant.vercel.app/blog/agent-desktop-lifecycle/)，已确认的架构文章；[报告与恢复契约](../quant-harness/artifacts-design.md)、[配置契约](../agent-runtime/configuration.md)提供保留行为的依据。
+3. oh-my-quant，[Agent 时代的技术选型](https://github.com/yangjingo/oh-my-quant/pull/79)，架构文章的独立审阅入口；[报告与恢复契约](../quant-harness/artifacts-design.md)、[配置契约](../agent-runtime/configuration.md)提供保留行为的依据。
 
 [← 上一篇](./07-artifacts-and-boundaries.md) · [下一篇：布局与视觉语义 →](./10-layout-and-visual-language.md)

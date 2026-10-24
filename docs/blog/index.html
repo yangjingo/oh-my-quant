@@ -354,7 +354,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p>当前<a href="../../desktop/scripts/build.ts">桌面构建</a>打包同一 CLI，<a href="../../desktop/src/main.ts">主进程</a>通过 node-pty 启动它，<a href="../../desktop/src/bridge.ts">Bridge</a>交换终端输入、尺寸与输出。这样能保留原有研究行为，也减少用户安装开发环境的负担。当前关窗仍退出 CLI，不能把未来的托盘保活写成已有能力。</p>
 <p>字符流没有稳定表达“报告版本”“配置保存代次”和“请求身份”。若从屏幕文字推断这些对象，独立设置页、来源链接和报告比较就会形成另一份业务状态。现有 <code>src/app/research-workspace/</code> 已验证本地 HTTP/SSE 研究入口，但仍有自己的生命周期和资源限制，不等于已完成统一 Host。</p>
 <p>共享代码也存在耦合。<a href="../../src/app-runtime.ts">AppRuntime</a>仍导入 CLI 执行器与 TUI 类型；直接放进 <code>packages/core</code> 不会解除终端依赖。早期方案先讨论 <code>apps/cli</code>、<code>apps/desktop</code> 和领域 packages，却没有充分回答谁持有正在运行的 Agent、关窗后谁继续执行、两端如何找到同一实例。</p>
-<p>后续<a href="https://oh-my-quant.vercel.app/blog/agent-desktop-lifecycle/">定稿文章</a>将生命周期放在目录之前：先分离应用服务和宿主所有权，UI 与薄入口再消费它们。前端框架和首阶段传输已经选定；原先“技术栈仍待定”“正式 UI 只属于 Desktop renderer”的表述不再作为实施依据。</p>
+<p>后续<a href="https://github.com/yangjingo/oh-my-quant/pull/79">定稿文章的 PR #79 审阅稿</a>将生命周期放在目录之前：先分离应用服务和宿主所有权，UI 与薄入口再消费它们。前端框架和首阶段传输已经选定；原先“技术栈仍待定”“正式 UI 只属于 Desktop renderer”的表述不再作为实施依据。</p>
 <h3>同一份服务之外，还需要同一个运行实例</h3>
 <p>目标目录将启动与交互分开：<code>apps/cli</code> 选择终端、单次命令或浏览器模式，<code>apps/tui</code> 管终端布局、输入与快捷键，<code>apps/desktop</code> 管窗口、托盘、preload 和打包，<code>apps/web</code> 放共享 React UI。四个代码目录不等于四种产品；TUI 不新增命令或独立包，单次命令不加载界面。无界面服务和 Host 留在 <code>src/app</code>，业务命令渐进归入 <code>src/commands</code>，领域模块保留在 <code>src/</code>。迁移 TUI 时同步专属测试和发现规则，当前自绘实现是否改用 Ink 另行决定。本阶段不拆领域 packages，也不移动网站。</p>
 <p>React＋TypeScript＋Vite 负责 GUI，Electron 提供受限原生桥接，首阶段采用 Bun HTTP/SSE Host。不能假定 Bun API 在 Electron Node 中可用，也不同时建设另一套业务 IPC。Renderer 不直接读凭证、写研究文件或启动 Python；具体依赖与安全边界见<a href="../agent-runtime/architecture.md">模块架构</a>。</p>
@@ -373,7 +373,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <ol>
 <li>oh-my-quant，<a href="../prd.md">产品定义（PRD）</a>、<a href="../agent-runtime/architecture.md">模块架构</a>，2026-10-22 修订。维护现状、目标与验收边界。</li>
 <li>oh-my-quant，<a href="https://github.com/yangjingo/oh-my-quant/blob/0548a92b6d98d7d1270091de46eb9f00cf81bed4/desktop/src/main.ts">Electron 主进程</a>、<a href="https://github.com/yangjingo/oh-my-quant/blob/0548a92b6d98d7d1270091de46eb9f00cf81bed4/src/app-runtime.ts">AppRuntime</a>，源码基线 <code>0548a92</code>。定位当前终端宿主和待解耦点，不是未来结构的实现证明。</li>
-<li>oh-my-quant，<a href="https://oh-my-quant.vercel.app/blog/agent-desktop-lifecycle/">Agent 时代的技术选型</a>，已确认的架构文章；<a href="../quant-harness/artifacts-design.md">报告与恢复契约</a>、<a href="../agent-runtime/configuration.md">配置契约</a>提供保留行为的依据。</li>
+<li>oh-my-quant，<a href="https://github.com/yangjingo/oh-my-quant/pull/79">Agent 时代的技术选型</a>，架构文章的独立审阅入口；<a href="../quant-harness/artifacts-design.md">报告与恢复契约</a>、<a href="../agent-runtime/configuration.md">配置契约</a>提供保留行为的依据。</li>
 </ol>
 <p><a href="#chapter-07">← 上一篇</a> · <a href="#chapter-10">下一篇：布局与视觉语义 →</a></p>
 </article>
