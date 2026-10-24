@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><link rel="icon" href="data:,"><meta name="description" content="oh-my-quant 的十二篇 Agent Engineering 笔记：产品工作流、技术架构、研究证据、UI 布局、功能发现与恢复体验。"><title>Agent Engineering · oh-my-quant</title>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><link rel="icon" href="data:,"><meta name="description" content="oh-my-quant 的十一篇 Agent Engineering 笔记：产品工作流、技术架构、研究证据、UI 布局、功能发现与恢复体验。"><title>Agent Engineering · oh-my-quant</title>
 <style>
 :root{--paper:#fcfbf8;--ink:#202522;--muted:#64716c;--line:#dce0d9;--accent:#216353}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:30px}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;font-size:17px;line-height:1.95}a{color:var(--accent);text-underline-offset:4px;text-decoration-thickness:1px}a:hover{color:#123e33}a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:5px}.skip{position:absolute;top:-80px;left:24px;background:white;padding:8px 16px;z-index:2}.skip:focus{top:8px}.shell{display:grid;grid-template-columns:204px minmax(0,850px);gap:76px;max-width:1260px;margin:auto;padding:0 48px}.sidebar{position:sticky;top:44px;align-self:start;padding-top:8px;margin-top:64px;font-size:13px}.brand{font-weight:700;font-size:17px;letter-spacing:.02em;color:var(--ink);text-decoration:none}.sidebar .series{font-size:11px;letter-spacing:.13em;color:var(--muted);margin:8px 0 30px}.sidebar nav{display:grid;gap:10px}.sidebar nav a{text-decoration:none;display:flex;gap:13px;padding:5px 0;color:var(--muted)}.sidebar nav a:hover{color:var(--accent)}.sidebar nav span{font-family:ui-monospace,monospace;font-size:11px;color:#8a948e}.sidebar .back{display:block;border-top:1px solid var(--line);margin-top:30px;padding-top:18px;font-size:12px}main{min-width:0}.hero{padding:68px 0 56px;border-bottom:1px solid var(--line)}.eyebrow{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.16em;color:var(--accent);line-height:1.6}.hero h1{font-size:54px;font-weight:650;letter-spacing:-.035em;line-height:1.15;margin:26px 0 19px}.hero h1 span{display:block;font-family:"Noto Serif CJK SC","Songti SC",SimSun,serif;font-size:31px;font-weight:400;letter-spacing:.015em;margin-top:18px;line-height:1.5}.hero .lead{font-size:20px;line-height:1.85;max-width:730px}.hero .scope{font-size:13px;color:var(--muted);margin-top:26px}.contents{padding:32px 0 35px;border-bottom:1px solid var(--line)}.contents h2{font-size:14px;font-weight:500;color:var(--muted);margin:0 0 18px}.contents nav{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px}.contents a{display:flex;gap:14px;text-decoration:none;font-size:14px}.contents a span{font-family:ui-monospace,monospace;color:var(--muted);font-size:11px}article{padding:64px 0 52px;border-bottom:1px solid var(--line)}article>h2{font-family:"Noto Serif CJK SC","Songti SC",SimSun,serif;font-size:34px;line-height:1.55;font-weight:600;letter-spacing:.01em;margin:18px 0 15px}.article-meta{font-size:12px;color:var(--muted);margin:0 0 38px}article h3{font-size:22px;line-height:1.6;margin:42px 0 17px;font-weight:650}article p{margin:20px 0}article li{margin:8px 0}article ul{padding-left:25px}article strong{font-weight:650}article>p>em{display:block;color:var(--muted);font-size:13px;font-style:normal;line-height:1.8;margin-top:-5px}code{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:.87em;background:#eef0e9;padding:2px 5px;border-radius:3px;overflow-wrap:anywhere}pre{padding:20px 24px;background:#eff1eb;border-left:3px solid #b5c6bb;overflow:auto;line-height:1.75;margin:28px 0}pre code{padding:0;background:none;overflow-wrap:normal}.table-scroll{overflow-x:auto;margin:26px 0}table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.8}th,td{text-align:left;vertical-align:top;padding:12px 14px;border-bottom:1px solid var(--line)}th{background:#f0f2eb;font-weight:600}td{min-width:135px}figure{margin:34px 0 18px}.diagram-scroll{overflow-x:auto;border:1px solid var(--line);background:#fff}.diagram-scroll img{display:block;width:100%;min-width:740px;height:auto}.scroll-hint{display:none;color:var(--muted);font-size:11px;margin-top:6px}footer{padding:35px 0 70px;color:var(--muted);font-size:13px}footer p{margin:8px 0}@media(max-width:1050px){.shell{grid-template-columns:166px minmax(0,1fr);gap:36px;padding:0 32px}.hero h1{font-size:44px}.diagram-scroll img{min-width:710px}.scroll-hint{display:block}}@media(max-width:760px){body{font-size:16px;line-height:1.95}.shell{display:block;padding:0 22px}.sidebar{position:static;margin:0;padding:22px 0;border-bottom:1px solid var(--line)}.sidebar .series,.sidebar nav,.sidebar .back{display:none}.brand{font-size:15px}.hero{padding:39px 0 31px}.hero h1{font-size:39px}.hero h1 span{font-size:26px}.hero .lead{font-size:18px}.contents nav{grid-template-columns:1fr}.contents{padding:25px 0}article{padding:42px 0}article>h2{font-size:28px}article h3{font-size:21px;margin-top:34px}.article-meta{margin-bottom:25px}pre{padding:17px 15px;font-size:14px}figure{margin:28px -6px 15px}td,th{padding:10px}article a{overflow-wrap:anywhere}footer{padding-bottom:40px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}@media print{body{background:#fff;font-size:11pt}.shell{display:block;padding:0}.sidebar,.skip,.scroll-hint{display:none}.hero{padding-top:0}.hero h1{font-size:32pt}.contents{break-after:page}article{break-before:page;border:0;padding:15px 0}article>h2{font-size:24pt}.diagram-scroll{overflow:visible}.diagram-scroll img{min-width:0}figure{break-inside:avoid}a{color:inherit}.table-scroll,pre{overflow:visible}pre{white-space:pre-wrap}}
 .sidebar{max-height:calc(100vh - 88px);overflow-y:auto}@media(max-width:760px){.sidebar{max-height:none;overflow:visible}}@media print{.sidebar{display:none}}
@@ -12,10 +12,9 @@
 <a href="#chapter-06"><span>06</span>终端一致性</a>
 <a href="#chapter-07"><span>07</span>产物与设计演进</a>
 <a href="#chapter-08"><span>08</span>产品与研究工作流</a>
-<a href="#chapter-09"><span>09</span>模块与变化边界</a>
 <a href="#chapter-10"><span>10</span>布局与视觉语义</a>
 <a href="#chapter-11"><span>11</span>功能发现与交互</a>
-<a href="#chapter-12"><span>12</span>反馈与失败恢复</a></nav><a class="back" href="../README.md">← 项目文档</a></aside><main id="main"><header class="hero" id="top"><p class="eyebrow">TWELVE NOTES ON BUILDING A RESEARCH AGENT</p><h1>Agent Engineering<span>产品、架构与体验，如何一起演进</span></h1><p class="lead">oh-my-quant 的十二个问题，十二组取舍。从研究工作流到模块边界，从证据与状态到界面的空间、反馈和恢复。</p><p class="scope">技术负责人阅读版 · 系列始于 2026-10-12 / 2026-10-21 最近修订 · 非发布说明<br>配图为机制与布局示意，不是真实终端截图或效果测量。<a href="./editorial-notes.md">证据与编辑说明</a></p></header><section class="contents" id="contents" aria-labelledby="contents-title"><h2 id="contents-title">沿着产品、技术架构与 UI/UX 阅读</h2><p class="scope">产品：08 → 11 → 12 → 07　·　架构：01 → 09 → 02 → 03 → 04 → 05　·　UI/UX：10 → 11 → 12 → 06</p><nav aria-label="文章目录"><a href="#chapter-01"><span>01</span>内核与所有权</a>
+<a href="#chapter-12"><span>12</span>反馈与失败恢复</a></nav><a class="back" href="../README.md">← 项目文档</a></aside><main id="main"><header class="hero" id="top"><p class="eyebrow">ELEVEN NOTES ON BUILDING A RESEARCH AGENT</p><h1>Agent Engineering<span>产品、架构与体验，如何一起演进</span></h1><p class="lead">oh-my-quant 的十一个问题，十一组取舍。从研究工作流到模块边界，从证据与状态到界面的空间、反馈和恢复。</p><p class="scope">技术负责人阅读版 · 系列始于 2026-10-12 / 2026-10-22 最近修订 · 非发布说明<br>配图为机制与布局示意，不是真实终端截图或效果测量。<a href="./editorial-notes.md">证据与编辑说明</a></p></header><section class="contents" id="contents" aria-labelledby="contents-title"><h2 id="contents-title">沿着产品、技术架构与 UI/UX 阅读</h2><p class="scope">产品：08 → 11 → 12 → 07　·　架构：01 → 02 → 03 → 04 → 05　·　UI/UX：10 → 11 → 12 → 06</p><nav aria-label="文章目录"><a href="#chapter-01"><span>01</span>内核与所有权</a>
 <a href="#chapter-02"><span>02</span>数据与成功语义</a>
 <a href="#chapter-03"><span>03</span>上下文与恢复</a>
 <a href="#chapter-04"><span>04</span>工具与 Skill</a>
@@ -23,7 +22,6 @@
 <a href="#chapter-06"><span>06</span>终端一致性</a>
 <a href="#chapter-07"><span>07</span>产物与设计演进</a>
 <a href="#chapter-08"><span>08</span>产品与研究工作流</a>
-<a href="#chapter-09"><span>09</span>模块与变化边界</a>
 <a href="#chapter-10"><span>10</span>布局与视觉语义</a>
 <a href="#chapter-11"><span>11</span>功能发现与交互</a>
 <a href="#chapter-12"><span>12</span>反馈与失败恢复</a></nav></section><article id="chapter-01" aria-labelledby="chapter-01-title"><p class="eyebrow">FIELD NOTES / 01</p><h2 id="chapter-01-title">我们为什么保留自己的 Harness，却不再维护模型协议</h2><p class="article-meta">初稿 2026-10-12 · 修订 2026-10-14 · oh-my-quant · <a href="./01-own-the-harness.md">Markdown 原文</a></p><p>连接模型、注册工具，可以让量化 Agent 开始回答。要让它在取消、配置变化和报告恢复之后继续正确工作，还需要决定：谁为一次研究的完整生命周期负责。</p>
@@ -76,7 +74,7 @@ try {
 <ul>
 <li><a href="../../src/agent/src/kernel/loop.ts">Kernel 适配</a>与<a href="../../src/agent/src/session-runtime/harness/operation.ts">操作生命周期</a>。</li>
 <li><a href="../../src/agent/src/session-contracts.ts">Session 契约</a>与<a href="../../src/agent/test/session-dependencies.test.ts">独立宿主回归</a>。</li>
-<li><a href="../quant-harness/README.md">现行 Harness</a>、<a href="../quant-harness/module-architecture.md">模块架构</a>与<a href="#contents">系列证据范围</a>。</li>
+<li><a href="../quant-harness/README.md">现行 Harness</a>、<a href="../agent-runtime/architecture.md">模块架构</a>与<a href="#contents">系列证据范围</a>。</li>
 </ul>
 <p><a href="#chapter-02">下一篇：一次数据源故障，为什么需要三种成功定义 →</a></p>
 </article>
@@ -111,16 +109,16 @@ try {
 </tbody>
 </table></div>
 <h3>少一个权限依赖，多一份判断责任</h3>
-<p>配置绑定、单源探测与草稿检查都有对应实现和回归入口。它们让「哪份设置被使用」「哪个请求得到什么证据」成为可检查的问题，但本次博客修订没有重新调用用户账户，不能据此宣布其 <code>daily_basic</code> 权限已经恢复。<a href="../quant-harness/configuration.md#diagnostics">诊断契约与回归</a></p>
+<p>配置绑定、单源探测与草稿检查都有对应实现和回归入口。它们让「哪份设置被使用」「哪个请求得到什么证据」成为可检查的问题，但本次博客修订没有重新调用用户账户，不能据此宣布其 <code>daily_basic</code> 权限已经恢复。<a href="../agent-runtime/configuration.md#diagnostics">诊断契约与回归</a></p>
 <p>现有 API 还留下一个不够直观的地方：envelope 的 <code>ok</code>、报告级 <code>ready</code> 或退出码可能只表示诊断报告生成完成。自动化消费者仍须读 <code>overall</code> 和各阶段状态，因此 <code>ok: true</code> 与 <code>permission-denied</code> 可以同时出现。拆开语义改善了可解释性，却也增加了消费端的判断责任，不能把它写成已经完美统一的接口。</p>
-<p>取得数据之后，还有「究竟是哪一份」的问题。Bars 和基金 NAV 使用固定版本引用，研究重读指定 DatasetRef，缺档不拿最新缓存替换。但本地观测时间不是供应商发布时间，今天获取去年的数据，也不能证明去年当时已经知道这些数据。<a href="../quant-harness/ohquant-storage-policy.md">存储与时间边界</a></p>
+<p>取得数据之后，还有「究竟是哪一份」的问题。Bars 和基金 NAV 使用固定版本引用，研究重读指定 DatasetRef，缺档不拿最新缓存替换。但本地观测时间不是供应商发布时间，今天获取去年的数据，也不能证明去年当时已经知道这些数据。<a href="../agent-runtime/storage.md">存储与时间边界</a></p>
 <p>回头看，旧 Doctor 草图把配置、工具和数据放在一张诊断面板里，这个组织方式可以保留；把配置存在、流程结束和能力可用压成一个成功标签的判断，却必须纠正。验收单位因此从「接入 Tushare」缩小到「这份配置、这个端点、这个窗口的有效响应」。单源检查会暴露普通回退掩盖的失败，也让用户多做一步验证；这是为了获得可解释的失败归属而接受的成本。</p>
 <p>重复面板草图不再保留，自动修复、后台巡检、全供应商扫描也没有因为出现在旧设想里就成为现有能力。后续若统一退出码与总体状态，必须同时迁移 CLI、面板和自动化消费者，不能只改一个绿色标签。</p>
 <h3>实现索引</h3>
 <ul>
 <li><a href="../../src/runtime/data/source-runtime.ts">Runtime 配置绑定</a>、<a href="../../src/runtime/data/data-readiness.ts">固定单源探测</a>。</li>
 <li><a href="../../src/cli/test/doctor-data.test.ts">诊断回归</a>、<a href="../../src/runtime/test/data-settings.test.ts">配置草稿回归</a>。</li>
-<li><a href="../quant-harness/source-data-providers.md">数据源设计</a>与<a href="../quant-harness/evaluation.md#data">数据验证方法</a>。</li>
+<li><a href="../quant-harness/source-data-providers.md">数据源设计</a>与<a href="../evaluation/README.md#data">数据验证方法</a>。</li>
 </ul>
 <p><a href="#chapter-01">← 上一篇</a> · <a href="#chapter-03">下一篇：压缩对话之后，研究事实从哪里回来 →</a></p>
 </article>
@@ -176,7 +174,7 @@ try {
 <tr><td>扩展数据与网页资料</td><td>五项 MCP 的可选配置</td><td>官方链接、按需添加与移除、配置导出</td></tr>
 </tbody>
 </table></div>
-<p>在 JQ 中执行 <code>/skill install</code>，先看可选清单，再用 <code>/skill install technical-analyst llmquant-risk</code> 选择所需技能。<code>/skill remove technical-analyst</code> 从加载列表移除，保留共享源码与本地修改，需要时可再次启用。随后 <code>/skill</code> 查看，<code>/skill info technical-analyst</code> 查看路径和说明，提供周线图后调用对应技能。依赖与输入要求由上游 <code>SKILL.md</code> 解释，JQ 不再额外维护另一份执行规范。<a href="../quant-harness/trader-skills.md#toolkit">预制目录与使用步骤</a></p>
+<p>在 JQ 中执行 <code>/skill install</code>，先看可选清单，再用 <code>/skill install technical-analyst llmquant-risk</code> 选择所需技能。<code>/skill remove technical-analyst</code> 从加载列表移除，保留共享源码与本地修改，需要时可再次启用。随后 <code>/skill</code> 查看，<code>/skill info technical-analyst</code> 查看路径和说明，提供周线图后调用对应技能。依赖与输入要求由上游 <code>SKILL.md</code> 解释，JQ 不再额外维护另一份执行规范。<a href="../quant-harness/community-tools.md#toolkit">预制目录与使用步骤</a></p>
 <p>相较于自行搜索、安装和拼接工具，这套入口把选型与接入方法提前整理好。它的价值是减少重复准备工作，让用户主要补充自己的凭证、环境与研究输入；实际配置耗时仍需通过任务测量验证。</p>
 <h3>为什么撤掉逐技能检查层</h3>
 <p>早期实现为每个精选技能记录模式要求、文件哈希、Python 版本、包导入与网络观察，并据此生成 blocked 或 needs-input 等状态。这些检查曾帮助定位具体故障，例如包已安装但无法导入，或者上游报告里的来源标签和实际数据源不一致。</p>
@@ -189,10 +187,10 @@ try {
 <figure><div class="diagram-scroll" tabindex="0" role="region" aria-label="架构图，可横向滚动"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMTIwIiBoZWlnaHQ9IjYwMCIgdmlld0JveD0iMCAwIDExMjAgNjAwIiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+Cjx0aXRsZSBpZD0idGl0bGUiPlNraWxscyDlpI3nlKggUGnvvIxKUSDmj5DkvpvlhaXlj6M8L3RpdGxlPjxkZXNjIGlkPSJkZXNjIj7pooTliLbkuIvovb0g4oaSIFBpIOWKoOi9vSDihpIg5Lya6K+d5b+r54WnIOKGkiDojIPlm7TlhoXosIPnlKjjgII8L2Rlc2M+CjxkZWZzPjxtYXJrZXIgaWQ9ImFycm93IiB2aWV3Qm94PSIwIDAgMTAgMTAiIHJlZlg9IjkiIHJlZlk9IjUiIG1hcmtlcldpZHRoPSI3IiBtYXJrZXJIZWlnaHQ9IjciIG9yaWVudD0iYXV0by1zdGFydC1yZXZlcnNlIj48cGF0aCBkPSJNIDAgMCBMIDEwIDUgTCAwIDEwIHoiIGZpbGw9IiM2OTc1ODYiLz48L21hcmtlcj48L2RlZnM+CjxzdHlsZT50ZXh0e2ZvbnQtZmFtaWx5OiJNaWNyb3NvZnQgWWFIZWkiLCJQaW5nRmFuZyBTQyIsIk5vdG8gU2FucyBDSksgU0MiLHNhbnMtc2VyaWY7ZmlsbDojMTgyMzMzfS50aXRsZXtmb250LXNpemU6MzBweDtmb250LXdlaWdodDo3MDB9LmV5ZWJyb3d7Zm9udC1zaXplOjE0cHg7bGV0dGVyLXNwYWNpbmc6MnB4O2ZpbGw6IzQ5Njg3ZH0ubGFiZWx7Zm9udC1zaXplOjIxcHg7Zm9udC13ZWlnaHQ6NjAwfS5ib2R5e2ZvbnQtc2l6ZToxN3B4O2ZpbGw6IzQwNTE2NH0ubm90ZXtmb250LXNpemU6MTZweDtmaWxsOiM2NTcwODN9LmJveHtzdHJva2Utd2lkdGg6MS41fS5uZXV0cmFse2ZpbGw6I2Y0ZjZmODtzdHJva2U6I2NiZDNkY30uYmx1ZXtmaWxsOiNlZGY0ZmQ7c3Ryb2tlOiM4YWFkZDV9LnRlYWx7ZmlsbDojZWRmN2Y0O3N0cm9rZTojODRiN2E1fS5hbWJlcntmaWxsOiNmZmY2ZTc7c3Ryb2tlOiNkMmFkNjl9LnJlZHtmaWxsOiNmZmYwZWY7c3Ryb2tlOiNkOTliOTh9LmFycm93e2ZpbGw6bm9uZTtzdHJva2U6IzY5NzU4NjtzdHJva2Utd2lkdGg6Mn0uZGFzaGVke3N0cm9rZS1kYXNoYXJyYXk6NyA2fTwvc3R5bGU+CjxyZWN0IHdpZHRoPSIxMTIwIiBoZWlnaHQ9IjYwMCIgZmlsbD0iI2ZmZmZmZiIvPgo8dGV4dCB4PSI0NCIgeT0iMzQiIGNsYXNzPSJleWVicm93IiA+T0gtTVktUVVBTlQgIC8gIEFHRU5UIEVOR0lORUVSSU5HICAvICAwNDwvdGV4dD4KPHRleHQgeD0iNDQiIHk9Ijg0IiBjbGFzcz0idGl0bGUiID5Ta2lsbHMg5aSN55SoIFBp77yMSlEg5o+Q5L6b5YWl5Y+jPC90ZXh0Pjx0ZXh0IHg9IjQ0IiB5PSIxMTciIGNsYXNzPSJub3RlIiA+6aKE5Yi25LiL6L29IOKGkiBQaSDliqDovb0g4oaSIOS8muivneW/q+eFpyDihpIg6IyD5Zu05YaF6LCD55So44CCPC90ZXh0Pgo8cmVjdCB4PSI0NCIgeT0iMTcwIiB3aWR0aD0iMjMwIiBoZWlnaHQ9IjE1NSIgcng9IjEyIiBjbGFzcz0iYm94IGJsdWUiLz48dGV4dCB4PSI2NiIgeT0iMjA3IiBjbGFzcz0ibGFiZWwiID7pooTliLbkuIvovb08L3RleHQ+PHRleHQgeD0iNjYiIHk9IjIzOSIgY2xhc3M9ImJvZHkiID7ku5PlupMgLyDmj5DkuqQgLyDlkI3np7A8L3RleHQ+PHRleHQgeD0iNjYiIHk9IjI2NiIgY2xhc3M9ImJvZHkiID4vc2tpbGwgaW5zdGFsbCBOQU1FPC90ZXh0Pjx0ZXh0IHg9IjY2IiB5PSIyOTMiIGNsYXNzPSJib2R5IiA+5L+d55WZ55So5oi35pys5Zyw5pS55YqoPC90ZXh0PjxyZWN0IHg9IjMxNiIgeT0iMTcwIiB3aWR0aD0iMjMwIiBoZWlnaHQ9IjE1NSIgcng9IjEyIiBjbGFzcz0iYm94IG5ldXRyYWwiLz48dGV4dCB4PSIzMzgiIHk9IjIwNyIgY2xhc3M9ImxhYmVsIiA+UGkg5Yqg6L29PC90ZXh0Pjx0ZXh0IHg9IjMzOCIgeT0iMjM5IiBjbGFzcz0iYm9keSIgPuebruW9lSAvIOWFg+aVsOaNriAvIOW/veeVpeinhOWImTwvdGV4dD48dGV4dCB4PSIzMzgiIHk9IjI2NiIgY2xhc3M9ImJvZHkiID5TS0lMTC5tZCDmraPmloc8L3RleHQ+PHRleHQgeD0iMzM4IiB5PSIyOTMiIGNsYXNzPSJib2R5IiA+5qih5Z6L5oqA6IO957Si5byVPC90ZXh0PjxyZWN0IHg9IjU4OCIgeT0iMTcwIiB3aWR0aD0iMjMwIiBoZWlnaHQ9IjE1NSIgcng9IjEyIiBjbGFzcz0iYm94IHRlYWwiLz48dGV4dCB4PSI2MTAiIHk9IjIwNyIgY2xhc3M9ImxhYmVsIiA+5Lya6K+d5b+r54WnPC90ZXh0Pjx0ZXh0IHg9IjYxMCIgeT0iMjM5IiBjbGFzcz0iYm9keSIgPi9za2lsbCByZWxvYWQ8L3RleHQ+PHRleHQgeD0iNjEwIiB5PSIyNjYiIGNsYXNzPSJib2R5IiA+56m66Zey6K+35rGC5Yqg6L295paw5YaF5a65PC90ZXh0Pjx0ZXh0IHg9IjYxMCIgeT0iMjkzIiBjbGFzcz0iYm9keSIgPuWcqOmAlOivt+axguS/neaMgeWOn+W/q+eFpzwvdGV4dD48cmVjdCB4PSI4NjAiIHk9IjE3MCIgd2lkdGg9IjIxNiIgaGVpZ2h0PSIxNTUiIHJ4PSIxMiIgY2xhc3M9ImJveCBhbWJlciIvPjx0ZXh0IHg9Ijg4MiIgeT0iMjA3IiBjbGFzcz0ibGFiZWwiID7noJTnqbbosIPnlKg8L3RleHQ+PHRleHQgeD0iODgyIiB5PSIyMzkiIGNsYXNzPSJib2R5IiA+5Lu75Yqh57qm5p2f5bel5YW36IyD5Zu0PC90ZXh0Pjx0ZXh0IHg9Ijg4MiIgeT0iMjY2IiBjbGFzcz0iYm9keSIgPuaJp+ihjOS4iua4uOW3peS9nOa1gTwvdGV4dD48dGV4dCB4PSI4ODIiIHk9IjI5MyIgY2xhc3M9ImJvZHkiID7orrDlvZXlrp7pmYXnu5Pmnpw8L3RleHQ+PHBhdGggZD0iTTI3NCAyNDcgSDMxMiIgY2xhc3M9ImFycm93IiBtYXJrZXItZW5kPSJ1cmwoI2Fycm93KSIvPjxwYXRoIGQ9Ik01NDYgMjQ3IEg1ODQiIGNsYXNzPSJhcnJvdyIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz48cGF0aCBkPSJNODE4IDI0NyBIODU2IiBjbGFzcz0iYXJyb3ciIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+PHJlY3QgeD0iNDQiIHk9IjM4NSIgd2lkdGg9IjUwMiIgaGVpZ2h0PSIxMTEiIHJ4PSIxMiIgY2xhc3M9ImJveCBuZXV0cmFsIi8+PHRleHQgeD0iNjYiIHk9IjQyMiIgY2xhc3M9ImxhYmVsIiA+5LiK5ri46LSf6LSj5bel5L2c5rWB5LiO5L6d6LWWPC90ZXh0Pjx0ZXh0IHg9IjY2IiB5PSI0NTQiIGNsYXNzPSJib2R5IiA+UHl0aG9uIC8g5pWw5o2u5pyN5YqhIC8g6L6T5YWl5p2Q5paZ5oyJ5LiK5ri45YeG5aSHPC90ZXh0PjxwYXRoIGQ9Ik01NDYgNDEwIEg1NjUgVjM1NCBINzAzIFYzMjkiIGNsYXNzPSJhcnJvdyIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz48dGV4dCB4PSI1ODgiIHk9IjQyMyIgY2xhc3M9ImxhYmVsIiA+SlEg5LiN5YaN57u05oqk6YCQ5oqA6IO96LWE5qC877yMPC90ZXh0Pjx0ZXh0IHg9IjU4OCIgeT0iNDU4IiBjbGFzcz0ibGFiZWwiID7lrp7pmYXnu5PmnpznlLHnoJTnqbbor4Hmja7moLjpqozjgII8L3RleHQ+Cjx0ZXh0IHg9IjQ0IiB5PSI1MzEiIGNsYXNzPSJub3RlIj7nrqHnkIbkvovlpJbvvJrlt7Lmj5DkvpvnmoQgcmVzZWFyY2hfdGFzayDkv53nlZnvvIznlKjkuo7lo7DmmI7miJbkv67orqLku7vliqHjgII8L3RleHQ+CjxwYXRoIGQ9Ik00NCA1NTIgSDEwNzYiIHN0cm9rZT0iI2RkZTNlOCIvPgo8dGV4dCB4PSI0NCIgeT0iNTgwIiBjbGFzcz0ibm90ZSIgPuaetuaehOekuuaEjyDCtyDkvp3mja4gMjAyNi0xMC0xNiDlt6XkvZzljLogwrcg6Z2e5oCn6IO95oiW5oiQ5Yqf546H5rWL6YePPC90ZXh0Pgo8L3N2Zz4K" alt="工具在宿主与任务范围内使用，技能提供工作流指令；技能文件可加载不代表外部服务已经可用。" loading="lazy"></div><figcaption class="scroll-hint">窄屏可横向滚动查看完整配图</figcaption></figure>
 <p><em>图 4：宿主和任务仍约束工具调用。JQ 负责下载和会话接线，Pi 负责加载，技能依赖遵循上游说明。</em></p>
 <p>JQ 的薄适配保留目录选择、来源信息和正文快照。新安装或 <code>/skill reload</code> 使发现缓存失效，空闲会话在下一次独立请求读取新内容；在途研究与排队续问保留原快照。</p>
-<p>Pi 的显式技能命令展开器目前没有独立公开入口，JQ 因而保留一个小的正文包装函数，将已加载内容交给现有会话。这部分只连接技能与会话，不解释特定技能的业务规则。<a href="../quant-harness/trader-skills.md#discovery">加载与快照契约</a></p>
+<p>Pi 的显式技能命令展开器目前没有独立公开入口，JQ 因而保留一个小的正文包装函数，将已加载内容交给现有会话。这部分只连接技能与会话，不解释特定技能的业务规则。<a href="../quant-harness/community-tools.md#discovery">加载与快照契约</a></p>
 <h3>一键准备的实际边界</h3>
 <p>“近乎预内置”落实为预制目录和一个下载命令。启动应用不再后台下载仓库，用户选择名称后执行 <code>/skill install &lt;name&gt;</code>，只有显式 <code>--all</code> 才选择全部预制项。下载按共享仓库缓存，加载按技能选择；已有目录会保留，显式指定仓库才执行更新。用户改动不会被重置，失败也不会发布半套安装。</p>
-<p>MCP 同样有清晰分工：Financial Datasets、Tushare、LLMQuant Data、智谱搜索与网页读取的介绍和配置统一放在 <a href="../quant-harness/trader-skills.md#mcp">Skills 与 MCP 指南</a>。用户用 <code>/mcp install &lt;name&gt;</code> 按需添加，<code>/mcp remove &lt;name&gt;</code> 移除，<code>/mcp export &lt;name&gt;</code> 取出模板。增删直接复用 Pi 的配置 API，默认维护其用户配置，<code>--local</code> 选择项目配置。同名已有配置保留。仓库不再维护 <code>.claude/mcp.json</code>，JQ 也不为这些服务实现另一套 MCP 客户端。引入 Pi 的 Skills SDK 不等于已经启动 Pi 的 MCP 会话。</p>
+<p>MCP 同样有清晰分工：Financial Datasets、Tushare、LLMQuant Data、智谱搜索与网页读取的介绍和配置统一放在 <a href="../quant-harness/community-tools.md#mcp">Skills 与 MCP 指南</a>。用户用 <code>/mcp install &lt;name&gt;</code> 按需添加，<code>/mcp remove &lt;name&gt;</code> 移除，<code>/mcp export &lt;name&gt;</code> 取出模板。增删直接复用 Pi 的配置 API，默认维护其用户配置，<code>--local</code> 选择项目配置。同名已有配置保留。仓库不再维护 <code>.claude/mcp.json</code>，JQ 也不为这些服务实现另一套 MCP 客户端。引入 Pi 的 Skills SDK 不等于已经启动 Pi 的 MCP 会话。</p>
 <p>技能可以加载，只说明指令可被消费。图片输入仍需模型支持，研究工具仍受任务范围约束，量化结论仍需真实输入和可核验计算。撤掉第三方技能认证以后，这些属于 JQ 本身的责任继续由各自模块负责。</p>
 <h3>实现索引</h3>
 <p>这次收缩尚未涵盖社区插件宿主。JQ 仍使用 WhyJ Extension API 1，Git 下载和选择文件也保留现有布局；进一步复用 Pi 的包管理、资源过滤和插件协议由 <a href="https://github.com/yangjingo/oh-my-quant/issues/33">#33</a>跟进，不能从 Skills API 复用推导为 Pi 插件已兼容。</p>
@@ -246,7 +244,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p>对那份对冲错算，后续实现增加了无 IO 的<a href="../../src/quant/position-scenarios.ts">持仓情景计算</a>，并将<a href="../../src/runtime/evidence/hedge-scenario-answer.ts">有限情景检查</a>绑定到显式股数、成本与收盘价。旧错句成为回归输入；检查只覆盖识别到的未对冲股票情景，不核验期权收益或任意自由文本。后续模型样本的股票算术正确，仍出现“protective put 的保费最高”这类缺少同条件报价支持的比较。旧失败、离线重检和新样本分别保留在<a href="../../output/scenario-arithmetic-validation-2026-10-13.json">本地阶段回执</a>，本文没有重新执行这些验证，也不把修好算术写成完整解释验收。</p>
 <p>Langfuse 的 Skill 评测文章把输入、轨迹、评分与迭代连接起来。我们采用的是让观测服务于可重复改进的思路；当前仍使用本地事件和评测回执，没有因为引用它就接入 Langfuse 服务。<a href="https://langfuse.com/blog/2026-02-26-evaluate-ai-agent-skills">Evaluating AI Agent Skills</a></p>
 <h3>修复一个错误，不等于得到总体正确率</h3>
-<p>回测权益和 CAGR 后续已有独立账本修复与回归，新闻检查也能拦截已知口径冲突。它们分别改善了确定的数值契约和有限的回答门槛，不应被合并为「研究质量全面提升」的数字。当前怎样复验，由<a href="../quant-harness/evaluation.md">统一评测指南</a>维护；本文记录的是这些规则为何出现，不充当完整验收报告。</p>
+<p>回测权益和 CAGR 后续已有独立账本修复与回归，新闻检查也能拦截已知口径冲突。它们分别改善了确定的数值契约和有限的回答门槛，不应被合并为「研究质量全面提升」的数字。当前怎样复验，由<a href="../evaluation/README.md">统一评测指南</a>维护；本文记录的是这些规则为何出现，不充当完整验收报告。</p>
 <p>代价是验证本身也需要版本和边界。词法规则可能漏掉语言改写，合法引用不能证明句子与段落语义一致，人工审阅仍要发现新的错误类别。一次真实模型复测通过，也不能推出总体错误率下降了多少。</p>
 <p>六因子的真实运行就是这个区别：数值已经正确，表头、中文逗号和编号标题仍使有限解析器误判；调整解析器后离线重读原文，只能更新重审结论，不能制造一次新的模型通过。同时，回答仍可能把均线差说成斜率，或对极小样本给出过强解释。源码快照与人工审阅分别留在<a href="../../output/quant-factor-final-freeze-2026-10-13.json">本地修订记录</a>和<a href="../../output/quant-factor-production-review-2026-10-13.json">回答复核</a>；旧 33 场景与新增后的 34 场景也不能拼接为同一总体成功率。</p>
 <p>因此，一份回执要留下任务、输入、真实或合成环境、检查规则版本、失败回答位置，以及未验证项。成功率的分母也要固定：返回文字、完成工具、满足任务条件、人工确认解释正确，不是同一个事件。</p>
@@ -255,7 +253,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p>对下一笔工程投入，我们更愿意从反例出发。缺数据就修数据链路，误读口径就改证据与解释检查，调用越界就审查资源装配。测试的价值不仅是让发布前多一个勾选，还在于让「下一步改哪里」有具体依据。</p>
 <h3>实现索引</h3>
 <ul>
-<li><a href="../../bunfig.toml">测试围栏配置</a>与<a href="../../tests/architecture/check-test-fence.ts">围栏检查</a>、<a href="../quant-harness/evaluation.md#tasks">研究任务评测</a>。</li>
+<li><a href="../../bunfig.toml">测试围栏配置</a>与<a href="../../tests/architecture/check-test-fence.ts">围栏检查</a>、<a href="../evaluation/README.md#tasks">研究任务评测</a>。</li>
 <li><a href="../../src/runtime/evidence/news-answer-claims.ts">新闻主张规则</a>、<a href="../../src/runtime/evidence/news-answer-evidence.ts">回答证据绑定</a>。</li>
 <li><a href="../../src/runtime/test/news-answer-session.test.ts">真实 Pi 固定传输回归</a>：链路验证与真实模型质量分别验收。</li>
 </ul>
@@ -282,7 +280,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p>输出流的规则则不同。Screen 等待 drain 时只保留最新待发帧，恢复后重画同步画面；中间动画可以合并，研究事件仍由会话账本保存。展示需要及时，日志需要完整，因此不应共用同一种队列策略。</p>
 <p>Settings 也按状态归属处理：模型保存不附带行情请求，数据验证后保存刷新一次，退出父面板不重复刷新。草稿改动使旧检查失效，面板关闭使迟到回调失去发布资格。这些规则与研究分支的提交边界，是同一个问题在界面侧的体现。</p>
 <h3>让不完整可见，并没有免除性能责任</h3>
-<p>当前刷新、设置冲突与退出清理都有对应回归，测量记录也区分首个可用结果与整轮完成。它们为迟到覆盖、草稿串用和输出清理提供检查入口，不等于所有真实终端、供应商和输入法都已验证。当前复验入口见<a href="../quant-harness/evaluation.md#data">数据评测</a>与文末测试，不把它们称作本轮运行结果。</p>
+<p>当前刷新、设置冲突与退出清理都有对应回归，测量记录也区分首个可用结果与整轮完成。它们为迟到覆盖、草稿串用和输出清理提供检查入口，不等于所有真实终端、供应商和输入法都已验证。当前复验入口见<a href="../evaluation/README.md#data">数据评测</a>与文末测试，不把它们称作本轮运行结果。</p>
 <p>用户会更容易看见 <code>--</code>、partial 与 stale，这是我们接受的代价。它暴露了取数的不完整，没有让流畅画面替后台作保证。但如果缺项持续很久，界面诚实并不能免除我们优化供应商、并发和超时策略的责任。</p>
 <p>frame-buffer 的维护账也仍然存在：中文宽字符、焦点、裁剪、备用屏幕清理和多尺寸布局都由项目承担。stdout 的 drain 只表示流恢复容量，<code>firstResultMs</code> 只表示运行时发布了首份报价，两者都不是用户已经看见的时间。</p>
 <p>因此，这次文档整理把旧窗口尺寸和重复命令表交还代码与专门参考，把代次、时间、焦点和失败语义留下。<a href="#visual-language">终端方案的演进</a>换成 Web UI 时，这些约束仍然成立；可以淘汰的是布局实现，不能顺带淘汰的是状态归属。</p>
@@ -290,7 +288,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <ul>
 <li><a href="../../src/runtime/workspace/overview-refresh.ts">刷新生命周期</a>、<a href="../../src/runtime/workspace/overview-data.ts">请求池</a>、<a href="../../src/tui/src/buffer.ts">Screen</a>。</li>
 <li><a href="../../src/runtime/test/overview-refresh.test.ts">刷新回归</a>、<a href="../../src/tui/test/settings-conflict.test.ts">设置冲突</a>、<a href="../../src/tui/test/exit-cleanup.test.ts">退出清理</a>。</li>
-<li><a href="../quant-harness/quant-uiux.md">现行 UI/UX</a>与<a href="../../src/tui/test/research-workflow.test.ts">键盘流程回归</a>。</li>
+<li><a href="../quant-harness/uiux.md#uiux">现行 UI/UX</a>与<a href="../../src/tui/test/research-workflow.test.ts">键盘流程回归</a>。</li>
 </ul>
 <p><a href="#chapter-05">← 上一篇</a> · <a href="#chapter-07">下一篇：报告要固定，设计要演进 →</a></p>
 </article>
@@ -322,11 +320,11 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <h4>文档保留理由，不继续保留重复规范</h4>
 <p><a id="documentation"></a></p>
 <p>我们的第一次收敛并不彻底：先分类、保留路径，再将旧稿汇成 13 份主题归档，另设一份设计决策账。顶层入口少了，阅读负担却被移进归档；读者依然要在规范、历史汇编、决策账和博客之间拼出“现在相信什么”。把“没有丢文件”当成“文档已经整理好”，是这轮工作本身需要纠正的判断。</p>
-<p>因此，2026-10-13 的下一步不再是继续归档：删除主题归档、归档索引和独立决策账。现行 Docs 说明现在怎样使用、实现和验证；PRD 维护范围与状态；Blog 直接承接错误判断、修正理由、代价及重审条件。旧测试数量、重复命令表、生态全目录和中间验收流水不再复制。仍有必要保留的原始运行输出留在内部证据位置，不作为网站内容自动发布。</p>
+<p>因此，2026-10-13 的下一步不再是继续归档：删除主题归档、归档索引和独立决策账。现行 Docs 说明现在怎样使用、实现和验证；PRD 维护产品形态与核心价值；Blog 直接承接错误判断、修正理由、代价及重审条件。旧测试数量、重复命令表、生态全目录和中间验收流水不再复制。仍有必要保留的原始运行输出留在内部证据位置，不作为网站内容自动发布。</p>
 <p>但这一步仍没有完成整理。research-* 把任务、状态与宿主端口分散解释，skill-* 又让安装、发现、资格和输入各占一页；只是删掉 archive，读者仍要自己拼出完整生命周期。任务 ID 一处写成必填，另一处已经允许首次声明由宿主补齐，就是拆散维护带来的具体冲突。这轮继续把 16 份相关文档收敛到 Harness、Skills、量化工具、数据源和 UI/UX 五个主入口，删除被吸收的 11 份，不留下跳转壳。</p>
 <p>合并的单位因此改为责任和读者任务，而不是文件名前缀。研究日线的来源/时间证据归数据源，价量公式归量化工具；二者用链接明确交界，不能因为都叫 research 就混成同一种保证。代价是主文档会更长、旧外链失效，收益目前只能说是减少重复规范和定位歧义，尚不能宣称读者理解更快。</p>
 <p>第三方 Skill 目录也不值得再复制一遍。上游维护功能与工作流，我们维护固定版本、安装/发现、资格和证据边界；详细案例回到可执行的本地注册表，功能介绍只保留上游 URL。删除说明副本不等于卸载运行依赖，更不能把用于复现错误的测试 Skill 夹具一起删掉。</p>
-<p>同样的分歧后来出现在验证脚本里：一次修复需要固定日期、固定端点与本机条件来形成证据，但这些条件不必永久成为日常入口。早期 Pi 双 CLI 探针只接受输出路径，文档却把它写成能选择连接、查看帮助的通用检查；图表生成器则依赖个人 Skill checkout 和本机字体。文件存在，不代表验证方法已经可移植。2026-10-14 的清理因此删除六个重复或旧环境绑定的入口，保留具有独立范围的测量、证据重算和确定性反例，<a href="../quant-harness/evaluation.md#%E9%AA%8C%E8%AF%81%E8%84%9A%E6%9C%AC%E7%9A%84%E7%BB%B4%E6%8A%A4%E8%BE%B9%E7%95%8C">现行复验方式</a>明确各自能证明什么。代价也要承认：新的 source 测量并不原样复跑旧「固定端点 + 编译 CLI」探针，单侧 Doctor 不证明双 CLI 并发；原场景需要从对应 Git 版本复现。减少文件只是结果，避免替代入口悄悄扩大自己的证明范围才是这次收敛的目的。</p>
+<p>同样的分歧后来出现在验证脚本里：一次修复需要固定日期、固定端点与本机条件来形成证据，但这些条件不必永久成为日常入口。早期 Pi 双 CLI 探针只接受输出路径，文档却把它写成能选择连接、查看帮助的通用检查；图表生成器则依赖个人 Skill checkout 和本机字体。文件存在，不代表验证方法已经可移植。2026-10-14 的清理因此删除六个重复或旧环境绑定的入口，保留具有独立范围的测量、证据重算和确定性反例，<a href="../evaluation/README.md#%E9%AA%8C%E8%AF%81%E8%84%9A%E6%9C%AC%E7%9A%84%E7%BB%B4%E6%8A%A4%E8%BE%B9%E7%95%8C">现行复验方式</a>明确各自能证明什么。代价也要承认：新的 source 测量并不原样复跑旧「固定端点 + 编译 CLI」探针，单侧 Doctor 不证明双 CLI 并发；原场景需要从对应 Git 版本复现。减少文件只是结果，避免替代入口悄悄扩大自己的证明范围才是这次收敛的目的。</p>
 <p>脚本迁移也不能只按它调用了哪个模块来分类。终端刷新探针需要跨越数据编排和绘制，若移动后直接套用生产依赖规则，它会被误判为架构倒置；若放宽整个模块，又会让探针成为生产依赖的后门。我们的选择是模块内 <code>dev/</code> 承接显式开发入口，根目录 <code>tests/</code> 承接跨模块回归，npm 命令负责统一调度。生产文件仍不得导入 dev 或测试代码，构建闭包还要独立确认这些代码没有进入 CLI。代价是现在必须维护两类消费者和两个测试根，而不是假设一张目录图就能同时代表生产、开发与验收。移动文件改变归属，不改变旧证据的证明范围。</p>
 <p>接下来的一次分类仍然偏窄：我们把 Quant Harness 几乎等同于任务守卫和证据核验，再把数据、计算、执行和 UI/UX 并列放在外面。这个边界能描述某个源文件，却不足以描述产品。用户选择数据、等待计算、理解失败、恢复报告的整条路径，正是量化应用必须提供的运行环境；UI 不是事后包装，数据和计算也不是附录。</p>
 <p>因此，2026-10-14 的调整真正落到了目录：<code>docs/agent-runtime/</code> 保存通用运行机制，<code>docs/quant-harness/</code> 保存完整量化应用及其内部设计，原来的顶层文件实际迁移进去。只在索引里分两组标题并没有完成这件事。模型设置、诊断、测速仍各有唯一正文，产品模块也继续保持依赖边界；改变的是文档的应用归属，不是把所有代码装进同一个模块。</p>
@@ -334,7 +332,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p>这也改变了反思的写法。不是在文章末尾列一张删除清单，而是在每个问题发生的位置说明：为什么安装元数据不足以授予资格，为什么回退成功不能证明原连接有效，为什么一个评分全绿的回答仍会算错。读者应该在理解机制时遇到这些反例，而不是先离开文章寻找另一本历史。</p>
 <p>OpenAI 的 Harness Engineering 文章强调用简短入口连接结构化仓库知识。这里可以借鉴的是可发现性和明确归属，不能把对方的生产规模与效率结果移植为本项目收益。<a href="https://openai.com/index/harness-engineering/">Harness Engineering</a></p>
 <h3>删掉旧稿以后，我们差点留下什么缺口</h3>
-<p>系列保留十二篇机制图与实现入口，并通过构建和链接检查约束导航。它们可以检查整理后有没有缺文件、断链接和重复入口，却不能证明 Agent 因而少犯了多少错误；我们没有做这样的效果测量。</p>
+<p>系列保留十一篇机制图与实现入口，并通过构建和链接检查约束导航。它们可以检查整理后有没有缺文件、断链接和重复入口，却不能证明 Agent 因而少犯了多少错误；我们没有做这样的效果测量。</p>
 <p>删除也有实际损失：仓库不再逐字保存全部旧稿，外部旧链接不保证兼容，博客也不承诺覆盖每次运行。未入库文件不能依赖 Git 恢复；先前校验过的仓库外临时副本只是本机恢复手段，可能被清理，不是永久历史或完整工作区回滚点。我们接受这一损失，不再为恢复所有旧路径重新创建一层跳转页。</p>
 <p>先前的独立读者复核曾找出一次真实遗漏：旧 Artifact 方案的采集限制没有进入第一次摘要。如今它直接进入上面的轨迹讨论，而不是留在待删除的决策账里。这说明提取决策并不天然比保留原稿安全；需要核对独有约束，也需要明确哪些材料没有被逐字迁移。</p>
 <p>系列走到这里，得到的不是「复杂度越少越好」。协议适配、结构化恢复、单源诊断和固定报告都增加了代码，却对应明确的失败；重复命令表、过期状态和未采用的图结构，则不应仅因曾经写下就继续占据当前入口。</p>
@@ -343,114 +341,41 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <ul>
 <li><a href="../../src/artifact/src/report-input.ts">报告输入与 provenance</a>、<a href="../../src/storage/src/artifacts.ts">固定版本存储</a>。</li>
 <li><a href="../../src/artifact/test/report-share.test.ts">分享回归</a>、<a href="../../src/artifact/test/report-recovery.test.ts">恢复回归</a>。</li>
-<li><a href="../README.md">文档地图</a>、<a href="./editorial-notes.md">编辑与证据说明</a>、<a href="../quant-harness/evaluation.md">验证方法</a>。</li>
+<li><a href="../README.md">文档地图</a>、<a href="./editorial-notes.md">编辑与证据说明</a>、<a href="../evaluation/README.md">验证方法</a>。</li>
 </ul>
 <p><a href="#chapter-06">← 上一篇</a> · <a href="#chapter-08">下一篇：研究产品的工作流 →</a></p>
 </article>
-<article id="chapter-08" aria-labelledby="chapter-08-title"><p class="eyebrow">FIELD NOTES / 08</p><h2 id="chapter-08-title">桌面优先之后，CLI 如何延续同一份研究？</h2><p class="article-meta">初稿 2026-10-13 · 修订 2026-10-21 · oh-my-quant · <a href="./08-research-workbench.md">Markdown 原文</a></p><p>用户今天比较两组标的，明天再问“换一个基准会怎样”。在终端里可以接着说，换到桌面应用以后，研究还能接得上吗？如果需要重新输入日期、解释数据来源、寻找旧报告，我们交付的就只是两个入口，而不是一份能够继续的工作。</p>
-<p>本文以当前实现为起点，讨论已经选择的维护方向：<strong>优先维护 Desktop，同时保留 CLI</strong>。当前 <code>desktop/</code> 仍是 Electron 中的终端宿主；下面的 <code>apps/cli</code>、<code>apps/desktop</code>、共享包和独立桌面界面均是改造提案，尚未实施。目录与发布方法仍以<a href="../quant-harness/module-architecture.md">模块架构</a>和<a href="../quant-harness/desktop.md">桌面宿主文档</a>为准。</p>
-<h3>一次研究，为什么要在两种界面里延续？</h3>
-<p>自然语言适合尚未成形的问题。用户可以先表达研究意图，再逐步明确对象、窗口、币种和基准。但一段回答不是全部研究状态：下一次工作还需要知道采用了哪个组合版本、哪些数据能重算、报告固定了什么，以及失败后有没有可用的草稿。<a href="../quant-harness/product-guide.md#requirements">产品范围与验收</a>因此把主要路径串成“配置 → 获取数据 → 分析与比较 → 报告 → 恢复”。</p>
-<p>已有<a href="../../src/tui/test/research-workflow.test.ts">键盘流程回归</a>经过设置自动报告、维护两组观察标的、带日期与基准的比较、<code>/clear</code> 和报告恢复。这条路径提醒我们：局部的取数、计算、导出都成功，仍不保证研究能连续进行。恢复必须保留原数据引用与报告版本，不能为了“打开成功”悄悄换成今天的数据。</p>
-<p>两种入口并非两份独立产品。CLI 仍适合终端研究、明确的 JSON one-shot 读取和可组合命令；Desktop 优先承担安装、发现、配置与长时间工作的体验。这里优先的是日常产品迭代与体验验收，不是取消 CLI 的兼容、测试或发布维护。桌面应用让用户不必先组织终端环境，也给对象、参数与报告更稳定的展示位置；这仍是需要验证的产品判断，不是已经测得的效率提升。</p>
-<p>真正应该共享的是研究事实，而不是窗口布局。配置快照、会话分支、任务条件、数据引用和报告身份应有一致解释；焦点、滚动、面板展开和暂时的输入状态属于各自界面。强行复用整个 TUI 布局会限制桌面体验，复制业务逻辑又会让两个入口产生不同答案。我们需要的是同一套约束下的两种投影。</p>
-<h3>终端复用降低了成本，也划出了桌面体验的边界</h3>
-<p>当前方案有充分的合理性。<a href="../../desktop/scripts/build.ts">桌面构建</a>把根 <code>src/index.ts</code> 编译成随包运行的 WhyJ，Electron <a href="../../desktop/src/main.ts">主进程</a>通过 node-pty 启动它。<a href="../../desktop/src/bridge.ts">Bridge</a>主要传输终端输入、尺寸、输出和确认，再提供剪贴板、工作目录与链接能力。复用既有 CLI/TUI，减少了研究行为分叉，也避免要求桌面用户先安装整套开发工具。</p>
-<p>但终端字符流不是研究对象协议。Renderer 接到输出，不能据此可靠地拿到“当前报告版本”“配置保存代次”或“这次失败的请求身份”。如果下一步需要可点击的数据来源、并列比较的报告、独立设置页，就不能用解析屏幕文字来构造第二份业务状态。保留 PTY 作为过渡入口合理，把它当成独立桌面工作台的完整边界则不够。</p>
-<p>共享核心也还没有自然长出来。<code>src/runtime/</code> 已经受不依赖 CLI/TUI 的架构约束，但顶层 <a href="../../src/app-runtime.ts">AppRuntime</a>仍导入 CLI 目录/执行器以及 TUI 的 <code>CurrentSessionMeta</code> 类型。把它原样放进 <code>packages/core</code>，只会把终端依赖换一个名字。必须先分开应用服务、命令适配与界面回调，再讨论包边界。</p>
-<p>因此，问题不是把 <code>desktop</code> 改叫 <code>app</code>。<code>src/app/</code> 已经容纳显式选择的模拟执行与账户宿主；再增加一个单数 <code>app/</code> 会混淆“可发布产品”与“领域宿主适配器”。<code>apps/cli</code> 和 <code>apps/desktop</code> 更清楚地表达两个产品入口，但迁移目录本身不会解除上述依赖，也不会获得新的用户体验。</p>
-<h3>把桌面做成工作台，让两端共享研究事实</h3>
-<p>我们的候选终态如下。它是用于讨论责任的地图，不是本 PR 的文件移动清单；其中 <code>packages/quant-harness</code> 也不是把所有领域代码合成一个无边界总包。</p>
-<pre><code class="language-text">apps/
-  desktop/    Electron main、preload、renderer 与桌面打包
-  cli/        公共 whyj 命令、JSON 入口与终端适配
-packages/
-  agent-runtime/   通用会话、模型循环与生命周期
-  quant-harness/   量化应用服务、领域模块与显式契约
-tests/
-  architecture/   仓库依赖与入口边界
-  integration/    跨模块、跨入口的行为契约
-  e2e/            实际产品工作流，按端分别验收
-docs/
-  agent-runtime/
-  quant-harness/
-  blog/
-site/         产品网站、Docs、Blog、手册与公开 Demo
-</code></pre>
-<p>沿用<a href="../README.md#design">现有文档划分</a>，Agent Runtime 负责通用会话运行机制；数据、计算、执行、报告、产品与 UI/UX 均属于 Quant Harness 的应用体系。文档归属不要求所有界面代码住在同一个共享包：具体渲染留在各 app，跨界面确实复用的状态契约和应用服务再进入共享层。现有 <code>source</code>、<code>storage</code>、<code>quant</code>、<code>execution</code> 的依赖与授权规则仍需保留。</p>
-<p>桌面工作台应围绕意图、对象和结果组织，而不只是增加页面。研究对话承接探索；对象区明确观察分组、日期、币种与基准；报告区固定版本与来源，并能返回对应会话。准备、运行、取消、空结果和失败要分别可见，不能都呈现为一个停止转动的加载图标。观察 Portfolio 仍不是用户真实持仓，研究完成也不授予下单权限。<a href="../quant-harness/quant-uiux.md">界面职责</a>、<a href="../quant-harness/execution.md">执行边界</a>、<a href="../quant-harness/performance.md">账户业绩</a></p>
-<figure><div class="diagram-scroll" tabindex="0" role="region" aria-label="架构图，可横向滚动"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMTIwIiBoZWlnaHQ9IjYzMCIgdmlld0JveD0iMCAwIDExMjAgNjMwIiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+Cjx0aXRsZSBpZD0idGl0bGUiPuS7juS4gOasoeWvueivne+8jOi1sOWQkeWPr+S7pee7p+e7reeahOeglOeptjwvdGl0bGU+PGRlc2MgaWQ9ImRlc2MiPuWHhuWkh+OAgeeglOeptuOAgeeVmeWtmOWSjOe7p+e7reWxnuS6juWQjOS4gOW3peS9nOa1ge+8jOWNtOS4jeW/heaMpOWcqOWQjOS4gOS4quiBiuWkqeWFpeWPo+OAgjwvZGVzYz4KPGRlZnM+PG1hcmtlciBpZD0iYXJyb3ciIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvIj48cGF0aCBkPSJNMCAwIEwxMCA1IEwwIDEweiIgZmlsbD0iIzY5NzU4NiIvPjwvbWFya2VyPjwvZGVmcz48c3R5bGU+dGV4dHtmb250LWZhbWlseToiTWljcm9zb2Z0IFlhSGVpIiwiUGluZ0ZhbmcgU0MiLHNhbnMtc2VyaWY7ZmlsbDojMTgyMzMzfS50aXRsZXtmb250LXNpemU6MzBweDtmb250LXdlaWdodDo3MDB9LmV5ZWJyb3d7Zm9udC1zaXplOjE0cHg7bGV0dGVyLXNwYWNpbmc6MnB4O2ZpbGw6IzQ5Njg3ZH0ubGFiZWx7Zm9udC1zaXplOjIxcHg7Zm9udC13ZWlnaHQ6NjAwfS5ib2R5e2ZvbnQtc2l6ZToxN3B4O2ZpbGw6IzQwNTE2NH0ubm90ZXtmb250LXNpemU6MTZweDtmaWxsOiM2NTcwODN9LmJveHtzdHJva2Utd2lkdGg6MS41fS5uZXV0cmFse2ZpbGw6I2Y0ZjZmODtzdHJva2U6I2NiZDNkY30uYmx1ZXtmaWxsOiNlZGY0ZmQ7c3Ryb2tlOiM4YWFkZDV9LnRlYWx7ZmlsbDojZWRmN2Y0O3N0cm9rZTojODRiN2E1fS5hbWJlcntmaWxsOiNmZmY2ZTc7c3Ryb2tlOiNkMmFkNjl9LmFycm93e2ZpbGw6bm9uZTtzdHJva2U6IzY5NzU4NjtzdHJva2Utd2lkdGg6MjttYXJrZXItZW5kOnVybCgjYXJyb3cpfS5kYXNoZWR7c3Ryb2tlLWRhc2hhcnJheTo3IDZ9PC9zdHlsZT48cmVjdCB3aWR0aD0iMTEyMCIgaGVpZ2h0PSI2MzAiIGZpbGw9IiNmZmYiLz4KPHRleHQgeD0iNDQiIHk9IjM0IiBjbGFzcz0iZXllYnJvdyI+T0gtTVktUVVBTlQgLyBBR0VOVCBFTkdJTkVFUklORyAvIDA4PC90ZXh0Pjx0ZXh0IHg9IjQ0IiB5PSI4NCIgY2xhc3M9InRpdGxlIj7ku47kuIDmrKHlr7nor53vvIzotbDlkJHlj6/ku6Xnu6fnu63nmoTnoJTnqbY8L3RleHQ+PHRleHQgeD0iNDQiIHk9IjExOSIgY2xhc3M9Im5vdGUiPuWHhuWkh+OAgeeglOeptuOAgeeVmeWtmOWSjOe7p+e7reWxnuS6juWQjOS4gOW3peS9nOa1ge+8jOWNtOS4jeW/heaMpOWcqOWQjOS4gOS4quiBiuWkqeWFpeWPo+OAgjwvdGV4dD4KPHJlY3QgeD0iNDQiIHk9IjE3MyIgd2lkdGg9IjIxNiIgaGVpZ2h0PSIxNDIiIHJ4PSIxMCIgY2xhc3M9ImJveCBibHVlIi8+PHRleHQgeD0iNjQiIHk9IjIwOCIgY2xhc3M9ImxhYmVsIj7lh4blpIc8L3RleHQ+PHRleHQgeD0iNjQiIHk9IjI0OCIgY2xhc3M9ImJvZHkiPuaooeWeiyAvIOaVsOaNriAvIOinguWvn+e7hDwvdGV4dD48dGV4dCB4PSI2NCIgeT0iMjgyIiBjbGFzcz0ibm90ZSI+5pys5Zyw5o6n5Yi2PC90ZXh0PjxwYXRoIGQ9Ik0yNjIgMjQxSDMwOCIgY2xhc3M9ImFycm93Ii8+PHJlY3QgeD0iMzE2IiB5PSIxNzMiIHdpZHRoPSIyMTYiIGhlaWdodD0iMTQyIiByeD0iMTAiIGNsYXNzPSJib3ggdGVhbCIvPjx0ZXh0IHg9IjMzNiIgeT0iMjA4IiBjbGFzcz0ibGFiZWwiPueglOeptjwvdGV4dD48dGV4dCB4PSIzMzYiIHk9IjI0OCIgY2xhc3M9ImJvZHkiPuaEj+WbviAvIOWPguaVsCAvIOW3peWFtzwvdGV4dD48dGV4dCB4PSIzMzYiIHk9IjI4MiIgY2xhc3M9Im5vdGUiPuiHqueEtuivreiogOaOoue0ojwvdGV4dD48cGF0aCBkPSJNNTM0IDI0MUg1ODAiIGNsYXNzPSJhcnJvdyIvPjxyZWN0IHg9IjU4OCIgeT0iMTczIiB3aWR0aD0iMjE2IiBoZWlnaHQ9IjE0MiIgcng9IjEwIiBjbGFzcz0iYm94IGFtYmVyIi8+PHRleHQgeD0iNjA4IiB5PSIyMDgiIGNsYXNzPSJsYWJlbCI+55WZ5a2YPC90ZXh0Pjx0ZXh0IHg9IjYwOCIgeT0iMjQ4IiBjbGFzcz0iYm9keSI+5Zu65a6a5oql5ZGKIC8g5p2l5rqQ5YiG5pSvPC90ZXh0Pjx0ZXh0IHg9IjYwOCIgeT0iMjgyIiBjbGFzcz0ibm90ZSI+5pyJ5L6d5o2u55qE57uT5p6cPC90ZXh0PjxwYXRoIGQ9Ik04MDYgMjQxSDg1MiIgY2xhc3M9ImFycm93Ii8+PHJlY3QgeD0iODYwIiB5PSIxNzMiIHdpZHRoPSIyMTYiIGhlaWdodD0iMTQyIiByeD0iMTAiIGNsYXNzPSJib3ggYmx1ZSIvPjx0ZXh0IHg9Ijg4MCIgeT0iMjA4IiBjbGFzcz0ibGFiZWwiPue7p+e7rTwvdGV4dD48dGV4dCB4PSI4ODAiIHk9IjI0OCIgY2xhc3M9ImJvZHkiPuaguOWvueadpea6kCAvIOaBouWkjeWIhuaUrzwvdGV4dD48dGV4dCB4PSI4ODAiIHk9IjI4MiIgY2xhc3M9Im5vdGUiPuS4jeaYr+mHjeaWsOWPluaVsOabv+aNojwvdGV4dD48cGF0aCBkPSJNOTY4IDMyMFYzNjZINDI0VjMyMCIgY2xhc3M9ImFycm93Ii8+PHRleHQgeD0iNDgwIiB5PSIzNTUiIGNsYXNzPSJub3RlIj7lm7Tnu5XlkIzkuIDnoJTnqbbnu6fnu63vvIzogIzkuI3mmK/ku47mtojmga/ph43mlrDnjJzlj4LmlbA8L3RleHQ+PHJlY3QgeD0iNDQiIHk9IjQxMCIgd2lkdGg9IjEwMzIiIGhlaWdodD0iMTI0IiByeD0iMTAiIGNsYXNzPSJib3ggbmV1dHJhbCIvPjx0ZXh0IHg9IjY2IiB5PSI0NTAiIGNsYXNzPSJsYWJlbCI+5Lqn5ZOB6L6555WM5YWI5LqO5Yqf6IO95pWw6YePPC90ZXh0Pjx0ZXh0IHg9IjY2IiB5PSI0ODYiIGNsYXNzPSJib2R5Ij7op4Llr5/nu4TlkIgg4omgIOecn+Wunui0puaIt+OAgOOAgOeglOeptuWujOaIkCDiiaAg5Lqk5piT5o6I5p2DPC90ZXh0Pjx0ZXh0IHg9IjY2IiB5PSI1MTciIGNsYXNzPSJub3RlIj7pl63njq/lm57lvZLpqozor4Hlt6XkvZzlj6/lu7bnu63vvJvnlKjmiLflrabkuaDmiJDmnKzkuI7ku7vliqHmlYjnjofpnIDopoHlj6blpJbmtYvph4/jgII8L3RleHQ+CjxwYXRoIGQ9Ik00NCA1ODJIMTA3NiIgc3Ryb2tlPSIjZGRlM2U4Ii8+PHRleHQgeD0iNDQiIHk9IjYxMCIgY2xhc3M9Im5vdGUiPuacuuWItuS4juW4g+WxgOekuuaEjyDCtyDkvp3mja4gMjAyNi0xMC0xMyDlt6XkvZzljLogwrcg6Z2e55yf5a6e57uI56uv5oiq5Zu+5oiW55So5oi35pWI5p6c5rWL6YePPC90ZXh0Pgo8L3N2Zz4K" alt="研究工作流由准备、研究、留存和继续构成；聊天负责表达意图，本地控制负责确定动作，固定报告与分支支持恢复。" loading="lazy"></div><figcaption class="scroll-hint">窄屏可横向滚动查看完整配图</figcaption></figure>
-<p><em>图 8：沿用研究连续性示意，解释两端应共同维护的工作链；不是新桌面界面的截图，也不是上述目录已经迁移的证明。</em></p>
-<p>进程边界同样不能由视觉布局决定。Electron main 管理窗口、宿主资源与后台运行的生命周期；preload 只开放有限、带类型和参数校验的能力；renderer 不直接读取凭证、文件或启动 Python。这与 Electron 的<a href="https://www.electronjs.org/docs/latest/tutorial/process-model">进程模型</a>一致，当前已有<a href="../../desktop/src/main.ts">隔离设置</a>和 <a href="../../desktop/src/preload.ts">preload</a>，但它们并不证明未来业务接口已经实现。共享应用服务应由可信宿主接线。究竟放在 main、独立后台进程还是 utility process，采用哪种传输协议，还需要结合取消、崩溃恢复与打包成本验证，本文不预先承诺 JSON-RPC 或某个框架。</p>
-<p>目录改造按三个可停止的阶段推进，每一步都应独立可回退：</p>
-<div class="table-scroll" tabindex="0" role="region" aria-label="比较表，可横向滚动"><table>
-<thead>
-<tr><th>阶段</th><th>先交付什么</th><th>必须保住什么</th></tr>
-</thead>
-<tbody>
-<tr><td>入口归位</td><td>先迁 <code>apps/cli</code> 与 <code>apps/desktop</code>，共享实现暂留根 <code>src/</code>；同步构建、测试、CI 和安装路径</td><td>npm 包名与 <code>whyj</code> 命令、Electron appId、用户数据目录、安装更新与历史读取</td></tr>
-<tr><td>一条工作链贯通</td><td>从 AppRuntime 分离应用服务；先让配置保存、状态投影与诊断消费同一已提交配置快照及其保存代次，再接研究、取消、报告恢复</td><td>旧 PTY 可以继续工作；renderer 不解析字符流充当业务接口，不新增重复真值；共享工作区先限定单写者，并发保护验收前不开放两端同时写入</td></tr>
-<tr><td>边界稳定后成包</td><td>再形成 Agent Runtime / Quant Harness 工作区；迁移测试和发布配置</td><td>无 GUI 的 CLI 可独立构建/运行，领域内部入口约束不被总包抹平</td></tr>
-</tbody>
-</table></div>
-<p><strong>后续前端实现的交接约束。</strong> 根据 <a href="https://github.com/yangjingo/oh-my-quant/pull/22#issuecomment-6193433860">PR #22 的归属讨论</a>，网站继续由 <code>site/</code> 独立维护；本阶段不迁网站，也不把真实研究工作台放进官网。正式产品界面归 <code>apps/desktop</code> 的 renderer，窗口、preload、系统能力与打包归桌面宿主。共享实现第一阶段仍可留在根 <code>src/</code>；“入口归位”不等于把研究服务、计算、Source 或 Storage 搬进 renderer。</p>
-<p><a href="https://github.com/yangjingo/oh-my-quant/pull/27">PR #27</a> 的 <code>src/app/research-workspace/web/</code> 与本地 HTTP 服务是已声明的过渡验证入口，不是最终产品目录。后续正式前端应依赖本方案和入口迁移：浏览器界面归 renderer，开发用 HTTP/SSE 入口作为宿主适配器，研究编排和状态契约独立于传输与界面。桌面接入复用这些服务，不复制研究逻辑；仅修改目录或注释不足以证明接入完成。入口迁移、研究闭环和桌面打包分别验收，保持 CLI/npm 命令、appId、用户目录和历史数据兼容。</p>
-<p>当前说明确定职责与迁移顺序，不确定前端框架、业务进程或 IPC 协议。<a href="https://github.com/yangjingo/oh-my-quant/issues/29">Issue #29</a> 的技术栈仍是讨论项；网站上线、本地浏览器验证与 Desktop 实际打包运行必须分别记录。本方案合入只交付架构依据，后续实现继续通过对应 Issue/PR 验收。</p>
-<p>未来根 package 可以成为 private workspace 编排器，以 <code>dev</code> 优先启动 Desktop、<code>dev:cli</code> 显式启动 CLI；公共 <code>whyj-quant</code> 仍由 CLI 产品发布。<a href="https://docs.npmjs.com/cli/v11/using-npm/workspaces/">npm workspaces</a>可以管理本地包与命令，但不会自动解决依赖方向。现在没有必要同时发布十几个 npm 包，也不应在入口尚未清楚时引入统一插件平台。这些脚本与发布调整都属于后续实现，不改变本轮现行 README 命令。</p>
-<h3>先减少工作中断，再决定拆到哪一层</h3>
-<p>这次得到的是维护方向、责任边界和可分步验证的路线，而不是已经交付的独立桌面 UI。原连续工作流在 2026-10-09 的 F05 范围内完成过本地布局与流程验收；它不能外推为“两端共享工作区”或首次真实账号到任意研究均通过，本轮也没有重跑历史模型与行情验收。</p>
-<p>还有一个不能藏起来的成本：共享服务不等于已经共享磁盘。当前桌面默认使用自己的用户数据目录，CLI 也可能指向不同工作区。让两个客户端恢复同一份研究，需要明确选择同一工作区，并在开放同时写入之前规定写入所有权、冲突和文件格式兼容。不能因为改了目录，就自动合并凭证、账户或用户存档，也不能默许两个进程同时覆盖设置。第一阶段不迁移用户数据。本轮没有实现或验收跨端共享工作区及并发写入保护；手动指向相同目录也不能充当完整支持的证明。</p>
-<p>后续实现应以完整任务验收，而不是以迁了多少文件验收：</p>
-<ul>
-<li>桌面首次安装可启动与完成配置，不要求另行安装 Bun 或 Node；Python 能力缺失能被明确解释，而非冒充已可用。</li>
-<li>保存数据配置后，诊断、研究工具与两端状态投影使用同一已提交快照；旧请求迟到不能把显示改回旧版本。</li>
-<li>取消不发布“完成”报告，输入与可恢复工作仍可达；空数据与服务失败有不同反馈。</li>
-<li>明确选择同一工作区后，两端恢复同一报告身份与原数据引用；故障与并发冲突不静默覆盖历史。</li>
-<li>CLI 在无桌面依赖的环境中继续支持既有命令与 JSON 契约，升级安装保留既有用户状态。</li>
-</ul>
-<p>这些是待实现的验收条件，不是本篇博客的运行成绩。独立完成比例、反复输入次数和隔天恢复损失也需要先建立基线，目前没有可信的提升数字。</p>
-<p>如果用户的主要工作仍是提示、读取报告和终端操作，现有 PTY 可能继续是成本最低的方案。只有当对象控制与研究恢复反复被字符流限制时，独立 renderer 才有足够理由承担新的状态协议、交互测试和发布成本。Desktop-first 不意味着越早重写越好；它意味着让下一次工程投入优先修复桌面用户的真实中断，并用 CLI 的兼容约束守住共享事实。</p>
+<article id="chapter-08" aria-labelledby="chapter-08-title"><p class="eyebrow">FIELD NOTES / 08</p><h2 id="chapter-08-title">换一个入口，如何继续同一份研究？</h2><p class="article-meta">初稿 2026-10-13 · 修订 2026-10-22 · oh-my-quant · <a href="./08-research-workbench.md">Markdown 原文</a></p><p><strong>TL;DR</strong>：产品有两种形态：Desktop 面向 Windows/macOS 用户，CLI/TUI 面向 Linux 专业用户。CLI 已有可延续的命令与研究基础；Web 是共享界面和开发/验证入口。下一阶段选择 React UI 和 Bun HTTP/SSE Host，先明确执行所有权，再迁移薄入口。以下是目标与待验证契约，不是新桌面已完成的声明。</p>
+<h3>换了界面，研究为什么会断？</h3>
+<p>用户今天比较标的，明天再问“换一个基准会怎样”。重新输入日期、解释来源、寻找报告，意味着之前的工作没有被新入口接住。自然语言能承接意图，却不能替代组合版本、数据引用、会话分支和运行身份。<a href="../prd.md">产品指南</a>因此围绕配置、取证、报告与继续研究组织，而不是按窗口拆成几份产品说明。</p>
+<p>已有<a href="../../src/tui/test/research-workflow.test.ts">键盘流程回归</a>覆盖设置、观察组合、研究、清空与恢复。这些检查约束原有行为，不能证明新的 GUI 或跨入口流程已交付。打开旧报告必须保留原数据与版本，不能为了“恢复成功”悄悄换成今天的数据。保存成果也不意味着中断的任务能继续执行。</p>
+<p>两种形态服务不同的使用习惯。Linux 专业用户沿用已有 CLI/TUI 做终端研究、确定性单次读取与脚本组合；Windows/macOS 用户通过 Desktop 安装、配置和持续研究。它们复用研究契约，各自维护交互体验；不能因为桌面改造而把 CLI 变成临时过渡。当前安装包覆盖 Windows，macOS 仍需独立交付验收。浏览器用于共享 UI 的开发、验证与可选访问；官网 <code>site/</code> 只承载公开内容和演示。</p>
+<h3>复用终端解决了启动，却没有形成对象协议</h3>
+<p>当前<a href="../../desktop/scripts/build.ts">桌面构建</a>打包同一 CLI，<a href="../../desktop/src/main.ts">主进程</a>通过 node-pty 启动它，<a href="../../desktop/src/bridge.ts">Bridge</a>交换终端输入、尺寸与输出。这样能保留原有研究行为，也减少用户安装开发环境的负担。当前关窗仍退出 CLI，不能把未来的托盘保活写成已有能力。</p>
+<p>字符流没有稳定表达“报告版本”“配置保存代次”和“请求身份”。若从屏幕文字推断这些对象，独立设置页、来源链接和报告比较就会形成另一份业务状态。现有 <code>src/app/research-workspace/</code> 已验证本地 HTTP/SSE 研究入口，但仍有自己的生命周期和资源限制，不等于已完成统一 Host。</p>
+<p>共享代码也存在耦合。<a href="../../src/app-runtime.ts">AppRuntime</a>仍导入 CLI 执行器与 TUI 类型；直接放进 <code>packages/core</code> 不会解除终端依赖。早期方案先讨论 <code>apps/cli</code>、<code>apps/desktop</code> 和领域 packages，却没有充分回答谁持有正在运行的 Agent、关窗后谁继续执行、两端如何找到同一实例。</p>
+<p>后续<a href="https://github.com/yangjingo/oh-my-quant/pull/79">定稿文章的 PR #79 审阅稿</a>将生命周期放在目录之前：先分离应用服务和宿主所有权，UI 与薄入口再消费它们。前端框架和首阶段传输已经选定；原先“技术栈仍待定”“正式 UI 只属于 Desktop renderer”的表述不再作为实施依据。</p>
+<h3>同一份服务之外，还需要同一个运行实例</h3>
+<p>目标目录将启动与交互分开：<code>apps/cli</code> 选择终端、单次命令或浏览器模式，<code>apps/tui</code> 管终端布局、输入与快捷键，<code>apps/desktop</code> 管窗口、托盘、preload 和打包，<code>apps/web</code> 放共享 React UI。四个代码目录不等于四种产品；TUI 不新增命令或独立包，单次命令不加载界面。无界面服务和 Host 留在 <code>src/app</code>，业务命令渐进归入 <code>src/commands</code>，领域模块保留在 <code>src/</code>。迁移 TUI 时同步专属测试和发现规则，当前自绘实现是否改用 Ink 另行决定。本阶段不拆领域 packages，也不移动网站。</p>
+<p>React＋TypeScript＋Vite 负责 GUI，Electron 提供受限原生桥接，首阶段采用 Bun HTTP/SSE Host。不能假定 Bun API 在 Electron Node 中可用，也不同时建设另一套业务 IPC。Renderer 不直接读凭证、写研究文件或启动 Python；具体依赖与安全边界见<a href="../agent-runtime/architecture.md">模块架构</a>。</p>
+<p>关键过程是：明确选择工作区，发现兼容实例，连接或持锁启动，等待就绪，再打开视图。同一份源码可能创建两个 Agent；只有连接同一 workspace/session/run 和实际实例，才能跨入口观察与取消。帮助查询不启动后台服务，独立 one-shot 可直接调用服务；需要共享运行的操作才连接 Host。</p>
+<figure><div class="diagram-scroll" tabindex="0" role="region" aria-label="架构图，可横向滚动"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMTIwIiBoZWlnaHQ9IjYzMCIgdmlld0JveD0iMCAwIDExMjAgNjMwIiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+Cjx0aXRsZSBpZD0idGl0bGUiPuS7juS4gOasoeWvueivne+8jOi1sOWQkeWPr+S7pee7p+e7reeahOeglOeptjwvdGl0bGU+PGRlc2MgaWQ9ImRlc2MiPuWHhuWkh+OAgeeglOeptuOAgeeVmeWtmOWSjOe7p+e7reWxnuS6juWQjOS4gOW3peS9nOa1ge+8jOWNtOS4jeW/heaMpOWcqOWQjOS4gOS4quiBiuWkqeWFpeWPo+OAgjwvZGVzYz4KPGRlZnM+PG1hcmtlciBpZD0iYXJyb3ciIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvIj48cGF0aCBkPSJNMCAwIEwxMCA1IEwwIDEweiIgZmlsbD0iIzY5NzU4NiIvPjwvbWFya2VyPjwvZGVmcz48c3R5bGU+dGV4dHtmb250LWZhbWlseToiTWljcm9zb2Z0IFlhSGVpIiwiUGluZ0ZhbmcgU0MiLHNhbnMtc2VyaWY7ZmlsbDojMTgyMzMzfS50aXRsZXtmb250LXNpemU6MzBweDtmb250LXdlaWdodDo3MDB9LmV5ZWJyb3d7Zm9udC1zaXplOjE0cHg7bGV0dGVyLXNwYWNpbmc6MnB4O2ZpbGw6IzQ5Njg3ZH0ubGFiZWx7Zm9udC1zaXplOjIxcHg7Zm9udC13ZWlnaHQ6NjAwfS5ib2R5e2ZvbnQtc2l6ZToxN3B4O2ZpbGw6IzQwNTE2NH0ubm90ZXtmb250LXNpemU6MTZweDtmaWxsOiM2NTcwODN9LmJveHtzdHJva2Utd2lkdGg6MS41fS5uZXV0cmFse2ZpbGw6I2Y0ZjZmODtzdHJva2U6I2NiZDNkY30uYmx1ZXtmaWxsOiNlZGY0ZmQ7c3Ryb2tlOiM4YWFkZDV9LnRlYWx7ZmlsbDojZWRmN2Y0O3N0cm9rZTojODRiN2E1fS5hbWJlcntmaWxsOiNmZmY2ZTc7c3Ryb2tlOiNkMmFkNjl9LmFycm93e2ZpbGw6bm9uZTtzdHJva2U6IzY5NzU4NjtzdHJva2Utd2lkdGg6MjttYXJrZXItZW5kOnVybCgjYXJyb3cpfS5kYXNoZWR7c3Ryb2tlLWRhc2hhcnJheTo3IDZ9PC9zdHlsZT48cmVjdCB3aWR0aD0iMTEyMCIgaGVpZ2h0PSI2MzAiIGZpbGw9IiNmZmYiLz4KPHRleHQgeD0iNDQiIHk9IjM0IiBjbGFzcz0iZXllYnJvdyI+T0gtTVktUVVBTlQgLyBBR0VOVCBFTkdJTkVFUklORyAvIDA4PC90ZXh0Pjx0ZXh0IHg9IjQ0IiB5PSI4NCIgY2xhc3M9InRpdGxlIj7ku47kuIDmrKHlr7nor53vvIzotbDlkJHlj6/ku6Xnu6fnu63nmoTnoJTnqbY8L3RleHQ+PHRleHQgeD0iNDQiIHk9IjExOSIgY2xhc3M9Im5vdGUiPuWHhuWkh+OAgeeglOeptuOAgeeVmeWtmOWSjOe7p+e7reWxnuS6juWQjOS4gOW3peS9nOa1ge+8jOWNtOS4jeW/heaMpOWcqOWQjOS4gOS4quiBiuWkqeWFpeWPo+OAgjwvdGV4dD4KPHJlY3QgeD0iNDQiIHk9IjE3MyIgd2lkdGg9IjIxNiIgaGVpZ2h0PSIxNDIiIHJ4PSIxMCIgY2xhc3M9ImJveCBibHVlIi8+PHRleHQgeD0iNjQiIHk9IjIwOCIgY2xhc3M9ImxhYmVsIj7lh4blpIc8L3RleHQ+PHRleHQgeD0iNjQiIHk9IjI0OCIgY2xhc3M9ImJvZHkiPuaooeWeiyAvIOaVsOaNriAvIOinguWvn+e7hDwvdGV4dD48dGV4dCB4PSI2NCIgeT0iMjgyIiBjbGFzcz0ibm90ZSI+5pys5Zyw5o6n5Yi2PC90ZXh0PjxwYXRoIGQ9Ik0yNjIgMjQxSDMwOCIgY2xhc3M9ImFycm93Ii8+PHJlY3QgeD0iMzE2IiB5PSIxNzMiIHdpZHRoPSIyMTYiIGhlaWdodD0iMTQyIiByeD0iMTAiIGNsYXNzPSJib3ggdGVhbCIvPjx0ZXh0IHg9IjMzNiIgeT0iMjA4IiBjbGFzcz0ibGFiZWwiPueglOeptjwvdGV4dD48dGV4dCB4PSIzMzYiIHk9IjI0OCIgY2xhc3M9ImJvZHkiPuaEj+WbviAvIOWPguaVsCAvIOW3peWFtzwvdGV4dD48dGV4dCB4PSIzMzYiIHk9IjI4MiIgY2xhc3M9Im5vdGUiPuiHqueEtuivreiogOaOoue0ojwvdGV4dD48cGF0aCBkPSJNNTM0IDI0MUg1ODAiIGNsYXNzPSJhcnJvdyIvPjxyZWN0IHg9IjU4OCIgeT0iMTczIiB3aWR0aD0iMjE2IiBoZWlnaHQ9IjE0MiIgcng9IjEwIiBjbGFzcz0iYm94IGFtYmVyIi8+PHRleHQgeD0iNjA4IiB5PSIyMDgiIGNsYXNzPSJsYWJlbCI+55WZ5a2YPC90ZXh0Pjx0ZXh0IHg9IjYwOCIgeT0iMjQ4IiBjbGFzcz0iYm9keSI+5Zu65a6a5oql5ZGKIC8g5p2l5rqQ5YiG5pSvPC90ZXh0Pjx0ZXh0IHg9IjYwOCIgeT0iMjgyIiBjbGFzcz0ibm90ZSI+5pyJ5L6d5o2u55qE57uT5p6cPC90ZXh0PjxwYXRoIGQ9Ik04MDYgMjQxSDg1MiIgY2xhc3M9ImFycm93Ii8+PHJlY3QgeD0iODYwIiB5PSIxNzMiIHdpZHRoPSIyMTYiIGhlaWdodD0iMTQyIiByeD0iMTAiIGNsYXNzPSJib3ggYmx1ZSIvPjx0ZXh0IHg9Ijg4MCIgeT0iMjA4IiBjbGFzcz0ibGFiZWwiPue7p+e7rTwvdGV4dD48dGV4dCB4PSI4ODAiIHk9IjI0OCIgY2xhc3M9ImJvZHkiPuaguOWvueadpea6kCAvIOaBouWkjeWIhuaUrzwvdGV4dD48dGV4dCB4PSI4ODAiIHk9IjI4MiIgY2xhc3M9Im5vdGUiPuS4jeaYr+mHjeaWsOWPluaVsOabv+aNojwvdGV4dD48cGF0aCBkPSJNOTY4IDMyMFYzNjZINDI0VjMyMCIgY2xhc3M9ImFycm93Ii8+PHRleHQgeD0iNDgwIiB5PSIzNTUiIGNsYXNzPSJub3RlIj7lm7Tnu5XlkIzkuIDnoJTnqbbnu6fnu63vvIzogIzkuI3mmK/ku47mtojmga/ph43mlrDnjJzlj4LmlbA8L3RleHQ+PHJlY3QgeD0iNDQiIHk9IjQxMCIgd2lkdGg9IjEwMzIiIGhlaWdodD0iMTI0IiByeD0iMTAiIGNsYXNzPSJib3ggbmV1dHJhbCIvPjx0ZXh0IHg9IjY2IiB5PSI0NTAiIGNsYXNzPSJsYWJlbCI+5Lqn5ZOB6L6555WM5YWI5LqO5Yqf6IO95pWw6YePPC90ZXh0Pjx0ZXh0IHg9IjY2IiB5PSI0ODYiIGNsYXNzPSJib2R5Ij7op4Llr5/nu4TlkIgg4omgIOecn+Wunui0puaIt+OAgOOAgOeglOeptuWujOaIkCDiiaAg5Lqk5piT5o6I5p2DPC90ZXh0Pjx0ZXh0IHg9IjY2IiB5PSI1MTciIGNsYXNzPSJub3RlIj7pl63njq/lm57lvZLpqozor4Hlt6XkvZzlj6/lu7bnu63vvJvnlKjmiLflrabkuaDmiJDmnKzkuI7ku7vliqHmlYjnjofpnIDopoHlj6blpJbmtYvph4/jgII8L3RleHQ+CjxwYXRoIGQ9Ik00NCA1ODJIMTA3NiIgc3Ryb2tlPSIjZGRlM2U4Ii8+PHRleHQgeD0iNDQiIHk9IjYxMCIgY2xhc3M9Im5vdGUiPuacuuWItuS4juW4g+WxgOekuuaEjyDCtyDkvp3mja4gMjAyNi0xMC0xMyDlt6XkvZzljLogwrcg6Z2e55yf5a6e57uI56uv5oiq5Zu+5oiW55So5oi35pWI5p6c5rWL6YePPC90ZXh0Pgo8L3N2Zz4K" alt="准备、研究、留存与继续构成同一条工作链；入口呈现不同，研究事实与报告身份应保持连续。" loading="lazy"></div><figcaption class="scroll-hint">窄屏可横向滚动查看完整配图</figcaption></figure>
+<p><em>图 8：研究连续性。沿用工作流示意，说明 Desktop 与 CLI 共同维护的事实；不是已实现的共享 GUI 或 Host 拓扑。</em></p>
+<p>关窗和断连只释放视图订阅；显式取消针对一个 run；退出应用或停止后端须按所有权处理，不能误杀其他客户端使用的服务。Host 崩溃后应找到中断状态，再根据持久化证据决定是否恢复。daemon 与系统休眠不包含在“关窗继续”的承诺里。</p>
+<p>已有 journal 可成为进度持久化的基础，但报告快照不能替代它。恢复时必须核对未知副作用，不能一律重放；终态之后释放 Agent、订阅与缓存，历史按需加载。现有数量限制应先测资源增长再调整，不能把删除上限当成解决长期运行的问题。</p>
+<h3>用一条跨入口任务检验目录设计</h3>
+<p>迁移顺序是服务解耦与 Host 契约、两种产品及共享 UI、恢复与资源治理、各平台候选验收。依赖边界见<a href="../agent-runtime/architecture.md">架构</a>，任务进展由 GitHub Issues/PR 追踪；测试发现和 CI 随迁移更新。Linux 检查 CLI 命令、JSON、退出码与无 GUI 运行；Windows/macOS 分别检查桌面构建、安装与升级。Windows 包通过不能证明 macOS 已交付。每一步都保住 CLI/npm 契约、appId、用户目录与历史读取。</p>
+<p>共享服务验收可在同机执行一条任务：浏览器验证入口提交，Desktop 接回同一 run，关窗后仍继续，CLI 取消，迟到事件不能覆盖终态；再验证保存、追问及崩溃恢复不重复副作用。这是技术契约检查，不要求用户日常跨产品切换，也不承诺 Windows/macOS 与 Linux 机器自动同步。使用真实 Host、隔离工作区与假模型验证协议，各平台产品操作与真实供应商另外验收。</p>
+<p>当前桌面与 CLI 默认数据根不同。共用工作区须显式选择；目录迁移不自动合并凭证、账户或存档。Host 登记与锁协议、版本兼容判据、凭证传递和多客户端退出交互仍需实现前审阅，不能从一张目录图推导出并发写入已安全。</p>
+<p>本轮交付的是一致的文档和验收边界，尚未迁移运行代码，也没有新的效率或恢复率数字。此前 F05 的局部流程验收不能外推为两种产品已共享运行。独立 GUI 增加协议、状态投影和发布成本；它是否值得，最终要看是否减少用户反复输入、丢失上下文和无法继续的真实中断。</p>
 <h3>实现索引</h3>
-<ul>
-<li>当前产品与宿主：<a href="../quant-harness/product-guide.md#requirements">产品范围与验收</a>、<a href="../quant-harness/desktop.md">Desktop</a>、<a href="../../desktop/src/main.ts">main</a>、<a href="../../desktop/src/bridge.ts">Bridge</a>、<a href="../../desktop/scripts/build.ts">构建</a>。这些链接定位现状，不是未来 apps 目录的实现证据。</li>
-<li>当前边界与待解耦点：<a href="../quant-harness/module-architecture.md">模块架构</a>、<a href="../../src/app-runtime.ts">AppRuntime</a>、<a href="../agent-runtime/README.md">通用运行时</a>。</li>
-<li>可复用的验收基础：<a href="../../src/tui/test/research-workflow.test.ts">连续键盘流程</a>、<a href="../quant-harness/configuration.md">配置</a>、<a href="../quant-harness/artifacts-design.md">报告与恢复</a>。</li>
-<li>相关讨论：<a href="#chapter-10">布局与视觉语言</a>、<a href="#chapter-11">功能发现</a>、<a href="#chapter-12">失败后的继续工作</a>。</li>
-</ul>
-<p><a href="#chapter-07">← 上一篇</a> · <a href="#chapter-09">下一篇：模块边界 →</a></p>
-</article>
-<article id="chapter-09" aria-labelledby="chapter-09-title"><p class="eyebrow">FIELD NOTES / 09</p><h2 id="chapter-09-title">模块拆开以后，为什么还需要一层 Runtime？</h2><p class="article-meta">初稿 2026-10-13 · 修订 2026-10-13 · oh-my-quant · <a href="./09-boundaries-for-change.md">Markdown 原文</a></p><p>把取数、存储、计算和终端分到不同目录，只完成了架构工作的第一步。真正的考验是：换一个供应商、接一个工具，或者改变一种展示，究竟需要哪些模块一起修改？</p>
-<h3>我们想让哪一种变化停在边界内？</h3>
-<p>第 <a href="#chapter-01">01 篇</a>讨论 Pi 与自有 Harness 的分工。这一篇向应用内部看：Source、Storage、Tools、Runtime 和 TUI 为什么不能简单合成一个“数据服务”？</p>
-<p>它们确实处理同一项研究，但变化原因不同。供应商字段和回退策略属于 Source；文件路径、缓存修订与提交属于 Storage；一个因子的公式属于 Quant；输入焦点和可见行数属于 TUI。把这些变化分开，才有机会在换取数方式时保留计算，在换展示时保留研究结果。</p>
-<p>目标不是让模块彼此不知道对方存在，而是让依赖必须经过可解释的入口。用户最初问“Source 和 tool 是隔离的吗”，也可以从这里回答：它们有职责边界，但工具仍需通过应用组装的数据入口取得配置、数据与来源；隔离不是各自维护一套配置。</p>
-<h3>直接调用很短，隐含依赖却会变长</h3>
-<p>一个方便的实现是让 Source 自己读取本地配置和缓存。另一个方便的实现是让 TUI 在需要报价时直接调用 provider。每条路径都很短，但它们会把宿主选择藏进较低层：取数模块开始知道 <code>.ohquant</code>，界面开始决定回退和错误分类。</p>
-<p>当前源码采用了相反的约束：Source 和 Storage 不互相导入，TUI 不直接调用 provider，<code>session.ts</code> 不直接导入 Storage、Tools、Source 或 TUI。这些是<a href="../../tests/architecture/check-architecture.ts">架构检查</a>中的具体规则，不只是模块图上的理想箭头。</p>
-<p>规则本身仍不够。如果一次只读历史归档的请求，也必须先加载当前供应商的凭证，它虽然没有违反目录规则，却仍把两种生命周期绑在了一起。接口存在只是起点；数据路径是否会被无关的配置阻断，才是边界需要回答的具体问题。</p>
-<h3>在组装点连接，在计算和渲染前收敛</h3>
-<p>以需要可归档日线的研究调用为例，Tools 经 <code>runtime/data/source-runtime</code> 调用 Source。Runtime 注入设置与凭证读取、缓存、归档读取和保存钩子；Source 负责供应商选择、标准化与回退，Storage 负责本地数据版本。这条路径不是所有数据入口的统一通道：Overview 和单源诊断有各自的时效与隔离要求。</p>
-<figure><div class="diagram-scroll" tabindex="0" role="region" aria-label="架构图，可横向滚动"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMTIwIiBoZWlnaHQ9IjYzMCIgdmlld0JveD0iMCAwIDExMjAgNjMwIiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+Cjx0aXRsZSBpZD0idGl0bGUiPuaKiuS+nei1lui/nuaOpei1t+adpe+8jOS4jeaKiui0o+S7u+aPieWcqOS4gOi1tzwvdGl0bGU+PGRlc2MgaWQ9ImRlc2MiPueglOeptuaXpee6v+WFpeWPo+eahOe7hOijheWFs+ezu++8m+WFseS6q+mihuWfn+aVsOaNruS4jeetieS6juWFseS6q+aJgOacieaooeWdl+eahOWGhemDqOeKtuaAgeOAgjwvZGVzYz4KPGRlZnM+PG1hcmtlciBpZD0iYXJyb3ciIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvIj48cGF0aCBkPSJNMCAwIEwxMCA1IEwwIDEweiIgZmlsbD0iIzY5NzU4NiIvPjwvbWFya2VyPjwvZGVmcz48c3R5bGU+dGV4dHtmb250LWZhbWlseToiTWljcm9zb2Z0IFlhSGVpIiwiUGluZ0ZhbmcgU0MiLHNhbnMtc2VyaWY7ZmlsbDojMTgyMzMzfS50aXRsZXtmb250LXNpemU6MzBweDtmb250LXdlaWdodDo3MDB9LmV5ZWJyb3d7Zm9udC1zaXplOjE0cHg7bGV0dGVyLXNwYWNpbmc6MnB4O2ZpbGw6IzQ5Njg3ZH0ubGFiZWx7Zm9udC1zaXplOjIxcHg7Zm9udC13ZWlnaHQ6NjAwfS5ib2R5e2ZvbnQtc2l6ZToxN3B4O2ZpbGw6IzQwNTE2NH0ubm90ZXtmb250LXNpemU6MTZweDtmaWxsOiM2NTcwODN9LmJveHtzdHJva2Utd2lkdGg6MS41fS5uZXV0cmFse2ZpbGw6I2Y0ZjZmODtzdHJva2U6I2NiZDNkY30uYmx1ZXtmaWxsOiNlZGY0ZmQ7c3Ryb2tlOiM4YWFkZDV9LnRlYWx7ZmlsbDojZWRmN2Y0O3N0cm9rZTojODRiN2E1fS5hbWJlcntmaWxsOiNmZmY2ZTc7c3Ryb2tlOiNkMmFkNjl9LmFycm93e2ZpbGw6bm9uZTtzdHJva2U6IzY5NzU4NjtzdHJva2Utd2lkdGg6MjttYXJrZXItZW5kOnVybCgjYXJyb3cpfS5kYXNoZWR7c3Ryb2tlLWRhc2hhcnJheTo3IDZ9PC9zdHlsZT48cmVjdCB3aWR0aD0iMTEyMCIgaGVpZ2h0PSI2MzAiIGZpbGw9IiNmZmYiLz4KPHRleHQgeD0iNDQiIHk9IjM0IiBjbGFzcz0iZXllYnJvdyI+T0gtTVktUVVBTlQgLyBBR0VOVCBFTkdJTkVFUklORyAvIDA5PC90ZXh0Pjx0ZXh0IHg9IjQ0IiB5PSI4NCIgY2xhc3M9InRpdGxlIj7miorkvp3otZbov57mjqXotbfmnaXvvIzkuI3miorotKPku7vmj4nlnKjkuIDotbc8L3RleHQ+PHRleHQgeD0iNDQiIHk9IjExOSIgY2xhc3M9Im5vdGUiPueglOeptuaXpee6v+WFpeWPo+eahOe7hOijheWFs+ezu++8m+WFseS6q+mihuWfn+aVsOaNruS4jeetieS6juWFseS6q+aJgOacieaooeWdl+eahOWGhemDqOeKtuaAgeOAgjwvdGV4dD4KPHJlY3QgeD0iNDQiIHk9IjE2OSIgd2lkdGg9IjI0NiIgaGVpZ2h0PSIxMTUiIHJ4PSIxMCIgY2xhc3M9ImJveCBibHVlIi8+PHRleHQgeD0iNjQiIHk9IjIxMSIgY2xhc3M9ImxhYmVsIj7noJTnqbblt6Xlhbc8L3RleHQ+PHRleHQgeD0iNjQiIHk9IjI1MiIgY2xhc3M9ImJvZHkiPuWjsOaYjuWvueixoeS4juWIhuaekOeql+WPozwvdGV4dD48cGF0aCBkPSJNMjk0IDIyNEgzNjIiIGNsYXNzPSJhcnJvdyIvPjxyZWN0IHg9IjM3MCIgeT0iMTY5IiB3aWR0aD0iMzcwIiBoZWlnaHQ9IjExNSIgcng9IjEwIiBjbGFzcz0iYm94IHRlYWwiLz48dGV4dCB4PSIzOTAiIHk9IjIxMSIgY2xhc3M9ImxhYmVsIj5ydW50aW1lL3NvdXJjZS1ydW50aW1lPC90ZXh0Pjx0ZXh0IHg9IjM5MCIgeT0iMjUyIiBjbGFzcz0iYm9keSI+57uR5a6a6YWN572u44CB5Yet6K+B5LiO5a2Y5YKo6ZKp5a2QPC90ZXh0PjxwYXRoIGQ9Ik03NDQgMjI0SDgxMCIgY2xhc3M9ImFycm93Ii8+PHJlY3QgeD0iODE4IiB5PSIxNjkiIHdpZHRoPSIyNTgiIGhlaWdodD0iMTE1IiByeD0iMTAiIGNsYXNzPSJib3ggYmx1ZSIvPjx0ZXh0IHg9IjgzOCIgeT0iMjExIiBjbGFzcz0ibGFiZWwiPlNvdXJjZTwvdGV4dD48dGV4dCB4PSI4MzgiIHk9IjI1MiIgY2xhc3M9ImJvZHkiPumAieaLqSAvIOWbnumAgCAvIOagh+WHhuWMljwvdGV4dD48cGF0aCBkPSJNNTU1IDI4OFYzMzAiIGNsYXNzPSJhcnJvdyIvPjxyZWN0IHg9IjM3MCIgeT0iMzM5IiB3aWR0aD0iMzcwIiBoZWlnaHQ9IjEwMiIgcng9IjEwIiBjbGFzcz0iYm94IGFtYmVyIi8+PHRleHQgeD0iMzkwIiB5PSIzNzgiIGNsYXNzPSJsYWJlbCI+U3RvcmFnZTwvdGV4dD48dGV4dCB4PSIzOTAiIHk9IjQxNSIgY2xhc3M9ImJvZHkiPuacrOWcsOi3r+W+hCAvIOe8k+WtmCAvIOW9kuaho+eJiOacrDwvdGV4dD48dGV4dCB4PSI0NyIgeT0iMzYzIiBjbGFzcz0ibGFiZWwiPuS+nei1luWcqOe7hOijheeCuei/nuaOpTwvdGV4dD48dGV4dCB4PSI0NyIgeT0iMzk3IiBjbGFzcz0ibm90ZSI+U291cmNlIOS4jeWvvOWFpSBTdG9yYWdlPC90ZXh0Pjx0ZXh0IHg9Ijc5NyIgeT0iMzU2IiBjbGFzcz0ibm90ZSI+5L2/55So5rOo5YWl6ZKp5a2QPC90ZXh0PjxwYXRoIGQ9Ik05NDcgMjg5VjM4OUg3NDUiIGNsYXNzPSJhcnJvdyBkYXNoZWQiLz48cmVjdCB4PSI0NCIgeT0iNDc3IiB3aWR0aD0iNDk1IiBoZWlnaHQ9IjY4IiByeD0iMTAiIGNsYXNzPSJib3ggbmV1dHJhbCIvPjx0ZXh0IHg9IjY0IiB5PSI1MTkiIGNsYXNzPSJib2R5Ij5RdWFudO+8muaYvuW8j+aVsOaNruS4juWPguaVsCDihpIg57qv6K6h566XPC90ZXh0PjxyZWN0IHg9IjU2NSIgeT0iNDc3IiB3aWR0aD0iNTExIiBoZWlnaHQ9IjY4IiByeD0iMTAiIGNsYXNzPSJib3ggbmV1dHJhbCIvPjx0ZXh0IHg9IjU4NSIgeT0iNTE5IiBjbGFzcz0iYm9keSI+VFVJ77ya5bqU55So54q25oCB5oqV5b2xIOKGkiDlrZfnrKbnvZHmoLw8L3RleHQ+CjxwYXRoIGQ9Ik00NCA1ODJIMTA3NiIgc3Ryb2tlPSIjZGRlM2U4Ii8+PHRleHQgeD0iNDQiIHk9IjYxMCIgY2xhc3M9Im5vdGUiPuacuuWItuS4juW4g+WxgOekuuaEjyDCtyDkvp3mja4gMjAyNi0xMC0xMyDlt6XkvZzljLogwrcg6Z2e55yf5a6e57uI56uv5oiq5Zu+5oiW55So5oi35pWI5p6c5rWL6YePPC90ZXh0Pgo8L3N2Zz4K" alt="应用 Runtime 将来源模块与存储端口组装起来；研究工具消费该入口，终端消费应用状态，纯计算只接收显式数据。" loading="lazy"></div><figcaption class="scroll-hint">窄屏可横向滚动查看完整配图</figcaption></figure>
-<p><em>图 9：研究日线调用与应用组装示意，箭头不是独立服务或部署单元。Source 通过注入钩子使用存储能力，不反向导入 Storage；并非所有工具都经过日线入口。</em></p>
-<p>当前 <code>createStorageSourceRuntimeDeps()</code> 的内容很朴素：把 <code>loadCachedBars</code>、<code>loadArchivedBarsBefore</code>、<code>saveBars</code> 和来源偏好读取绑定给 Source。它之所以单独存在，不是为了多一层命名，而是为了让“怎样取得数据”与“本地宿主怎样保存数据”可以分别测试。</p>
-<p>历史观察截止是一个更具体的分叉：带 <code>observedBefore</code> 的归档读取不需要供应商，当前 Runtime 保留存储依赖注入，但不为该路径附加默认供应商请求预算或凭证加载器；未显式指定来源时，仍需读取来源偏好。普通请求才绑定默认请求预算与延迟凭证读取。数据仍来自同一个 Source 门面，但不同请求不必承担相同的外部依赖，也不能把不调用供应商误解为完全不读取设置。<a href="../../src/runtime/data/source-runtime.ts">取数组装实现</a></p>
-<p>Session 同样使用显式宿主端口；完整注入后不隐式加载默认本地组装。这部分独立宿主与连接快照的验证已在第 <a href="#chapter-01">01 篇</a>展开，这里不把它当成另一套架构重新讲述。</p>
-<p>纯计算与报告渲染也不是第二套业务判断中心。Quant 接收数据和参数；Research 核对归档及计算依据；Agent 恢复和 Artifact 使用共享核验逻辑，渲染器再消费准备好的结果。这样，一个来源缺失的判断不必在聊天上下文和 HTML 中各实现一次。</p>
-<h3>可替换不是免费的抽象</h3>
-<p>现有 <a href="../../src/runtime/test/source-runtime.test.ts">Source Runtime 回归</a>覆盖设置中的凭证进入请求、异步设置读取响应取消，以及调用者可缩短但不能随意放大默认预算；还以显式来源和注入 adapter 检查坏供应商配置下的旧缓存读取。这些是具体输入下的依赖与失败契约，不证明所有来源已经可互换，也不证明未来 Web 或远程宿主无需适配。本轮核读代码与原有证据，没有重新调用供应商或运行产品测试。</p>
-<p>代价同样具体。Runtime 要维护转换、组装和生命周期，端口要处理空集合、快照、取消与准备失败；一次端口变更可能同时影响默认工厂、独立宿主和测试替身。这不是免费获得的“解耦”。</p>
-<p>Runtime 也有变成杂物层的风险。当前的判断方法是继续按变化来源检查：如果某段逻辑决定供应商字段，应回 Source；决定持久化提交，应回 Storage；只是连接这些能力，才留在组装层。出现稳定、独立的生命周期，再考虑抽成专门服务，而不是看到文件变长就切成任意碎片。</p>
-<p><a id="alpha"></a></p>
-<p>Alpha/AKQuant 的旧 roadmap 还留下另一种错误：早期“尚未接入”的盘点被后续文档沿用，而工作区已经存在 Alpha 模块与 Python 适配。我们纠正了现状，却没有顺势把接入写成完整验收。保留的是固定输入、成本、窗口、引擎版本和失败语义；暂不为只有一个实际实现的场景建设通用引擎平台。第二个真实引擎若暴露稳定共性，再扩大协议，代价是届时可能需要迁移第一版适配。<a href="../quant-harness/alpha-backtest.md">当前 Alpha 契约</a></p>
-<p>反过来，独立模块已能构建，也不能证明默认 Agent 能用到它。Alpha 需要进一步检查注册表、缺依赖时的前置失败、固定数据归档和恢复链路。集成探针第一次还因为把报告的 <code>metadata.path</code> 写成 <code>metadata.filePath</code> 而失败；这要求修正检查器，不应顺手归因于引擎。扩展接入则曾因异步启动吞掉配置修复后紧接的输入，修复点是等待启动完成后提交，而非再加一层模块接口。这些具体失败提醒我们，可替换性与用户路径可达必须分别验证。</p>
-<p>因此，这一轮架构的结果是职责和替换路径更明确，不是已经测得开发效率提高。下一步可以记录新接一个 provider 或工具实际改动哪些模块、哪些回归必须一起变化。若多个本应独立的变化总要跨越同一组文件，现有边界就值得重新审视。</p>
-<h3>实现索引</h3>
-<ul>
-<li><a href="../quant-harness/module-architecture.md">模块架构</a>、<a href="../../tests/architecture/check-architecture.ts">依赖约束</a>。</li>
-<li><a href="../../src/runtime/data/source-runtime.ts">Source 组装</a>、<a href="../../src/source/index.ts">Source 公共入口</a>、<a href="../quant-harness/ohquant-storage-policy.md">存储规则</a>。</li>
-<li><a href="../../src/agent/src/session-contracts.ts">Session 端口</a>、<a href="../../src/agent/test/session-dependencies.test.ts">独立宿主回归</a>、<a href="../../src/research/input.ts">共享研究核验</a>。</li>
-</ul>
-<p><a href="#chapter-08">← 上一篇</a> · <a href="#chapter-10">下一篇：布局与视觉语义 →</a></p>
+<p><strong>References</strong></p>
+<ol>
+<li>oh-my-quant，<a href="../prd.md">产品定义（PRD）</a>、<a href="../agent-runtime/architecture.md">模块架构</a>，2026-10-22 修订。维护现状、目标与验收边界。</li>
+<li>oh-my-quant，<a href="https://github.com/yangjingo/oh-my-quant/blob/0548a92b6d98d7d1270091de46eb9f00cf81bed4/desktop/src/main.ts">Electron 主进程</a>、<a href="https://github.com/yangjingo/oh-my-quant/blob/0548a92b6d98d7d1270091de46eb9f00cf81bed4/src/app-runtime.ts">AppRuntime</a>，源码基线 <code>0548a92</code>。定位当前终端宿主和待解耦点，不是未来结构的实现证明。</li>
+<li>oh-my-quant，<a href="https://github.com/yangjingo/oh-my-quant/pull/79">Agent 时代的技术选型</a>，架构文章的独立审阅入口；<a href="../quant-harness/artifacts-design.md">报告与恢复契约</a>、<a href="../agent-runtime/configuration.md">配置契约</a>提供保留行为的依据。</li>
+</ol>
+<p><a href="#chapter-07">← 上一篇</a> · <a href="#chapter-10">下一篇：布局与视觉语义 →</a></p>
 </article>
 <article id="chapter-10" aria-labelledby="chapter-10-title"><p class="eyebrow">FIELD NOTES / 10</p><h2 id="chapter-10-title">80×24 的屏幕里，什么值得一直留下？</h2><p class="article-meta">初稿 2026-10-13 · 修订 2026-10-13 · oh-my-quant · <a href="./10-layout-and-visual-language.md">Markdown 原文</a></p><p>研究终端希望同时展示回答、行情、来源、模型状态和输入。每一项都有道理，但它们不能同时拥有最高优先级。窗口变小时，布局必须替产品作出选择。</p>
 <h3>每多留一行，就少读一行什么？</h3>
@@ -490,14 +415,14 @@ site/         产品网站、Docs、Blog、手册与公开 Demo
 <ul>
 <li><a href="../../DESIGN.md">视觉设计源</a>、<a href="../../src/types/theme-colors.ts">共享主题</a>、<a href="../../src/tui/src/render.ts">布局计算</a>。</li>
 <li><a href="../../src/tui/src/panel-views.ts">面板容量与分区</a>、<a href="../../src/tui/test/panel-small-screen.test.ts">小屏回归</a>。</li>
-<li><a href="../quant-harness/quant-uiux.md">UI/UX 契约</a>、<a href="../../src/artifact/test/market-colors.test.ts">报告颜色回归</a>。</li>
+<li><a href="../quant-harness/uiux.md#uiux">UI/UX 契约</a>、<a href="../../src/artifact/test/market-colors.test.ts">报告颜色回归</a>。</li>
 </ul>
-<p><a href="#chapter-09">← 上一篇</a> · <a href="#chapter-11">下一篇：让功能被发现 →</a></p>
+<p><a href="#chapter-08">← 上一篇</a> · <a href="#chapter-11">下一篇：让功能被发现 →</a></p>
 </article>
 <article id="chapter-11" aria-labelledby="chapter-11-title"><p class="eyebrow">FIELD NOTES / 11</p><h2 id="chapter-11-title">用户不知道下一条命令时，界面应该做什么？</h2><p class="article-meta">初稿 2026-10-13 · 修订 2026-10-21 · oh-my-quant · <a href="./11-discoverable-interactions.md">Markdown 原文</a></p><p>熟练用户记得命令，初次使用者只知道要做什么。同一个终端要同时服务两者：既不能让每次操作都经过向导，也不能要求用户先背下完整手册。</p>
 <h3>能被调用，不代表能被发现</h3>
 <p>自然语言让研究入口更开放，但不会自动解释应用的全部操作。用户仍需要知道怎样配置、查看诊断、维护观察组合、找回报告。把这些动作全部交给模型推测，会让本应明确的本地控制变成一次不确定的对话。</p>
-<p>当前公开 slash 入口以 command catalog 为准，包含 Skills 与 MCP 管理。名称优先使用 <code>/config</code>、<code>/resume</code>、<code>/help</code> 等可识别动作，描述再说明研究对象；业务分析经 Agent 工具完成，没有为每个因子或比较再增加一条顶层命令。<a href="../quant-harness/product-guide.md#commands">命令参考</a>维护现行行为。</p>
+<p>当前公开 slash 入口以 command catalog 为准，包含 Skills 与 MCP 管理。名称优先使用 <code>/config</code>、<code>/resume</code>、<code>/help</code> 等可识别动作，描述再说明研究对象；业务分析经 Agent 工具完成，没有为每个因子或比较再增加一条顶层命令。<a href="../../README.md#commands">命令参考</a>维护现行行为。</p>
 <p>这是对入口数量的控制，却还没有解决“下一步在哪里”。一个未知命令如果只返回 unknown，用户仍需要离开当前任务找文档；一个空列表如果只显示 empty，也没有告诉用户如何获得第一份结果。</p>
 <h3>帮助可能看不全，甚至会执行动作</h3>
 <p>早期 Help 把命令和快捷键并排显示，在 60×20 中把说明截为 <code>Compact resear…</code> 和 <code>Ope…</code>，80×24 也存在截断。屏幕里信息很多，但用户无法仅凭完整句子判断动作。</p>
@@ -519,7 +444,7 @@ site/         产品网站、Docs、Blog、手册与公开 Demo
 <ul>
 <li><a href="../../src/runtime/workspace/command-catalog.ts">统一命令目录</a>、<a href="../../src/runtime/workspace/command-help.ts">详细帮助</a>、<a href="../../src/runtime/workspace/command-preflight.ts">静态预检</a>。</li>
 <li><a href="../../src/tui/src/help-panel.ts">Help 交互</a>、<a href="../../src/tui/test/help-navigation.test.ts">键盘发现回归</a>。</li>
-<li><a href="../quant-harness/product-guide.md#commands">用户命令参考</a>。</li>
+<li><a href="../../README.md#commands">用户命令参考</a>。</li>
 </ul>
 <p><a href="#chapter-10">← 上一篇</a> · <a href="#chapter-12">下一篇：失败后的恢复 →</a></p>
 </article>
@@ -550,7 +475,7 @@ site/         产品网站、Docs、Blog、手册与公开 Demo
 <ul>
 <li><a href="../../src/tui/src/doctor-panel.ts">Doctor 视口</a>、<a href="../../src/tui/test/doctor-navigation.test.ts">滚动与操作回归</a>。</li>
 <li><a href="../../src/runtime/data/data-settings.ts">数据草稿生命周期</a>、<a href="../../src/runtime/test/data-settings.test.ts">草稿回归</a>、<a href="../../src/tui/test/panel-small-screen.test.ts">小屏编辑回归</a>。</li>
-<li><a href="../quant-harness/configuration.md#diagnostics">诊断契约</a>、<a href="../quant-harness/quant-uiux.md">界面契约</a>。</li>
+<li><a href="../agent-runtime/configuration.md#diagnostics">诊断契约</a>、<a href="../quant-harness/uiux.md#uiux">界面契约</a>。</li>
 </ul>
 <p><a href="#chapter-11">← 上一篇</a> · <a href="#contents">返回系列目录</a></p>
 </article><footer><p>Markdown 正文与本地 SVG 为编辑源。本文件不加载外部脚本、字体或图片。</p><p><a href="./README.md">系列目录</a> · <a href="./editorial-notes.md">来源与验证边界</a> · <a href="#top">返回顶部 ↑</a></p><p>本文讨论研究软件的工程设计，不构成投资建议。</p></footer></main></div></body></html>

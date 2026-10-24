@@ -1,5 +1,7 @@
 # Repo Ops article preview
 
+The current review draft focuses on Ops design and lessons. Section, figure, and reference counts follow the manuscript; the short draft does not load the older chart/table demonstrations. For its repository-relative source links, serve the repository root and open `/output/blog-preview/`. The validation records below describe earlier previews, not this revision.
+
 Render the merged review draft from the repository root:
 
 ```sh

@@ -15,7 +15,7 @@ JQ 将常用工具组织成三个入口。行情、因子、回测和风险分�
 | 图表、广度、仓位与市场环境 | Claude Trading Skills 的五个默认技能 | 同样的一键下载与加载流程 |
 | 扩展数据与网页资料 | 五项 MCP 的可选配置 | 官方链接、按需添加与移除、配置导出 |
 
-在 JQ 中执行 `/skill install`，先看可选清单，再用 `/skill install technical-analyst llmquant-risk` 选择所需技能。`/skill remove technical-analyst` 从加载列表移除，保留共享源码与本地修改，需要时可再次启用。随后 `/skill` 查看，`/skill info technical-analyst` 查看路径和说明，提供周线图后调用对应技能。依赖与输入要求由上游 `SKILL.md` 解释，JQ 不再额外维护另一份执行规范。[预制目录与使用步骤](../quant-harness/trader-skills.md#toolkit)
+在 JQ 中执行 `/skill install`，先看可选清单，再用 `/skill install technical-analyst llmquant-risk` 选择所需技能。`/skill remove technical-analyst` 从加载列表移除，保留共享源码与本地修改，需要时可再次启用。随后 `/skill` 查看，`/skill info technical-analyst` 查看路径和说明，提供周线图后调用对应技能。依赖与输入要求由上游 `SKILL.md` 解释，JQ 不再额外维护另一份执行规范。[预制目录与使用步骤](../quant-harness/community-tools.md#toolkit)
 
 相较于自行搜索、安装和拼接工具，这套入口把选型与接入方法提前整理好。它的价值是减少重复准备工作，让用户主要补充自己的凭证、环境与研究输入；实际配置耗时仍需通过任务测量验证。
 
@@ -41,13 +41,13 @@ Pi Coding Agent 提供 `loadSkills`、`loadSkillsFromDir`、`parseFrontmatter` �
 
 JQ 的薄适配保留目录选择、来源信息和正文快照。新安装或 `/skill reload` 使发现缓存失效，空闲会话在下一次独立请求读取新内容；在途研究与排队续问保留原快照。
 
-Pi 的显式技能命令展开器目前没有独立公开入口，JQ 因而保留一个小的正文包装函数，将已加载内容交给现有会话。这部分只连接技能与会话，不解释特定技能的业务规则。[加载与快照契约](../quant-harness/trader-skills.md#discovery)
+Pi 的显式技能命令展开器目前没有独立公开入口，JQ 因而保留一个小的正文包装函数，将已加载内容交给现有会话。这部分只连接技能与会话，不解释特定技能的业务规则。[加载与快照契约](../quant-harness/community-tools.md#discovery)
 
 ## 一键准备的实际边界
 
 “近乎预内置”落实为预制目录和一个下载命令。启动应用不再后台下载仓库，用户选择名称后执行 `/skill install <name>`，只有显式 `--all` 才选择全部预制项。下载按共享仓库缓存，加载按技能选择；已有目录会保留，显式指定仓库才执行更新。用户改动不会被重置，失败也不会发布半套安装。
 
-MCP 同样有清晰分工：Financial Datasets、Tushare、LLMQuant Data、智谱搜索与网页读取的介绍和配置统一放在 [Skills 与 MCP 指南](../quant-harness/trader-skills.md#mcp)。用户用 `/mcp install <name>` 按需添加，`/mcp remove <name>` 移除，`/mcp export <name>` 取出模板。增删直接复用 Pi 的配置 API，默认维护其用户配置，`--local` 选择项目配置。同名已有配置保留。仓库不再维护 `.claude/mcp.json`，JQ 也不为这些服务实现另一套 MCP 客户端。引入 Pi 的 Skills SDK 不等于已经启动 Pi 的 MCP 会话。
+MCP 同样有清晰分工：Financial Datasets、Tushare、LLMQuant Data、智谱搜索与网页读取的介绍和配置统一放在 [Skills 与 MCP 指南](../quant-harness/community-tools.md#mcp)。用户用 `/mcp install <name>` 按需添加，`/mcp remove <name>` 移除，`/mcp export <name>` 取出模板。增删直接复用 Pi 的配置 API，默认维护其用户配置，`--local` 选择项目配置。同名已有配置保留。仓库不再维护 `.claude/mcp.json`，JQ 也不为这些服务实现另一套 MCP 客户端。引入 Pi 的 Skills SDK 不等于已经启动 Pi 的 MCP 会话。
 
 技能可以加载，只说明指令可被消费。图片输入仍需模型支持，研究工具仍受任务范围约束，量化结论仍需真实输入和可核验计算。撤掉第三方技能认证以后，这些属于 JQ 本身的责任继续由各自模块负责。
 

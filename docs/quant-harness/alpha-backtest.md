@@ -1,109 +1,55 @@
-# Alpha / AKQuant 回测边界
+# Alpha 回测：复用引擎，但保留研究判断
 
-采用独立 `src/alpha` 模块：接收固定 Bars 与可选 DatasetRef，生成策略信号，调用外部 Python 引擎，再核对成交与净值。模块本身不读账户或 `.ohquant`；默认工具通过 runtime 获取行情、强制绑定 DatasetRef 并保存研究档案。依赖安装由用户显式执行。
+接入成熟回测引擎可以复用撮合和模拟能力，却不能把引擎返回的净值直接当成可信研究结果。输入是否使用未来信息、成交时序是否符合策略、费用是否真的进入现金、版本更新是否改变规则，都仍由本应用解释。
 
-## 引擎与运行方式
+因此 Alpha 层以独立引擎适配承接模拟，在边界核对订单、成交和账本。它不承担行情选择、账户授权或报告发布，避免“回测引擎已运行”被误读成整个研究已经成立。
 
-上游功能与 API 见[官方仓库](https://github.com/akfamily/akquant)、[安装元数据](https://pypi.org/project/akquant/0.3.58/)和 [API 文档](https://akquant.akfamily.xyz/reference/api/)。本项目适配锁定 0.3.58，使用 `NextOpen()`，不沿用已移除的 `execution_mode` 参数；本页只维护接入、模拟假设和核验边界。
+## 引擎接口隔离什么
 
-调用方显式提供 Python 可执行文件。请求从 stdin 传 JSON，stdout 只传协议结果；引擎日志走 stderr。进程退出、缺依赖、版本不符、超时、主动取消、输出过大或非 JSON 均失败，不回退成已有 TypeScript 引擎的结果。
+研究编排提供固定日线、策略信号、资金和成本假设，并绑定数据版本。Alpha 层接收这些输入，交付引擎与规则版本、订单状态、成交、逐期权益及可核验的指标。外部引擎只负责按声明规则模拟，不自行读取本地研究设置或真实账户。
 
-## 输入和模拟假设
+进程隔离提供清晰的输入输出和终止边界，也把依赖成本暴露出来。缺环境、版本不匹配或输出无法解析时，研究应明确失败，不能偷偷换成本地另一套引擎继续返回“成功”。后者虽然提高了可用率，却使同一请求失去稳定含义。
 
-- 单一标的、升序且唯一的有效日线；不自动删除、补齐或重排输入。OHLC 必须自洽，volume 非负；供应商未给成交额时 `amount` 可为 `null`，已给定时必须为非负有限数。
-- 策略为 SMA 或显式 0/1 信号，加固定整数股数。SMA 只使用当日及此前 close；显式信号的历史可得性由调用方负责。
-- 信号在当日收盘后产生，次根 Bar 开盘撮合。每日取消未成交余单后重新计算目标；最后一根只取消余单，不发新单，不强制清仓。
-- 使用通用股票模拟、UTC 日期标签、整股、T+0、无借款/卖空，成交参与率 100%。这些是假设，不是 A/HK/US 交易规则证明；不包含节假日、涨跌停、复权、分红或历史可交易性校验。
-- 佣金为成交金额乘费率，双边收取；百分比滑点买入加价、卖出减价，无最低佣金、印花税或过户费。成本字段必须显式提供，不按市场猜费率。
-- DatasetRef 若提供，必须匹配标的、日期和 Bars 的 SHA-256；引用仅表明输入关联，不证明归档文件目前存在。结果同时保存输入摘要、引擎版本/规则版本、参数与来源引用。
+当前适配固定 AKQuant 0.3.58 与对应规则版本；这是本仓库的兼容选择，不是对上游最新版本的声明。上游框架能力大于本地已接入范围，不能把其功能清单直接当作产品能力。[1]
 
-## 输出核验
+## 模拟假设应先于收益曲线出现
 
-保留订单状态、逐笔成交、逐日净值；依据成交从初始模拟现金独立重建现金和股数，再逐日核对引擎权益。拒绝错标的、重复成交、越界日期、超量/卖空、费用/成交价不符、缺失净值及不一致订单。浮点核对容差为 `max(1, abs(expected)) × 1e-8`。没有成交是合法结果；没有净值不是成功。
+当前边界是单标的、日线、整数股数、无借款与卖空的通用股票模拟。SMA 信号只使用当日及此前价格，在下一根日线开盘撮合；最后一根不发新单，也不为了美化结果强制平仓。显式提供的信号仍需调用方解释其历史可得性。
 
-风险口径复用本地共享计算：总收益与最大回撤来自逐期复利；CAGR 使用首尾日历跨度，波动率/Sharpe 使用显式年化交易期数，Sharpe 无风险收益设为 0。回撤持续期的既有 `maxDdDays` 字段实际计观察期。指标非有限数或累计收益与首尾权益比不一致时明确失败。订单拒绝保留在结果中，不称为成功成交。
+这减少了同根收盘信号同时按同根价格成交的歧义，却没有消除所有前视问题。输入数据可能经过后来复权，策略参数也可能是在观察整段历史后挑选的。成交时序正确只是必要条件之一。
 
-## 模块调用与复跑
+费用和滑点必须是明确假设，不能由市场标签自动猜测。当前模型没有完整的交易所日历、涨跌停、公司行动、历史可交易性及各市场结算规则。采用通用 T+0 模拟并不证明它复现了 A 股交易约束。
 
-入口为 [createAkquantEngine](../../src/alpha/index.ts)，共享 DTO 位于 [types/alpha.ts](../../src/types/alpha.ts)。请求校验、Python 协议、子进程生命周期和回执核验分别维护；架构 gate 禁止 alpha 导入 source/storage/CLI/TUI/执行模块。示例请求见 [合成行情 fixture](../../src/alpha/test/fixtures/sample.ts)。
+本页不把这些局限藏在安装说明后面：读者应先知道模拟世界允许什么，再判断结果是否适合自己的研究问题。详细数据口径由[数据源](./source-data-providers.md)维护。
 
-```typescript
-import { createAkquantEngine } from "./src/alpha/index.ts";
-import { sampleRequest } from "./src/alpha/test/fixtures/sample.ts";
+## 为什么还要独立重建账本
 
-const engine = createAkquantEngine({
-  python: { command: "C:/path/to/venv/Scripts/python.exe" },
-  timeoutMs: 60_000,
-});
-const result = await engine.run(sampleRequest(), AbortSignal.timeout(60_000));
-console.log(result.metrics, result.engine, result.inputHash);
-```
+引擎能够给出指标，不代表所有返回字段都彼此一致。适配层根据成交重新推导现金、持仓和权益，再与逐期净值核对；错标的、重复成交、越界日期、超量交易、费用或成交价冲突，都不能作为正常结果交付。
 
-默认测试不要求 Python，也不下载包。它使用手工账本响应及真正的 Bun 子进程验证协议和终止行为：
+例如，一个引擎回执同时声称现金已支付佣金、权益却未减少，单看收益摘要很难发现。账本核对把问题缩小为可定位的资金与持仓关系，而不是要求模型判断哪句解释更可信。
 
-```powershell
-bun test src/alpha/test
-bun run typecheck
-bun run check:architecture
-```
+没有成交可以是合法研究结果，没有有效权益序列则不能被当作完整回测。被拒订单保留原状态，不能在报告中显示成成交。数值核对允许有限精度误差，但误差容忍不是修改输入或忽略矛盾的许可证。
 
-真实引擎复跑需要显式建立可选环境。当前固定依赖快照验证于 Windows / CPython 3.14.3；不声明其他平台组合已经测试。以下环境位于临时目录，不改变应用现有 Python：
+这条边界提高了适配成本，也限制了能直接接纳的引擎输出。收益是更换引擎或升级版本时，有一组稳定的研究不变量可以检查，而不只比较最终收益是否接近。
 
-```powershell
-$alphaEnv = Join-Path $env:TEMP 'whyj-akquant-0.3.58'
-uv venv --python 3.14 $alphaEnv
-$alphaPython = Join-Path $alphaEnv 'Scripts/python.exe'
-uv pip install --python $alphaPython -r src/alpha/dev/akquant-requirements.txt
-uv pip check --python $alphaPython
-bun run src/alpha/dev/check-akquant.ts --python $alphaPython
-```
+## 可重算与可重复运行不是同一件事
 
-已有环境可直接执行最后两步，勿重新创建。安装使用 [固定版本清单](../../src/alpha/dev/akquant-requirements.txt)；运行入口不自动安装或升级。`unavailable` 表示 Python 或依赖不可用，`version` 表示版本不符；`input`、`timeout`、`cancelled`、`process`、`output` 分别标记输入、期限、取消、进程失败和响应不可信。原始 stderr 不回传到研究结果；超过 256 KiB 或 stdout 超过 16 MiB 会停止进程。默认进程期限 60 秒，可显式调整至不超过 600 秒，真实检查脚本每例 180 秒。取消/超时等待子进程 close 后才返回。
+回测归档固定输入、参数、版本、成交和账本，之后能够独立核对资金路径与指标。恢复时不以最新行情替换原始数据；原数据缺失或来源不符，结果应回到无法核验。
 
-真实检查脚本覆盖次根开盘与成本、部分成交后重算目标、最后一日不下单、SMA 预热、现金不足及缺失成交额；具体输入和预期在[合成样本](../../src/alpha/test/fixtures/sample.ts)与[检查脚本](../../src/alpha/dev/check-akquant.ts)维护。它只消费合成 Bars，不联网取行情、调用模型或访问账户；普通 Bun 协议 fixture 不冒充真实引擎验证。
+这种恢复不等于重新运行了外部撮合引擎。后者还依赖相同环境与规则，也可能需要额外的可重复性验证。报告必须区分账本一致性检查、固定版本引擎运行和真实市场适用性，不能用其中一项代替另外两项。
 
-缺失成交额保留 `amount:null` 和对应输入哈希，Python 只接收撮合所需 OHLCV。旧归档误填的零值无法从 v1 数值反推出原始缺失状态，不能凭这次修正赋予旧数据新的字段来源证明。
+取消或失败不提交完整回测记录，但此前成功取得的公开行情可能已经归档。这里没有跨数据获取和外部进程的全局回滚，界面需要解释已完成与未完成部分。
 
-## 默认 Agent 入口
+## 回测可靠仍不等于策略有效
 
-默认静态注册表已包含三个 Alpha 工具，随 whyj.core 启用。它们通过自然语言调用，没有新增 slash 命令：
+即使输入固定、账本正确、同一版本能够复跑，研究者仍可能在许多参数中挑出偶然表现好的一个。回测过拟合文献讨论的正是这种选择风险；当前接入没有因为使用成熟引擎就自动获得统计上的有效性。[2]
 
-| 工具 | 行为 |
-|---|---|
-| `alpha_engine_status` | 检查配置的 Python、AKQuant 0.3.58 与规则 1.5.4；ready 仅证明导入与版本 |
-| `alpha_backtest` | 先检查引擎，再取日线；固定数据版本、验证成交/账本、原子保存 UUID 档案 |
-| `alpha_runs` | 不带参数列出历史；带 `id` 读取原档案并复核原数据/账本，不运行撮合引擎 |
+因此，模拟结果应保留研究假设、样本范围与选择过程的限制，不把高分写成未来收益承诺。更广的样本外评测由[评测文档](../evaluation/README.md)另行讨论，本页只负责引擎边界。
 
-在上面的可选环境安装完成后，于 PowerShell 启动：
+完整研究报告可能含模拟金额、股数和对话，公开分享则使用允许的单位净值曲线与假设，排除私人参数和执行身份。真实账户、下单与撤单继续属于独立[执行层](./execution.md)，回测成功不改变权限。
 
-```powershell
-$env:WHYJ_QUANT_AKQUANT_PYTHON = $alphaPython
-bun run src/index.ts
-```
+## References
 
-也可把绝对路径写入 `settings.json` 的 `env.WHYJ_QUANT_AKQUANT_PYTHON`，保存值优先于进程环境。工具参数不能指定解释器或 Python 代码。该配置与 AKShare 数据环境独立；未配置、包缺失或版本不符会在取行情前失败，不改用其他回测引擎。
-
-示例输入：先检查 Alpha 引擎，然后用 AKQuant 回测 AAPL，2024-01-02 至 2024-12-31，SMA 5/20，假设现金 100000、固定 10 股、佣金 0.001、滑点 0.01、每年 252 期，采用 generic-stock-next-open 模拟。全部假设需要显式给定；基金 NAV 不作为 OHLC 输入。实际运行仍需兼容行情源或覆盖该窗口的缓存。
-
-Tool capabilities 会显示额外的引擎要求；已配置不等于已经通过导入检查，日线端点成功也不升级引擎状态。`alpha_engine_status` 的结果不写成长期权限证据。
-
-## 归档、报告和恢复
-
-`.ohquant/alpha/runs/{uuid}.json` 保存原始研究参数、数据来源/运行时 cache 状态、固定 Bars/DatasetRef、引擎版本、订单、成交、账本和指标，外层 SHA-256 检查完整性。共享 storage 负责锁和原子写入，runtime 负责语义核验；失败/取消不提交回测档案。行情服务已成功取得的公开数据可能先行归档。
-
-历史读取不以最新行情替换丢失版本。报告核验同时匹配工具调用参数、UUID 档案、原始 DatasetRef、成交和账本；重算账本与指标，不声称重新运行撮合引擎。研究状态保留 run ID、假设和核验结果，重启后从原分支重新建立。
-
-完整报告保留转录；独立分享只导出公开行情、单位初值 1 的曲线、指标和固定模拟假设，排除现金、股数、成交/订单 ID、run ID 和原始对话。Auto Artifacts 开关与既有报告浏览/恢复机制相同。
-
-## 接入验证
-
-```powershell
-bun test src/alpha/test src/runtime/test/alpha-research.test.ts
-bun run src/runtime/dev/check-alpha-research.ts --python $alphaPython
-```
-
-新增集成测试覆盖默认注册工具、缺依赖前置失败、参数 schema、空数据、陈旧来源、取消、伪造账本、请求不符、损坏/缺失归档、历史数据修订、报告过滤和研究任务验收。默认测试不依赖安装 Python。
-
-独立检查脚本使用真实 Pi 循环与 AKQuant，模型由本地 SSE 固定，行情来自临时目录的合成缓存；检查默认工具可达、成交/账本、HTML 报告、固定来源和重启恢复。不使用真实模型或联网行情，也不证明自然语言策略选择、市场数据质量或实盘可用。
-
-引擎接口测试、默认 Agent 接入和真实市场研究是三种不同验收。完成度由 [产品范围与验收](./product-guide.md#requirements)维护，早期独立模块构建与后续产品入口之间的误判见[模块边界反思](../blog/09-boundaries-for-change.md#alpha)；本页不保存中间测试数量和构建体积。
+1. AKFamily. [AKQuant](https://github.com/akfamily/akquant). 上游框架；本仓库以已锁定适配版本为准。
+2. Bailey, D. H., Borwein, J. M., López de Prado, M., and Zhu, Q. J. [The Probability of Backtest Overfitting](https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf). 2015 修订稿。说明策略选择与历史模拟的统计风险，本项目未实现该文完整方法。
+3. oh-my-quant. [报告与制品](./artifacts-design.md). 保存、恢复与分享承担不同证明范围。

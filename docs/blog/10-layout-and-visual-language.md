@@ -59,6 +59,6 @@ Analyzing 是主要工作区域，Overview 提供市场背景，Composer 保留�
 
 - [视觉设计源](../../DESIGN.md)、[共享主题](../../src/types/theme-colors.ts)、[布局计算](../../src/tui/src/render.ts)。
 - [面板容量与分区](../../src/tui/src/panel-views.ts)、[小屏回归](../../src/tui/test/panel-small-screen.test.ts)。
-- [UI/UX 契约](../quant-harness/quant-uiux.md)、[报告颜色回归](../../src/artifact/test/market-colors.test.ts)。
+- [UI/UX 契约](../quant-harness/uiux.md#uiux)、[报告颜色回归](../../src/artifact/test/market-colors.test.ts)。
 
-[← 上一篇](./09-boundaries-for-change.md) · [下一篇：让功能被发现 →](./11-discoverable-interactions.md)
+[← 上一篇](./08-research-workbench.md) · [下一篇：让功能被发现 →](./11-discoverable-interactions.md)

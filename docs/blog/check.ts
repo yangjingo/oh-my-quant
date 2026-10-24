@@ -17,17 +17,40 @@ const blogFiles = markdownFiles.filter((name) => /^docs\/blog\/[^/]+\.md$/.test(
 const sourceGuides = (await listFiles("src")).filter((name) => name.endsWith(".md"));
 const current = [...markdownFiles, "README.md", "DESIGN.md", "site/README.md", ...sourceGuides];
 const failures: string[] = [];
-const rootMarkdown = markdownFiles.filter(file => dirname(file) === "docs");
-if (rootMarkdown.length !== 1 || rootMarkdown[0] !== "docs/README.md") {
-  failures.push("Only docs/README.md belongs at the root; classify current documents under agent-runtime/ or quant-harness/.");
+// The scoped product/architecture reading limit includes code and tables.
+// Count Unicode characters, excluding whitespace, link destinations and anchors.
+const conciseGuides = [
+  "docs/prd.md",
+  "docs/agent-runtime/architecture.md",
+  "docs/agent-runtime/README.md",
+  "docs/agent-runtime/configuration.md",
+  "docs/quant-harness/uiux.md",
+  "docs/quant-harness/community-tools.md",
+  "docs/blog/08-research-workbench.md",
+];
+for (const file of conciseGuides) {
+  const source = await readFile(resolve(root, file), "utf8");
+  const readable = source
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/<a id="[^"]+"><\/a>/g, "")
+    .replace(/\s/g, "");
+  const length = [...readable].length;
+  const limit = file === "docs/prd.md" ? 3000 : 5000;
+  console.log(`${file}: ${length}/${limit} readable characters`);
+  if (length > limit) failures.push(`Product/architecture document exceeds ${limit} readable characters: ${file} (${length})`);
 }
-const documentDirectories = new Set(["agent-runtime", "quant-harness", "blog"]);
+const rootMarkdown = markdownFiles.filter(file => dirname(file) === "docs");
+const rootDocuments = new Set(["docs/README.md", "docs/prd.md", "docs/ci-release.md"]);
+if (rootMarkdown.length !== rootDocuments.size || rootMarkdown.some(file => !rootDocuments.has(file))) {
+  failures.push("The docs root contains README.md, prd.md and ci-release.md; classify other documents by responsibility.");
+}
+const documentDirectories = new Set(["agent-runtime", "quant-harness", "evaluation", "blog"]);
 for (const file of markdownFiles) {
-  if (file !== "docs/README.md" && !documentDirectories.has(file.split("/")[1])) {
+  if (!rootDocuments.has(file) && !documentDirectories.has(file.split("/")[1])) {
     failures.push(`Unclassified document directory: ${file}`);
   }
 }
-for (const directory of ["agent-runtime", "quant-harness"]) {
+for (const directory of ["agent-runtime", "quant-harness", "evaluation"]) {
   const index = `docs/${directory}/README.md`;
   if (!docsFiles.includes(index)) { failures.push(`Missing design directory index: ${index}`); continue; }
   const source = await readFile(resolve(root, index), "utf8");
@@ -38,6 +61,7 @@ for (const directory of ["agent-runtime", "quant-harness"]) {
   }
 }
 const retiredTopics = new Set([
+  "desktop", "research-workspace", "quant-uiux",
   "research-state", "research-tasks", "session-dependencies", "chart-image-input",
   "skill-installation", "skill-readiness", "supplied-evidence-skills",
   "quant-factor-methods", "builtin-tool-registry", "research-data-contract", "tui-table-chart-render",
@@ -92,7 +116,7 @@ for (const file of current) {
   }
 }
 const chapters = blogFiles.filter((file) => /\/\d{2}-/.test(file));
-if (chapters.length !== 12) failures.push(`Expected twelve chapters, found ${chapters.length}`);
+if (chapters.length !== 11) failures.push(`Expected eleven chapters, found ${chapters.length}`);
 const svgs = (await readdir(resolve(import.meta.dir, "images"))).filter((name) => name.endsWith(".svg"));
 if (svgs.length !== chapters.length) failures.push(`Expected one diagram per chapter, found ${svgs.length}`);
 for (const chapter of chapters) {
