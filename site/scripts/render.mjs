@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { articlePath, loadArticle } from "./article.mjs";
+import { articles, loadArticle } from "./article.mjs";
 
 const siteOrigin = "https://oh-my-quant.vercel.app";
 
@@ -8,7 +8,7 @@ export const routes = [
   { path: "/en/", locale: "en", page: "home" },
   { path: "/blog/", locale: "zh", page: "blog" },
   { path: "/en/blog/", locale: "en", page: "blog" },
-  { path: articlePath, locale: "zh", page: "article" },
+  ...articles.map(article => ({ path: article.path, locale: "zh", page: "article" })),
 ];
 
 export async function loadContent() {
@@ -31,7 +31,8 @@ export async function loadContent() {
         throw new Error(`Missing ${locale} translation: ${key}`);
     }
   }
-  return { messages, release, download, layout, header, home, blog, article: await loadArticle() };
+  const articlePages = Object.fromEntries(await Promise.all(articles.map(async article => [article.path, await loadArticle(article)])));
+  return { messages, release, download, layout, header, home, blog, articlePages };
 }
 
 function escapeHtml(value) {
@@ -42,7 +43,7 @@ function escapeHtml(value) {
 
 export function renderPage(content, route) {
   const { locale, page } = route;
-  if (page === "article") return content.article;
+  if (page === "article") return content.articlePages[route.path];
   const otherLocale = locale === "en" ? "zh" : "en";
   const values = Object.fromEntries(
     Object.entries(content.messages).map(([key, message]) => [key, message[locale]]),

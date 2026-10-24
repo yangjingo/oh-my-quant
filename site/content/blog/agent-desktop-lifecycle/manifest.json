@@ -1,0 +1,24 @@
+{
+  "source": "docs/blog/agentic/agent-desktop-lifecycle.html",
+  "sourceSha256": "f1c4e3078bb8a370402c845fbaaf7e794469ead4fecc1706e1bb6e16d3811dcc",
+  "locale": "zh-CN",
+  "translationStatus": "Chinese original; English translation not published",
+  "designSource": "Approved self-contained HTML, 2026-10-22",
+  "path": "/blog/agent-desktop-lifecycle/",
+  "files": {
+    "assets/15160f69381971508bc6.svg": "15160f69381971508bc6c34fd62cd5205289f93cb8c61cfb69e7666d1f2cfb2b",
+    "assets/1a9874b3be0fc168692a.ttf": "1a9874b3be0fc168692a3d2327bccb4d28835653d3b91537a755296a467a83e3",
+    "assets/7022da390e9b401ea35b.ttf": "7022da390e9b401ea35b722f8ed2376948e70add10954bc798839b4bfe17ef3f",
+    "assets/7171f481b121803d007f.ttf": "7171f481b121803d007f5c6c76cd9988c0d41cce4202db9a18dff9945505d36d",
+    "assets/778fe446aa8e88cf96e9.png": "778fe446aa8e88cf96e91c3e572355866fd5592729e1beed100a3db392b1d1eb",
+    "assets/article.css": "265e97b4bde61685a58dd7eaded9cf33be4186d4e83032f2979dbc4252858aed",
+    "assets/article.js": "0aa2924303002f19aff0f3918f71f4e261977416555ffa9cb9c3a0070b678172",
+    "assets/ccce59465ae5c61930ad.ttf": "ccce59465ae5c61930ada5453834f60500fbd95084d85db63e0e65fad0125455",
+    "assets/f8447b51f6ce90440629.svg": "f8447b51f6ce90440629efa7876d7183a14b2973b32b6bcf909a5e5c62fa2cb4",
+    "assets/fonts/OFL-Geist-Mono.txt": "f12f59163d92084b0473315ae4566cde0c1233d940ae464f5225a69c347cc691",
+    "assets/fonts/OFL-Geist.txt": "f12f59163d92084b0473315ae4566cde0c1233d940ae464f5225a69c347cc691",
+    "assets/licenses/lucide.txt": "668dcc52803480e0a026b31140a4cae668772663cd764e5991d252eef03f98db",
+    "assets/tables.js": "10c1ce694ffa6d0396ca84f5b65bbc1a9ce28d250e778ea4372742a760486665",
+    "index.html": "f0f9793c96483853e491daab1ac3e3530ff2197d9db834aa38169124e2ca43d7"
+  }
+}

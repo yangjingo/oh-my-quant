@@ -77,6 +77,7 @@ Desktop 面向 Windows/macOS，CLI/TUI 面向 Linux 专业用户；Web 是共享
 - [10｜80×24 的屏幕里，什么值得一直留下？](./blog/10-layout-and-visual-language.md)
 - [11｜用户不知道下一条命令时，界面应该做什么？](./blog/11-discoverable-interactions.md)
 - [12｜错误出现以后，用户还能做什么？](./blog/12-recovery-as-ux.md)
+- [给 Agent 做桌面，先想清楚关窗之后](./blog/agentic/agent-desktop-lifecycle.html)（架构提案，未实施）
 - [编辑与证据说明](./blog/editorial-notes.md)
 - [Agent Engineering：oh-my-quant 的产品、架构与体验](./blog/README.md)
 - [博客更新与 Vercel 发布流程](./blog/website-publishing.md)

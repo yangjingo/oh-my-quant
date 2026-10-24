@@ -10,6 +10,8 @@
 
 ## 系列文章
 
+架构文章：[给 Agent 做桌面，先想清楚关窗之后](./agentic/agent-desktop-lifecycle.html)。讨论共享 Host、入口职责、关窗后的执行归属与恢复边界；文中目标架构尚未实施，历史评审保留在 [PR #79](https://github.com/yangjingo/oh-my-quant/pull/79)。
+
 工程实践补篇：[Agentic / Vibe Repo Ops：让 AGENTS.md、Skills 与 CI 对同一次交付负责](./agentic/vibe-repo-ops.md)。统一说明 AGENTS、Skills、Issue、PR 评审、CI、合并与 npm 发布的分工；结合冲突、验证漂移和元数据反例讨论简洁与协作，配套仓库 review-skill。这篇独立 Markdown 不加入下方十一篇离线合集。
 
 | 篇章 | 核心问题 | 主要取舍 |

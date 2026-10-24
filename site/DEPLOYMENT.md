@@ -2,6 +2,19 @@
 
 本页保留各日期的交付事实。现行[产品定位](../docs/prd.md#scope)为 Windows/macOS Desktop 与 Linux 专业 CLI/TUI；历史上暂撤官网 CLI 卡片不代表终止 CLI。macOS 是目标平台，以下 Windows 发布回执不构成其交付证明。本次文档同步不代表网站已重新部署。
 
+## 2026-10-22：发布 Agent Desktop 架构定稿（Issue #74，PR 保持未合并）
+
+维护者授权先将确认后的单文件博客发布，再更新相关架构 Issue；另明确要求在博客 PR 邀请 @Liears 审阅组织与演进，暂不合并。此记录区分线上发布和 main 的源码状态。
+
+- 基线 main `0548a92b6d98d7d1270091de46eb9f00cf81bed4`；候选来自 `docs/74-agent-desktop-blog` 的本次修改。原稿 SHA-256 `9cae452c9c15f1865717363b025a674ea986ae8e8e120b915c867f062de6d2a3`，生产文章 HTML `41a1d98faa8e86527fe574dca0a83225fd64adabdd7dae3fdd93727253d6415a`；生成包 manifest `c16ca6eebc7a7e3d8547c913e4d979ff5a5c2e16a41c91c17042e31d84345edb`。准备命令见[发布流程](../docs/blog/website-publishing.md#新文章需要显式接入)。
+- [正式文章](https://oh-my-quant.vercel.app/blog/agent-desktop-lifecycle/)已上线；中英文 Blog 均链接中文原文，未发布英文译文。正文段落和标题与定稿自动比对一致。发布适配只处理资源、元信息、分享及表格交互，没有重新改写架构结论。
+- 完整独立站点副本通过 Node 构建。项目 `prj_W6RAjHLVuwjdRdZ1pKFSRJj5ymvy` / `yangjing-s-projects/oh-my-quant`，CLI 上传根为 `.`，构建 `node scripts/build.mjs`、输出 `dist`、Node 24。保留 CSP 和访问保护。
+- Preview `dpl_AfsyoYDG6ZbhC1Cd6kntBxACjT8v` / <https://oh-my-quant-hkplys0se-yangjing-s-projects.vercel.app> Ready；浏览器进入 Vercel 登录页，未宣称 Preview 在线视觉验收。按已授权发布提升候选后，Production `dpl_BCc94V4NLwq9ZvA33VByDrxroL6d` / <https://oh-my-quant-4iwizmvh6-yangjing-s-projects.vercel.app> Ready，正式域名下载的文章字节与候选完全一致。
+- 本地 Chromium + 生产 CSP：1440/390/320px 无横向溢出；两张表格筛选、空态、列隐藏、重置、选择对比、展开和 Escape 返回通过；插图放大、无 JS 的九行原表、减少动态效果与打印 PDF 可用。分享/打印点击使用 stub 验证参数和调用，不作为系统分享面板验收。
+- 正式域名 Chromium：1440/390px 可读，图像加载、两个表格控件初始化通过；首页、中英文列表、旧 Repo Ops 页面均返回 200，无页面运行错误。截图/PDF/日志保存在忽略的 `output/`，不作为产品资产提交。
+- 仓库检查：2733 项 Bun 测试、28 项质量测试、类型/架构/构建通过；首次文档检查指出新 HTML 未加入 docs 总目录，补齐后 `check:docs` 通过。41 个本地私有历史证据链接未复验，不用于本次通过声明。GitHub CI 以博客 PR 的最终 head 为准。
+- 回滚目标为此前 Production `dpl_9jTzkT7dqk6TB1xdgWTha5WQWaZU`。本次不修改 Desktop v1.4.0 Release 或下载安装包。PR 未合并期间，从旧 main 重新部署可能覆盖新文章，后续发布须显式保留此候选或先完成授权合并。
+
 ## 2026-10-21：Desktop 1.4.0 发布与下载页交接（Issue #67）
 
 上轮撤下 CLI 入口时保留了已有 1.3.1 安装包；源码版本、Actions 构建成功和公开 Release 是三种不同状态。此前工作流的 `publish` 被跳过，官网版本清单也没有自动刷新。本轮维护者明确要求发布 1.4.0，并要求主下载按钮进入 GitHub Release 页面。

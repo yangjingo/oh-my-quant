@@ -2,7 +2,7 @@
 
 This is an execution guide, not an automatic publication hook. Continue within existing authorization. Local preview or workflow-design requests do not authorize remote deployment. Before requesting any additional approval, prepare the exact candidate, checks, and target.
 
-Repository operators should follow [the article publishing runbook](../../../../docs/blog/website-publishing.md) for the concrete source paths, PowerShell release-copy commands, and current one-article limitation.
+Repository operators should follow [the article publishing runbook](../../../../docs/blog/website-publishing.md) for the concrete source paths, per-article preparation commands, explicit article registry, and PowerShell release-copy commands.
 
 ## 1. Verify the actual publication boundary
 

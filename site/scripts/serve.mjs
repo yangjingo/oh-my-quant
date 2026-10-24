@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { loadContent, renderPage, renderRuntimeMessages, routes } from "./render.mjs";
-import { articlePath, articleDirectory } from "./article.mjs";
+import { articles } from "./article.mjs";
 
 const preview = process.argv.includes("--dist");
 const root = fileURLToPath(
@@ -18,6 +18,9 @@ const mime = {
   ".js": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
   ".ttf": "font/ttf",
+  ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".png": "image/png",
   ".txt": "text/plain; charset=utf-8",
   ".mp4": "video/mp4",
 };
@@ -51,10 +54,10 @@ const server = createServer(async (req, res) => {
       }).end(body);
       return;
     }
-    const articleAsset = !preview && pathname.startsWith(articlePath) && !route;
-    const assetRoot = articleAsset ? articleDirectory : root;
-    const file = path.resolve(assetRoot, articleAsset ? `.${pathname.slice(articlePath.length - 1)}` : `.${route ? `${pathname}index.html` : pathname}`);
-    if (!file.startsWith(assetRoot)) {
+    const articleAsset = !preview && !route && articles.find(article => pathname.startsWith(article.path));
+    const assetRoot = articleAsset ? articleAsset.directory : root;
+    const file = path.resolve(assetRoot, articleAsset ? `.${pathname.slice(articleAsset.path.length - 1)}` : `.${route ? `${pathname}index.html` : pathname}`);
+    if (!file.startsWith(path.resolve(assetRoot) + path.sep)) {
       res.writeHead(403).end();
       return;
     }

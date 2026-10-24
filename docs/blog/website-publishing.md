@@ -10,12 +10,15 @@ Repo Ops 正文由[合并稿](./agentic/vibe-repo-ops-merged-draft.md)维护，�
 
 [blog-skill](../../.agents/skills/blog-skill/SKILL.md)维护写作与展示规则，[DESIGN](../../DESIGN.md)维护视觉。模板获认可后才刷新 skill 的参考包及 HTML 哈希；参考快照不是另一份文章真源。译文从确认后的原文派生，尚无英文正文时明确链接中文，不伪造英文路由。
 
+架构文章以[单文件 HTML](./agentic/agent-desktop-lifecycle.html)为唯一正文，这是维护者已确认 HTML 的例外；新文章默认沿用 Markdown 流程，不维护两份正文。修改后运行 `node site/scripts/prepare-desktop-blog.mjs`，生成 `site/content/blog/agent-desktop-lifecycle/`。两篇文章都由 `site/scripts/article.mjs` 显式登记，分别校验来源和资产哈希。
+
 ## 本地构建回答哪些问题
 
 在仓库根目录执行：
 
 ```powershell
 node site/scripts/prepare-blog.mjs
+node site/scripts/prepare-desktop-blog.mjs
 node site/scripts/build.mjs
 bun run docs:build
 bun run check:docs
@@ -23,7 +26,7 @@ $env:PORT = '4173'
 node site/scripts/serve.mjs --dist
 ```
 
-访问 `http://127.0.0.1:4173/blog/vibe-repo-ops/`。文章准备需要 Bun，独立网站构建只需要 Node；十一篇离线合集由 `docs:build` 生成，不会自动进入网站。换行规则由 `.gitattributes` 保证，避免跨平台改变哈希。
+访问 `http://127.0.0.1:4173/blog/vibe-repo-ops/` 和 `/blog/agent-desktop-lifecycle/`，并核对中英文列表均链接正确的中文原文。文章准备需要 Bun，独立网站构建只需要 Node；十一篇离线合集由 `docs:build` 生成，不会自动进入网站。换行规则由 `.gitattributes` 保证，避免跨平台改变哈希。
 
 检查正文、标题、目录、引用和图注，再检查宽窄屏、资源加载及实际存在的交互。表格、图表、媒体、放大、分享和打印按本次变化选择验证，保留无 JavaScript 与减少动态效果下的可读性。使用项目服务器检查 CSP；没有响应头的简单静态服务不能代替它。模拟剪贴板或分享接口时明确说明验证边界。
 

@@ -746,5 +746,13 @@
   "download.setupDetails": {
     "en": "Setup details",
     "zh": "安装与配置说明"
+  },
+  "blog.desktopTitle": {
+    "zh": "给 Agent 做桌面，先想清楚关窗之后",
+    "en": "Before building an Agent desktop, decide what happens after closing the window"
+  },
+  "blog.desktopSummary": {
+    "zh": "从现有 CLI 演进到持续工作台：执行归属、窗口生命周期与进度恢复。记录 Electron、React 和共享 Host 的架构取舍与待验证边界。",
+    "en": "From a CLI to a persistent workbench: execution ownership, window lifecycles, and recovery. The Electron, React, and shared Host decisions are a plan, not a delivered migration."
   }
 }
