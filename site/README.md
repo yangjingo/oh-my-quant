@@ -2,9 +2,11 @@
 
 [正式官网](https://oh-my-quant.vercel.app) · [English](https://oh-my-quant.vercel.app/en/) · [Blog](https://oh-my-quant.vercel.app/blog/)
 
-官网与 CLI 在同一仓库维护，`site/` 是独立的静态部署单元。视觉真源是根目录 [DESIGN.md](../DESIGN.md)，产品文案以 [README](../README.md)、[配置参考](../docs/quant-harness/configuration.md) 和 [Quant UI/UX](../docs/quant-harness/quant-uiux.md) 为依据。
+官网与 CLI 在同一仓库维护，`site/` 是独立的静态部署单元。视觉真源是根目录 [DESIGN.md](../DESIGN.md)，产品文案以 [README](../README.md)、[配置参考](../docs/agent-runtime/configuration.md) 和 [Quant UI/UX](../docs/quant-harness/uiux.md#uiux) 为依据。
 
 ## 为什么这样维护
+
+产品文案按[产品指南](../docs/prd.md#scope)区分两种形态：Desktop 面向 Windows/macOS 用户，CLI/TUI 面向 Linux 专业用户并延续已有基础。Web 是共享界面及开发/验证入口，官网是公开展示。下载区只展示实际发布的平台；当前 Windows 包不代表 macOS 已交付。既有 CLI 下载入口的下线记录是网站展示决策，不表示 CLI 产品被取消；恢复该入口须作为网站改动单独交付。
 
 - **同仓库、独立目录**：产品功能、安装步骤与官网内容可以在一次 PR 中更新；不复制另一套产品规范。
 - **功能分支开发，合并回 main**：使用 `feat/website-*` 做短期开发与 Vercel Preview。不要用长期 `website` 分支保存第二份产品，否则设计和功能说明容易漂移。

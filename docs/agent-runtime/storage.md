@@ -46,11 +46,11 @@ src/storage/
 | `.ohquant/data/{source}/{symbol}/revisions/` | research data | 否 | 不可变公开行情版本，供 DatasetRef 复现研究输入；不自动清除。人工清理会让旧引用显式失效，不转用新行情。 |
 | `.ohquant/data/akshare/{code.OF}/nav-revisions/` | research data | 否 | 不可变公开基金 NAV 和可选的当前申购费观察；每个已提交修订另有绑定整份快照的 `.commit` 标记，没有 latest head/TTL，不保存模拟投入或账户金额。 |
 | `.ohquant/cache/` | cache | 是 | 带 TTL 语义的短生命周期派生制品。 |
-| `.ohquant/benchmark/comparisons/portfolios/` | artifact | 否 | `compare_portfolios` 保存 UUID 比较：原始调用假设、组快照、公开价格/NAV、FX 与结果；历史工具校验和重算，报告再绑定引用版本。旧 compare handler 仍未注册。见 [组合比较](./portfolio-comparison.md)。 |
+| `.ohquant/benchmark/comparisons/portfolios/` | artifact | 否 | `compare_portfolios` 保存 UUID 比较：原始调用假设、组快照、公开价格/NAV、FX 与结果；历史工具校验和重算，报告再绑定引用版本。旧 compare handler 仍未注册。见 [组合比较](../quant-harness/portfolio-comparison.md)。 |
 | `.ohquant/benchmark/results/` | artifact | 否 | 内置 `Quant.Benchmark` 工具生成的显式策略评分输出。 |
 | `.ohquant/alpha/runs/` | artifact | 否 | UUID Alpha 研究档案，保存明确的模拟参数、Bars/DatasetRef、引擎版本和回执；非真实账户状态，不自动清除。 |
 | `.ohquant/research/decisions/` | artifact | 否 | 显式研究声明、声明日期/实际记录时间、比较哈希与理由；请求标识幂等，内容冲突保留原文。不是用户批准或实际成交证明，理由可能私密，不进入公开缓存或分享。 |
-| `.ohquant/reports/annual/` | artifact | 否 | 年报 UUID JSON 与可恢复 HTML，绑定比较及显式选定的决策哈希；恢复核对原始档案，不自动纳入后续日志。见 [年报](./annual-reports.md)。 |
+| `.ohquant/reports/annual/` | artifact | 否 | 年报 UUID JSON 与可恢复 HTML，绑定比较及显式选定的决策哈希；恢复核对原始档案，不自动纳入后续日志。见 [年报](../quant-harness/annual-reports.md)。 |
 | `.ohquant/sessions/` | artifact | 否 | JSONL 格式的 agent session 转录。`listStoredSessions()` 解析 session tree 并计算上下文用量摘要（tokens/contextWindow/percent）。 |
 | `.ohquant/artifacts/{id}.report.json` | artifact | 否 | 原子报告 head，包含完整 HTML、元数据、来源与校验；生成新版本不覆盖已归档版本。 |
 | `.ohquant/artifacts/.revisions/{id}/{revision}/` | artifact | 否 | 不可变 `report.json` 与可修复的 `{id}.html` 浏览器视图；不自动清理。详见 [Artifacts](#artifacts)。 |
@@ -89,7 +89,7 @@ Windows 释放锁目录时也可能短暂拒绝下一次 mkdir。同步与异步
 
 `DatasetRef` 保存 source/symbol/revision、具体日期集合、所选 bars 的内容哈希、请求窗口和 snapshotAt；`loadDataset()` 校验并读取已提交的不可变版本。因子、回测、风险和行情工具结果携带引用，Benchmark 制品保存 strategy/benchmark 两份引用与共同日期。snapshotAt 是本地组装时间，不是历史当时可得性的证明；availability 为 observed-at-fetch，不宣称 point-in-time 数据。
 
-2026-10-11 起，新修订的 `meta.lastResponseAdjustment` 和引用的 `adjustment` 必须一致；范围为 `forward-adjusted`、`unadjusted`、`unit-nav`、`index-level`、`provider-unspecified`，对应 [来源实际请求](./source-data-providers.md#ohlc-复权口径2026-10-11)。旧无字段修订仍按未知读取。伪造口径、非法标签或带口径但没有本次响应日期集合的快照会被拒绝，不回退当前价格。
+2026-10-11 起，新修订的 `meta.lastResponseAdjustment` 和引用的 `adjustment` 必须一致；范围为 `forward-adjusted`、`unadjusted`、`unit-nav`、`index-level`、`provider-unspecified`，对应 [来源实际请求](../quant-harness/source-data-providers.md#ohlc-复权口径2026-10-11)。旧无字段修订仍按未知读取。伪造口径、非法标签或带口径但没有本次响应日期集合的快照会被拒绝，不回退当前价格。
 
 前复权历史水平可能在再次抓取时变化，因此即使标签和端点相同，也只将本次完整响应写入当前 head，禁止与旧响应拼接。其它口径只在前后标签相同的情况下继续累计；未知转已知、已知转未知和已知口径切换均重建 head。重建不删除不可变归档、提交标记或旧报告，旧 DatasetRef 仍指向旧观察。研究缓存始终按 `fetchedDates` 读取一份响应，`loadBars()` 的显式累积读取也受上述拼接规则约束。算法继续使用 `close`；标签不代替公司行为对账、现金分红处理或供应商独立数值校准。
 
@@ -99,7 +99,7 @@ Windows 释放锁目录时也可能短暂拒绝下一次 mkdir。同步与异步
 
 `saveAlphaRun/loadAlphaRun/listAlphaRuns` 管理带 SHA-256 的不可变 UUID 档案，复用写锁、原子提交和 file events。保存有限 JSON 数值，读取拒绝路径型 ID、损坏内容及不一致版本。计算语义由 runtime/alpha 核验：原请求、固定数据版本、成交账本和指标必须匹配。历史读取不启动 Python，不用新行情代替缺失证据；列表保留不可读文件的计数。模拟资金/股数仅属于显式研究输出，不写进公开行情缓存。
 
-研究报告与状态接收 `alpha_backtest/alpha_runs` 证据；分享仅投影单位曲线、指标和假设，不暴露模拟金额、股数或交易 ID。完整契约及测试见 [Alpha / AKQuant](./alpha-backtest.md)。
+研究报告与状态接收 `alpha_backtest/alpha_runs` 证据；分享仅投影单位曲线、指标和假设，不暴露模拟金额、股数或交易 ID。完整契约及测试见 [Alpha / AKQuant](../quant-harness/alpha-backtest.md)。
 
 ## 评分集合与排行榜
 
@@ -135,13 +135,13 @@ Windows 释放锁目录时也可能短暂拒绝下一次 mkdir。同步与异步
 
 `WHYJ_QUANT_CONTEXT_WINDOW` 仅用于无 provider 的遗留模型配置。新配置从 Pi 模型能力或 `providers[id].models[modelId].contextWindow` 读取窗口。`WHYJ_QUANT_COMPACT_TRIGGER_TOKENS` 仍是 settings env 中的自动压缩阈值，单位为 token、仅接受正整数，且不会扩大模型窗口。
 
-用户可见字段、默认值和旧配置迁移规则统一记录在 [WhyJ Quant 配置参考](./configuration.md)。外部 skill 使用单一 `skillIntegrations.external` 开关；旧 `codex` / `claude` 字段仅作为迁移输入。
+Quant 可见选项见[量化配置](./configuration.md)，字段及迁移规则以[设置实现](../../src/storage/src/settings.ts)为准。外部 skill 使用单一 `skillIntegrations.external` 开关；旧 `codex` / `claude` 字段仅作为迁移输入。
 
 仅对缺少 `provider` 的遗留设置，normalization 校验顶层 `model`：存在 `WHYJ_DEFAULT_SONNET_MODEL`、`WHYJ_DEFAULT_OPUS_MODEL` 或 `WHYJ_DEFAULT_HAIKU_MODEL` 时，`model` 必须是已配置角色别名或映射值。不匹配时按 sonnet、opus、haiku 顺序强制选择第一个可用别名，并在加载或保存时写回规范化配置。没有角色映射时不限制直接模型 ID。显式 provider 的实际模型 ID 不经过此别名重写。
 
 ## Session 上下文用量
 
-活动会话通过 `SessionFilePort` 注入文件读写实现；默认 `LocalSessionFile` 使用精确字节 SHA-256、进程锁与 fsync/rename 原子替换。JSONL v3 逻辑追加不变，外部修改/追加/删除后旧 writer 报 `ESTORAGECONFLICT` 并要求重新打开。完整 fork 一次提交，leaf 移动和摘要是同一事务；失败不提前修改内存，读口返回副本。取消贯通压缩/导航的锁等待，文件观察者抛错不影响提交确认。详见 [会话适配](../agent-runtime/README.md#pi-integration)。
+活动会话通过 `SessionFilePort` 注入文件读写实现；默认 `LocalSessionFile` 使用精确字节 SHA-256、进程锁与 fsync/rename 原子替换。JSONL v3 逻辑追加不变，外部修改/追加/删除后旧 writer 报 `ESTORAGECONFLICT` 并要求重新打开。完整 fork 一次提交，leaf 移动和摘要是同一事务；失败不提前修改内存，读口返回副本。取消贯通压缩/导航的锁等待，文件观察者抛错不影响提交确认。详见 [会话适配](./README.md#pi-integration)。
 
 打开与列表读取都拒绝重复 ID、缺失父项/leaf 目标和截断文件，防止 Resume 遍历循环或把部分文件当成完整会话；列表隐藏损坏条目，原文件保留。提交中的临时文件不进入列表，不自动清理或修复历史。进程终止测试在真实写入、fsync 后的 rename 前/后分别 kill；完整文件恢复通过，但不承诺所有文件系统的断电行为。追加复制完整转录，成本随文件大小增长，可用 src/storage/dev/measure-session-storage.ts 重新测量。
 
@@ -158,7 +158,7 @@ storage 使用自身的存储记录契约生成预览和估算，不导入 agent
 
 ## Artifacts
 
-R06 的 [ResearchState](./README.md#research-state) 每次从活动分支和归档重建，不持久化第二份状态缓存。缺失归档使发现降为未核验，不改写 session 或已保存报告；用户原文、组合名称、模拟参数和 recordedScope 是内部上下文，不能直接作为公开分享数据。
+R06 的 [ResearchState](../quant-harness/README.md#research-state) 每次从活动分支和归档重建，不持久化第二份状态缓存。缺失归档使发现降为未核验，不改写 session 或已保存报告；用户原文、组合名称、模拟参数和 recordedScope 是内部上下文，不能直接作为公开分享数据。
 
 结构化任务的 declare/resolve/cancel 事件保存在同一 session 中：宿主使用 `research_task` custom note，普通输入工具使用已原子提交且唯一匹配的成功 toolResult；不另排队重复写 note。工具调用本身或失败结果不构成声明。任务状态及重试关联是否仍有效均重新投影。归档丢失会重新打开待办，保留已提交事件的 revision，不自动替换研究输入或撤销历史记录。`/resume --task` 只读投影，不新增状态文件或会话事件。
 
@@ -221,7 +221,7 @@ Artifact 文件是**显式制品**（artifact class），不可视为可随意�
 
 ### 色彩与设计系统
 
-色彩由 [DESIGN](../../DESIGN.md) 和[共享语义 token](../../src/types/theme-colors.ts)维护，存储规范不另列色表。品牌、行情方向与操作状态分开表达；新报告固定生成时的行情约定，旧版本不因设置变化而重画。历史色表与现行规范分叉的原因见[布局与视觉语言](../blog/10-layout-and-visual-language.md#visual-language)，报告边界见 [Artifact](./artifacts-design.md)。
+色彩由 [DESIGN](../../DESIGN.md) 和[共享语义 token](../../src/types/theme-colors.ts)维护，存储规范不另列色表。品牌、行情方向与操作状态分开表达；新报告固定生成时的行情约定，旧版本不因设置变化而重画。历史色表与现行规范分叉的原因见[布局与视觉语言](../blog/10-layout-and-visual-language.md#visual-language)，报告边界见 [Artifact](../quant-harness/artifacts-design.md)。
 
 ## Portfolio 规则
 

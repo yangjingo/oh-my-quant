@@ -1,6 +1,6 @@
 import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { resolve, dirname, basename } from "node:path";
+import { resolve, dirname, basename, relative } from "node:path";
 import { buildFigures } from "./figures.ts";
 import { enrichArticle } from "./interactive.ts";
 import { chartSvg } from "./charts.js";
@@ -83,7 +83,8 @@ body = body.replace(/<p><img src="(\.\/images\/repo-ops-(?:governance|artifacts|
   const displayNumber = caption.match(/^图\s*(\d+)/)?.[1] ?? number;
   return `<figure class="article-figure" id="figure-${number}"><a class="figure-link" href="${assetUrl(name)}" data-figure aria-label="放大图 ${displayNumber}" aria-describedby="figure-caption-${number}"><picture>${mobileSource}<img src="${assetUrl(name)}" width="${size.width}" height="${size.height}" alt="${alt}" loading="lazy" decoding="async"></picture><span class="figure-zoom">${icon("maximize-2")}<span>放大查看</span></span></a><figcaption id="figure-caption-${number}">${caption}</figcaption></figure>`;
 });
-if (figureCount !== 4) throw new Error("Expected four technical figures and their captions");
+const expectedFigures = [...source.matchAll(/!\[[^\]]*\]\(\.\/images\/repo-ops-(?:governance|artifacts|evidence|merge-flow)\.svg\)/g)].length;
+if (figureCount !== expectedFigures) throw new Error("Every technical figure needs a caption");
 body = body.replace(/<h([23])(?:\s[^>]*)?>([\s\S]*?)<\/h\1>/g, (_, level, heading) => {
   if (level === "2") {
     const id = `section-${sections.length + 1}`;
@@ -99,21 +100,34 @@ body = body.replace(/<h([23])(?:\s[^>]*)?>([\s\S]*?)<\/h\1>/g, (_, level, headin
 body = body.replace(/<table>/g, '<div class="table-scroll" tabindex="0" role="region" aria-label="比较表，可横向滚动"><table>')
   .replace(/<\/table>/g, "</table></div>")
   .replace(/<pre>/g, '<pre tabindex="0" aria-label="代码示例，可横向滚动">');
-if (sections.length !== 6 || sections[0].title !== "TL;DR" || !sections.at(-1)!.title.startsWith("References")) throw new Error("Expected TL;DR, four body sections, and References");
-body = await enrichArticle(body, resolve(dirname(sourcePath), "images"), icon);
+if (sections[0]?.title !== "TL;DR" || sections.at(-1)?.title !== "References") throw new Error("Expected opening TL;DR and closing References");
+const hasInteractiveContent = /<table>|repo-ops-(?:actions|rsi)\.svg/.test(body);
+if (hasInteractiveContent) {
+  body = await enrichArticle(body, resolve(dirname(sourcePath), "images"), icon);
+}
 // Keep bibliography content in Markdown; only add layout and stable anchors here.
-const referenceStart = body.indexOf('<h2 id="section-6"');
+const referenceId = sections.at(-1)!.id;
+const referenceStart = body.indexOf(`<h2 id="${referenceId}"`);
 let referenceNumber = 0;
 const references = body.slice(referenceStart).replace(/<ol(?: start="\d+")?>([\s\S]*?)<\/ol>/g, (_, entries) => {
   const start = referenceNumber + 1;
   const items = entries.replace(/<li>/g, () => `<li id="ref-${++referenceNumber}">`);
   return `<ol class="reference-list" start="${start}">${items}</ol>`;
 });
-if (referenceNumber !== 18) throw new Error("Expected 18 bibliography entries");
-body = body.slice(0, referenceStart) + `<section class="references" aria-labelledby="section-6">${references}</section>`;
+if (referenceNumber === 0) throw new Error("References must contain a numbered bibliography");
+body = body.slice(0, referenceStart) + `<section class="references" aria-labelledby="${referenceId}">${references}</section>`;
+// Repository references stay local in previews; the deployed site has no docs tree.
+body = body.replace(/href="(\.{1,2}\/[^"?#]+)((?:[?#][^"]*)?)"/g, (link, path, suffix) => {
+  if (!/\.(?:md|ts|mjs)$/.test(path)) return link;
+  const target = resolve(dirname(sourcePath), path);
+  const href = published
+    ? `https://github.com/yangjingo/oh-my-quant/blob/main/${relative(root, target).split("\\").join("/")}`
+    : relative(output, target).split("\\").join("/");
+  return `href="${href}${suffix}"`;
+});
 const previewAssets = ["article.css", "article.js", "interactive.css", "interactive.js", "tables.js", "charts.js"];
 const assetVersions = new Map(await Promise.all(previewAssets.map(async name => [name, Bun.hash(await readFile(new URL(name, import.meta.url))).toString(16)] as const)));
-const shortTitles = ["TL;DR", "产出加速后的问题", "重新定义“完成”", "让规则进入工作流", "结果、代价与边界", "References"];
+const shortTitles = sections.map(section => section.title);
 const nav = sections.map((section, i) => `<li><a class="toc-link" href="#${section.id}"><span class="toc-number">${String(i + 1).padStart(2, "0")}</span><span>${shortTitles[i]}</span></a><div class="toc-children-wrap"><div><ol class="toc-children">${section.children.map(child => `<li><a href="#${child.id}">${child.title}</a></li>`).join("")}</ol></div></div></li>`).join("\n");
 const mobileNav = sections.map((section, i) => `<li><a href="#${section.id}"><span>${String(i + 1).padStart(2, "0")}</span>${shortTitles[i]}</a></li>`).join("");
 const description = "从测试全绿却算错、文档漂移到 CI 生命周期竞态：oh-my-quant 如何让 AGENTS.md、Skills、验证与合并对同一次交付负责。";
@@ -137,9 +151,9 @@ const html = `<!doctype html>
   <link rel="stylesheet" href="./assets/article.css?v=${assetVersions.get('article.css')}">
   <link rel="stylesheet" href="./assets/interactive.css?v=${assetVersions.get('interactive.css')}">
   <script defer src="./assets/article.js?v=${assetVersions.get('article.js')}"></script>
-  <script defer src="./assets/interactive.js?v=${assetVersions.get('interactive.js')}"></script>
+${hasInteractiveContent ? `  <script defer src="./assets/interactive.js?v=${assetVersions.get('interactive.js')}"></script>
   <script defer src="./assets/tables.js?v=${assetVersions.get('tables.js')}"></script>
-  <script type="module" src="./assets/charts.js?v=${assetVersions.get('charts.js')}"></script>
+  <script type="module" src="./assets/charts.js?v=${assetVersions.get('charts.js')}"></script>` : ''}
 </head>
 <body id="top">
   <a class="skip-link" href="#article">跳到正文</a>

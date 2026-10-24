@@ -1,10 +1,12 @@
 # WhyJ Quant Design System
 
-Updated: 2026-10-21
+Updated: 2026-10-22
 
 This is the visual specification for the website, CLI/TUI, Desktop, and generated reports. It defines the warm palette implemented in the shared theme, website, CLI/TUI, Desktop source, generated reports, and exported JQ assets. The canonical workspace preview is captured from the updated website. Desktop installation and shortcut-icon acceptance remain separate release checks.
 
 ## 1. Visual Direction
+
+The [product guide](./docs/prd.md#scope) defines two product forms: Desktop for Windows/macOS users and CLI/TUI for Linux professionals. Share visual semantics while adapting input, layout, shortcuts, and accessibility to each host. The Web UI is a shared implementation and development surface; the website is public presentation. Current Windows assets and screenshots do not establish macOS delivery or acceptance.
 
 **A quiet research workspace: warm black, cream text, restrained gold, and generous working space.**
 

@@ -1,51 +1,45 @@
 # oh-my-quant 文档
 
-更新：2026-10-21。现行文档实际归入两个目录：[Agent Runtime](./agent-runtime/README.md) 与 [Quant Harness](./quant-harness/README.md)。Agent 说明通用运行机制；Quant Harness 说明围绕 Agent 构建的完整量化应用，包括数据、计算、执行、报告、UI/UX 和使用验证。博客保留真实取舍与反思，不另建旧稿归档层。
+更新：2026-10-23。产品定义和 CI/发布位于顶层；运行机制与配置归 Agent Runtime，量化能力归 Quant Harness，评测与 Benchmark 归 evaluation。博客解释取舍，不另建旧稿归档层。
 
 ## 从问题进入
+
+产品统一按[两种形态](./prd.md#scope)阅读：Desktop 面向 Windows/macOS 用户，CLI/TUI 面向 Linux 专业用户并延续已有基础。Web 是共享界面和开发/验证入口；平台目标与实际发布、验收状态分开记录。
 
 | 你想了解 | 从这里开始 |
 |---|---|
 | 模型/工具循环、会话、取消、压缩与扩展 | [Agent Runtime 设计](./agent-runtime/README.md) |
 | 量化应用如何把数据、计算、研究与交互连接起来 | [Quant Harness 总览](./quant-harness/README.md) |
-| 首次配置、完成研究与恢复报告 | [用户手册](./quant-harness/product-guide.md#workflow) · [演示](./slides.html) |
-| 当前范围、缺口与实施顺序 | [产品范围与需求](./quant-harness/product-guide.md#requirements) → [Roadmap](./quant-harness/roadmap.md) |
-| 配置、数据源与工具为何不同步 | [配置](./quant-harness/configuration.md) → [数据源](./quant-harness/source-data-providers.md) → [UI/UX](./quant-harness/quant-uiux.md) |
-| 怎样验证，哪些结论尚未得到证明 | [评测指南](./quant-harness/evaluation.md) · [测试与反例](./blog/05-evaluation-beyond-green.md) |
-| 仓库质量管理、PR 评审与 npm 发布 | [维护规范](./quant-harness/ci-release.md) · [Agentic / Vibe Repo Ops](./blog/agentic/vibe-repo-ops.md) |
+| 首次配置、完成研究与恢复报告 | [配置](./agent-runtime/configuration.md) · [报告与恢复](./quant-harness/artifacts-design.md) · [演示](./slides.html) |
+| 产品形态、功能与特色 | [产品定义（PRD）](./prd.md) · [架构边界](./agent-runtime/architecture.md) |
+| 配置、数据源与工具为何不同步 | [配置](./agent-runtime/configuration.md) → [数据源](./quant-harness/source-data-providers.md) → [UI/UX](./quant-harness/uiux.md#uiux) |
+| 因子与量化研究依据哪些论文、基线和基准 | [量化评测与研究依据](./evaluation/README.md) · [测试与反例](./blog/05-evaluation-beyond-green.md) |
+| 仓库质量管理、PR 评审与 npm 发布 | [维护规范](./ci-release.md) · [Agentic / Vibe Repo Ops](./blog/agentic/vibe-repo-ops.md) |
 | 产品、架构与 UI/UX 的选择理由 | [技术博客](./blog/README.md) · [离线版](./blog/index.html) |
 
-当前工作区不等于发布版。产品范围与带日期的验收判定由产品与使用指南维护；代码和测试链接定位可重复检查，不把旧验证记成本轮成绩。这里的“归档整理”是把现行文档归入责任目录，不恢复 archive、旧稿汇编或重定向页面。
+当前工作区不等于发布版。产品范围与特色由 PRD 维护，任务进展在 GitHub Issues/PR 追踪；代码和测试链接定位可重复检查，不把旧验证记成本轮成绩。这里的“归档整理”是把现行文档归入责任目录，不恢复 archive、旧稿汇编或重定向页面。
 
 <a id="design"></a>
 
-## 两个实体目录，而不只是两组标题
+## 目录与职责
 
 ```text
 docs/
 ├── README.md                 总导航
-├── agent-runtime/
-│   ├── README.md             通用 Agent 运行时设计
-│   └── extensions.md         通用扩展宿主
-├── quant-harness/
-│   ├── README.md             量化应用总览与研究编排核心
-│   └── …                     产品、数据、计算、执行、报告、UI/UX、手册与评测
+├── prd.md                    产品形态与六项核心价值
+├── ci-release.md             仓库 CI、打包与发布
+├── agent-runtime/            架构、会话、存储、配置与扩展
+├── quant-harness/            研究、数据、计算、报告与 UI/UX
+├── evaluation/
+│   └── README.md             量化论文、因子基线与公开 Benchmark
 ├── blog/                     工程叙事与配图
 ├── assets/                   共用素材
 └── slides.html               讲解演示
 ```
 
-Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/runtime/quant-harness.ts` 实现其中的任务装配与守卫；Source、Quant、Storage、Execution、Artifact 和 UI/UX 是这一应用体系内职责不同的组成部分。归入同一目录不抹平模块边界，不表示执行能力已经接入默认研究 Agent，也不放宽账户授权。
+PRD 不超过 3,000 个可读字符；架构、会话、Quant 配置、UI/UX、Community Tools 和第 08 篇文章不超过 5,000 字，由 `check:docs` 检查。计数包含英文、代码与表格，排除空白、Markdown 链接目标和显式锚点；其他专题不做全库压缩。
 
-文档按职责维护入口，不手工同步文件总数；实际覆盖由文档检查验证。桌面宿主设计归入 Quant Harness，顶层 Markdown 只保留本页。
-
-| 位置 | 内容 |
-|---|---|
-| `agent-runtime/` | 通用运行时与扩展契约 |
-| `quant-harness/` | 完整量化应用的设计、产品、使用与仓库维护文档 |
-| `blog/` | 系列正文、工程补篇、目录与编辑说明、配图、构建/检查脚本、私有证据路径规则和离线 HTML |
-| `assets/` | 共用产品与设计素材和正式文档插图；PR 验收及历史失败截图使用附件或 CI artifact 链接，不入库 |
-| 顶层 | 本页和讲解演示 |
+PRD 只维护产品形态与核心价值。详细契约按职责归档，源码位置不因文档分类改变。CI 负责工程交付检查；evaluation 说明量化论文、因子基线与公开基准的采用理由，本地回归与测量只保留入口。素材不作为运行证明，验收截图使用附件或 CI artifact，不入库。
 
 <a id="agent-design"></a>
 
@@ -53,10 +47,13 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 
 | 文档 | 唯一职责 |
 |---|---|
+| [模块架构](./agent-runtime/architecture.md) | 多入口架构图、Host、共享服务与模块依赖 |
 | [运行时设计](./agent-runtime/README.md) | Pi 适配、宿主依赖、连接快照、队列、取消、会话树、提交、压缩与分支导航 |
+| [存储策略](./agent-runtime/storage.md) | 应用文件布局、设置、会话、缓存、不可变归档与私有状态 |
+| [Quant 配置](./agent-runtime/configuration.md) | 数据源、观察组合、行情配色、报告与 Alpha 引擎 |
 | [扩展宿主](./agent-runtime/extensions.md) | WhyJ Extension API、显式加载、启停与资源修订；不等同 Pi 原生 ExtensionAPI |
 
-这一层说明可供不同任务复用的机制，不决定量化指标或研究完成度。产品中的模型设置、OAuth、Pi 导入与诊断统一由 Quant Harness 的配置文档维护，Agent 通过链接引用，不复制第二套字段表。
+架构页规定入口与共享层的边界，会话页维护可复用机制；量化指标和研究完成条件由 Quant Harness 决定。Quant 配置只维护数据连接、组合、报告和回测相关选项。
 
 <a id="quant-harness-design"></a>
 
@@ -70,11 +67,8 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 
 | 文档 | 唯一职责 |
 |---|---|
+| [UI/UX](./quant-harness/uiux.md) | TUI/Web 布局、输入、状态、结构化呈现与颜色语义 |
 | [总览与研究编排](./quant-harness/README.md) | 完整应用的阅读入口，以及任务、范围守卫、证据、接受条件与研究恢复 |
-| [产品与使用指南](./quant-harness/product-guide.md) | 目标、F01–F27 范围与验收边界、任务流程和命令参考 |
-| [Roadmap](./quant-harness/roadmap.md) | 实施顺序，不复制完成度 |
-| [模块架构](./quant-harness/module-architecture.md) | 应用模块、依赖方向、公共入口与 runtime 组装 |
-| [存储策略](./quant-harness/ohquant-storage-policy.md) | 应用文件布局、设置、会话、缓存、不可变归档与私有状态 |
 
 ### 数据、计算、能力与执行
 
@@ -82,32 +76,34 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 |---|---|
 | [数据源](./quant-harness/source-data-providers.md) | provider、凭证、回退、归档与研究数据的来源/时间边界 |
 | [工具与计算](./quant-harness/quant-tools-design.md) | 注册/能力、参数、账本、因子与价量计算 |
-| [精选 Skills 与 MCP](./quant-harness/trader-skills.md) | 技能选型、MCP 官方入口与配置；一键下载、Pi 加载与会话刷新 |
+| [Community Tools：Skills 与 MCP](./quant-harness/community-tools.md) | 技能选型、MCP 官方入口与配置；一键下载、Pi 加载与会话刷新 |
 | [组合比较](./quant-harness/portfolio-comparison.md) | 权重、币种、同日对齐与历史重算 |
 | [新闻研究](./quant-harness/news-research.md) | 来源/时间、正文与标题初筛、价格窗口及解释边界 |
 | [账户业绩](./quant-harness/performance.md) | 规范化账户历史、现金流与区间绩效；不代表真实券商接通 |
 | [Alpha 回测](./quant-harness/alpha-backtest.md) | AKQuant、固定输入、成交/净值核对与归档 |
 | [执行](./quant-harness/execution.md) | 订单端口、授权、预检与幂等；研究完成不授权交易 |
 
-### 报告与 UI/UX
+### 报告与制品
 
 | 文档 | 唯一职责 |
 |---|---|
 | [报告与制品](./quant-harness/artifacts-design.md) | 固定报告版本、来源核验、恢复入口与分享白名单 |
 | [年度报告](./quant-harness/annual-reports.md) | 年度/YTD、组合版本、观点来源与私有导出 |
-| [UI/UX](./quant-harness/quant-uiux.md) | 工作台、布局、队列投影、异步状态与文本渲染；视觉真源为根 [DESIGN](../DESIGN.md) |
-| [Windows 桌面宿主](./quant-harness/desktop.md) | Electron/ConPTY、随包运行时、数据目录、构建与安装验收 |
-| [Web 研究工作台](./quant-harness/research-workspace.md) | 本地对话入口、真实取证与计算、引用、保存和独立复核的首个任务 |
 
 <a id="reference"></a>
 
-### 配置、使用与评测
+### 使用入口
 
 | 文档 | 唯一职责 |
 |---|---|
-| [配置参考](./quant-harness/configuration.md) | 模型/数据设置、OAuth、Pi 导入、优先级、保存冲突与诊断 |
-| [使用流程与命令](./quant-harness/product-guide.md#workflow) | 同一指南内按任务阅读，或跳转至命令参数参考 |
-| [评测指南](./quant-harness/evaluation.md) | 研究/技能评测、数据测量、模型延迟与 HUD；区分自动门槛和人工审阅 |
+| [命令入口](../README.md#commands) | 首页列常用入口；完整参数由应用内帮助提供 |
+
+## 工程交付与评测
+
+| 文档 | 职责 |
+|---|---|
+| [CI 与发布](./ci-release.md) | 仓库检查、打包、发布与验收流程 |
+| [量化评测与研究依据](./evaluation/README.md) | Alpha101/Alpha158、AlphaBench、金融决策基准与回测方法；通用 Agent 评测作为补充 |
 
 <a id="validation"></a>
 ## 规则、反思与运行证据分开
@@ -119,7 +115,7 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 <a id="essays"></a>
 ## 技术博客
 
-面向技术负责人，解释产品、技术架构与 UI/UX 的真实取舍。正文负责叙述问题与反思，具体接口回到设计文档，范围与验收边界回到产品与使用指南。每篇配图在「配图素材」中单独登记。
+面向技术负责人，解释产品、技术架构与 UI/UX 的真实取舍。正文负责叙述问题与反思，具体接口回到设计文档，范围与验收边界回到产品定义（PRD）。每篇配图在「配图素材」中单独登记。
 
 | 正文 | 主问题 | 视角 |
 |---|---|---|
@@ -130,8 +126,7 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 | [05 · 测试全绿，为什么仍不能交付结论](./blog/05-evaluation-beyond-green.md) | 哪种验证支持哪种声明？ | 工程验证 |
 | [06 · 终端也是一个一致性系统](./blog/06-terminal-consistency.md) | 迟到数据和旧画面由谁负责？ | 技术架构 / UI 状态 |
 | [07 · 报告要固定，设计要演进](./blog/07-artifacts-and-boundaries.md) | 哪些事实要保留，哪些设计可以淘汰？ | 产物 / 演进治理 |
-| [08 · 从研究终端到桌面工作台](./blog/08-research-workbench.md) | 两种入口怎样延续同一份研究？ | 产品形态 / apps 改造提案，尚未实施 |
-| [09 · 模块拆开后，为什么还要 Runtime](./blog/09-boundaries-for-change.md) | 变化应当停在哪一个边界？ | 技术架构 |
+| [08 · 换一个入口，如何继续同一份研究？](./blog/08-research-workbench.md) | Desktop 与 CLI 两种产品如何复用研究能力？ | 用户定位、共享 UI 与 Host 所有权；目标尚未实施 |
 | [10 · 80×24 的屏幕里，什么值得留下](./blog/10-layout-and-visual-language.md) | 空间不足时怎样分配注意力？ | UI 布局 / 视觉语义 |
 | [11 · 不知道下一条命令时](./blog/11-discoverable-interactions.md) | 能力如何被发现，又不误执行？ | UX / 功能发现 |
 | [12 · 错误出现以后还能做什么](./blog/12-recovery-as-ux.md) | 如何理解失败、保住工作并继续？ | UX / 失败恢复 |
@@ -204,7 +199,7 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 | [repo-ops-merge-flow.svg](./blog/agentic/images/repo-ops-merge-flow.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
 | [repo-ops-rsi.svg](./blog/agentic/images/repo-ops-rsi.svg) | 合并稿的机制图、窄屏变体或编辑插图素材；实际采用项由稿件和渲染器决定 |
 
-### 博客机制图（12）
+### 博客机制图（11）
 
 本地 SVG 解释机制、流程或布局优先级，不是实测性能图或真实终端截图。
 
@@ -218,7 +213,6 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 | [blog/images/06-terminal.svg](./blog/images/06-terminal.svg) | 06：异步刷新与界面一致性 |
 | [blog/images/07-artifacts.svg](./blog/images/07-artifacts.svg) | 07：固定报告与设计演进 |
 | [blog/images/08-workbench.svg](./blog/images/08-workbench.svg) | 08：可接续的研究工作流 |
-| [blog/images/09-boundaries.svg](./blog/images/09-boundaries.svg) | 09：模块依赖与组装边界 |
 | [blog/images/10-layout.svg](./blog/images/10-layout.svg) | 10：屏幕空间与信息层级 |
 | [blog/images/11-discovery.svg](./blog/images/11-discovery.svg) | 11：命令发现与确定性入口 |
 | [blog/images/12-recovery.svg](./blog/images/12-recovery.svg) | 12：失败后的诊断与继续路径 |
@@ -233,8 +227,8 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 |---|---|---|---|
 | 产品介绍 | `/` | 根英文 README、产品目标、当前演示 | 描述价值与适用范围，区分工作区与发布版 |
 | Docs | `/docs/` | 本目录、架构、契约、配置和命令参考 | 按开发者问题组织；审计与实施记录单独标日期，不全部铺成入门导航 |
-| Blog | `/blog/` | 十二篇 Markdown、对应 SVG、编辑元数据 | 保留中文叙事、修订日期、来源与限制 |
-| 用户手册 | `/guide/` | user-guide 的任务流程，链接配置和命令正文 | 以完成一次工作为中心，不把架构说明换标题当手册 |
+| Blog | `/blog/` | 十一篇 Markdown、对应 SVG、编辑元数据 | 保留中文叙事、修订日期、来源与限制 |
+| 用户手册 | `/guide/` | 配置、报告与恢复专题，应用内命令帮助 | 以完成一次工作为中心，不把架构说明换标题当手册 |
 | Demo | `/demo/` | 当前 slides、本地演示路线及新渲染快照 | 现阶段是讲解与操作路线；后续录屏/合成交互/真实服务分别标注，不承诺在线终端 |
 
 发布只采用显式内容与资产白名单，不把整个仓库、`output/`、`.ohquant/`、完整研究会话、私有报告或凭证打包上线。指向本地测试与输出的证据链接需要转换为可公开的说明或保留在仓库，不制造站点死链。演示与帮助是否离线、会否调用服务及产生用量，都应在入口说明。

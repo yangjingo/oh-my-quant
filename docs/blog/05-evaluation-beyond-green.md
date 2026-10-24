@@ -70,7 +70,7 @@ Langfuse 的 Skill 评测文章把输入、轨迹、评分与迭代连接起来�
 
 ## 修复一个错误，不等于得到总体正确率
 
-回测权益和 CAGR 后续已有独立账本修复与回归，新闻检查也能拦截已知口径冲突。它们分别改善了确定的数值契约和有限的回答门槛，不应被合并为「研究质量全面提升」的数字。当前怎样复验，由[统一评测指南](../quant-harness/evaluation.md)维护；本文记录的是这些规则为何出现，不充当完整验收报告。
+回测权益和 CAGR 后续已有独立账本修复与回归，新闻检查也能拦截已知口径冲突。它们分别改善了确定的数值契约和有限的回答门槛，不应被合并为「研究质量全面提升」的数字。当前怎样复验，由[统一评测指南](../evaluation/README.md)维护；本文记录的是这些规则为何出现，不充当完整验收报告。
 
 代价是验证本身也需要版本和边界。词法规则可能漏掉语言改写，合法引用不能证明句子与段落语义一致，人工审阅仍要发现新的错误类别。一次真实模型复测通过，也不能推出总体错误率下降了多少。
 
@@ -86,7 +86,7 @@ Langfuse 的 Skill 评测文章把输入、轨迹、评分与迭代连接起来�
 
 ## 实现索引
 
-- [测试围栏配置](../../bunfig.toml)与[围栏检查](../../tests/architecture/check-test-fence.ts)、[研究任务评测](../quant-harness/evaluation.md#tasks)。
+- [测试围栏配置](../../bunfig.toml)与[围栏检查](../../tests/architecture/check-test-fence.ts)、[研究任务评测](../evaluation/README.md#tasks)。
 - [新闻主张规则](../../src/runtime/evidence/news-answer-claims.ts)、[回答证据绑定](../../src/runtime/evidence/news-answer-evidence.ts)。
 - [真实 Pi 固定传输回归](../../src/runtime/test/news-answer-session.test.ts)：链路验证与真实模型质量分别验收。
 

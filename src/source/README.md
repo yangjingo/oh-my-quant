@@ -93,6 +93,6 @@ between top-level providers.
 
 ## Related docs
 
-- [Module Architecture](../../docs/quant-harness/module-architecture.md)
+- [Module Architecture](../../docs/agent-runtime/architecture.md)
 - [Source Providers](../../docs/quant-harness/source-data-providers.md)
-- [OhQuant Storage Policy](../../docs/quant-harness/ohquant-storage-policy.md)
+- [OhQuant Storage Policy](../../docs/agent-runtime/storage.md)

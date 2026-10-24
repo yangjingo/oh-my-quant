@@ -1,17 +1,19 @@
 # Agent Runtime：通用会话运行时
 
-更新：2026-10-16。`docs/agent-runtime/` 维护可复用的 Agent 运行机制：模型协议适配、宿主端口、队列、取消、会话树、提交、压缩与扩展。完整量化应用归入 [Quant Harness](../quant-harness/README.md)，包括数据、计算、执行、报告和 UI/UX；两个文档目录不表示代码已经拆成独立发布包。
+更新：2026-10-22。本目录维护架构、会话、存储、配置与扩展；产品、数据和研究规则见 [Quant Harness](../quant-harness/README.md)。文档分类不代表代码已拆包。
 
-上层调用链为：宿主组装 → 通用 Agent 会话 → Pi 模型/工具循环。Quant 在宿主处注入研究任务、工具范围和证据核验；它复用会话账本，不维护第二套循环或研究状态文件。跨模块依赖以[模块架构](../quant-harness/module-architecture.md)为准。
+调用链：宿主组装 → Agent 会话 → Pi 循环。Quant 注入任务、工具范围与证据核验，复用会话账本；模块边界见[架构](./architecture.md)。
 
 ## 本目录与相邻入口
 
 | 入口 | 阅读目的 |
 |---|---|
-| 本页 | 理解模型/工具操作与会话生命周期 |
+| [模块架构](./architecture.md) | 先看多入口架构图、Host、共享服务与依赖边界 |
+| 本页 | 会话生命周期 |
+| [存储策略](./storage.md) | 路径、提交与归档 |
 | [扩展宿主](./extensions.md) | 理解受信任扩展的资源声明、启停与修订 |
 | [Quant Harness](../quant-harness/README.md) | 理解完整量化应用如何消费上述机制 |
-| [产品配置](../quant-harness/configuration.md) | 查模型连接、OAuth、Pi 导入和诊断操作，不重复维护设置规范 |
+| [Quant 配置](./configuration.md) | 数据、报告与回测选项 |
 
 <a id="lifecycle"></a>
 
@@ -52,9 +54,9 @@ Pi 提供模型协议和 agent loop；WhyJ 持有产品会话、JSONL 分支、�
 | `verifyResearch` | 研究扩展端口；Quant 宿主提供证据投影，具体语义归 Quant Harness |
 | `verifyReport` | 可选的固定报告来源/版本检查；缺少实现时是未知，不因文件存在就通过 |
 
-默认 I/O 绑定集中在 runtime 依赖工厂；agent 不导入 runtime、tools、cli 或 tui。架构检查之外，加载链构建回归防止中间转发文件重新引入宿主模块。回调是受信任代码，需自行约束 I/O、响应收到的取消信号，不构成沙箱。工具 schema、描述和技能内容采用隔离快照；`getSkills()` 不暴露可修改内部数组。恢复的活动工具与宿主当前集合取交集，不能把空集合解释成“全部”。
+runtime 工厂绑定默认 I/O；agent 不导入 runtime/tools/cli/tui，架构及加载链构建回归防止间接引入宿主。回调须自约束 I/O 并响应取消，不构成沙箱。工具 schema、描述和技能内容采用隔离快照；`getSkills()` 不暴露可修改内部数组。恢复的活动工具与宿主当前集合取交集，不能把空集合解释成“全部”。
 
-`readTools` 的工具集合改变会提交活动资源事件；单纯刷新技能不冒充工具变更。新资源需全部准备成功才发布，失败保留旧快照；分支切换后晚到的准备结果不能发布。安装、Python/技能目录配置及可信能力变化参与技能 revision；任意磁盘编辑不等于自动热加载。路径数组会复制，函数路径在下一次加载时读取。
+`readTools` 的工具集合改变会提交活动资源事件；单纯刷新技能不冒充工具变更。新资源需全部准备成功才发布，失败保留旧快照；分支切换后晚到的准备结果不能发布。安装、Python/技能目录配置及可信能力变化参与 revision；路径数组复制，函数路径下次加载时读取。发现与手工 reload 见[Skills](../quant-harness/community-tools.md#discovery)。
 
 shell/local-resource-read 能力只能由真实 bash 工具支持，不能用同名声明伪造；扩展能力的 `requiresTools` 随任务子集再次收缩。图像能力同时受实际模型和输入通道约束，宿主明确的 missing/unverified 不被模型名称覆盖。静态受信任扩展不是 Pi ExtensionAPI，也不是执行沙箱；见[扩展边界](./extensions.md)。
 
@@ -90,7 +92,7 @@ reset/restore 等待旧初始化结束并取消旧工作，目标打开和资源
 
 ## 5. 压缩、导航与扩展钩子
 
-压缩追加摘要，不删除原 journal。默认保留约 20k 的近期上下文并预留 16,384 tokens；自动阈值从[配置](../quant-harness/configuration.md)读取，默认模型窗口减预留量。摘要的目标、进度、约束等字段帮助继续对话，但不成为领域事实。手动压缩等待空闲；无可压缩内容是 no-op。
+压缩追加摘要，不删除原 journal。默认保留约 20k 的近期上下文并预留 16,384 tokens；自动阈值从当前设置读取，默认模型窗口减预留量。摘要的目标、进度、约束等字段帮助继续对话，但不成为领域事实。手动压缩等待空闲；无可压缩内容是 no-op。
 
 `navigateTree` 在同一文件移动 leaf；选择 user/custom 节点时可回到其父节点并返回可编辑文字，`resumeSession` 则打开整个会话文件。UI 通过 facade 请求导航，不直接截断历史。取消检查必须在追加摘要、移动 leaf 和发布状态前仍然有效。
 
@@ -104,7 +106,7 @@ reset/restore 等待旧初始化结束并取消旧工作，目标打开和资源
 
 关键回归：[Kernel 消息顺序](../../src/agent/test/kernel.test.ts)、[生命周期](../../src/agent/test/harness-lifecycle.test.ts)、[独立宿主](../../src/agent/test/session-dependencies.test.ts)、[会话提交](../../src/agent/test/session-journal.test.ts)、[工具停止规则](../../src/agent/test/tool-call-termination.test.ts)、[请求快照](../../src/agent/test/turn-resources.test.ts)。这些使用本地/合成输入，不替代真实模型账号验证。
 
-升级同时核对两份 Pi 包的精确版本、TypeBox 与锁文件，移除指向旧本地协议副本的路径别名；先验证类型和架构，再检查完整生命周期与构建。没有完成这些步骤不能宣布迁移完成。
+升级核对 Pi 包精确版本、TypeBox 与锁文件，移除旧协议副本的路径别名；依次验证类型、架构、生命周期及构建。
 
 ```powershell
 bun run typecheck
@@ -113,4 +115,4 @@ bun test src/agent/test
 bun run build
 ```
 
-模型保存、OAuth、Pi 文件导入与诊断的操作契约集中在[配置参考](../quant-harness/configuration.md)，性能测量集中在[评测指南](../quant-harness/evaluation.md#model-performance)。模型能力由 Pi 提供，量化工具资格和研究完成度不由 Pi 决定。
+测量见[评测](../evaluation/README.md#model-performance)。Pi 的模型能力不决定量化研究完成度。

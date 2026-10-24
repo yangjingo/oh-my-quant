@@ -1,5 +1,7 @@
 # 官网交付与部署记录
 
+本页保留各日期的交付事实。现行[产品定位](../docs/prd.md#scope)为 Windows/macOS Desktop 与 Linux 专业 CLI/TUI；历史上暂撤官网 CLI 卡片不代表终止 CLI。macOS 是目标平台，以下 Windows 发布回执不构成其交付证明。本次文档同步不代表网站已重新部署。
+
 ## 2026-10-21：Desktop 1.4.0 发布与下载页交接（Issue #67）
 
 上轮撤下 CLI 入口时保留了已有 1.3.1 安装包；源码版本、Actions 构建成功和公开 Release 是三种不同状态。此前工作流的 `publish` 被跳过，官网版本清单也没有自动刷新。本轮维护者明确要求发布 1.4.0，并要求主下载按钮进入 GitHub Release 页面。

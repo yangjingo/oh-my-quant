@@ -22,6 +22,10 @@ For substantial work, briefly communicate **Assumption**, **Changed**, **Verifie
 
 ## 2. Repository Writing Conventions
 
+### Product Scope
+
+Follow the [product guide](./docs/prd.md#scope): Desktop targets Windows/macOS users; CLI/TUI targets Linux professionals and builds on the existing terminal, command, and automation foundation. Preserve CLI compatibility as Desktop evolves. Web UI and browser access are shared implementation/development surfaces, not a third product line; `site/` is the public website. Distinguish target platforms from shipped and verified support: the current Desktop package is Windows-only, and macOS needs separate delivery and acceptance. Product audience does not remove existing cross-platform CLI support. Keep product scope in the guide and link it from related docs rather than duplicating a full plan.
+
 ### Issues, Pull Requests, and Documentation
 
 - Keep one implementation issue, one primary functional module, and one implementation PR together. Define allowed paths, non-goals, and checkable acceptance criteria.
@@ -49,4 +53,4 @@ For substantial work, briefly communicate **Assumption**, **Changed**, **Verifie
 
 Read applicable skills first; use issue-skill and pr-skill for issue-to-PR work, and review-skill for review. Reuse an existing compliant issue. Drafting and review requests do not authorize publication or implementation.
 
-Maintain finalized procedures in `.agents/skills/<name>/SKILL.md` and their index here. Avoid duplicated rules and active draft skills. Current automation and setup requirements live in [CI and npm Releases](docs/quant-harness/ci-release.md); these instructions alone do not enforce GitHub merge rules.
+Maintain finalized procedures in `.agents/skills/<name>/SKILL.md` and their index here. Avoid duplicated rules and active draft skills. Current automation and setup requirements live in [CI and npm Releases](docs/ci-release.md); these instructions alone do not enforce GitHub merge rules.

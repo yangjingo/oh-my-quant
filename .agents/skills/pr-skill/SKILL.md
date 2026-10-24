@@ -28,9 +28,9 @@ Local checks precede the final commit and push. Before opening a non-Draft PR or
 
 Update the relevant current `docs/` pages in every PR. Explain changed behavior, contracts, boundaries, or verification procedures; avoid cosmetic edits solely to satisfy this requirement. README, CHANGELOG, and PR text are not substitutes.
 
-Prefer existing pages. Update navigation and generated documentation when applicable. Keep commands, links, and evidence aligned with the implementation.
+Prefer existing pages and follow [blog-skill](../blog-skill/SKILL.md) for design prose: explain structure, interface boundaries, and tradeoffs; keep operational commands in the appropriate guides and verification receipts in the PR or CI. Update navigation and generated documentation when applicable. Keep links and claims aligned with the implementation.
 
-For Desktop releases, prepare and review English `desktop/RELEASE-NOTES.md` using the [Desktop release-note contract](../../../docs/quant-harness/ci-release.md#desktop-release-notes). Verify change references against the actual release range, retain upgrade/verification limits, and read back the published body and asset metadata. A prose correction does not authorize retagging or replacing installers.
+For Desktop releases, prepare and review English `desktop/RELEASE-NOTES.md` using the [Desktop release-note contract](../../../docs/ci-release.md#desktop-release-notes). Verify change references against the actual release range, retain upgrade/verification limits, and read back the published body and asset metadata. A prose correction does not authorize retagging or replacing installers.
 
 ## Visual Evidence
 
