@@ -50,11 +50,11 @@ WhyJ 在 `runtime/data/source-runtime.ts` 组装数据路径：读取设置、�
 
 ## 少一个权限依赖，多一份判断责任
 
-配置绑定、单源探测与草稿检查都有对应实现和回归入口。它们让「哪份设置被使用」「哪个请求得到什么证据」成为可检查的问题，但本次博客修订没有重新调用用户账户，不能据此宣布其 `daily_basic` 权限已经恢复。[诊断契约与回归](../quant-harness/configuration.md#diagnostics)
+配置绑定、单源探测与草稿检查都有对应实现和回归入口。它们让「哪份设置被使用」「哪个请求得到什么证据」成为可检查的问题，但本次博客修订没有重新调用用户账户，不能据此宣布其 `daily_basic` 权限已经恢复。[诊断契约与回归](../agent-runtime/configuration.md#diagnostics)
 
 现有 API 还留下一个不够直观的地方：envelope 的 `ok`、报告级 `ready` 或退出码可能只表示诊断报告生成完成。自动化消费者仍须读 `overall` 和各阶段状态，因此 `ok: true` 与 `permission-denied` 可以同时出现。拆开语义改善了可解释性，却也增加了消费端的判断责任，不能把它写成已经完美统一的接口。
 
-取得数据之后，还有「究竟是哪一份」的问题。Bars 和基金 NAV 使用固定版本引用，研究重读指定 DatasetRef，缺档不拿最新缓存替换。但本地观测时间不是供应商发布时间，今天获取去年的数据，也不能证明去年当时已经知道这些数据。[存储与时间边界](../quant-harness/ohquant-storage-policy.md)
+取得数据之后，还有「究竟是哪一份」的问题。Bars 和基金 NAV 使用固定版本引用，研究重读指定 DatasetRef，缺档不拿最新缓存替换。但本地观测时间不是供应商发布时间，今天获取去年的数据，也不能证明去年当时已经知道这些数据。[存储与时间边界](../agent-runtime/storage.md)
 
 回头看，旧 Doctor 草图把配置、工具和数据放在一张诊断面板里，这个组织方式可以保留；把配置存在、流程结束和能力可用压成一个成功标签的判断，却必须纠正。验收单位因此从「接入 Tushare」缩小到「这份配置、这个端点、这个窗口的有效响应」。单源检查会暴露普通回退掩盖的失败，也让用户多做一步验证；这是为了获得可解释的失败归属而接受的成本。
 
@@ -64,6 +64,6 @@ WhyJ 在 `runtime/data/source-runtime.ts` 组装数据路径：读取设置、�
 
 - [Runtime 配置绑定](../../src/runtime/data/source-runtime.ts)、[固定单源探测](../../src/runtime/data/data-readiness.ts)。
 - [诊断回归](../../src/cli/test/doctor-data.test.ts)、[配置草稿回归](../../src/runtime/test/data-settings.test.ts)。
-- [数据源设计](../quant-harness/source-data-providers.md)与[数据验证方法](../quant-harness/evaluation.md#data)。
+- [数据源设计](../quant-harness/source-data-providers.md)与[数据验证方法](../evaluation/README.md#data)。
 
 [← 上一篇](./01-own-the-harness.md) · [下一篇：压缩对话之后，研究事实从哪里回来 →](./03-context-as-projection.md)

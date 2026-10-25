@@ -1,20 +1,20 @@
 # WhyJ Quant Design System
 
-Updated: 2026-10-21
+Updated: 2026-10-22
 
 This is the visual specification for the website, CLI/TUI, Desktop, and generated reports. It defines the warm palette implemented in the shared theme, website, CLI/TUI, Desktop source, generated reports, and exported JQ assets. The canonical workspace preview is captured from the updated website. Desktop installation and shortcut-icon acceptance remain separate release checks.
 
 ## 1. Visual Direction
 
+The [product guide](./docs/prd.md#scope) defines two product forms: Desktop for Windows/macOS users and CLI/TUI for Linux professionals. Share visual semantics while adapting input, layout, shortcuts, and accessibility to each host. The Web UI is a shared implementation and development surface; the website is public presentation. Current Windows assets and screenshots do not establish macOS delivery or acceptance.
+
 **A quiet research workspace: warm black, cream text, restrained gold, and generous working space.**
 
-Use the [historical design reference](./docs/assets/workspace-design-reference.png) for color relationships, spacing, and the balance between the research area and the secondary sidebar. This is a design input, not the current workspace preview.
+![Current warm workspace preview: JQ identity, Market research, Overview visible, red-up convention, synthetic demonstration data](./site/public/workspace-preview.png)
 
-![Current warm workspace preview: JQ identity, Market research, Overview visible, red-up convention, synthetic demonstration data](./docs/assets/workspace-preview.png)
+The preview above shows the website workspace with synthetic demonstration data, not a running Desktop or CLI session. The current brand mark is JQ.
 
-The preview above shows the current website workspace. The linked historical reference is retained only as design input; its staircase logo, version label, example data, and market-color convention are not current product requirements. The current brand mark is JQ.
-
-The single current product preview is [workspace-preview.png](./docs/assets/workspace-preview.png), captured from the website's `#workspace` in English with Market research selected, Overview visible, and the red-up convention. README and presentation materials reuse that exact file. The website's translated, interactive, and responsive states may vary deliberately; they are not independently maintained mockups. Do not label the website preview as a CLI screenshot.
+The single current product preview is [workspace-preview.png](./site/public/workspace-preview.png), captured from the website's `#workspace` in English with Market research selected, Overview visible, and the red-up convention. README and presentation materials reuse that exact file. The website's translated, interactive, and responsive states may vary deliberately; they are not independently maintained mockups. Do not label the website preview as a CLI screenshot.
 
 Prioritize the research answer, its evidence, and the next action. Keep chrome quiet. Use alignment and spacing to establish hierarchy before adding containers, borders, or color.
 
@@ -132,7 +132,7 @@ Use tabular numbers and right alignment for comparable numeric columns. Keep uni
 
 Terminal font family and physical size belong to the user's terminal. The Desktop host supplies its own terminal font controls. Pixel typography rules do not imply that the CLI can enforce fonts, line height, or rounded shapes. Preserve CJK-aware width calculations and allow localized content to wrap normally.
 
-CLI conversation body, list text, ordinary table values and code use an opaque `#B8B4A8` reading token owned by TUI. Markdown headings and selective `**strong**` emphasis use cream `#FFF3C4`. Thinking uses `#8F8A7B`, a persistent `Thinking` label, two-cell indentation and paragraph spacing, including while streaming. Do not apply ANSI faint or pane opacity. Preserve semantic market/error colors and selection contrast; these CLI roles do not alter shared Desktop/report tokens. The status bar uses a single regular-weight cream `◈` immediately before the model, aligned with the existing `◉` / `◫` pane and `›` composer symbols.
+CLI conversation body, list text, ordinary table values and code use an opaque `#B8B4A8` reading token owned by TUI. Markdown headings and selective `**strong**` emphasis use cream `#FFF3C4`. Thinking content uses `#8F8A7B`, two-cell indentation and paragraph spacing, including while streaming, without a separate `Thinking` heading. The active progress indicator remains visible. Do not apply ANSI faint or pane opacity. Preserve semantic market/error colors and selection contrast; these CLI roles do not alter shared Desktop/report tokens. The status bar uses a single regular-weight cream `◈` immediately before the model, aligned with the existing `◉` / `◫` pane and `›` composer symbols.
 
 ## 5. Layout, Shape, and Interaction
 
@@ -164,7 +164,7 @@ J sits inside Q and joins its short tail. Keep the approved geometry: a 64-unit 
 | [icons/](./docs/assets/icons/) | PNG exports named `16x16.png` through `1024x1024.png` |
 | [Asset preview](./docs/assets/index.html) | Actual exported variants and downloads |
 
-Use lowercase kebab-case filenames based on asset role: `logo-mark` for the JQ symbol, `logo-wordmark` for the product name, `logo-lockup-{dark,light,mono}` for symbol-and-name combinations, and `app-icon` for the application container. The dark/light suffix identifies the intended background. Keep the nine raster exports as `icons/widthxheight.png`; `workspace-preview.png` is current, while `workspace-design-reference.png` is historical. The website retains the conventional public name `favicon.svg`, copied from `app-icon.svg`. Preserve the existing [ZCode naming reference](https://github.com/zai-org/ZCode/tree/main/public/logo/icons).
+Use lowercase kebab-case filenames based on asset role: `logo-mark` for the JQ symbol, `logo-wordmark` for the product name, `logo-lockup-{dark,light,mono}` for symbol-and-name combinations, and `app-icon` for the application container. The dark/light suffix identifies the intended background. Keep the nine raster exports as `icons/widthxheight.png`. The website owns its product preview at `site/public/workspace-preview.png`; do not store website screenshots in `docs/assets/`. The website retains the conventional public name `favicon.svg`, copied from `app-icon.svg`. Preserve the existing [ZCode naming reference](https://github.com/zai-org/ZCode/tree/main/public/logo/icons).
 
 Use the same SVG in website and Desktop chrome. Terminal headers use the fixed-cell Unicode Braille raster in `src/tui/src/brand.ts`, a simplified 4×4-dot outline of the master SVG with an open center and a lower-right tail; loading copy uses the product name. The mark occupies 2 columns × 1 row, matching the original JQ text footprint. Product name and version share that row; the second header row is a divider. Fine logo details are necessarily reduced at this size. Unicode monospace glyph coverage is required (for example Consolas/Cascadia Mono); no Nerd Font, private-use glyph or image protocol is required. Hosts without Braille coverage should select a Unicode font; plain `JQ` is not an equivalent brand fallback. Verification uses xterm.js on Windows ConPTY; this evidence does not certify native Windows Terminal or every font. Retain the existing self-hosted Lucide family for interface controls. Do not reintroduce feather, W, or staircase alternatives as active brand marks.
 

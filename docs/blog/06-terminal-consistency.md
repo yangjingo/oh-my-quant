@@ -44,7 +44,7 @@ Settings 也按状态归属处理：模型保存不附带行情请求，数据�
 
 ## 让不完整可见，并没有免除性能责任
 
-当前刷新、设置冲突与退出清理都有对应回归，测量记录也区分首个可用结果与整轮完成。它们为迟到覆盖、草稿串用和输出清理提供检查入口，不等于所有真实终端、供应商和输入法都已验证。当前复验入口见[数据评测](../quant-harness/evaluation.md#data)与文末测试，不把它们称作本轮运行结果。
+当前刷新、设置冲突与退出清理都有对应回归，测量记录也区分首个可用结果与整轮完成。它们为迟到覆盖、草稿串用和输出清理提供检查入口，不等于所有真实终端、供应商和输入法都已验证。当前复验入口见[数据评测](../evaluation/README.md#data)与文末测试，不把它们称作本轮运行结果。
 
 用户会更容易看见 `--`、partial 与 stale，这是我们接受的代价。它暴露了取数的不完整，没有让流畅画面替后台作保证。但如果缺项持续很久，界面诚实并不能免除我们优化供应商、并发和超时策略的责任。
 
@@ -56,6 +56,6 @@ frame-buffer 的维护账也仍然存在：中文宽字符、焦点、裁剪、�
 
 - [刷新生命周期](../../src/runtime/workspace/overview-refresh.ts)、[请求池](../../src/runtime/workspace/overview-data.ts)、[Screen](../../src/tui/src/buffer.ts)。
 - [刷新回归](../../src/runtime/test/overview-refresh.test.ts)、[设置冲突](../../src/tui/test/settings-conflict.test.ts)、[退出清理](../../src/tui/test/exit-cleanup.test.ts)。
-- [现行 UI/UX](../quant-harness/quant-uiux.md)与[键盘流程回归](../../src/tui/test/research-workflow.test.ts)。
+- [现行 UI/UX](../quant-harness/uiux.md#uiux)与[键盘流程回归](../../src/tui/test/research-workflow.test.ts)。
 
 [← 上一篇](./05-evaluation-beyond-green.md) · [下一篇：报告要固定，设计要演进 →](./07-artifacts-and-boundaries.md)

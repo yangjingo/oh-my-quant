@@ -1,5 +1,7 @@
 # TUI
 
+This is the existing terminal foundation for the CLI/TUI product, primarily serving Linux professionals. It remains maintained as Desktop evolves for Windows/macOS users; the current Windows PTY Desktop also reuses it. Product audience and implementation reuse are distinct; see the [product scope](../../docs/prd.md#scope).
+
 WhyJ Quant's TUI is a zero-dependency frame-buffer terminal UI. It renders a fixed app shell:
 
 - Header: animated WhyJ Quant mark and version.
@@ -9,7 +11,7 @@ WhyJ Quant's TUI is a zero-dependency frame-buffer terminal UI. It renders a fix
 
 Overview and Status use one selected research portfolio. Open a group in `/portfolio` and choose `Research this portfolio`, or use `/portfolio select GROUP`. Saved groups remain available; only the active group's members are fetched and included in the default research context. The CLI research host rejects cross-portfolio comparison. Switching interrupts an active request and isolates late quote updates.
 
-The current interaction and layout contract lives in [Quant UI/UX](../../docs/quant-harness/quant-uiux.md); superseded layout choices are recorded in [design decisions](../../docs/blog/10-layout-and-visual-language.md#visual-language). This README is the code map for working in `src/tui`.
+The current interaction and layout contract lives in [Quant UI/UX](../../docs/quant-harness/uiux.md#uiux); superseded layout choices are recorded in [design decisions](../../docs/blog/10-layout-and-visual-language.md#visual-language). This README is the code map for working in `src/tui`.
 
 ## Module Map
 

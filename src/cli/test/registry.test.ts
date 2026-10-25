@@ -330,20 +330,11 @@ describe("catalog", () => {
 
   it("keeps the user-facing command references aligned with the catalog", () => {
     const readme = readFileSync("README.md", "utf8");
-    const manual = readFileSync("docs/quant-harness/product-guide.md", "utf8");
     const advertisedCommands = [...readme.matchAll(/`(\/[a-z-]+)`/g)].map(match => match[1]!);
     expect(advertisedCommands.length).toBeGreaterThan(0);
     for (const command of advertisedCommands) {
       expect(COMMAND_CATALOG.some(entry => entry.name === command)).toBe(true);
     }
-    expect(readme).toContain("(./docs/quant-harness/product-guide.md#commands)");
-    for (const entry of COMMAND_CATALOG) {
-      expect(manual).toContain(`\`${entry.name}\``);
-      expect(manual).toContain(entry.desc);
-    }
-
-    expect(manual).toContain("`/artifact` 不接受参数或子命令");
-    expect(manual).toContain("只能在 `/config` 中开启 `Auto Artifacts`");
-    expect(manual).toContain("`/session` 仅作为旧输入兼容别名");
+    expect(readme).toContain("(./src/runtime/workspace/command-catalog.ts)");
   });
 });

@@ -2,17 +2,19 @@
 
 **Research before conviction.**
 
-An open-source AI research terminal for exploring markets, testing ideas, and keeping the evidence. Bring your own models and data sources.
+An open-source AI research tool for exploring markets, testing ideas, and keeping the evidence. Bring your own models and data sources.
+
+Two product forms share the research foundation: **Desktop for Windows/macOS users** and **CLI/TUI for Linux professionals**, building on the existing terminal, command, and automation capabilities. Desktop currently ships for Windows; macOS delivery and acceptance are pending. See the [product scope](./docs/prd.md#scope). The local Web workspace is a development/validation surface, not a third product line.
 
 [Website](https://oh-my-quant.vercel.app/en/) / [中文](https://oh-my-quant.vercel.app) / [Documentation](#documentation) / [Blog](https://oh-my-quant.vercel.app/en/blog/)
 
-[![WhyJ Quant website demo: research tools, sample analysis, and a market overview](./docs/assets/workspace-preview.png)](https://oh-my-quant.vercel.app/en/)
+[![WhyJ Quant website demo: research tools, sample analysis, and a market overview](./site/public/workspace-preview.png)](https://oh-my-quant.vercel.app/en/)
 
 *Interactive website demo with synthetic data. The CLI runs in your own terminal.*
 
 ## Quick start
 
-Install the [published package](https://www.npmjs.com/package/whyj-quant), then launch the terminal:
+For Windows Desktop, choose the installer and verify its checksum on the [GitHub Releases page](https://github.com/yangjingo/oh-my-quant/releases). For the CLI, install the [published package](https://www.npmjs.com/package/whyj-quant), then launch the terminal:
 
 ```sh
 npm install -g whyj-quant
@@ -28,7 +30,7 @@ Show the actual data source, coverage dates, assumptions, and missing inputs.
 
 To save reports, enable **Auto Artifacts** in `/config` before submitting a research request. `/artifact` opens existing reports; `/resume` returns to a saved session.
 
-Provider credentials and optional Python dependencies depend on your data sources. Model and data services may charge for usage. See the [configuration guide](./docs/quant-harness/configuration.md) and [provider reference](./docs/quant-harness/source-data-providers.md).
+Provider credentials and optional Python dependencies depend on your data sources. Model and data services may charge for usage. See the [configuration guide](./docs/agent-runtime/configuration.md) and [provider reference](./docs/quant-harness/source-data-providers.md).
 
 <details>
 <summary>Run from source</summary>
@@ -44,7 +46,7 @@ The checkout and npm release may differ. Check `whyj --version` and the [changel
 
 </details>
 
-Source checkouts also include an experimental local Web research workspace: `bun run workspace:dev`, then open <http://127.0.0.1:4175/>. It connects the configured Agent to one explicit-stock daily-bar task, with citations, manual saving and independent review. Requires Python with AKShare and pandas; see [scope, setup and verification limits](./docs/quant-harness/research-workspace.md). This entrypoint is not part of the published CLI package or the website demo.
+Source checkouts also include an experimental local Web research workspace: `bun run workspace:dev`, then open <http://127.0.0.1:4175/>. It connects the configured Agent to one explicit-stock daily-bar task, with citations, manual saving and independent review. Requires Python with AKShare and pandas; see [current persistence and recovery boundaries](./docs/agent-runtime/architecture.md#current-web). This entrypoint is not part of the published CLI package or the website demo.
 
 ## Features
 
@@ -65,15 +67,16 @@ Source checkouts also include an experimental local Web research workspace: `bun
 | `/artifact` | Browse reports and restore their source research |
 | `/resume` | Continue a saved session |
 
-Use `/help` in the terminal or `whyj --help` in your shell. The [command reference](./docs/quant-harness/product-guide.md#commands) covers the full interface and one-shot usage.
+Use `/help` in the terminal or `whyj --help` in your shell. Command help provides detailed parameters and one-shot usage; the [command catalog](./src/runtime/workspace/command-catalog.ts) defines the public entries.
 
 ## Documentation
 
-- **Use the terminal:** [Configuration](./docs/quant-harness/configuration.md), [data providers](./docs/quant-harness/source-data-providers.md), [reports](./docs/quant-harness/artifacts-design.md), [tools and skills](./docs/quant-harness/trader-skills.md).
-- **Windows desktop:** [Setup, shared CLI, and build verification](./docs/quant-harness/desktop.md).
+- **Use the terminal:** [Configuration](./docs/agent-runtime/configuration.md), [data providers](./docs/quant-harness/source-data-providers.md), [reports](./docs/quant-harness/artifacts-design.md), [tools and skills](./docs/quant-harness/community-tools.md).
+- **Product:** [Forms, capabilities, and Quant design](./docs/prd.md).
+- **Windows desktop:** [Downloads](https://github.com/yangjingo/oh-my-quant/releases) and [release verification](./docs/ci-release.md#desktop-release-and-website-handoff).
 - **Agent Runtime design:** [Runtime, lifecycle, and Pi integration](./docs/agent-runtime/README.md).
-- **Quant Harness design:** [Data, computation, execution, reports, and UI/UX](./docs/quant-harness/README.md).
-- **System and UI:** [Module architecture](./docs/quant-harness/module-architecture.md), [visual design](./DESIGN.md).
+- **Quant Harness design:** [Data, computation, execution, and reports](./docs/quant-harness/README.md).
+- **System and UI:** [Module architecture](./docs/agent-runtime/architecture.md), [visual design](./DESIGN.md).
 - **Read further:** [Investment notes](./notes/README.md), [changelog](./CHANGELOG.md).
 
 Most technical references are in Chinese. The [website](https://oh-my-quant.vercel.app/en/) supports English and Chinese; articles will appear on the [Blog](https://oh-my-quant.vercel.app/en/blog/).

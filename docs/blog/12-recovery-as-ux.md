@@ -52,6 +52,6 @@ OAuth 退出曾暴露一个更隐蔽的完成边界：凭证文件已经删除�
 
 - [Doctor 视口](../../src/tui/src/doctor-panel.ts)、[滚动与操作回归](../../src/tui/test/doctor-navigation.test.ts)。
 - [数据草稿生命周期](../../src/runtime/data/data-settings.ts)、[草稿回归](../../src/runtime/test/data-settings.test.ts)、[小屏编辑回归](../../src/tui/test/panel-small-screen.test.ts)。
-- [诊断契约](../quant-harness/configuration.md#diagnostics)、[界面契约](../quant-harness/quant-uiux.md)。
+- [诊断契约](../agent-runtime/configuration.md#diagnostics)、[界面契约](../quant-harness/uiux.md#uiux)。
 
 [← 上一篇](./11-discoverable-interactions.md) · [返回系列目录](./README.md)

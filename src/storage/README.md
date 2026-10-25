@@ -63,13 +63,13 @@
 | **artifact** | `sessions/`, `benchmark/comparisons/`, `benchmark/results/`, `alpha/runs/`, `artifacts/` | Explicit research outputs. Report revisions are retained; missing source sessions hide listings without deleting evidence. |
 | **forbidden** | `portfolio/` | Holdings, NAV, allocations. Default flows never read this path; explicit migration/selection commands may inspect legacy files to populate `panel-portfolio.json`. |
 
-Full policy: [`docs/quant-harness/ohquant-storage-policy.md`](../../docs/quant-harness/ohquant-storage-policy.md).
+Full policy: [`docs/agent-runtime/ohquant-storage-policy.md`](../../docs/agent-runtime/storage.md).
 
 Daily snapshots retain merged history, while `meta.fetchedDates` identifies the normalized rows in the latest successful response. `loadCachedBars()` uses only that response's dates for both fresh reuse and stale fallback; it never fills missing dates from older pulls. Freshness also requires a covered request window and age under five minutes. Older snapshots without response membership remain readable but stale. `loadBars()` explicitly reads accumulated history without a freshness guarantee; `loadDataset()` continues to resolve immutable versions. Membership is validated and hashed with the snapshot. See the [response consistency tests](./test/bars.test.ts).
 
 Ordinary source requests use async `readFile`/`readdir`, async proper-lockfile acquisition, and async durable temporary-file writes. One request signal reaches cache, historical scans, settings snapshots, credential snapshots and save boundaries. `loadDataset()` remains synchronous because it resolves an already-fixed local revision outside provider refresh; configuration editors retain their short synchronous compare-and-swap writes.
 
-OAuth uses a separate asynchronous heartbeat lease while Pi exchanges a token. Do not put network operations under the short synchronous settings/session locks. Lifecycle, retained login files and current UI limitations are documented in [Model OAuth](../../docs/quant-harness/configuration.md#oauth).
+OAuth uses a separate asynchronous heartbeat lease while Pi exchanges a token. Do not put network operations under the short synchronous settings/session locks. Login/logout coordination is implemented in [Model OAuth](../runtime/models/model-oauth.ts).
 
 Settings and portfolio drafts carry an in-memory `revision`. Call `loadSettings()` / `loadPanelPortfolio()` before replacing an existing file, preserve the revision when cloning, and retain the draft if saving fails. A successful save updates the passed object's revision; persisted JSON excludes it. `ESTORAGECONFLICT` requires a fresh read, `ELOCKED` can be retried, and `ESTORAGEFORMAT` requires file repair. Never turn these failures into an unconditional overwrite. `updatePanelPortfolio()` applies a synchronous local edit under one lock; callbacks must not perform network I/O or asynchronous work. Corrupt durable files are preserved, not silently reset.
 
@@ -108,7 +108,7 @@ bun run typecheck
 
 ## Related docs
 
-- [OhQuant Storage Policy](../../docs/quant-harness/ohquant-storage-policy.md)
+- [OhQuant Storage Policy](../../docs/agent-runtime/storage.md)
 - [Quant Harness](../../docs/quant-harness/README.md)
 - [Source Data Providers](../../docs/quant-harness/source-data-providers.md)
-- [Quant UI/UX](../../docs/quant-harness/quant-uiux.md)
+- [Quant UI/UX](../../docs/quant-harness/uiux.md#uiux)
