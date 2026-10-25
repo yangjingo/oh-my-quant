@@ -25,5 +25,5 @@ export function updateStatus(preferences, available) {
 }
 
 export function renderStatus() {
-  return `<footer class="status" data-component="Status"><button type="button" class="status-model" data-modal="model" aria-label="选择模型" title="选择模型" aria-haspopup="dialog">${icon("cpu")}<span id="modelStatus">模型未连接</span></button><button type="button" class="status-source" id="sourceStatus" data-modal="sources" aria-label="设置数据源" title="更换数据源" aria-haspopup="dialog">${escapeHtml(sourceLabel(true))}</button><button type="button" class="status-portfolio" id="statusText" data-modal="portfolio" aria-label="切换投资组合" title="切换投资组合" aria-haspopup="dialog">${escapeHtml(portfolios[0].name)}</button><span class="right">RESEARCH BEFORE CONVICTION.</span></footer>`;
+  return `<footer class="status" data-component="Status"><button type="button" class="status-model" data-modal="model" aria-label="选择模型" title="选择模型" aria-haspopup="dialog">${icon("cpu")}<span id="modelStatus">模型未连接</span></button><button type="button" class="status-source" id="sourceStatus" data-modal="sources" aria-label="设置数据源" title="更换数据源" aria-haspopup="dialog">${escapeHtml(sourceLabel(true))}</button><button type="button" class="status-portfolio" id="statusText" data-modal="portfolio" aria-label="切换投资组合" title="切换投资组合" aria-haspopup="dialog">${escapeHtml(portfolios[0].name)}</button></footer>`;
 }
