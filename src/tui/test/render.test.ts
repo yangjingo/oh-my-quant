@@ -21,6 +21,7 @@ describe("layout", () => {
     expect(L.showPanel).toBe(true);
     expect(L.portfolio.x).toBe(L.mainPane.w);
     expect(L.mainPane.w + L.portfolio.w).toBe(120);
+    expect(L.mainPane.y).toBe(2);
   });
 
   it("gives composer enough height for five slash suggestion rows in compact mode", () => {

@@ -28,6 +28,7 @@ export async function startApp(): Promise<void> {
   });
 
   tui = new QuantTui(initial, loadSettings().keybindings);
+  tui.setReferenceProvider(input => runtime.getReferenceSuggestions(input));
   tui.onResearchInterrupt(() => { void runtime.interruptResearch(); });
   tui.onFailedQuotesRetry(() => { void runtime.retryFailedOverviewQuotes(); });
   tui.onDoctorClose(() => runtime.cancelDoctor());

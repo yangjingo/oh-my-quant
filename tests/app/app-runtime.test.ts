@@ -147,6 +147,33 @@ function makeFakeAgent(promptImpl: (agent: any, input: string) => Promise<void>)
 }
 
 describe("AppRuntime.submit", () => {
+  it("passes file snapshots to the model while preserving the typed reference as display text, including queued requests", async () => {
+    const h = harness(), path = join(OHQ, "reference.txt");
+    writeFileSync(path, "reference-only evidence 12345");
+    const calls: Array<{ text: string; displayText: string }> = [];
+    const queued: any[] = [];
+    const agent = { state: { isStreaming: false, messages: [], pendingToolCalls: new Set<string>() },
+      prompt: async (text: string, options: { displayText: string }) => { calls.push({ text, displayText: options.displayText }); },
+      followUp: async (message: unknown) => { queued.push(message); }, abort() {} };
+    (h.runtime as any).agent = agent;
+    const input = `分析 @"file:${path}"`;
+    await h.runtime.submit(input);
+    expect(calls[0]!.text).toContain("reference-only evidence 12345");
+    expect(calls[0]!.displayText).toBe(input);
+    agent.state.isStreaming = true;
+    await h.runtime.submit(input);
+    expect(queued[0].displayText).toBe(input);
+    expect(JSON.stringify(queued[0].content)).toContain("reference-only evidence 12345");
+    const queueUpdates = h.queues.length;
+    const pendingArtifact = (h.runtime as any).pendingAutoArtifactInput;
+    await h.runtime.submit(`分析 @"file:${path}.missing"`);
+    expect(calls).toHaveLength(1);
+    expect(queued).toHaveLength(1);
+    expect(h.queues).toHaveLength(queueUpdates);
+    expect((h.runtime as any).pendingAutoArtifactInput).toBe(pendingArtifact);
+    expect(h.statuses.at(-1)?.kind).toBe("error");
+  });
+
   it("interrupts a running research request when the selected portfolio changes", async () => {
     const first = editPortfolio({ type: "create", name: "Core" }).groups[0]!;
     const second = editPortfolio({ type: "create", name: "Growth" }).groups[1]!;

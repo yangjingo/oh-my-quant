@@ -7,9 +7,9 @@ import type { AppState } from "../../types/ui.ts";
 export function drawHeader(buf: Buffer, st: AppState): void {
   const C = buf.w;
   BRAND_MARK_ROWS.forEach((line, y) => buf.text(2, y, line, S.gold));
-  const logoX = 2 + strWidth(BRAND_MARK_ROWS[0]) + 2;
-  buf.text(logoX, 1, BRAND_NAME, S.creamB);
-  buf.text(logoX + strWidth(BRAND_NAME) + 2, 1, `v${st.version}`, S.dim);
+  const logoX = 2 + strWidth(BRAND_MARK_ROWS[0]) + 1;
+  buf.text(logoX, 0, BRAND_NAME, S.creamB);
+  buf.text(logoX + strWidth(BRAND_NAME) + 1, 0, `v${st.version}`, S.dim);
   buf.hline(0, HEADER_H - 1, C, DIVIDER_CHAR, S.rule);
 }
 
@@ -30,11 +30,11 @@ export function drawComposer(
     titleStyle: S.muted,
     titleRight: st.activity === "thinking" || st.activity === "running tool"
       ? `${st.activity === "running tool" ? "工具" : "推理"}${st.researchStartedAt ? ` ${Math.max(0, Math.floor((Date.now() - st.researchStartedAt) / 1000))}s` : ""}${st.researchInterruptKey ? ` · ${st.researchInterruptKey} 停止` : ""} · ↵ 排队`
-      : isCmd
+      : isCmd || suggestions.length > 0
       ? "↑↓ select · ↹ accept"
       : queueCount > 0
         ? `${queueCount} queued · ↵ send · / commands`
-        : "Shift+drag copy · / commands · ↵ send",
+        : "Shift+drag copy · ↵ send",
     titleRightStyle: S.code,
     border: S.rule,
   });
@@ -71,7 +71,7 @@ export function drawComposer(
     if (isCmd && lines.length <= available) buf.text(inner.x, inputRow, "/", S.goldB);
   } else {
     buf.text(inner.x, inputRow, "›", S.gold);
-    const hint = "输入研究问题 · /config 配置 · /artifact 报告";
+    const hint = "输入问题 · @ 文件/证据/会话 · / 命令";
     buf.text(inner.x + 2, inputRow, truncate(`${hint}▏`, inner.w - 2), S.dim);
     row++;
   }

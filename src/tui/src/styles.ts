@@ -31,7 +31,7 @@ export type UiDensity = "compact" | "comfortable";
 export const UI_DENSITY: UiDensity =
   process.env.WHYJ_UI_DENSITY === "comfortable" ? "comfortable" : "compact";
 
-export const HEADER_H = 4;
+export const HEADER_H = 2;
 export const COMPOSER_H = UI_DENSITY === "compact" ? 5 : 8;
 export const STATUS_H = 1;
 export const OVERVIEW_ROW_H = UI_DENSITY === "compact" ? 1 : 2;
