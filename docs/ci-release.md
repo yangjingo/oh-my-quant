@@ -18,10 +18,11 @@ The local baseline is:
 
 ```sh
 bun install --frozen-lockfile
+bun install --cwd apps/web --frozen-lockfile
 bun run check:release
 ```
 
-The [CI workflow](../.github/workflows/ci.yml) uses Bun 1.3.14 and Node 24 on Linux and Windows. The gate covers types, dependency boundaries, policy regressions, test organization, tests, CLI build and documentation. Linux also builds the website. Both platforms pack and install the npm artifact outside the checkout, then check its version with install scripts disabled. This verifies package startup, not live providers or interactive acceptance.
+The [CI workflow](../.github/workflows/ci.yml) uses Bun 1.3.14 and Node 24 on Linux and Windows. The gate covers types, dependency boundaries, policy regressions, test organization, tests, CLI build, documentation and `web:check` (React types, client lifecycle/editor/dependency regressions, production build and demo-fixture exclusion). The Web package has its own frozen lockfile; CI and npm publication install both roots. `web:demo` and `build:demo` explicitly select the synthetic development adapter. Browser captures verify presentation separately and do not prove real Host or Electron integration. Linux also builds the website. Both platforms pack and install the npm artifact outside the checkout, then check its version with install scripts disabled. This verifies package startup, not live providers or interactive acceptance.
 
 [Desktop required](../.github/workflows/desktop.yml) runs on every PR and main push, including docs changes. It typechecks, prepares pinned runtimes, packages and exercises the installed application in a disposable Windows runner. This costs more than path filtering, but covers shared CLI dependencies that affect the shipped app. Local root checks do not replace it; manual Desktop publication also reuses the full CI gate.
 

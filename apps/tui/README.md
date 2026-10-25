@@ -1,6 +1,6 @@
 # TUI
 
-Terminal presentation lives in `apps/tui/{src,test,dev}`. Shared runtime/state/contracts remain in `src`; the existing `src/app.ts` is the startup adapter. This directory move does not introduce a package, command, Host or renderer rewrite. Future shared GUI work has its own [apps/web entry](../web/README.md).
+Terminal presentation lives in `apps/tui/{src,test,dev}`. Shared runtime/state/contracts remain in `src`; the existing `src/app.ts` is the startup adapter. This directory move does not introduce a package, command, Host or renderer rewrite. The shared React UI has its own [apps/web entry](../web/README.md).
 
 This is the existing terminal foundation for the CLI/TUI product, primarily serving Linux professionals. It remains maintained as Desktop evolves for Windows/macOS users; the current Windows PTY Desktop also reuses it. Product audience and implementation reuse are distinct; see the [product scope](../../docs/prd.md#scope).
 

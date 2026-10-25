@@ -223,7 +223,11 @@ function findViolations(): Violation[] {
         && !["src/app.ts", "src/index.ts"].includes(toProjectPath(file))) {
         boundary("shared-layers-do-not-import-apps", "Only existing entry composition bridges may load apps; shared services and contracts must remain UI-independent.");
       }
-      if (target && toProjectPath(target).includes("/dev/")) {
+      // Web bootstrap selects its explicit demo adapter; web:check verifies that
+      // the normal production bundle excludes it. Other consumers stay blocked.
+      const webDemoEntry = toProjectPath(file) === "apps/web/src/main.tsx"
+        && target && toProjectPath(target) === "apps/web/dev/demo-client.ts";
+      if (target && toProjectPath(target).includes("/dev/") && !webDemoEntry) {
         boundary("production-does-not-import-dev", "Module-local development entrypoints are manual consumers; production modules must not import them.");
       }
       if (target && toProjectPath(target).startsWith("src/runtime/evaluation/")
