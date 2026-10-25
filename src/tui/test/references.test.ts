@@ -62,6 +62,12 @@ it("shows generic prompt hints and expands Composer for reference selection", ()
   drawComposer(buffer, { x: 0, y: 0, w: 80, h: 5 }, createInitialAppState("test"), "");
   const text = buffer.toPlain().join("\n");
   expect(text).toContain("Ask anything · @ to reference · / for commands");
+  expect(text).toContain("› ▏Ask anything");
+  expect(text).not.toContain("commands▏");
+  const arrow = buffer.cells.find(cell => cell.ch === "›")!;
+  const send = buffer.cells.find(cell => cell.ch === "↵")!;
+  expect(arrow).toMatchObject({ fg: "#C99A2E", bold: true });
+  expect(send).toMatchObject({ fg: "#C99A2E", bold: true });
   expect(text).not.toMatch(/\/config|\/artifact/);
   internals.running = false;
 });

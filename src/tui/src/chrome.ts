@@ -39,6 +39,10 @@ export function drawComposer(
     titleRightStyle: S.code,
     border: S.rule,
   });
+  // Accent the visible send/queue glyph without recoloring the helper text.
+  for (let x = Math.max(0, r.x); x < Math.min(buf.w, r.x + r.w); x++) {
+    if (buf.cells[r.y * buf.w + x]?.ch === "↵") buf.set(x, r.y, "↵", S.goldB);
+  }
 
   let row = inner.y;
   if (st.composerStatus) {
@@ -67,13 +71,14 @@ export function drawComposer(
     if (!available) return;
     // Keep the insertion point visible while a long paste scrolls inside Composer.
     const visible = lines.slice(-available);
-    if (!isCmd) buf.text(inner.x, row, lines.length > available ? "…" : "›", S.gold);
+    if (!isCmd) buf.text(inner.x, row, lines.length > available ? "…" : "›", S.goldB);
     for (const text of visible) buf.text(inner.x + inset, row++, text, isCmd ? S.gold : S.cream, width);
     if (isCmd && lines.length <= available) buf.text(inner.x, inputRow, "/", S.goldB);
   } else {
-    buf.text(inner.x, inputRow, "›", S.gold);
+    buf.text(inner.x, inputRow, "›", S.goldB);
     const hint = "Ask anything · @ to reference · / for commands";
-    buf.text(inner.x + 2, inputRow, truncate(`${hint}▏`, inner.w - 2), S.dim);
+    buf.text(inner.x + 2, inputRow, "▏", S.cream);
+    buf.text(inner.x + 3, inputRow, truncate(hint, Math.max(0, inner.w - 3)), S.dim, Math.max(0, inner.w - 3));
     row++;
   }
 
