@@ -1,4 +1,4 @@
-import { formatRefreshMinute, formatSourceLabels } from "../../source/index.ts";
+import { formatRefreshMinute } from "../../source/index.ts";
 import type { PanelSection } from "../../types/ui.ts";
 import type { OverviewSymbolEntry, OverviewQuote, OverviewHolding, OverviewPullMeta } from "./overview-data.ts";
 export { fetchOverviewQuotes, fetchOverviewHoldings, overviewProviderSymbol } from "./overview-data.ts";
@@ -49,7 +49,12 @@ export function buildOverviewPanelSections({
     sections.push(...buildPortfolioSections(portfolioSymbols, groups, portfolioRows));
   }
   sections.push(buildMarketSection(marketQuotes));
-  sections.push(buildSourceSection(pullMeta, refreshedAt, [...marketQuotes, ...portfolioRows]));
+  const rows = sections.flatMap(section => section.kind === "keyvalue" ? [] : section.rows);
+  const available = rows.filter(row => !row.refreshState && Number.isFinite(row.price) && Number.isFinite(row.pct));
+  sections[0]!.refresh = {
+    at: formatRefreshMinute(refreshedAt),
+    status: !available.length ? "unavailable" : available.length < rows.length || rows.some(row => row.observation?.state === "outside-window") ? "partial" : "success",
+  };
   return sections;
 }
 
@@ -111,20 +116,4 @@ function buildPortfolioSections(
 function buildMarketSection(marketQuotes: OverviewQuote[]): PanelSection {
   if (marketQuotes.length > 0) return { kind: "quotes", title: "Market", rows: marketQuotes };
   return { kind: "keyvalue", title: "Market", rows: [{ label: "data", value: "unavailable" }] };
-}
-
-function buildSourceSection(meta: OverviewPullMeta, refreshedAt: Date, rows: OverviewQuote[]): PanelSection {
-  const dates = [...new Set([...meta.asOfDates, ...rows.flatMap(row => row.observation?.asOfDate ? [row.observation.asOfDate] : [])])].sort();
-  const retained = rows.filter(row => row.refreshState).length;
-  const asOfDate = dates.length > 1 ? `${dates[0]} → ${dates.at(-1)}` : dates[0] ?? "--";
-  return {
-    kind: "keyvalue",
-    title: "Source",
-    rows: [
-      { label: "来源", value: formatSourceLabels(meta.sources) },
-      { label: "更新", value: formatRefreshMinute(refreshedAt) },
-      { label: "数据", value: asOfDate },
-      { label: "覆盖", value: `${rows.filter(row => !row.refreshState && Number.isFinite(row.price) && Number.isFinite(row.pct)).length}/${rows.length} 可用${retained ? ` · ${retained} 旧数据` : ""}` },
-    ],
-  };
 }

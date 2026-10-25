@@ -10,7 +10,7 @@ export const CASH_DARK = WHYJ_THEME.cashDark;
 export const CASH_WARM = WHYJ_THEME.cashWarm;
 export const CREAM = WHYJ_THEME.cream;
 export const MUTED = WHYJ_THEME.muted;
-export const BODY_COPY = WHYJ_THEME.bodyCopy;
+export const BODY_COPY = "#B8B4A8";
 export const AUTHOR_COPY = WHYJ_THEME.authorCopy;
 export const HAIRLINE = WHYJ_THEME.hairline;
 export const STEP_DIM = WHYJ_THEME.stepDim;
@@ -19,7 +19,7 @@ export const NEGATIVE = WHYJ_THEME.negative;
 export const MARKET_UP = WHYJ_THEME.marketUp;
 export const MARKET_DOWN = WHYJ_THEME.marketDown;
 export const CODE_DIM = WHYJ_THEME.codeDim;
-export const THINKING = WHYJ_THEME.thinking;
+export const THINKING = "#8F8A7B";
 export const SHADOW = "#000000";
 export const SELECTION_FG = WHYJ_THEME.selectionFg;
 export const SELECTION_BG = WHYJ_THEME.selectionBg;
@@ -31,8 +31,8 @@ export type UiDensity = "compact" | "comfortable";
 export const UI_DENSITY: UiDensity =
   process.env.WHYJ_UI_DENSITY === "comfortable" ? "comfortable" : "compact";
 
-export const HEADER_H = UI_DENSITY === "compact" ? 2 : 3;
-export const COMPOSER_H = UI_DENSITY === "compact" ? 8 : 10;
+export const HEADER_H = 4;
+export const COMPOSER_H = UI_DENSITY === "compact" ? 5 : 8;
 export const STATUS_H = 1;
 export const OVERVIEW_ROW_H = UI_DENSITY === "compact" ? 1 : 2;
 export const OVERVIEW_SECTION_H = UI_DENSITY === "compact" ? 2 : 3;
@@ -52,15 +52,16 @@ export const S = {
   positive: { fg: POSITIVE } as Style,
   negative: { fg: NEGATIVE } as Style,
   code:     { fg: MUTED } as Style,
-  thinking: { fg: MUTED } as Style,
+  body:     { fg: BODY_COPY } as Style,
+  thinking: { fg: THINKING } as Style,
   canvas:   { fg: CANVAS } as Style,
   selection:{ fg: SELECTION_FG, bg: SELECTION_BG, bold: true } as Style,
 
   // Structured text tokens. Keep renderers semantic so future themes only
   // need to remap these entries, not table/chart parsing logic.
-  tableHeader:   { fg: GOLD, bold: true } as Style,
-  tableKey:      { fg: GOLD } as Style,
-  tableValue:    { fg: CREAM } as Style,
+  tableHeader:   { fg: CREAM, bold: true } as Style,
+  tableKey:      { fg: BODY_COPY } as Style,
+  tableValue:    { fg: BODY_COPY } as Style,
   tableStrong:   { fg: CREAM, bold: true } as Style,
   tableNote:     { fg: MUTED } as Style,
   tableRule:     { fg: HAIRLINE } as Style,

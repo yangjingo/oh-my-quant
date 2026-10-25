@@ -11,7 +11,8 @@ type OverviewBlock =
   | { kind: "holding"; row: Holding }
   | { kind: "quote"; row: Quote }
   | { kind: "keyvalue"; row: { label: string; value: string } }
-  | { kind: "gap" };
+  | { kind: "gap" }
+  | { kind: "refresh"; lines: RenderLine[] };
 
 function panelInner(r: { x: number; y: number; w: number; h: number }) {
   return { x: r.x + 2, y: r.y + 1, w: r.w - 4, h: r.h - 2 };
@@ -19,6 +20,14 @@ function panelInner(r: { x: number; y: number; w: number; h: number }) {
 
 function buildOverviewBlocks(sections: PanelSection[]): OverviewBlock[] {
   const blocks: OverviewBlock[] = [];
+  const refresh = sections.find(section => section.refresh)?.refresh;
+  if (refresh) {
+    const lines: RenderLine[] = [{ text: `Refresh: ${refresh.at ?? "--"}`, style: S.dim }];
+    const cues = { idle: "Waiting for refresh", fetching: "Loading · ~ previous", success: "", partial: "Partial · ! old / -- missing", unavailable: "No data · ! old / -- missing", timeout: "Timeout · ! old / -- missing", error: "Failed · ! old / -- missing" };
+    if (cues[refresh.status]) lines.push({ text: cues[refresh.status], style: S.dim });
+    if (refresh.retryKey) lines.push({ text: `Retry failed: ${refresh.retryKey}`, style: S.dim });
+    blocks.push({ kind: "refresh", lines }, { kind: "gap" });
+  }
   for (let i = 0; i < sections.length; i++) {
     const sec = sections[i];
     if (sec.kind === "group") {
@@ -43,10 +52,11 @@ function buildOverviewBlocks(sections: PanelSection[]): OverviewBlock[] {
 
 function overviewBlockHeight(block: OverviewBlock): number {
   switch (block.kind) {
+    case "refresh": return block.lines.length;
     case "section-header": return OVERVIEW_SECTION_H;
     case "group-header": return OVERVIEW_SECTION_H;
     case "quote":
-    case "holding": return Math.max(OVERVIEW_ROW_H, block.row.observation || block.row.refreshState ? 2 : 1);
+    case "holding": return OVERVIEW_ROW_H;
     case "keyvalue": return 1;
     case "gap": return 1;
   }
@@ -58,6 +68,7 @@ export function overviewContentHeight(sections: PanelSection[]): number {
 
 function overviewBlockToLines(block: OverviewBlock, w: number): RenderLine[] {
   switch (block.kind) {
+    case "refresh": return block.lines.map(line => ({ ...line, text: truncate(line.text, w) }));
     case "section-header": {
       const lines: RenderLine[] = [
         {
@@ -121,7 +132,8 @@ function overviewBlockToLines(block: OverviewBlock, w: number): RenderLine[] {
 }
 
 function overviewRowLines(row: Holding, w: number): RenderLine[] {
-  const pctTxt = fmtPct(row.pct);
+  const marker = row.refreshState === "refreshing" ? "~" : row.refreshState === "stale" || row.observation?.state === "outside-window" ? "!" : " ";
+  const pctTxt = `${fmtPct(row.pct)}${marker}`;
   const code = truncate(row.observation?.symbol ?? row.code, Math.max(0, w - 8));
   const codePart = code.padEnd(Math.min(Math.max(8, strWidth(code) + 1), Math.max(0, w - 8)));
   const pctPart = pctTxt.padStart(8);
@@ -137,14 +149,6 @@ function overviewRowLines(row: Holding, w: number): RenderLine[] {
       { text: pctPart, style: pctStyle(row.pct) },
     ],
   }];
-  if (row.observation || row.refreshState) {
-    const observation = row.observation;
-    const status = row.refreshState === "stale" ? "stale 旧数据" : row.refreshState === "refreshing" ? "刷新中 · 上次结果"
-      : observation?.state === "unavailable" ? "无数据" : observation?.state === "outside-window" ? "旧窗口" : "";
-    const text = [status, observation?.asOfDate ?? (row.refreshState ? "日期未知" : ""), observation?.sourceLabel,
-      observation?.fallback && observation.state !== "unavailable" ? "回退" : ""].filter(Boolean).join(" · ");
-    lines.push({ text: truncate(text, w), style: S.tableNote });
-  }
   while (lines.length < OVERVIEW_ROW_H) lines.push({ text: "" });
   return lines;
 }

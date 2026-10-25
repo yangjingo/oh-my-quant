@@ -43,16 +43,17 @@ export function capSections(sections: PanelSection[], max: number): PanelSection
 }
 
 
-export function layout(C: number, R: number, showPortfolioPanel?: boolean): Layout {
+export function layout(C: number, R: number, showPortfolioPanel?: boolean, expandComposer = false): Layout {
   const panelW = Math.min(48, Math.max(36, Math.floor(C * 0.312)));
   const showPanel = C >= 78 && showPortfolioPanel !== false;
-  const mainH = R - HEADER_H - COMPOSER_H - STATUS_H;
+  const composerH = Math.min(expandComposer ? Math.max(8, COMPOSER_H) : COMPOSER_H, Math.max(3, R - HEADER_H - STATUS_H - 6));
+  const mainH = R - HEADER_H - composerH - STATUS_H;
   const mainW = showPanel ? C - panelW : C;
   return {
     mainPane:     { x: 0, y: HEADER_H, w: mainW, h: mainH },
     conversation: { x: 1, y: HEADER_H, w: mainW - 2, h: mainH },
     portfolio:    { x: mainW, y: HEADER_H, w: panelW, h: mainH },
-    composer:     { x: 0, y: R - COMPOSER_H - STATUS_H, w: C, h: COMPOSER_H },
+    composer:     { x: 0, y: R - composerH - STATUS_H, w: C, h: composerH },
     statusRow:    R - 1,
     showPanel,
   };
@@ -276,7 +277,7 @@ export function drawPortfolio(
     titleRightStyle: S.dim, border: S.rule,
   });
 
-  if (loading && !sections.some(section => section.rows.length > 0)) {
+  if (loading && !sections.some(section => section.refresh) && !sections.some(section => section.rows.length > 0)) {
     const frames = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
     const spinner = frames[Math.floor(Date.now() / 80) % frames.length];
     const accent = thinkingBannerStyle().fg!;

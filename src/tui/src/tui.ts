@@ -137,8 +137,13 @@ export class QuantTui {
   openArtifact(): void { this.panel.open("artifact"); this.paint(); }
   openHelp(): void { this.panel.open("help"); this.paint(); }
 
+  private currentLayout() {
+    return layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel,
+      this.inputBuf.startsWith("/") || this.inputBuf.includes("\n") || this.state.composerQueue.length > 0);
+  }
+
   private paint(): void {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+    const L = this.currentLayout();
     this.clampScroll(L);
     const st = { ...this.state, input: this.inputBuf };
     this.screen.buf.clear();
@@ -184,7 +189,7 @@ export class QuantTui {
   }
 
   private scroll(region: ScrollRegion, delta: number): void {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+    const L = this.currentLayout();
     const next = applyScrollDeltaToState(L, region, delta, this.state.messages, this.state.panel, this.state.activity, {
       convScrollUp: this.convScrollUp,
       overviewScrollTop: this.overviewScrollTop,
@@ -198,7 +203,7 @@ export class QuantTui {
   }
 
   private scrollRegionPanel(up: boolean, page: boolean): void {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+    const L = this.currentLayout();
     const delta = scrollRegionDeltaForLayout(L, this.scrollRegion, up, page);
     if (delta !== 0) this.scroll(this.scrollRegion, delta);
   }
@@ -245,7 +250,7 @@ export class QuantTui {
   }
 
   private handleMouseEvent(evt: MouseEvent): boolean {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+    const L = this.currentLayout();
     const region = hitTestScrollRegion(evt.col, evt.row, L);
     this.scrollRegion = region;
 
@@ -318,7 +323,7 @@ export class QuantTui {
   }
 
   private async copyConversationSelection(): Promise<void> {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+    const L = this.currentLayout();
     const view = buildConversationView(
       this.state.messages,
       L.conversation,
@@ -463,12 +468,12 @@ export class QuantTui {
         this.submitHandler?.(normalized);
       }
     } else if (key.name === "pageup") {
-      const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+      const L = this.currentLayout();
       const page = Math.max(1, L.mainPane.h - 3);
       if (key.shift && L.showPanel) this.scroll("overview", -page);
       else this.scroll("conversation", page);
     } else if (key.name === "pagedown") {
-      const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+      const L = this.currentLayout();
       const page = Math.max(1, L.mainPane.h - 3);
       if (key.shift && L.showPanel) this.scroll("overview", page);
       else this.scroll("conversation", -page);

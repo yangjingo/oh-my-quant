@@ -174,7 +174,7 @@ Quant Harness 是应用范围，不是某一个同名源文件的范围。`src/r
 | [assets/logo-lockup-mono.svg](./assets/logo-lockup-mono.svg) | 单色组合，使用 currentColor | 内联时继承颜色；独立图片默认黑色 |
 | [assets/logo-mark-mono.svg](./assets/logo-mark-mono.svg) | 单色透明 JQ 标记 | 与主标记相同的几何 |
 | [assets/app-icon.svg](./assets/app-icon.svg) | 深底圆角应用图标源 | favicon、PNG 和 Windows ICO 共用轮廓 |
-| [assets/index.html](./assets/index.html) | JQ 素材的深浅底、小尺寸和下载预览 | 网页与 Desktop 使用 SVG，CLI 采用 JQ 字符标记 |
+| [assets/index.html](./assets/index.html) | JQ 素材的深浅底、小尺寸和下载预览 | 网页与 Desktop 使用 SVG，CLI 采用同源 Unicode 点阵标记 |
 | [assets/geist-license.txt](./assets/geist-license.txt) | Geist 字体 SIL OFL 许可 | 随路径字标保留字体来源与许可 |
 | [assets/app-icon.ico](./assets/app-icon.ico) | Windows 多尺寸图标，16/24/32/48/64/128/256px | Desktop 窗口与安装器的同源素材 |
 | [icons/16x16.png](./assets/icons/16x16.png) · [24x24.png](./assets/icons/24x24.png) · [32x32.png](./assets/icons/32x32.png) | 原生小尺寸 PNG | 文件名就是实际像素尺寸 |

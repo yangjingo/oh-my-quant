@@ -1,21 +1,16 @@
 import { Buffer, charWidth, strWidth, truncate } from "./buffer.ts";
-import { S, HEADER_H, COMPOSER_H, STATUS_H, DIVIDER_CHAR, UI_DENSITY, GOLD_HIGHLIGHT } from "./styles.ts";
-import { BRAND_MARK, BRAND_NAME } from "./brand.ts";
+import { S, HEADER_H, COMPOSER_H, STATUS_H, DIVIDER_CHAR, GOLD_HIGHLIGHT } from "./styles.ts";
+import { BRAND_MARK_ROWS, BRAND_NAME } from "./brand.ts";
 import type { ComposerSuggestion } from "./input.ts";
 import type { AppState } from "../../types/ui.ts";
 
 export function drawHeader(buf: Buffer, st: AppState): void {
   const C = buf.w;
-  buf.text(2, 0, BRAND_MARK, S.goldB);
-  const logoX = 2 + BRAND_MARK.length + 1;
-  buf.text(logoX, 0, BRAND_NAME, UI_DENSITY === "compact" ? S.cream : S.creamB);
-  if (UI_DENSITY === "compact") {
-    buf.text(logoX + 11, 0, `v${st.version}`, S.dim);
-    buf.hline(0, 1, C, DIVIDER_CHAR, S.rule);
-    return;
-  }
-  buf.text(logoX + 1, 1, `v${st.version}`, S.dim);
-  buf.hline(0, 2, C, DIVIDER_CHAR, S.rule);
+  BRAND_MARK_ROWS.forEach((line, y) => buf.text(2, y, line, S.gold));
+  const logoX = 2 + strWidth(BRAND_MARK_ROWS[0]) + 2;
+  buf.text(logoX, 1, BRAND_NAME, S.creamB);
+  buf.text(logoX + strWidth(BRAND_NAME) + 2, 1, `v${st.version}`, S.dim);
+  buf.hline(0, HEADER_H - 1, C, DIVIDER_CHAR, S.rule);
 }
 
 export function drawComposer(
@@ -119,8 +114,9 @@ export function drawComposer(
 export function drawStatus(buf: Buffer, row: number, width: number, st: AppState): void {
   width = Math.min(width, buf.w);
   if (width <= 0) return;
-  const modelLimit = Math.min(width, Math.max(12, Math.floor(width * 0.45)));
-  let x = buf.text(0, row, truncate(st.model, modelLimit), S.muted, width, width);
+  let x = st.model ? buf.text(0, row, "◈ ", S.cream, width, width) : 0;
+  const modelLimit = Math.max(0, Math.min(width - x, Math.max(12, Math.floor(width * 0.45)) - x));
+  x = buf.text(x, row, modelLimit > 0 ? truncate(st.model, modelLimit) : "", S.muted, width - x, width);
   const displayedPortfolio = st.panel.find(section => section.kind === "group" || section.kind === "holdings")?.title ?? st.activePortfolio;
   for (const [value, style] of [[st.source, S.muted], [displayedPortfolio, S.cream]] as const) {
     if (!value) continue;

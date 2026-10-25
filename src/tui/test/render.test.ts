@@ -24,8 +24,9 @@ describe("layout", () => {
   });
 
   it("gives composer enough height for five slash suggestion rows in compact mode", () => {
-    const L = layout(120, 32);
+    const L = layout(120, 32, true, true);
     expect(L.composer.h).toBe(8);
+    expect(layout(120, 32).composer.h).toBe(5);
   });
 });
 
@@ -224,7 +225,7 @@ describe("panel isolation", () => {
     const rows = buf.toPlain();
     const y = rows.findIndex((row) => row.includes("Need to inspect source quality first."));
     expect(y).toBeGreaterThanOrEqual(0);
-    expect(rows.join("\n")).not.toContain("✻ Thinking");
+    expect(rows.join("\n")).toContain("Thinking");
     expect(rows.some((row) => row.includes("The data source is ready."))).toBe(true);
 
     const x = rows[y].indexOf("Need");
@@ -233,7 +234,7 @@ describe("panel isolation", () => {
     expect(cell.dim).not.toBe(true);
   });
 
-  it("keeps finalized thinking content without a polite heading", () => {
+  it("keeps finalized thinking content with an explicit Thinking label", () => {
     const buf = new Buffer(100, 24);
     const L = layout(100, 24);
     const msgs: UIMessage[] = [
@@ -246,7 +247,7 @@ describe("panel isolation", () => {
     const rows = buf.toPlain();
     const y = rows.findIndex((row) => row.includes("Need to inspect source quality first."));
     expect(y).toBeGreaterThanOrEqual(0);
-    expect(rows.join("\n")).not.toContain("✻ Thinking");
+    expect(rows.join("\n")).toContain("Thinking");
     expect(rows.some((row) => row.includes("The data source is ready."))).toBe(true);
 
     const x = rows[y].indexOf("Need");
@@ -697,7 +698,7 @@ describe("drawComposer queue", () => {
 
 describe("render lines", () => {
   it("defines semantic structured-render style tokens for future themes", () => {
-    expect(S.tableHeader.fg).toBe(GOLD);
+    expect(S.tableHeader.fg).toBe(WHYJ_THEME.cream);
     expect(S.tablePositive.fg).toBe(POSITIVE);
     expect(S.tableNegative.fg).toBe(NEGATIVE);
     expect(S.tableGain.fg).toBe(MARKET_UP);
@@ -883,11 +884,11 @@ describe("drawStatus", () => {
   it.each([undefined, "full", "context", "off"] as const)("highlights only the portfolio with legacy HUD mode %s", hudMode => {
     const buf = new Buffer(140, 1);
     drawStatus(buf, 0, 140, { ...state, hudMode });
-    expect(buf.toPlain()[0].trimEnd()).toBe("glm-5.3-flash · tushare · Ascend昇腾产业链组合");
-    const portfolioStart = strWidth("glm-5.3-flash · tushare · ");
+    expect(buf.toPlain()[0].trimEnd()).toBe("◈ glm-5.3-flash · tushare · Ascend昇腾产业链组合");
+    const portfolioStart = strWidth("◈ glm-5.3-flash · tushare · ");
     for (const [index, cell] of buf.cells.entries()) {
       if (!cell.ch.trim()) continue;
-      expect(cell.fg).toBe(index >= portfolioStart ? S.cream.fg : S.muted.fg);
+      expect(cell.fg).toBe(index === 0 || index >= portfolioStart ? S.cream.fg : S.muted.fg);
       expect(cell.bold).not.toBe(true);
       expect(cell.dim).not.toBe(true);
     }
@@ -896,28 +897,28 @@ describe("drawStatus", () => {
   it("keeps short fields and Chinese theme intact on a narrow terminal", () => {
     const buf = new Buffer(60, 1);
     drawStatus(buf, 0, 60, state);
-    expect(buf.toPlain()[0].trimEnd()).toBe("glm-5.3-flash · tushare · Ascend昇腾产业链组合");
+    expect(buf.toPlain()[0].trimEnd()).toBe("◈ glm-5.3-flash · tushare · Ascend昇腾产业链组合");
     buf.clear();
     drawStatus(buf, 0, 60, { ...state, model: "custom/very-long-model-name-for-terminal", activePortfolio: `${state.activePortfolio}（长期研究）` });
     const line = buf.toPlain()[0].trimEnd();
-    expect(line).toMatch(/^custom\/very-long-model.*… · tushare$/u);
+    expect(line).toMatch(/^◈ custom\/very-long-model.*… · tushare$/u);
     expect(line).not.toContain("Ascend");
   });
 
   it("omits missing fields and their separators", () => {
     const buf = new Buffer(80, 1);
     drawStatus(buf, 0, 80, { ...state, source: "", activePortfolio: "", hud: undefined });
-    expect(buf.toPlain()[0].trimEnd()).toBe(state.model);
+    expect(buf.toPlain()[0].trimEnd()).toBe(`◈ ${state.model}`);
     buf.clear();
     drawStatus(buf, 0, 80, { ...state, source: "" });
-    expect(buf.toPlain()[0].trimEnd()).toBe("glm-5.3-flash · Ascend昇腾产业链组合");
+    expect(buf.toPlain()[0].trimEnd()).toBe("◈ glm-5.3-flash · Ascend昇腾产业链组合");
   });
 
   it("uses the portfolio actually shown in Overview instead of an independent stale name", () => {
     const buf = new Buffer(140, 1);
     drawStatus(buf, 0, 140, { ...state, activePortfolio: "Old portfolio",
       panel: [{ kind: "group", groupId: "current", title: "当前研究组合", rows: [], collapsed: false }] });
-    expect(buf.toPlain()[0].trimEnd()).toBe("glm-5.3-flash · tushare · 当前研究组合");
+    expect(buf.toPlain()[0].trimEnd()).toBe("◈ glm-5.3-flash · tushare · 当前研究组合");
   });
 });
 

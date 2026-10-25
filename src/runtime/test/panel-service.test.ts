@@ -41,7 +41,7 @@ describe("runtime panel service", () => {
 
   it("provides stable loading and unavailable market panels", () => {
     expect(marketRefreshLoadingPanel()).toEqual([
-      { kind: "keyvalue", title: "Market Refresh", rows: [{ label: "status", value: "fetching" }] },
+      { kind: "keyvalue", title: "Market", rows: [], refresh: { at: null, status: "idle" } },
     ]);
     expect(marketUnavailablePanel()).toEqual([
       { kind: "keyvalue", title: "Market", rows: [{ label: "data", value: "unavailable" }] },

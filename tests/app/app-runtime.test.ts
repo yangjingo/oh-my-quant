@@ -734,7 +734,8 @@ description: Use for crypto market analysis.
     const latestPanel = h.panels.at(-1)?.panel ?? [];
     expect(latestPanel[0]).toMatchObject({ kind: "holdings", title: "Portfolio" });
     expect(latestPanel.some((section) => section.title === "Market")).toBe(true);
-    expect(latestPanel.some((section) => section.title === "Source")).toBe(true);
+    expect(latestPanel.some((section) => section.title === "Source")).toBe(false);
+    expect(latestPanel[0]!.refresh?.status).toBe("success");
   });
 
   it("clears the refreshing state and keeps the last good overview when a refresh fails", async () => {
@@ -757,9 +758,7 @@ description: Use for crypto market analysis.
     expect(retainedMarket).toMatchObject({ rows: expect.arrayContaining([
       expect.objectContaining({ code: "000001.SH", price: 3000, refreshState: "stale" }),
     ]) });
-    expect(h.panels.at(-1)?.panel[0]).toMatchObject({ title: "Market Refresh", rows: expect.arrayContaining([
-      { label: "数值", value: "stale · 保留上次结果，按标的日期" },
-    ]) });
+    expect(h.panels.at(-1)?.panel[0].refresh).toMatchObject({ status: "error" });
   });
 
   it("recovers from a timed-out pull and ignores its stale late result", async () => {
@@ -771,9 +770,9 @@ description: Use for crypto market analysis.
         if (quoteCalls === 1) {
           return new Promise((resolve) => { resolveFirstPull = resolve; });
         }
-        return [{ code: "000001", name: "上证指数", price: 3200, pct: 2 }];
+        return [{ code: "000001.SH", name: "上证指数", price: 3200, pct: 2 }];
       },
-      async () => [{ code: "510300", name: "沪深300ETF", price: 4.3, pct: 0.5 }],
+      async () => [{ code: "510300.SH", name: "沪深300ETF", price: 4.3, pct: 0.5 }],
       undefined,
       undefined,
       undefined,
@@ -786,10 +785,11 @@ description: Use for crypto market analysis.
 
     const successfulPanel = h.panels.at(-1)!.panel;
     expect(quoteCalls).toBe(2);
-    expect(successfulPanel?.some((section) => section.title === "Source")).toBe(true);
+    expect(successfulPanel?.some((section) => section.title === "Source")).toBe(false);
+    expect(successfulPanel[0]!.refresh?.status).toBe("partial");
     const panelUpdates = h.panels.length;
 
-    resolveFirstPull?.([{ code: "000001", name: "stale", price: 1, pct: -99 }]);
+    resolveFirstPull?.([{ code: "000001.SH", name: "stale", price: 1, pct: -99 }]);
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(h.panels).toHaveLength(panelUpdates);
     expect(h.panels.at(-1)).toEqual({ panel: successfulPanel, loading: false });

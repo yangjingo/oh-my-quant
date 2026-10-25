@@ -52,7 +52,7 @@ bun run eval:research -- --case all --timeout-ms 180000 --max-requests 12 --outp
 
 ### Overview 跨分钟恢复的时钟边界
 
-[Overview 刷新测试](../../src/runtime/test/overview-refresh.test.ts)通过 Bun `setSystemTime` 将首次成功固定在 17:15:59，将 error、真实 timeout 后的恢复固定在 17:16:00。完整面板仍须一致，唯一预期变化是 Source 的“更新”从 17:15 变为 17:16；行情数值、stale 清除、敏感错误隐藏及 `success/error/timeout/success` 序列继续断言。`afterEach` 首先恢复真实时钟，避免污染后续用例。
+[Overview 刷新测试](../../src/runtime/test/overview-refresh.test.ts)通过 Bun `setSystemTime` 将首次成功固定在 17:15:59，将 error、真实 timeout 后的恢复固定在 17:16:00。完整面板仍须一致，唯一预期变化是共享 `refresh.at`（本地刷新尝试开始时刻）从 17:15 变为 17:16；行情数值、stale 清除、敏感错误隐藏及 `success/error/timeout/success` 序列继续断言。`afterEach` 首先恢复真实时钟，避免污染后续用例。
 
 这里只控制日历时间，不使用 fake timers 跳过真实 timeout；生产刷新仍使用 `new Date()`，deadline 仍由单调时钟和真实计时器约束。验证时先让受控跨分钟场景配合旧整面板相等断言失败，再运行修复后的整个文件及完整 release gate。参见 [Issue #34](https://github.com/yangjingo/oh-my-quant/issues/34) 与 [本次 CI 修复 #40](https://github.com/yangjingo/oh-my-quant/issues/40)。
 
