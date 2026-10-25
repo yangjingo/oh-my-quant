@@ -12,12 +12,6 @@
   align-items: center;
   min-height: 37px;
 }
-.input-box > .prompt {
-  padding: 0;
-  flex: 0 0 16px;
-  line-height: 32px;
-  text-align: left;
-}
 .input-box textarea {
   resize: none;
   flex: 1;
@@ -57,8 +51,17 @@
 }
 .input-tools .prompt {
   padding: 0 5px 0 0;
-  font-size: 18px;
+}
+.input-tools .prompt,
+#composer #send > span {
+  display: block;
+  font: 18px/1 Mono, monospace;
   color: var(--gold);
+  /* Center the visible glyphs, not their different font baselines. */
+  transform: translateY(-1.5px);
+}
+#composer #send > span {
+  transform: translateY(0.5px);
 }
 .editor-wrap {
   position: relative;
@@ -334,11 +337,10 @@
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: var(--muted);
-  font-size: 20px;
+  color: var(--gold);
 }
 #composer #send:hover {
-  color: var(--cream);
+  color: var(--gold);
   background: #1c1b18;
 }
 #composer #send .ui-icon {
