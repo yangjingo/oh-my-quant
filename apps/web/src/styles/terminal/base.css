@@ -1,0 +1,77 @@
+/* base region */
+@font-face {
+  font-family: Geist;
+  src: url("/assets/geist-regular.ttf");
+}
+@font-face {
+  font-family: Mono;
+  src: url("/assets/geist-mono.ttf");
+}
+:root {
+  color-scheme: dark;
+  --bg: #0c0c0c;
+  --panel: #141312;
+  --text: #b8b4a8;
+  --muted: #8f8a7b;
+  --cream: #fff3c4;
+  --gold: #c99a2e;
+  --line: #302e27;
+  --red: #d87565;
+  --green: #75a26f;
+  --head: 40px;
+}
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #39372e transparent;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    14px/1.65 Mono,
+    "Microsoft YaHei",
+    monospace;
+}
+button,
+textarea,
+input {
+  font: inherit;
+}
+button {
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  border-radius: 3px;
+}
+button:hover {
+  color: var(--cream);
+  background: #1c1b18;
+}
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+a {
+  color: inherit;
+}
+svg {
+  display: block;
+}
+small {
+  font-size: 11px;
+  color: var(--muted);
+}
+[hidden] {
+  display: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+  }
+}

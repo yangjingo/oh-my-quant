@@ -1,0 +1,262 @@
+/* layout region */
+.app {
+  height: 100dvh;
+  min-height: 460px;
+  display: grid;
+  grid-template-rows: 54px minmax(0, 1fr) auto 32px;
+  padding: 0 16px 8px;
+  gap: 0;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e7e3d8;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.brand img {
+  width: 27px;
+  height: 27px;
+}
+.brand-version {
+  font-size: 11px;
+  color: var(--muted);
+}
+.separator {
+  height: 16px;
+  border-left: 1px solid var(--line);
+}
+.switch {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 8px;
+}
+.switch span {
+  color: var(--text);
+}
+.switch .sidebar-glyph {
+  font-size: 16px;
+  color: var(--gold);
+}
+.switch[aria-expanded="true"] {
+  background: #211e15;
+}
+.top-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.top-actions button {
+  padding: 7px 10px;
+}
+.demo {
+  font-size: 10px;
+  color: var(--muted);
+  margin-right: 10px;
+}
+.demo:before {
+  content: "○ ";
+  color: var(--gold);
+}
+.workspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 10px;
+  padding: 16px 0 12px;
+  position: relative;
+}
+.no-panel .workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+.sidebar-open .workspace {
+  grid-template-columns: 224px minmax(0, 1fr) 330px;
+}
+.sidebar-open.no-panel .workspace {
+  grid-template-columns: 224px minmax(0, 1fr);
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--muted);
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-top-color: #24231d;
+  border-radius: 0 0 4px 4px;
+}
+.composer:focus-within + .status {
+  border-color: var(--gold);
+  border-top-color: #24231d;
+}
+.status-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.status-model > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status-model .ui-icon {
+  width: 12px;
+  height: 12px;
+  color: inherit;
+  flex: none;
+}
+.status-source {
+  border-left: 1px solid var(--line);
+  padding-left: 12px;
+  white-space: nowrap;
+}
+.status-portfolio {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drawer-shade {
+  display: none;
+}
+@media (min-width: 1600px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) 370px;
+  }
+  .sidebar-open .workspace {
+    grid-template-columns: 240px minmax(0, 1fr) 370px;
+  }
+}
+@media (max-width: 1120px) {
+  .topbar {
+    gap: 12px;
+  }
+  .demo,
+  .project-name {
+    display: none;
+  }
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .sidebar-open .workspace {
+    grid-template-columns: 200px minmax(0, 1fr) 280px;
+  }
+  .brand {
+    font-size: 12px;
+  }
+}
+@media (max-width: 900px) {
+  .sidebar-open .workspace {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .sidebar-open.no-panel .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .app.sidebar-open + .drawer-shade {
+    display: block;
+    position: fixed;
+    inset: 54px 0 0;
+    background: #0008;
+    z-index: 24;
+  }
+}
+@media (max-width: 760px) {
+  .app {
+    padding: 0 10px 8px;
+    grid-template-rows: 54px minmax(0, 1fr) auto 30px;
+  }
+  .brand {
+    gap: 5px;
+    font-size: 11px;
+  }
+  .brand-version {
+    font-size: 9px;
+  }
+  .brand img {
+    width: 23px;
+    height: 23px;
+  }
+  .separator,
+  .new-button,
+  .settings-button {
+    display: none;
+  }
+  .topbar {
+    gap: 4px;
+  }
+  .switch {
+    gap: 4px;
+    padding: 6px 3px;
+    font-size: 10px;
+  }
+  .top-actions {
+    gap: 0;
+  }
+  .top-actions button {
+    padding: 6px 3px;
+    font-size: 11px;
+  }
+  .workspace,
+  .sidebar-open .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 12px;
+    gap: 0;
+  }
+  .app.mobile-open + .drawer-shade {
+    display: block;
+    position: fixed;
+    inset: 54px 0 0;
+    background: #0008;
+    z-index: 24;
+  }
+  .status {
+    gap: 9px;
+    font-size: 9px;
+    padding-inline: 12px;
+  }
+  .status-source {
+    padding-left: 8px;
+  }
+} /* Status fields are compact keyboard-accessible settings entry points. */
+.status > button {
+  min-height: 24px;
+  padding-block: 2px;
+  padding-inline: 3px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.status > button:hover,
+.status > button:focus-visible {
+  color: var(--cream);
+  background: #1c1b18;
+}
+.status .status-model {
+  max-width: min(320px, 32vw);
+}
+.status > .status-source {
+  padding-left: 12px;
+}
+@media (max-width: 760px) {
+  .status {
+    gap: 5px;
+  }
+  .status > .status-source {
+    padding-left: 6px;
+  }
+  .status .status-model {
+    max-width: 38vw;
+  }
+}

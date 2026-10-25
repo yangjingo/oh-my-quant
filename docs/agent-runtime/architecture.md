@@ -1,6 +1,6 @@
 # WhyJ Quant 模块架构
 
-更新：2026-10-22，现状基线 `main@0548a92`。本文维护职责与边界；产品见[PRD](../prd.md)，交互见[UI/UX](../quant-harness/uiux.md)，进展见 GitHub Issues/PR。
+更新：2026-10-25。职责与边界见本文；产品见[PRD](../prd.md)，交互见[UI/UX](../quant-harness/uiux.md)，进展见 GitHub Issues/PR。
 
 ## 当前顶层布局
 
@@ -8,6 +8,7 @@
 |---|---|
 | `src/index.ts`、`src/cli/`、`src/tui/` | 启动与业务命令、JSON 单次调用、终端交互；TUI 不持有会话真值 |
 | `src/app-runtime.ts`、`src/app-watchlist.ts` | 应用组装与动作；AppRuntime 仍耦合 CLI/TUI 类型和回调 |
+| `apps/web/` | 共享 React 界面及客户端端口；Host 待接入 |
 | `desktop/` | Electron main/preload、PTY/xterm 与安装包 |
 | `src/app/research-workspace/` | HTTP/SSE、研究管理器与原生 Web UI；不是目标 Host |
 | `src/app/paper-execution/` | 显式私有模拟盘宿主与独立账本 |
@@ -18,6 +19,8 @@
 <a id="current-web"></a>
 
 当前 Web 原型的运行与取消由独立[研究宿主](../../src/app/research-workspace/manager.ts)管理，未保存进度只在内存中：页面刷新可接回，服务重启则只从显式保存的对话和固定证据重建上下文，不重放完整 journal 或自动获取新行情。关闭浏览器只断开订阅，不停止任务。首次研究须有结构化发布结果才能保存，后续解释型对话不冒充新研究；复核另开会话取证并关联旧版本。这些现状边界不能由下方目标 Host 的恢复承诺代替。
+
+`apps/web` 按组件、快照投影、客户端端口和纯编辑逻辑组织。`dev` 适配器只用于显式演示；正常入口未连接 Host 时拒绝操作，不替代旧研究宿主。详见 [Web 模块](../quant-harness/web-ui.md)。
 
 ## 当前依赖契约
 
@@ -110,8 +113,8 @@ daemon 与休眠期间运行不在本阶段范围。Host 登记/锁、兼容判�
 
 ## 开发入口与 npm 命令
 
-当前 `dev` 保持 CLI/TUI，`workspace:dev` 是本地 Web；目标新增 `dev:web`（Host＋Vite）、`dev:desktop`（再加 Electron），均须有就绪、日志和退出清理。
+`dev` 保持 CLI/TUI，`workspace:dev` 运行旧研究宿主；`web:dev` / `web:demo` 运行共享 React 界面及显式演示。目标新增 `dev:web`（Host＋Vite）、`dev:desktop`（再加 Electron），均须有就绪、日志和退出清理。
 
 工具保留各模块 `dev/`：构建归 cli，测量/评测归 runtime，绘制/报告归 tui/artifact，IO 基准归 storage。根 `scripts/` 已退役；探针不进入默认 Agent 能力。子进程回归固定 cwd、隔离配置并使用假服务。
 
-当前 `npm test` 只发现 src/tests，不含 desktop/site、手动产物或真实服务脚本。保留必需 CI 汇总检查，完整门槛 `bun run check:release` 见[CI/Release](../ci-release.md)。Linux 另验命令、JSON、退出码及无 GUI 运行；Windows 在干净目标机对同一候选哈希验安装、升级与数据保留；macOS 另验构建、原生依赖、签名/公证与安装升级，不能沿用 Windows 结论。
+`npm test` 发现 src/tests；`web:check` 检查 apps/web 的类型、契约、依赖边界与无演示数据的生产构建，两者均纳入发布门槛。保留必需 CI 汇总检查，完整门槛 `bun run check:release` 见[CI/Release](../ci-release.md)。Linux 另验命令、JSON、退出码及无 GUI 运行；Windows 在干净目标机对同一候选哈希验安装、升级与数据保留；macOS 另验构建、原生依赖、签名/公证与安装升级，不能沿用 Windows 结论。

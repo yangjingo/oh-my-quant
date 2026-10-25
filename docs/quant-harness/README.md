@@ -82,6 +82,10 @@ Quant Harness 将这些要求装配到通用运行时上。它维护研究范围
 
 因此，Harness 的价值不在于让所有研究都自动变成完成，而在于明确指出：哪些部分已经成立、哪里缺证据、下一次继续应从何处开始。新入口应复用这些边界，而不是把状态重新压成一个不透明的成功标记。
 
+## 共享 Web UI
+
+[共享 Web UI](./web-ui.md)说明 `apps/web` 的 React 组件、状态投影与客户端边界。#84 复用 #81 的包与契约基础，替代独立设计原型；真实 Host 与 Electron 接入仍分别验收。
+
 ## References
 
 1. Groth, P., and Moreau, L., eds. [PROV-Overview](https://www.w3.org/TR/prov-overview/). W3C Working Group Note, 2013.
