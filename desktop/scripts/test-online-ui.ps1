@@ -20,7 +20,7 @@ public static class OnlineWindow {
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr window, StringBuilder text, int length);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr window, out Rect rect);
-  [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr window, IntPtr dc, uint flags);
   [DllImport("user32.dll")] public static extern IntPtr GetLastActivePopup(IntPtr window);
   [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr window, int id);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
@@ -65,9 +65,7 @@ function Capture-Window([IntPtr]$Window, [string]$Name) {
   try {
     $dc = $graphics.GetHdc()
     try {
-      # WM_PRINT without PRF_CHECKVISIBLE renders the actual hidden native UI.
-      # PrintWindow suppresses the welcome page when STARTUPINFO requests hiding.
-      [OnlineWindow]::SendMessage($Window, 0x317, $dc, [IntPtr]0x1E) | Out-Null
+      if (-not [OnlineWindow]::PrintWindow($Window, $dc, 0)) { throw 'Cannot capture the actual installer window' }
     } finally { $graphics.ReleaseHdc($dc) }
     $bitmap.Save((Join-Path $evidence "$Name.png"), [Drawing.Imaging.ImageFormat]::Png)
     $painted = 0
@@ -80,11 +78,12 @@ function Capture-Window([IntPtr]$Window, [string]$Name) {
     if ($painted -lt 100) { throw "Installer capture is blank: $Name" }
   } finally { $graphics.Dispose(); $bitmap.Dispose() }
 }
-# Only the generated test entry on a disposable account; never launch the application payload.
-$process = Start-Process -FilePath $Installer -PassThru -WindowStyle Hidden
+# The actual interactive wizard must paint for visual acceptance on this
+# disposable CI desktop. The PowerShell/Node background helpers stay hidden.
+# Only the generated fixture entry is opened; it never installs the application.
+$process = Start-Process -FilePath $Installer -PassThru -WindowStyle Normal
 try {
-  # Process.MainWindowHandle excludes hidden windows. Locate this process's
-  # actual wizard by its dialog controls without changing window visibility.
+  # Locate the owned wizard by its controls, not whichever window has focus.
   Wait-For {
     if ($process.HasExited) { throw "Entry exited before its welcome page: $($process.ExitCode)" }
     [OnlineWindow]::FindDialog($process.Id) -ne [IntPtr]::Zero
