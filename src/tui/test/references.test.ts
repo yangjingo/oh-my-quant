@@ -61,7 +61,7 @@ it("shows generic prompt hints and expands Composer for reference selection", ()
   const buffer = new Buffer(80, 5);
   drawComposer(buffer, { x: 0, y: 0, w: 80, h: 5 }, createInitialAppState("test"), "");
   const text = buffer.toPlain().join("\n");
-  expect(text).toContain("@ 文件/证据/会话 · / 命令");
+  expect(text).toContain("Ask anything · @ to reference · / for commands");
   expect(text).not.toMatch(/\/config|\/artifact/);
   internals.running = false;
 });

@@ -71,7 +71,7 @@ export function drawComposer(
     if (isCmd && lines.length <= available) buf.text(inner.x, inputRow, "/", S.goldB);
   } else {
     buf.text(inner.x, inputRow, "›", S.gold);
-    const hint = "输入问题 · @ 文件/证据/会话 · / 命令";
+    const hint = "Ask anything · @ to reference · / for commands";
     buf.text(inner.x + 2, inputRow, truncate(`${hint}▏`, inner.w - 2), S.dim);
     row++;
   }

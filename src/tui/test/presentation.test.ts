@@ -52,7 +52,7 @@ it("keeps one refresh line, original provenance and the source footer together",
     expect(buffer.cells[4 * width]!).toMatchObject({ ch: "◈", fg: "#FFF3C4" });
     expect(buffer.toPlain().slice(0, 3).join("\n")).not.toContain("JQ");
     expect(BRAND_MARK_ROWS).toHaveLength(1);
-    expect(buffer.toPlain()[0]).toContain("⢮⣷ WhyJ Quant vtest");
+    expect(buffer.toPlain()[0]).toContain("⢎⣵ WhyJ Quant vtest");
     BRAND_MARK_ROWS.forEach((line, y) => {
       expect(strWidth(line)).toBe(2);
       expect(buffer.toPlain()[y]).toContain(line);
