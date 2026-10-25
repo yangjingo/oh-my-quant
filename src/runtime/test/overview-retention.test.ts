@@ -5,9 +5,9 @@ import { join } from "node:path";
 import { savePanelPortfolio } from "../../storage/index.ts";
 import { OverviewRefresh } from "../workspace/overview-refresh.ts";
 import { OverviewRequestPool, type OverviewQuote } from "../workspace/overview-data.ts";
-import { buildOverviewLines } from "../../tui/src/overview-render.ts";
-import { drawPortfolio, layout } from "../../tui/src/render.ts";
-import { Buffer } from "../../tui/src/buffer.ts";
+import { buildOverviewLines } from "../../../apps/tui/src/overview-render.ts";
+import { drawPortfolio, layout } from "../../../apps/tui/src/render.ts";
+import { Buffer } from "../../../apps/tui/src/buffer.ts";
 import type { PanelSection } from "../../types/ui.ts";
 import type { LiveBarsFetchResult } from "../../source/index.ts";
 import type { OverviewRefreshMeasurement } from "../workspace/overview-refresh.ts";
@@ -69,12 +69,13 @@ it("retains an unavailable symbol's original observation and retries only the fa
     const original = structuredClone(rows().find(row => row.code === "AAPL")!);
     await refresh.refresh();
     expect(refreshingText).toContain("AAPL");
-    expect(refreshingText).toContain("2026-09-11");
+    expect(refreshingText).toContain("~");
+    expect(refreshingText).not.toContain("!");
     const retained = rows().find(row => row.code === "AAPL")!;
     expect(retained.price).toBe(105);
     expect(retained.observation).toEqual(original.observation);
     expect(retained.refreshState).toBe("stale");
-    expect(buildOverviewLines(panel, 48).map(line => line.text).join("\n")).toContain("2026-09-11");
+    expect(buildOverviewLines(panel, 48).map(line => line.text).join("\n")).toContain("!");
     await refresh.retryFailed();
     expect(seen[2]).toEqual(["AAPL"]);
     const recovered = rows().find(row => row.code === "AAPL")!;
@@ -87,7 +88,7 @@ it("retains an unavailable symbol's original observation and retries only the fa
     await refresh.refresh();
     expect(rows().filter(row => Number.isFinite(row.price)).every(row => row.refreshState === "stale")).toBe(true);
     expect(rows().find(row => row.code === "AAPL")?.observation?.asOfDate).toBe("2026-09-12");
-    expect(buildOverviewLines(panel, 48).map(line => line.text).join("\n")).toContain("0 本轮可用");
+    expect(buildOverviewLines(panel, 48).map(line => line.text).join("\n")).toContain("Failed");
   } finally {
     refresh.dispose();
     if (previous === undefined) delete process.env.OHQUANT_DIR;

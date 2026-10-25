@@ -153,8 +153,8 @@ test("evaluation consumes answer checks without becoming a dependency of the app
 
 test("module-local dev consumers may compose hosts, but production cannot import them", () => {
   file("src/cli/registry.ts", "export const command = 1;");
-  file("src/tui/view.ts", "export const view = 1;");
-  file("src/runtime/dev/check.ts", 'import { command } from "../../cli/registry.ts"; import { view } from "../../tui/view.ts"; import "bun:test";');
+  file("apps/tui/view.ts", "export const view = 1;");
+  file("src/runtime/dev/check.ts", 'import { command } from "../../cli/registry.ts"; import { view } from "../../../apps/tui/view.ts"; import "bun:test";');
   expect(check().code).toBe(0);
   for (const source of [
     'import "./dev/check.ts";',
@@ -173,4 +173,44 @@ test("test fence rejects root maintenance scripts and a missing dev exclusion", 
   rmSync(join(root, "scripts"), { recursive: true });
   file("bunfig.toml", '[test]\nroot = "src"\npathIgnorePatterns = ["**/gen-*.test.ts"]\n');
   expect(check("check-test-fence.ts")).toMatchObject({ code: 1, error: expect.stringContaining("Test fence is incomplete") });
+});
+
+test.each(["runtime", "app/services", "agent", "types", "storage", "cli"])("%s cannot import relocated apps contracts", module => {
+  file("apps/tui/src/view.ts", "export type View = string;");
+  file("apps/web/src/view.tsx", "export type View = string;");
+  const prefix = module.includes("/") ? "../../../" : "../../";
+  for (const entry of ["tui/src/view.ts", "web/src/view.tsx"]) {
+    file(`src/${module}/host.ts`, `import type { View } from "${prefix}apps/${entry}";`);
+    expect(check()).toMatchObject({ code: 1, error: expect.stringContaining("shared-layers-do-not-import-apps") });
+  }
+});
+
+test("relocated TUI keeps its dependency boundaries and excludes dev/test consumers", () => {
+  file("src/types/ui.ts", "export type View = string;");
+  file("src/storage/index.ts", "export const read = () => {};");
+  file("apps/tui/src/view.ts", 'import type { View } from "../../../src/types/ui.ts";');
+  file("apps/tui/dev/probe.ts", 'import { read } from "../../../src/storage/index.ts";');
+  expect(check().code).toBe(0);
+  file("apps/tui/src/view.ts", 'import { read } from "../../../src/storage/index.ts";');
+  expect(check()).toMatchObject({ code: 1, error: expect.stringContaining("tui-is-render-adapter") });
+  for (const [target, rule] of [["test/fixture.ts", "production-does-not-import-tests"], ["dev/probe.ts", "production-does-not-import-dev"]]) {
+    file(`apps/tui/${target}`, "export const fixture = 1;");
+    file("apps/tui/src/view.ts", `export { fixture } from "../${target}";`);
+    expect(check()).toMatchObject({ code: 1, error: expect.stringContaining(rule) });
+  }
+});
+
+test("TUI test fence accepts the moved suite and rejects scattered tests", () => {
+  file("apps/tui/test/render.test.ts", "// grouped");
+  expect(check("check-test-fence.ts").code).toBe(0);
+  file("apps/tui/src/render.test.ts", "// misplaced");
+  expect(check("check-test-fence.ts")).toMatchObject({ code: 1, error: expect.stringContaining("TUI tests must live under apps/tui/test/") });
+});
+
+test("Web's explicit demo bootstrap is allowed while component dev imports remain blocked", () => {
+  file("apps/web/dev/demo-client.ts", "export const createDemoClient = () => ({});");
+  file("apps/web/src/main.tsx", 'if (import.meta.env.MODE === "demo") { const demo = await import("../dev/demo-client"); }');
+  expect(check().code).toBe(0);
+  file("apps/web/src/Component.tsx", 'import { createDemoClient } from "../dev/demo-client";');
+  expect(check()).toMatchObject({ code: 1, error: expect.stringContaining("production-does-not-import-dev") });
 });

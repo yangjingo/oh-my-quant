@@ -54,8 +54,8 @@ frame-buffer 的维护账也仍然存在：中文宽字符、焦点、裁剪、�
 
 ## 实现索引
 
-- [刷新生命周期](../../src/runtime/workspace/overview-refresh.ts)、[请求池](../../src/runtime/workspace/overview-data.ts)、[Screen](../../src/tui/src/buffer.ts)。
-- [刷新回归](../../src/runtime/test/overview-refresh.test.ts)、[设置冲突](../../src/tui/test/settings-conflict.test.ts)、[退出清理](../../src/tui/test/exit-cleanup.test.ts)。
-- [现行 UI/UX](../quant-harness/uiux.md#uiux)与[键盘流程回归](../../src/tui/test/research-workflow.test.ts)。
+- [刷新生命周期](../../src/runtime/workspace/overview-refresh.ts)、[请求池](../../src/runtime/workspace/overview-data.ts)、[Screen](../../apps/tui/src/buffer.ts)。
+- [刷新回归](../../src/runtime/test/overview-refresh.test.ts)、[设置冲突](../../apps/tui/test/settings-conflict.test.ts)、[退出清理](../../apps/tui/test/exit-cleanup.test.ts)。
+- [现行 UI/UX](../quant-harness/uiux.md#uiux)与[键盘流程回归](../../apps/tui/test/research-workflow.test.ts)。
 
 [← 上一篇](./05-evaluation-beyond-green.md) · [下一篇：报告要固定，设计要演进 →](./07-artifacts-and-boundaries.md)

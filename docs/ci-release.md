@@ -18,14 +18,19 @@ The local baseline is:
 
 ```sh
 bun install --frozen-lockfile
+bun install --cwd apps/web --frozen-lockfile
 bun run check:release
 ```
 
-The [CI workflow](../.github/workflows/ci.yml) uses Bun 1.3.14 and Node 24 on Linux and Windows. The gate covers types, dependency boundaries, policy regressions, test organization, tests, CLI build and documentation. Linux also builds the website. Both platforms pack and install the npm artifact outside the checkout, then check its version with install scripts disabled. This verifies package startup, not live providers or interactive acceptance.
+The [CI workflow](../.github/workflows/ci.yml) uses Bun 1.3.14 and Node 24 on Linux and Windows. The gate covers types, dependency boundaries, policy regressions, test organization, tests, CLI build, documentation and `web:check` (React types, client lifecycle/editor/dependency regressions, production build and demo-fixture exclusion). The Web package has its own frozen lockfile; CI and npm publication install both roots. `web:demo` and `build:demo` explicitly select the synthetic development adapter. Browser captures verify presentation separately and do not prove real Host or Electron integration. Linux also builds the website. Both platforms pack and install the npm artifact outside the checkout, then check its version with install scripts disabled. This verifies package startup, not live providers or interactive acceptance.
 
 [Desktop required](../.github/workflows/desktop.yml) runs on every PR and main push, including docs changes. It typechecks, prepares pinned runtimes, packages and exercises the installed application in a disposable Windows runner. This costs more than path filtering, but covers shared CLI dependencies that affect the shipped app. Local root checks do not replace it; manual Desktop publication also reuses the full CI gate.
 
 Outdated PR runs may be cancelled; main and manual runs are preserved. CI diagnostic artifacts last 14 days. Report the tested revision, environment and run link; distinguish failure, cancellation, skipped checks and missing evidence. A rerun does not erase its original failure. [Review-skill](../.agents/skills/review-skill/SKILL.md) defines the review procedure.
+
+Desktop CI also runs `bun run --cwd desktop test` before packaging. These regressions inject shutdown failures into the smoke script and verify the Windows process query with a controlled child; they do not replace installed-application acceptance. The final no-orphan check uses `System.Diagnostics.Process` rather than CIM/WMI, keeps a 20-second query budget, and rejects query errors or malformed responses. Any surviving `whyj` process fails the isolated-runner check.
+
+Smoke writes `result.json` after each completed check and on success/failure, including the tested revision, stage, completed checks, and process-query timing or error details. A shutdown failure also writes `failure.txt` without requiring a live Electron window; optional page capture cannot replace the original failure. Inspect these files in `desktop-evidence` alongside the job log. A query timeout proves neither a leak nor clean shutdown; a successful retry does not explain an earlier stall. These changes improve the check and its diagnostics, not application shutdown semantics.
 
 ## Main Branch Protection
 

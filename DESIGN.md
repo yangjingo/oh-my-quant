@@ -132,9 +132,12 @@ Use tabular numbers and right alignment for comparable numeric columns. Keep uni
 
 Terminal font family and physical size belong to the user's terminal. The Desktop host supplies its own terminal font controls. Pixel typography rules do not imply that the CLI can enforce fonts, line height, or rounded shapes. Preserve CJK-aware width calculations and allow localized content to wrap normally.
 
+CLI conversation body, list text, ordinary table values and code use an opaque `#B8B4A8` reading token owned by TUI. Markdown headings and selective `**strong**` emphasis use cream `#FFF3C4`. Thinking content uses `#8F8A7B`, two-cell indentation and paragraph spacing, including while streaming, without a separate `Thinking` heading. The active progress indicator remains visible. Do not apply ANSI faint or pane opacity. Preserve semantic market/error colors and selection contrast; these CLI roles do not alter shared Desktop/report tokens. The status bar uses a single regular-weight cream `◈` immediately before the model, aligned with the existing `◉` / `◫` pane and `›` composer symbols.
+
 ## 5. Layout, Shape, and Interaction
 
 - Keep the research area primary, Overview secondary, and Composer reachable. On a narrow terminal, hide the secondary pane before sacrificing input or readable research text. The current TUI threshold is 78 columns; it is an implementation rule, not a Material breakpoint.
+- In compact mode, keep the idle Composer at 5 rows; slash suggestions, multiline input and queued messages expand it to 8 rows, bounded by terminal height. Layout, hit testing and scroll limits use the same calculation.
 - Use a spacing scale of `4, 8, 12, 16, 24, 32, 48, 80px` for graphical surfaces. In the CLI, budget rows and columns instead of translating pixels into cells.
 - Prefer a continuous canvas, open sections, and a single quiet divider over repeated card borders. Leave working space without hiding useful content or creating artificial empty rows.
 - Use square terminal/data regions, 4px compact controls, and up to 12px graphical overlays. Keep pill shapes for the website's primary call to action; do not turn every data region into a rounded card.
@@ -163,7 +166,7 @@ J sits inside Q and joins its short tail. Keep the approved geometry: a 64-unit 
 
 Use lowercase kebab-case filenames based on asset role: `logo-mark` for the JQ symbol, `logo-wordmark` for the product name, `logo-lockup-{dark,light,mono}` for symbol-and-name combinations, and `app-icon` for the application container. The dark/light suffix identifies the intended background. Keep the nine raster exports as `icons/widthxheight.png`. The website owns its product preview at `site/public/workspace-preview.png`; do not store website screenshots in `docs/assets/`. The website retains the conventional public name `favicon.svg`, copied from `app-icon.svg`. Preserve the existing [ZCode naming reference](https://github.com/zai-org/ZCode/tree/main/public/logo/icons).
 
-Use the same SVG in website and Desktop chrome. Use ASCII `JQ` in terminal headers and loading copy. Retain the existing self-hosted Lucide family for interface controls. Do not reintroduce feather, W, or staircase alternatives as active brand marks.
+Use the same SVG in website and Desktop chrome. Terminal headers use the fixed-cell Unicode Braille raster in `src/tui/src/brand.ts`, a simplified 4×4-dot outline of the master SVG with an open center and a lower-right tail; loading copy uses the product name. The mark occupies 2 columns × 1 row, matching the original JQ text footprint. Product name and version share that row; the second header row is a divider. Fine logo details are necessarily reduced at this size. Unicode monospace glyph coverage is required (for example Consolas/Cascadia Mono); no Nerd Font, private-use glyph or image protocol is required. Hosts without Braille coverage should select a Unicode font; plain `JQ` is not an equivalent brand fallback. Verification uses xterm.js on Windows ConPTY; this evidence does not certify native Windows Terminal or every font. Retain the existing self-hosted Lucide family for interface controls. Do not reintroduce feather, W, or staircase alternatives as active brand marks.
 
 ## 6. Implementation and Verification
 

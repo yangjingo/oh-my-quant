@@ -1,6 +1,6 @@
 import manifest from "../package.json";
 import { AppRuntime, createInitialAppState } from "./app-runtime.ts";
-import { QuantTui } from "./tui/src/tui.ts";
+import { QuantTui } from "../apps/tui/src/tui.ts";
 import { loadSettings } from "./storage/index.ts";
 
 export async function startApp(): Promise<void> {
@@ -28,6 +28,7 @@ export async function startApp(): Promise<void> {
   });
 
   tui = new QuantTui(initial, loadSettings().keybindings);
+  tui.setReferenceProvider(input => runtime.getReferenceSuggestions(input));
   tui.onResearchInterrupt(() => { void runtime.interruptResearch(); });
   tui.onFailedQuotesRetry(() => { void runtime.retryFailedOverviewQuotes(); });
   tui.onDoctorClose(() => runtime.cancelDoctor());

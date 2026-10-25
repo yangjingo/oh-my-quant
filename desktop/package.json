@@ -13,7 +13,8 @@
     "dist:win": "electron-builder --win nsis --x64 --publish never",
     "dist:online": "node scripts/build-online.mjs",
     "test:online": "node --test scripts/online.test.mjs",
-    "test:smoke": "node scripts/smoke.mjs"
+    "test:smoke": "node scripts/smoke.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": { "node-pty": "1.1.0" },
   "devDependencies": {

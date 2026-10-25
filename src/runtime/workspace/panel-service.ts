@@ -36,7 +36,7 @@ export function buildLocalStorageState(
 }
 
 export function marketRefreshLoadingPanel(): PanelSection[] {
-  return [{ kind: "keyvalue", title: "Market Refresh", rows: [{ label: "status", value: "fetching" }] }];
+  return [{ kind: "keyvalue", title: "Market", rows: [], refresh: { at: null, status: "idle" } }];
 }
 
 export function marketUnavailablePanel(): PanelSection[] {

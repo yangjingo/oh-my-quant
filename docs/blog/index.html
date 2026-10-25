@@ -286,9 +286,9 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p>因此，这次文档整理把旧窗口尺寸和重复命令表交还代码与专门参考，把代次、时间、焦点和失败语义留下。<a href="#visual-language">终端方案的演进</a>换成 Web UI 时，这些约束仍然成立；可以淘汰的是布局实现，不能顺带淘汰的是状态归属。</p>
 <h3>实现索引</h3>
 <ul>
-<li><a href="../../src/runtime/workspace/overview-refresh.ts">刷新生命周期</a>、<a href="../../src/runtime/workspace/overview-data.ts">请求池</a>、<a href="../../src/tui/src/buffer.ts">Screen</a>。</li>
-<li><a href="../../src/runtime/test/overview-refresh.test.ts">刷新回归</a>、<a href="../../src/tui/test/settings-conflict.test.ts">设置冲突</a>、<a href="../../src/tui/test/exit-cleanup.test.ts">退出清理</a>。</li>
-<li><a href="../quant-harness/uiux.md#uiux">现行 UI/UX</a>与<a href="../../src/tui/test/research-workflow.test.ts">键盘流程回归</a>。</li>
+<li><a href="../../src/runtime/workspace/overview-refresh.ts">刷新生命周期</a>、<a href="../../src/runtime/workspace/overview-data.ts">请求池</a>、<a href="../../apps/tui/src/buffer.ts">Screen</a>。</li>
+<li><a href="../../src/runtime/test/overview-refresh.test.ts">刷新回归</a>、<a href="../../apps/tui/test/settings-conflict.test.ts">设置冲突</a>、<a href="../../apps/tui/test/exit-cleanup.test.ts">退出清理</a>。</li>
+<li><a href="../quant-harness/uiux.md#uiux">现行 UI/UX</a>与<a href="../../apps/tui/test/research-workflow.test.ts">键盘流程回归</a>。</li>
 </ul>
 <p><a href="#chapter-05">← 上一篇</a> · <a href="#chapter-07">下一篇：报告要固定，设计要演进 →</a></p>
 </article>
@@ -348,7 +348,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <article id="chapter-08" aria-labelledby="chapter-08-title"><p class="eyebrow">FIELD NOTES / 08</p><h2 id="chapter-08-title">换一个入口，如何继续同一份研究？</h2><p class="article-meta">初稿 2026-10-13 · 修订 2026-10-22 · oh-my-quant · <a href="./08-research-workbench.md">Markdown 原文</a></p><p><strong>TL;DR</strong>：产品有两种形态：Desktop 面向 Windows/macOS 用户，CLI/TUI 面向 Linux 专业用户。CLI 已有可延续的命令与研究基础；Web 是共享界面和开发/验证入口。下一阶段选择 React UI 和 Bun HTTP/SSE Host，先明确执行所有权，再迁移薄入口。以下是目标与待验证契约，不是新桌面已完成的声明。</p>
 <h3>换了界面，研究为什么会断？</h3>
 <p>用户今天比较标的，明天再问“换一个基准会怎样”。重新输入日期、解释来源、寻找报告，意味着之前的工作没有被新入口接住。自然语言能承接意图，却不能替代组合版本、数据引用、会话分支和运行身份。<a href="../prd.md">产品指南</a>因此围绕配置、取证、报告与继续研究组织，而不是按窗口拆成几份产品说明。</p>
-<p>已有<a href="../../src/tui/test/research-workflow.test.ts">键盘流程回归</a>覆盖设置、观察组合、研究、清空与恢复。这些检查约束原有行为，不能证明新的 GUI 或跨入口流程已交付。打开旧报告必须保留原数据与版本，不能为了“恢复成功”悄悄换成今天的数据。保存成果也不意味着中断的任务能继续执行。</p>
+<p>已有<a href="../../apps/tui/test/research-workflow.test.ts">键盘流程回归</a>覆盖设置、观察组合、研究、清空与恢复。这些检查约束原有行为，不能证明新的 GUI 或跨入口流程已交付。打开旧报告必须保留原数据与版本，不能为了“恢复成功”悄悄换成今天的数据。保存成果也不意味着中断的任务能继续执行。</p>
 <p>两种形态服务不同的使用习惯。Linux 专业用户沿用已有 CLI/TUI 做终端研究、确定性单次读取与脚本组合；Windows/macOS 用户通过 Desktop 安装、配置和持续研究。它们复用研究契约，各自维护交互体验；不能因为桌面改造而把 CLI 变成临时过渡。当前安装包覆盖 Windows，macOS 仍需独立交付验收。浏览器用于共享 UI 的开发、验证与可选访问；官网 <code>site/</code> 只承载公开内容和演示。</p>
 <h3>复用终端解决了启动，却没有形成对象协议</h3>
 <p>当前<a href="../../desktop/scripts/build.ts">桌面构建</a>打包同一 CLI，<a href="../../desktop/src/main.ts">主进程</a>通过 node-pty 启动它，<a href="../../desktop/src/bridge.ts">Bridge</a>交换终端输入、尺寸与输出。这样能保留原有研究行为，也减少用户安装开发环境的负担。当前关窗仍退出 CLI，不能把未来的托盘保活写成已有能力。</p>
@@ -384,7 +384,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p>因此，终端里的留白需要换一种语言：少占几行装饰，给字段和操作分配稳定区域，让长中文按实际显示宽度换行。它首先是一份空间预算，然后才是视觉风格。</p>
 <h3>稀疏的画面，也可能只是高度算错了</h3>
 <p>2026-09-15 的小屏审计发现，60×20 中带完整预览的会话列表只能看到两行，报告列表只能看到四行。原因不是内容太多，而是从已扣过顶部区域的 <code>contentH</code> 中再次扣除了元信息高度。界面看起来不拥挤，却浪费了本来可以用于阅读的位置。</p>
-<p>同一次复核还发现，空报告列表把整句下一步指引放在单行页脚，窄屏只剩前半句。这个“简洁”让用户失去了行动信息。Settings 没有常驻操作提示，进入编辑后还需要凭经验猜测怎样保存或退出。这些问题对应的<a href="../../src/tui/test/panel-small-screen.test.ts">小屏回归</a>继续留在代码中。</p>
+<p>同一次复核还发现，空报告列表把整句下一步指引放在单行页脚，窄屏只剩前半句。这个“简洁”让用户失去了行动信息。Settings 没有常驻操作提示，进入编辑后还需要凭经验猜测怎样保存或退出。这些问题对应的<a href="../../apps/tui/test/panel-small-screen.test.ts">小屏回归</a>继续留在代码中。</p>
 <p>这些反例使“Whitespace first”不能被解释为尽量空。需要保留的是能帮助用户理解分组和层级的空白，而不是由重复扣高、无效装饰或截断造成的空白。</p>
 <h3>先分配注意力，再分配颜色</h3>
 <p>当前主布局在宽度不足 78 列时隐藏 Overview，研究区域扩展；用户也可以在设置中主动关闭它。这里接受了一个损失：小屏不再持续显示旁侧行情。换来的是研究和输入保持可用，而不是两块区域都缩到难以阅读。78 列是当前实现阈值，不是对所有终端都最优的结论。</p>
@@ -413,8 +413,8 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p>接下来值得观察的不是用户是否觉得画面“高级”，而是他们能否分清待取数与零涨跌，能否发现焦点，是否因隐藏 Overview 而频繁往返查看。布局优化应减少任务中的辨认和切换成本；如果只是让截图更满或更空，都还不足以支持设计结论。</p>
 <h3>实现索引</h3>
 <ul>
-<li><a href="../../DESIGN.md">视觉设计源</a>、<a href="../../src/types/theme-colors.ts">共享主题</a>、<a href="../../src/tui/src/render.ts">布局计算</a>。</li>
-<li><a href="../../src/tui/src/panel-views.ts">面板容量与分区</a>、<a href="../../src/tui/test/panel-small-screen.test.ts">小屏回归</a>。</li>
+<li><a href="../../DESIGN.md">视觉设计源</a>、<a href="../../src/types/theme-colors.ts">共享主题</a>、<a href="../../apps/tui/src/render.ts">布局计算</a>。</li>
+<li><a href="../../apps/tui/src/panel-views.ts">面板容量与分区</a>、<a href="../../apps/tui/test/panel-small-screen.test.ts">小屏回归</a>。</li>
 <li><a href="../quant-harness/uiux.md#uiux">UI/UX 契约</a>、<a href="../../src/artifact/test/market-colors.test.ts">报告颜色回归</a>。</li>
 </ul>
 <p><a href="#chapter-08">← 上一篇</a> · <a href="#chapter-11">下一篇：让功能被发现 →</a></p>
@@ -443,7 +443,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <h3>实现索引</h3>
 <ul>
 <li><a href="../../src/runtime/workspace/command-catalog.ts">统一命令目录</a>、<a href="../../src/runtime/workspace/command-help.ts">详细帮助</a>、<a href="../../src/runtime/workspace/command-preflight.ts">静态预检</a>。</li>
-<li><a href="../../src/tui/src/help-panel.ts">Help 交互</a>、<a href="../../src/tui/test/help-navigation.test.ts">键盘发现回归</a>。</li>
+<li><a href="../../apps/tui/src/help-panel.ts">Help 交互</a>、<a href="../../apps/tui/test/help-navigation.test.ts">键盘发现回归</a>。</li>
 <li><a href="../../README.md#commands">用户命令参考</a>。</li>
 </ul>
 <p><a href="#chapter-10">← 上一篇</a> · <a href="#chapter-12">下一篇：失败后的恢复 →</a></p>
@@ -454,7 +454,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p>第 <a href="#chapter-02">02 篇</a>讨论保存、诊断和研究的成功语义。这一篇关心这些语义如何变成用户可以处理的状态。错误反馈至少需要说明作用范围，以及哪些工作没有丢失；下一步动作则必须与已知原因匹配，不能把所有问题都推成“换一个 key”。</p>
 <p>这不要求应用假装知道根因。尚未分辨时，明确说哪项检查失败、哪项未测，比一个过度确定的修复建议更可靠。</p>
 <h3>诊断已经完成，修复建议却到不了用户眼前</h3>
-<p>2026-09-15 的 Doctor 视图会按面板高度停止绘制。前面的模型 warning 足够多，后面的数据失败、修复建议与操作就全部被截掉；方向键也无法滚动。后台已经生成了报告，用户却没有办法读到与故障相关的部分。这条失败路径成为<a href="../../src/tui/test/doctor-navigation.test.ts">Doctor 导航回归</a>的检查对象。</p>
+<p>2026-09-15 的 Doctor 视图会按面板高度停止绘制。前面的模型 warning 足够多，后面的数据失败、修复建议与操作就全部被截掉；方向键也无法滚动。后台已经生成了报告，用户却没有办法读到与故障相关的部分。这条失败路径成为<a href="../../apps/tui/test/doctor-navigation.test.ts">Doctor 导航回归</a>的检查对象。</p>
 <p>另一次生产 PTY 检查暴露的是摘要问题：只检查数据阶段并通过，不能展示成整个系统通过。后来标题明确显示 <code>data pass · model+tools untested</code>，让未测试状态不会被一个成功标记吞掉。</p>
 <p>这两类问题分别发生在空间和语义上。仅修滚动，仍可能让用户误信总状态；仅修标题，仍可能读不到下一步建议。反馈要可见，也要准确描述它覆盖的范围。</p>
 <h3>让细节滚动，让操作和当前工作留下</h3>
@@ -463,7 +463,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p><em>图 12：诊断视口与数据草稿的职责示意。保留草稿不等于自动保存；取消结束当前检查，不撤销此前已经显式提交的设置。</em></p>
 <p>数据编辑使用另一条明确边界：用户改的是草稿，Check 验证当前样本，Save verified 保存与成功检查匹配的版本。修改来源、参数或凭证会使旧证据失效；取消或关闭使迟到结果不能重新授予保存资格。一次端点成功也不会被提升成所有工具、所有市场都可用。<a href="../../src/runtime/data/data-settings.ts">数据草稿</a></p>
 <p>输入错误则尽量留在操作发生的位置。Settings 的编辑区域保留草稿与字段，错误另有空间，Enter save / Esc cancel 保持可见。用户可以修正刚才的内容，而不是因为一次校验失败重新输入整段配置。</p>
-<p>OAuth 退出曾暴露一个更隐蔽的完成边界：凭证文件已经删除，文件锁却还在异步释放。原 UI 测试等待文件消失和一次 tick 就继续按键，偶发地找不到 <code>Use API key</code>。问题不是再等几毫秒，而是等待对象选错了；测试后来等待已有 Sign out Promise，并用可控门槛检查“文件已删、操作未完”时仍不能切换。这次修正没有修改生产退出逻辑，也没有加大超时。<a href="../../src/tui/test/model-oauth-panel.test.ts">退出回归</a></p>
+<p>OAuth 退出曾暴露一个更隐蔽的完成边界：凭证文件已经删除，文件锁却还在异步释放。原 UI 测试等待文件消失和一次 tick 就继续按键，偶发地找不到 <code>Use API key</code>。问题不是再等几毫秒，而是等待对象选错了；测试后来等待已有 Sign out Promise，并用可控门槛检查“文件已删、操作未完”时仍不能切换。这次修正没有修改生产退出逻辑，也没有加大超时。<a href="../../apps/tui/test/model-oauth-panel.test.ts">退出回归</a></p>
 <p>另一次 Windows 崩溃接管失败确实属于实现：多个请求争抢过期凭证锁时，mkdir 与 rmdir 都可能短暂被拒绝。修正只对该凭证锁路径的这两类竞争做有界重试，保留取消和总等待上限；不是把全部文件错误吞掉重试。远端已轮换而响应丢失，仍可能只能重新登录。恢复机制应明确能恢复到哪里，而不是用一次重试成功许诺所有账号都不会丢失。<a href="../../src/storage/src/model-auth.ts">凭证锁</a></p>
 <p>这里的保留有边界：返回父面板不会撤销先前已提交的保存，关闭尚未保存的草稿也不是一次提交。界面要区分“退出编辑”“取消检查”和“撤销设置”，不能把三个含义都放在一个模糊的 cancel 上。当前契约没有提供通用设置撤销历史，也不应让用户误以为存在。</p>
 <h3>恢复路径更明确，也多了一套状态要维护</h3>
@@ -473,8 +473,8 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p>错误不是正常路径之外的附属页面。在依赖模型和外部数据的产品里，失败、等待、取消与恢复本来就是工作流的一部分。设计的任务，是让用户仍然知道自己在哪里、保住了什么，以及下一步能做什么。</p>
 <h3>实现索引</h3>
 <ul>
-<li><a href="../../src/tui/src/doctor-panel.ts">Doctor 视口</a>、<a href="../../src/tui/test/doctor-navigation.test.ts">滚动与操作回归</a>。</li>
-<li><a href="../../src/runtime/data/data-settings.ts">数据草稿生命周期</a>、<a href="../../src/runtime/test/data-settings.test.ts">草稿回归</a>、<a href="../../src/tui/test/panel-small-screen.test.ts">小屏编辑回归</a>。</li>
+<li><a href="../../apps/tui/src/doctor-panel.ts">Doctor 视口</a>、<a href="../../apps/tui/test/doctor-navigation.test.ts">滚动与操作回归</a>。</li>
+<li><a href="../../src/runtime/data/data-settings.ts">数据草稿生命周期</a>、<a href="../../src/runtime/test/data-settings.test.ts">草稿回归</a>、<a href="../../apps/tui/test/panel-small-screen.test.ts">小屏编辑回归</a>。</li>
 <li><a href="../agent-runtime/configuration.md#diagnostics">诊断契约</a>、<a href="../quant-harness/uiux.md#uiux">界面契约</a>。</li>
 </ul>
 <p><a href="#chapter-11">← 上一篇</a> · <a href="#contents">返回系列目录</a></p>
