@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit",
     "start": "electron .",
     "dist:win": "electron-builder --win nsis --x64 --publish never",
-    "test:smoke": "node scripts/smoke.mjs"
+    "dist:online": "node scripts/build-online.mjs",
+    "test:online": "node --test scripts/online.test.mjs",
+    "test:smoke": "node scripts/smoke.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": { "node-pty": "1.1.0" },
   "devDependencies": {
@@ -28,13 +31,28 @@
   "build": {
     "appId": "io.github.yangjingo.whyj-quant",
     "productName": "WhyJ Quant",
+    "electronLanguages": ["en-US", "zh-CN", "zh-TW"],
     "directories": { "output": "../release", "buildResources": "assets" },
-    "files": ["dist/**/*", "package.json", "node_modules/node-pty/**/*", "!node_modules/node-pty/prebuilds/linux-*", "!node_modules/node-pty/prebuilds/darwin-*", "!node_modules/node-pty/prebuilds/win32-arm64"],
-    "extraResources": [{ "from": "runtime", "to": "runtime", "filter": ["**/*", "!**/__pycache__/**", "!**/*.pyc"] }],
+    "files": [
+      "dist/**/*", "package.json", "node_modules/node-pty/**/*",
+      "!node_modules/node-pty/prebuilds/linux-*", "!node_modules/node-pty/prebuilds/darwin-*", "!node_modules/node-pty/prebuilds/win32-arm64",
+      "!node_modules/node-pty/{src,scripts,third_party,typings}{,/**/*}",
+      "!node_modules/node-pty/deps/winpty/{src,misc,ship}{,/**/*}",
+      "!node_modules/node-pty/lib/*.test.js{,.map}"
+    ],
+    "extraResources": [{ "from": "runtime", "to": "runtime", "filter": [
+      "**/*", "!git{,/**/*}", "!**/__pycache__/**", "!**/*.pyc",
+      "!python/Lib/site-packages/{numpy,pandas,pyarrow}/**/tests{,/**/*}",
+      "!python/Lib/site-packages/pyarrow/{include,includes,src}{,/**/*}",
+      "!python/Lib/site-packages/pyarrow/**/*.{lib,pxd,pyx,pxi,h}",
+      "!python/Lib/site-packages/plotly/labextension/static/*.js",
+      "!python/Lib/site-packages/share/jupyter/labextensions/jupyterlab-plotly/static/*.js"
+    ] }],
     "asarUnpack": ["node_modules/node-pty/**/*"],
     "npmRebuild": false,
     "win": { "target": "nsis", "icon": "assets/app-icon.ico", "artifactName": "WhyJ-Quant-Setup-${version}-win-${arch}.${ext}" },
     "nsis": {
+      "differentialPackage": false,
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "include": "assets/installer.nsh",

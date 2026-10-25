@@ -21,10 +21,18 @@ copyFileSync(resolve(desktop, "node_modules/@xterm/xterm/css/xterm.css"), resolv
 copyFileSync(resolve(desktop, "assets/app-icon.ico"), resolve(desktop, "dist/app-icon.ico"));
 copyFileSync(resolve(desktop, "assets/logo-mark.svg"), resolve(desktop, "dist/logo-mark.svg"));
 const child = Bun.spawn([process.execPath, "build", resolve(root, "src/index.ts"), "--compile", "--target=bun-windows-x64-baseline",
+  "--minify-whitespace", "--minify-syntax",
   "--compile-executable-path", resolve(desktop, ".downloads/bun/bun-windows-x64-baseline/bun.exe"),
   "--outfile", resolve(desktop, "runtime/whyj.exe")], { cwd: root, stdout: "inherit", stderr: "inherit" });
 if (await child.exited !== 0) throw new Error("Standalone CLI build failed");
 mkdirSync(resolve(desktop, "runtime/notes/quant"), { recursive: true });
 for (const name of ["funder.md", "notes.md"]) copyFileSync(resolve(root, "notes/quant", name), resolve(desktop, "runtime/notes/quant", name));
 copyFileSync(resolve(root, "LICENSE"), resolve(desktop, "runtime/LICENSE"));
+// tar and its dependencies are compiled into whyj.exe; keep their notices alongside it.
+for (const [name, license] of [["tar", "LICENSE.md"], ["chownr", "LICENSE.md"], ["minipass", "LICENSE.md"],
+  ["minizlib", "LICENSE"], ["yallist", "LICENSE.md"], ["@isaacs/fs-minipass", "LICENSE"]]) {
+  const destination = resolve(desktop, "runtime/licenses", name!);
+  mkdirSync(destination, { recursive: true });
+  copyFileSync(resolve(root, "node_modules", name!, license!), resolve(destination, license!));
+}
 console.log(`Desktop ${manifest.version} built`);
