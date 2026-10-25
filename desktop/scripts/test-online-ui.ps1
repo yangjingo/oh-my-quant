@@ -20,7 +20,8 @@ public static class OnlineWindow {
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr window, StringBuilder text, int length);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr window, out Rect rect);
-  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr window, IntPtr dc, uint flags);
+  [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+  [DllImport("user32.dll")] public static extern IntPtr GetLastActivePopup(IntPtr window);
   [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr window, int id);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
   public static IntPtr FindDialog(int process) {
@@ -64,7 +65,9 @@ function Capture-Window([IntPtr]$Window, [string]$Name) {
   try {
     $dc = $graphics.GetHdc()
     try {
-      if (-not [OnlineWindow]::PrintWindow($Window, $dc, 0)) { throw 'Cannot capture the actual installer window' }
+      # WM_PRINT without PRF_CHECKVISIBLE renders the actual hidden native UI.
+      # PrintWindow suppresses the welcome page when STARTUPINFO requests hiding.
+      [OnlineWindow]::SendMessage($Window, 0x317, $dc, [IntPtr]0x1E) | Out-Null
     } finally { $graphics.ReleaseHdc($dc) }
     $bitmap.Save((Join-Path $evidence "$Name.png"), [Drawing.Imaging.ImageFormat]::Png)
     $painted = 0
@@ -103,6 +106,11 @@ try {
   @{ installer = $Installer; sourceRevision = (git rev-parse HEAD); environment = 'GitHub-hosted Windows';
     steps = @('capture actual welcome', 'Next', 'capture pending download', 'Cancel'); exitCode = $process.ExitCode
   } | ConvertTo-Json | Set-Content (Join-Path $evidence 'result.json')
+} catch {
+  if ($window -and -not $process.HasExited) {
+    try { Capture-Window ([OnlineWindow]::GetLastActivePopup($window)) '03-failure' } catch { Write-Warning $_ }
+  }
+  throw
 } finally {
   if (-not $process.HasExited) { Stop-Process -Id $process.Id }
   $process.Dispose()
