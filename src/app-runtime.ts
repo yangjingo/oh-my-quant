@@ -55,6 +55,7 @@ import {
 } from "./runtime/workspace/agent-events.ts";
 import { extractAssistantText } from "./runtime/workspace/messages.ts";
 import { perfLog, perfNow } from "./perf.ts";
+import { ComposerReferences } from "./runtime/workspace/composer-references.ts";
 import type { DoctorResult } from "./types/doctor.ts";
 import type { CommandResult } from "./types/commands.ts";
 import type { PrivateAnnualExportRequest } from "./types/private-annual-export.ts";
@@ -150,6 +151,16 @@ export class AppRuntime {
   private baseDependencies: QuantAgentDependencies | undefined;
   private extensionShutdown: Promise<void> | undefined;
   private bootstrapTask: Promise<AppRuntimeSnapshot> | undefined;
+  private readonly references = new ComposerReferences(process.cwd(), { current: async () => {
+    if (!this.agent?.getSessionMetadata || !this.agent?.getSessionBranch) return null;
+    const metadata = await this.agent.getSessionMetadata();
+    if (!metadata) return null;
+    const entries = await this.agent.getSessionBranch();
+    if ((await this.agent.getSessionMetadata())?.id !== metadata.id) throw new Error("会话已切换，请重新选择引用。");
+    return { id: metadata.id, path: metadata.path, entries };
+  } });
+
+  getReferenceSuggestions(input: string) { return this.references.suggest(input); }
 
   constructor(
     private readonly callbacks: AppRuntimeCallbacks,
@@ -528,6 +539,7 @@ export class AppRuntime {
   }
 
   private async runAgentPrompt(input: string, signal?: AbortSignal): Promise<void> {
+    let dispatchStarted = false;
     if (this.interruption) await this.interruption;
     const version = this.interruptionVersion;
     const controller = new AbortController();
@@ -544,17 +556,22 @@ export class AppRuntime {
         this.setActivity("ready");
         return;
       }
+      const promptSignal = signal ? AbortSignal.any([signal, controller.signal, this.lifetime.signal]) : AbortSignal.any([controller.signal, this.lifetime.signal]);
+      const expanded = await this.references.expand(input, promptSignal);
+      dispatchStarted = true;
       this.pendingAutoArtifactInput = input;
       this.researchPortfolioKey = researchSelectionKey();
       this.prepareHudForRequest();
       if (!isAgentTurnActive(this.agent)) this.setActivity("thinking");
       const startedAt = perfNow();
-      await dispatchUserMessage(this.agent, input, input, signal ? AbortSignal.any([signal, controller.signal]) : controller.signal);
+      await dispatchUserMessage(this.agent, expanded, input, promptSignal);
       perfLog("runtime.agent.dispatch", startedAt);
     } catch (err) {
       if (this.disposed || version !== this.interruptionVersion) return;
-      this.pendingAutoArtifactInput = null;
-      this.emitComposerQueue([]);
+      if (dispatchStarted) {
+        this.pendingAutoArtifactInput = null;
+        this.emitComposerQueue([]);
+      }
       const message = errorText(err);
       this.messages.push({ role: "error", text: formatAgentError("Agent", message) });
       this.emitMessages();

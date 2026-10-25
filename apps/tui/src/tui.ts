@@ -7,6 +7,8 @@ import { Screen } from "./buffer.ts";
 import { layout, drawHeader, drawConversation, drawPortfolio, drawComposer, drawStatus, buildConversationView, buildOverviewView, activeConversationStatusRows } from "./render.ts";
 import { CANVAS, marketForegrounds } from "./styles.ts";
 import type { AppState, CurrentSessionMeta } from "../../../src/types/ui.ts";
+import type { ComposerReferenceSuggestion } from "../../../src/types/composer-reference.ts";
+import { activeReferenceQuery } from "../../../src/runtime/workspace/reference-syntax.ts";
 import type { ResearchTaskSnapshot } from "../../../src/types/research-task.ts";
 import type { PrivateAnnualExportRequest } from "../../../src/types/private-annual-export.ts";
 import { loadWatchlistEntries, type CodeEntry } from "./watchlist.ts";
@@ -50,6 +52,13 @@ export class QuantTui {
   private watchlist: CodeEntry[] = [];
   private skills: SkillEntry[] = [];
   private skillLoadVersion = 0;
+  private referenceProvider?: (input: string) => Promise<ComposerReferenceSuggestion[]>;
+  private referenceInput: string | null = null;
+  private referenceSuggestions: ComposerReferenceSuggestion[] = [];
+  private referencePending = false;
+  private referenceVersion = 0;
+  private referenceError: string | null = null;
+  private referenceTimer: ReturnType<typeof setTimeout> | null = null;
   private panel = new PanelController(undefined, {
     onChange: () => { if (this.running) this.paint(); },
     onDoctorClose: () => this.doctorCloseHandler?.(),
@@ -97,6 +106,9 @@ export class QuantTui {
 
   stop(): void {
     this.running = false;
+    this.referenceVersion++;
+    this.referenceInput = null;
+    if (this.referenceTimer) clearTimeout(this.referenceTimer);
     this.skillLoadVersion++;
     this.panel.close();
     if (this.animTimer) { clearInterval(this.animTimer); this.animTimer = null; }
@@ -117,6 +129,10 @@ export class QuantTui {
   }
 
   onSubmit(handler: (text: string) => void): void { this.submitHandler = handler; }
+  setReferenceProvider(provider: (input: string) => Promise<ComposerReferenceSuggestion[]>): void {
+    this.referenceProvider = provider;
+    this.referenceInput = null;
+  }
   onArtifactRestore(handler: (reportId: string) => void): void { this.artifactRestoreHandler = handler; }
   onPrivateAnnualExport(handler: (request: PrivateAnnualExportRequest) => void): void { this.privateAnnualExportHandler = handler; }
   onPanelRefresh(handler: () => void): void { this.panelRefreshHandler = handler; }
@@ -137,10 +153,17 @@ export class QuantTui {
   openArtifact(): void { this.panel.open("artifact"); this.paint(); }
   openHelp(): void { this.panel.open("help"); this.paint(); }
 
+  private currentLayout() {
+    return layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel,
+      this.inputBuf.startsWith("/") || Boolean(activeReferenceQuery(this.inputBuf)) || this.inputBuf.includes("\n") || this.state.composerQueue.length > 0);
+  }
+
   private paint(): void {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+    this.refreshReferenceSuggestions();
+    const L = this.currentLayout();
     this.clampScroll(L);
-    const st = { ...this.state, input: this.inputBuf };
+    const st = { ...this.state, input: this.inputBuf, composerStatus: this.referenceError
+      ? { kind: "error" as const, text: this.referenceError } : this.state.composerStatus };
     this.screen.buf.clear();
     this.screen.buf.foregrounds = marketForegrounds(this.state.marketColorScheme);
     for (let y = 0; y < this.screen.buf.h; y++)
@@ -166,7 +189,7 @@ export class QuantTui {
         this.selectionRegion === "overview" ? this.textSelection : null,
       );
     }
-    const suggestions = buildSuggestions(this.inputBuf, this.watchlist, this.skills);
+    const suggestions = this.currentSuggestions();
     const selectedIdx = suggestions.length === 0 ? -1 : Math.min(this.suggestionIdx, suggestions.length - 1);
     drawComposer(this.screen.buf, L.composer, st, st.input, suggestions, selectedIdx, L.conversation);
     drawStatus(this.screen.buf, L.statusRow, this.screen.cols, st);
@@ -184,7 +207,7 @@ export class QuantTui {
   }
 
   private scroll(region: ScrollRegion, delta: number): void {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+    const L = this.currentLayout();
     const next = applyScrollDeltaToState(L, region, delta, this.state.messages, this.state.panel, this.state.activity, {
       convScrollUp: this.convScrollUp,
       overviewScrollTop: this.overviewScrollTop,
@@ -198,7 +221,7 @@ export class QuantTui {
   }
 
   private scrollRegionPanel(up: boolean, page: boolean): void {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+    const L = this.currentLayout();
     const delta = scrollRegionDeltaForLayout(L, this.scrollRegion, up, page);
     if (delta !== 0) this.scroll(this.scrollRegion, delta);
   }
@@ -245,7 +268,7 @@ export class QuantTui {
   }
 
   private handleMouseEvent(evt: MouseEvent): boolean {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+    const L = this.currentLayout();
     const region = hitTestScrollRegion(evt.col, evt.row, L);
     this.scrollRegion = region;
 
@@ -318,7 +341,7 @@ export class QuantTui {
   }
 
   private async copyConversationSelection(): Promise<void> {
-    const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+    const L = this.currentLayout();
     const view = buildConversationView(
       this.state.messages,
       L.conversation,
@@ -432,13 +455,14 @@ export class QuantTui {
     const suggestions = this.currentSuggestions();
     const hasSuggestions = suggestions.length > 0;
 
-    if (hasSuggestions && action.char && /^[1-9]$/.test(action.char)) {
+    if (this.inputBuf.startsWith("/") && hasSuggestions && action.char && /^[1-9]$/.test(action.char)) {
       const idx = Number(action.char) - 1;
       if (idx < suggestions.length) this.applySuggestion(suggestions[idx].fill);
       return;
     }
 
     if (key.name === "return") {
+      if (activeReferenceQuery(this.inputBuf) && this.referencePending) return;
       const input = this.inputBuf;
       if (hasSuggestions) {
         const idx = Math.min(this.suggestionIdx, suggestions.length - 1);
@@ -463,12 +487,12 @@ export class QuantTui {
         this.submitHandler?.(normalized);
       }
     } else if (key.name === "pageup") {
-      const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+      const L = this.currentLayout();
       const page = Math.max(1, L.mainPane.h - 3);
       if (key.shift && L.showPanel) this.scroll("overview", -page);
       else this.scroll("conversation", page);
     } else if (key.name === "pagedown") {
-      const L = layout(this.screen.cols, this.screen.rows, this.state.showPortfolioPanel);
+      const L = this.currentLayout();
       const page = Math.max(1, L.mainPane.h - 3);
       if (key.shift && L.showPanel) this.scroll("overview", page);
       else this.scroll("conversation", -page);
@@ -536,7 +560,33 @@ export class QuantTui {
   }
 
   private currentSuggestions() {
+    if (activeReferenceQuery(this.inputBuf)) return this.referenceInput === this.inputBuf ? this.referenceSuggestions : [];
     return buildSuggestions(this.inputBuf, this.watchlist, this.skills);
+  }
+
+  private refreshReferenceSuggestions(): void {
+    if (this.referenceInput === this.inputBuf) return;
+    if (this.referenceTimer) clearTimeout(this.referenceTimer);
+    const input = this.inputBuf;
+    const version = ++this.referenceVersion;
+    this.referenceInput = input;
+    this.referenceSuggestions = [];
+    this.referenceError = null;
+    this.referencePending = Boolean(this.referenceProvider && activeReferenceQuery(input));
+    if (!this.referencePending) return;
+    this.referenceTimer = setTimeout(() => {
+      this.referenceTimer = null;
+      void this.referenceProvider!(input).then(items => {
+        if (!this.running || version !== this.referenceVersion || this.inputBuf !== input) return;
+        this.referenceSuggestions = items;
+      }).catch(error => {
+        if (version === this.referenceVersion && this.inputBuf === input) this.referenceError = error instanceof Error ? error.message : String(error);
+      }).finally(() => {
+        if (!this.running || version !== this.referenceVersion || this.inputBuf !== input) return;
+        this.referencePending = false;
+        this.paint();
+      });
+    }, 80);
   }
 
   private applySuggestion(fill: string): void {

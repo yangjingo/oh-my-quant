@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { buildOverviewPanelSections, collectOverviewSymbols, MARKET_INDICES, overviewProviderSymbol } from "../workspace/overview.ts";
 
 describe("runtime overview service", () => {
-  it("builds grouped portfolio, market, and source sections from overview rows", () => {
+  it("builds grouped portfolio and market with one refresh event from overview rows", () => {
     const portfolio = {
       symbols: [{ code: "510300.SH", name: "沪深300ETF" }],
       groups: [{ id: "group-1", name: "核心组合", symbolCodes: ["510300.SH"] }],
@@ -19,7 +19,7 @@ describe("runtime overview service", () => {
 
     expect(MARKET_INDICES.map((entry) => entry.code)).toEqual(["000001.SH", "399001.SZ", "000300.SH", "000905.SH", "399006.SZ"]);
     expect(portfolioSymbols.map((entry) => entry.code)).toEqual(["510300.SH"]);
-    expect(sections[0]).toEqual({
+    expect(sections[0]).toMatchObject({
       kind: "group",
       groupId: "group-1",
       title: "核心组合",
@@ -27,11 +27,9 @@ describe("runtime overview service", () => {
       collapsed: false,
     });
     expect(sections.some((section) => section.title === "Market")).toBe(true);
-    expect(sections.at(-1)).toMatchObject({
-      kind: "keyvalue",
-      title: "Source",
-      rows: expect.arrayContaining([{ label: "数据", value: "2026-06-30" }]),
-    });
+    expect(sections.some(section => section.title === "Source")).toBe(false);
+    expect(sections[0]!.refresh?.at).toMatch(/^2026-06-30 \d{2}:30$/);
+    expect(sections[0]!.refresh?.status).toBe("partial");
   });
 
   it("keeps open-fund identity when preparing provider symbols", () => {

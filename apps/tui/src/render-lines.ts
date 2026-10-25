@@ -1,4 +1,4 @@
-import { charWidth, sanitizeTerminalText, strWidth, truncate, wrap } from "./buffer.ts";
+import { sanitizeTerminalText, strWidth, truncate, wrap } from "./buffer.ts";
 import type { Style } from "./buffer.ts";
 import { S } from "./styles.ts";
 import { metricTone } from "../../../src/types/metric-semantics.ts";
@@ -20,7 +20,7 @@ export function buildConversationLines(msgs: UIMessage[], width: number): Render
   const lines: RenderLine[] = [];
   for (const msg of msgs) {
     const inputs = [width, msg.role, msg.text, msg.tool?.name, msg.tool?.label, msg.tool?.args,
-      msg.tool?.status, msg.tool?.result, msg.skill?.name, msg.skill?.label, msg.skill?.status];
+      msg.thinkingLive ? 1 : 0, msg.tool?.status, msg.tool?.result, msg.skill?.name, msg.skill?.label, msg.skill?.status];
     let cached = messageLayouts.get(msg);
     if (!cached || !cached.inputs.every((value, index) => value === inputs[index])) {
       cached = { inputs, lines: renderMsg(msg, width) };
@@ -48,7 +48,7 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
   } else if (msg.role === "thinking") {
     const bodyPrefix = "  ";
     const body = sanitizeTerminalText(msg.text ?? "").trim();
-    if (body) {
+    if (body || msg.thinkingLive) {
       for (const line of wrap(body, Math.max(1, w - strWidth(bodyPrefix)))) {
         lines.push({ text: `${bodyPrefix}${line}`, style: S.thinking });
       }
@@ -109,7 +109,7 @@ function renderDoctorReport(text: string, width: number): RenderLine[] {
 }
 
 function renderDoctorReportLine(rawLine: string, mode: "summary" | "credentials" | "hints"): RenderLine {
-  if (!rawLine) return { text: "", style: S.cream };
+  if (!rawLine) return { text: "", style: S.body };
   if (rawLine === "WhyJ Doctor" || rawLine === "Credentials" || rawLine === "Hints") {
     return { text: rawLine, style: S.goldB };
   }
@@ -141,7 +141,7 @@ function renderDoctorReportLine(rawLine: string, mode: "summary" | "credentials"
       ]);
     }
   }
-  return { text: rawLine, style: S.cream };
+  return { text: rawLine, style: S.body };
 }
 
 function looksLikeCompactReceipt(text: string): boolean {
@@ -163,7 +163,18 @@ function renderStructuredText(
   const prefix = "▏ ";
   const bodyWidth = Math.max(1, width - strWidth(prefix));
   const rawLines = sanitizeTerminalText(text).replace(/\r\n/g, "\n").split("\n");
+  let codeFence = false;
   for (let i = 0; i < rawLines.length;) {
+    const raw = rawLines[i] ?? "";
+    if (/^\s*```/.test(raw)) {
+      codeFence = !codeFence;
+      pushPrefixedRenderLine(lines, prefix, { text: raw, style: S.dim }, bodyWidth);
+      i++; continue;
+    }
+    if (codeFence) {
+      pushPrefixedRenderLine(lines, prefix, { text: raw, style: S.body }, bodyWidth);
+      i++; continue;
+    }
     const table = collectTableBlock(rawLines, i);
     if (table) {
       for (const row of renderTableBlock(table.rows, bodyWidth)) {
@@ -185,19 +196,23 @@ function pushPrefixedRenderLine(lines: RenderLine[], prefix: string, rendered: R
     lines.push({
       text: `${prefix}${row.text}`,
       segments: [
-        { text: prefix, style: S.cream },
-        ...(row.segments ?? [{ text: row.text, style: row.style ?? S.cream }]),
+        { text: prefix, style: S.body },
+        ...(row.segments ?? [{ text: row.text, style: row.style ?? S.body }]),
       ],
     });
   }
 }
 
 function renderStructuredPlainLine(rawLine: string): RenderLine {
-  if (!rawLine) return { text: "", style: S.cream };
+  if (!rawLine) return { text: "", style: S.body };
+  if (/^#{1,6}\s/.test(rawLine)) return { text: rawLine.replace(/^#{1,6}\s+/, ""), style: S.creamB };
   if (isSectionTitle(rawLine)) return { text: rawLine, style: S.chartTitle };
   if (/^-{3,}$/.test(rawLine.trim())) return { text: rawLine, style: S.tableRule };
   if (containsChartGlyph(rawLine)) return renderChartGlyphLine(rawLine);
-  return { text: rawLine, style: S.cream };
+  if (!rawLine.includes("**")) return { text: rawLine, style: S.body };
+  const segments = rawLine.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map(text =>
+    text.startsWith("**") && text.endsWith("**") ? { text: text.slice(2, -2), style: S.creamB } : { text, style: S.body });
+  return { text: segments.map(segment => segment.text).join(""), segments };
 }
 
 function isSectionTitle(rawLine: string): boolean {
@@ -410,7 +425,7 @@ function chartTokenStyle(token: string, label: string): Style {
 }
 
 function renderCompactReceiptLine(rawLine: string): RenderLine {
-  if (!rawLine) return { text: "", style: S.cream };
+  if (!rawLine) return { text: "", style: S.body };
   if (rawLine === "Compacted" || rawLine === "quant context kept" || rawLine === "retention map") {
     return { text: rawLine, style: S.tableHeader };
   }
@@ -428,43 +443,23 @@ function wrapRenderLine(line: RenderLine, maxWidth: number): RenderLine[] {
   if (!line.segments || line.segments.length === 0) {
     return wrapped.map((text) => ({ text, style: line.style }));
   }
-  const out: RenderLine[] = [];
-  let offset = 0;
-  for (const chunk of wrapped) {
-    const chunkWidth = strWidth(chunk);
-    out.push({ text: chunk, segments: sliceSegmentsByWidth(line.segments, offset, chunkWidth) });
-    offset += chunkWidth;
-  }
-  return out;
-}
-
-function sliceSegmentsByWidth(
-  segments: { text: string; style?: Style }[],
-  startWidth: number,
-  takeWidth: number,
-): { text: string; style?: Style }[] {
-  let skipped = 0;
-  let taken = 0;
-  const out: { text: string; style?: Style }[] = [];
-  for (const seg of segments) {
-    let segText = "";
-    let segWidth = 0;
-    for (const ch of seg.text) {
-      const cw = charWidth(ch);
-      if (skipped + segWidth + cw <= startWidth) {
-        segWidth += cw;
-        continue;
-      }
-      if (taken + cw > takeWidth) break;
-      segText += ch;
-      segWidth += cw;
-      taken += cw;
+  // wrap() normalizes spaces and drops the separator at a line break. Track
+  // source characters instead of adding visible widths (which loses punctuation
+  // and shifts emphasis after each skipped separator, especially with CJK).
+  const source = line.segments.flatMap(segment => [...segment.text].map(ch => ({ ch, style: segment.style })));
+  let cursor = 0;
+  return wrapped.map(text => {
+    const segments: NonNullable<RenderLine["segments"]> = [];
+    for (const ch of text) {
+      while (cursor < source.length && source[cursor]!.ch !== ch && source[cursor]!.ch === " ") cursor++;
+      const style = source[cursor]?.style;
+      cursor++;
+      const last = segments.at(-1);
+      if (last && last.style === style) last.text += ch;
+      else segments.push({ text: ch, style });
     }
-    skipped += strWidth(seg.text);
-    if (segText) out.push({ text: segText, style: seg.style });
-    if (taken >= takeWidth) break;
-  }
-  return out;
+    return { text, segments };
+  });
 }
 
 function renderHeaderTableLine(line: string): RenderLine {
@@ -474,7 +469,7 @@ function renderHeaderTableLine(line: string): RenderLine {
 
 function renderRetentionMapLine(line: string): RenderLine {
   const match = /^(.+?)\s{2,}([█░]+)\s{2,}(.+)$/.exec(line);
-  if (!match) return { text: line, style: S.cream };
+  if (!match) return { text: line, style: S.body };
   const [, label, meter, status] = match;
   const lower = status.toLowerCase();
   const meterStyle =

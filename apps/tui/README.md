@@ -8,8 +8,8 @@ WhyJ Quant's TUI is a zero-dependency frame-buffer terminal UI. It renders a fix
 
 - Header: animated WhyJ Quant mark and version.
 - Main: `◉ Analyzing` message stream, with an optional right-side `◫ Overview` dock.
-- Composer: natural-language input and a compact slash-command suggestion list rendered inside Composer.
-- Status: active model, data source, and research theme (the active local portfolio name), separated by ` · `. The portfolio uses bright cream; model, source and separators use muted text. All fields use regular weight. No icon, field labels, context usage, latency or turn count.
+- Composer: compact natural-language input, expanding for slash commands, explicit `@` file/session/evidence suggestions, multiline input and queued messages.
+- Status: cream `◈` model icon, active model, data source and active local portfolio, separated by ` · `. The portfolio uses cream; model, source and separators use muted text. Long model names truncate before source and portfolio identity.
 
 Overview and Status use one selected research portfolio. Open a group in `/portfolio` and choose `Research this portfolio`, or use `/portfolio select GROUP`. Saved groups remain available; only the active group's members are fetched and included in the default research context. The CLI research host rejects cross-portfolio comparison. Switching interrupts an active request and isolates late quote updates.
 

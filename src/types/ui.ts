@@ -57,11 +57,19 @@ export interface UIMessage {
   skill?: SkillState;
 }
 
-export type PanelSection =
+export interface OverviewRefreshView {
+  /** Local refresh attempt, never a shared trading/NAV date. Null before the first attempt. */
+  at: string | null;
+  status: "idle" | "fetching" | "success" | "partial" | "unavailable" | "timeout" | "error";
+  retryKey?: string;
+}
+
+export type PanelSection = (
   | { kind: "holdings"; title: string; rows: Holding[] }
   | { kind: "quotes"; title: string; rows: Quote[] }
   | { kind: "keyvalue"; title: string; rows: { label: string; value: string }[] }
-  | { kind: "group"; groupId: string; title: string; rows: Holding[]; collapsed: boolean };
+  | { kind: "group"; groupId: string; title: string; rows: Holding[]; collapsed: boolean }
+) & { /** Overview-wide presentation metadata, carried by the first section. */ refresh?: OverviewRefreshView };
 
 export interface ComposerStatus {
   kind: "info" | "error";

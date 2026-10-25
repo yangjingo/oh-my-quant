@@ -5,7 +5,8 @@ import { fetchOverviewQuotes, fetchOverviewHoldings, OverviewRequestPool } from 
 import type { OverviewQuoteFetcher, OverviewHoldingFetcher, OverviewRequestTiming } from "./overview-data.ts";
 import type { OverviewQuote, OverviewSymbolEntry } from "./overview-data.ts";
 import type { PanelSection } from "../../types/ui.ts";
-import { marketRefreshLoadingPanel, marketUnavailablePanel } from "./panel-service.ts";
+import { marketUnavailablePanel } from "./panel-service.ts";
+import { formatRefreshMinute } from "../../source/index.ts";
 import { perfLog } from "../../perf.ts";
 import { OverviewBudget } from "./overview-budget.ts";
 import { DEFAULT_TERMINAL_OPERATION_KEYBINDINGS } from "../../types/config.ts";
@@ -60,7 +61,7 @@ export class OverviewRefresh {
   private sections: PanelSection[] = [];
   private portfolioKey: string | undefined;
   private status: Outcome | "idle" | "fetching" = "idle";
-  private progress: { settled: number; total: number } | null = null;
+  private refreshAt: string | null = null;
   private readonly lastQuotes = new Map<string, OverviewQuote>();
   private readonly failedQuotes = new Set<string>();
 
@@ -97,22 +98,14 @@ export class OverviewRefresh {
 
   render(): void {
     if (this.disposed) return;
-    if (this.status === "idle") { this.options.onPanel?.(marketRefreshLoadingPanel(), true); return; }
     const retryKey = this.options.retryKey ? this.options.retryKey() : DEFAULT_TERMINAL_OPERATION_KEYBINDINGS.retryFailedQuotes[0];
-    const text = this.status === "fetching" ? (this.progress ? `fetching · ${this.progress.settled}/${this.progress.total} 已返回` : this.sections.length ? "fetching · 上次结果" : "fetching")
-      : this.status === "timeout" ? "timeout · 刷新超时"
-        : this.status === "error" ? "error · 刷新失败"
-          : this.status === "partial" ? "partial · 部分可用" : this.status === "unavailable" ? "unavailable · 无数据" : "";
-    const retained = this.sections.some(section => (section.kind === "quotes" || section.kind === "holdings" || section.kind === "group")
-      && section.rows.some(row => row.refreshState));
-    const panel: PanelSection[] = text ? [{ kind: "keyvalue", title: "Market Refresh", rows: [
-      { label: "status", value: text }, ...(retained ? [{ label: "数值", value: "stale · 保留上次结果，按标的日期" }] : []),
-      ...((this.status === "error" || this.status === "timeout") && this.progress
-        ? [{ label: "本轮", value: `${this.progress.settled}/${this.progress.total} 已返回 · 未返回项 ${retained ? "旧数据或 --" : "--"}` }] : []),
-      ...(this.failedQuotes.size ? [{ label: "重试", value: `仅重试失败标的 · ${retryKey ?? "快捷键已禁用"}` }] : []),
-    ] }] : [];
-    panel.push(...structuredClone(this.sections.length ? this.sections : this.status === "fetching" ? [] : marketUnavailablePanel()));
-    this.options.onPanel?.(panel, this.status === "fetching");
+    const panel = structuredClone(this.sections.length ? this.sections : marketUnavailablePanel());
+    panel[0]!.refresh = {
+      at: this.refreshAt,
+      status: this.status === "superseded" || this.status === "disposed" ? "idle" : this.status,
+      ...(this.failedQuotes.size && retryKey ? { retryKey } : {}),
+    };
+    this.options.onPanel?.(panel, this.status === "fetching" || this.status === "idle");
   }
 
   dispose(): void {
@@ -131,6 +124,7 @@ export class OverviewRefresh {
     const promise = new Promise<void>(resolve => { finish = resolve; });
     const run: RefreshRun = { generation: ++this.generation, controller: new AbortController(), promise,
       startedAt: performance.now(), requestedAt, superseded: false, failedOnly };
+    this.refreshAt = formatRefreshMinute(new Date());
     this.active = run;
     void this.perform(run).catch(() => {}).finally(() => {
       if (this.active === run) this.active = null;
@@ -160,7 +154,7 @@ export class OverviewRefresh {
         this.sections = buildOverviewPanelSections({ portfolio, marketQuotes: [], portfolioRows: [], pullMeta: { sources: [], asOfDates: [] } });
       }
       this.portfolioKey = portfolioKey;
-      this.progress = null; this.status = "fetching"; this.render();
+      this.status = "fetching"; this.render();
       signal.throwIfAborted();
       const portfolioSymbols = collectOverviewSymbols(portfolio);
       const validKeys = new Set([...MARKET_INDICES.map(entry => quoteKey("market", entry)), ...portfolioSymbols.map(entry => quoteKey("portfolio", entry))]);
@@ -178,8 +172,6 @@ export class OverviewRefresh {
       const meta = { sources: [], asOfDates: [], signal, pool };
       const marketQuotes = MARKET_INDICES.map(entry => seed("market", entry));
       const portfolioRows = portfolioSymbols.map(entry => seed("portfolio", entry));
-      const requestedRows = MARKET_INDICES.filter(entry => selected("market", entry)).length
-        + portfolioSymbols.filter(entry => selected("portfolio", entry)).length;
       const settled = new Set<string>();
       let publishQueued = false, publishedProgress = false;
       const publish = () => {
@@ -191,7 +183,6 @@ export class OverviewRefresh {
         const began = performance.now();
         this.sections = buildOverviewPanelSections({ portfolio, portfolioSymbols, marketQuotes, portfolioRows, pullMeta: meta, refreshedAt: new Date() });
         buildMs = (buildMs ?? 0) + performance.now() - began;
-        this.progress = { settled: settled.size, total: requestedRows };
         const publishStarted = performance.now();
         this.render(); publishMs = (publishMs ?? 0) + performance.now() - publishStarted;
         const hasCurrentResult = ([["market", marketQuotes], ["portfolio", portfolioRows]] as const)
@@ -280,17 +271,13 @@ export class OverviewRefresh {
       if (!this.disposed && this.active === run && !run.superseded) {
         this.status = outcome;
         if (!publishPartial?.()) {
-          let retainedRows = 0;
           this.sections = this.sections.map(section => {
             if (section.kind === "quotes" || section.kind === "holdings" || section.kind === "group") {
-              retainedRows += section.rows.filter(row => Number.isFinite(row.price) && Number.isFinite(row.pct)).length;
               return { ...section, rows: section.rows.map(row => Number.isFinite(row.price) && Number.isFinite(row.pct)
                 ? { ...row, refreshState: "stale" as const } : row) };
             }
             return section;
           });
-          this.sections = this.sections.map(section => section.kind === "keyvalue" && section.title === "Source"
-            ? { ...section, rows: section.rows.map(row => row.label === "覆盖" ? { ...row, value: `0 本轮可用 · ${retainedRows} 旧数据` } : row) } : section);
           for (const key of this.lastQuotes.keys()) this.failedQuotes.add(key);
           const publishStarted = performance.now();
           this.render(); publishMs = (publishMs ?? 0) + performance.now() - publishStarted;

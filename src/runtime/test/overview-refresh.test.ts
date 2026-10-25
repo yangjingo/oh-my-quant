@@ -81,7 +81,8 @@ it("uses the shared live pool and reports timings through the real AppRuntime en
   expect(measurements[0]!.requests).toHaveLength(6);
   expect(measurements[0]!.buildMs).toBeGreaterThanOrEqual(0); expect(measurements[0]!.publishMs).toBeGreaterThanOrEqual(0);
   const lines = buildOverviewLines(panels.at(-1)!, 48).map(line => line.text).join("\n");
-  expect(lines).toContain("000300.SH"); expect(lines).toContain("2026-09-11"); expect(lines).toContain("AKShare");
+  expect(lines).toContain("000300.SH"); expect(lines).not.toContain("2026-09-11"); expect(lines).not.toContain("AKShare");
+  expect(lines.match(/Refresh:/g)).toHaveLength(1);
 });
 
 it("supersedes a hung generation immediately, reads the latest portfolio, and rejects late publication", async () => {
@@ -143,13 +144,8 @@ it("keeps the last values visibly stale after failure or timeout and recovers on
   mode = "success"; await refresh.refresh();
   // Quotes and cleared stale state must match; the successful refresh owns a new timestamp.
   const expected = structuredClone(first);
-  const source = expected.find(section => section.kind === "keyvalue" && section.title === "Source");
-  expect(source?.kind).toBe("keyvalue");
-  if (source?.kind === "keyvalue") {
-    const updated = source.rows.find(row => row.label === "更新");
-    expect(updated).toEqual({ label: "更新", value: "2026-10-17 17:15" });
-    updated!.value = "2026-10-17 17:16";
-  }
+  expect(expected[0]!.refresh!.at).toBe("2026-10-17 17:15");
+  expected[0]!.refresh!.at = "2026-10-17 17:16";
   expect(panels.at(-1)).toEqual(expected);
   expect(measures.map(value => value.outcome)).toEqual(["success", "error", "timeout", "success"]);
 });
@@ -182,14 +178,14 @@ it("publishes usable rows before a slow request finishes and retains this genera
   await setImmediate();
   const interim = panels.at(-1)!;
   expect(interim.loading).toBe(true);
-  expect(JSON.stringify(interim.panel)).toContain("6/7 已返回");
-  expect(JSON.stringify(interim.panel)).toContain("6/7 可用");
+  expect(interim.panel[0]!.refresh?.status).toBe("fetching");
+  expect(interim.panel.flatMap(section => section.kind === "keyvalue" ? [] : section.rows).filter(row => Number.isFinite(row.price))).toHaveLength(6);
   expect(JSON.stringify(interim.panel)).toContain('"price":105');
   expect(measures).toHaveLength(0);
   await pending;
   expect(panels.at(-1)!.loading).toBe(false);
   expect(JSON.stringify(panels.at(-1)!.panel)).toContain("timeout");
-  expect(JSON.stringify(panels.at(-1)!.panel)).toContain("6/7 已返回 · 未返回项 --");
+  expect(panels.at(-1)!.panel[0]!.refresh?.status).toBe("timeout");
   expect(JSON.stringify(panels.at(-1)!.panel)).not.toContain("stale");
   expect(panels.at(-1)!.panel.slice(1)).toEqual(interim.panel.slice(1));
   expect(seen).toHaveLength(6);
@@ -224,7 +220,7 @@ it("labels retained previous quotes during partial refresh and rejects callbacks
   const interim = JSON.stringify(panels.at(-1));
   expect(interim).toContain('"price":200'); expect(interim).toContain('"price":100');
   expect(interim).toContain('"refreshState":"refreshing"');
-  expect(interim).toContain("1/5 已返回");
+  expect(panels.at(-1)![0]!.refresh?.status).toBe("fetching");
   const third = refresh.refresh();
   await Promise.all([second, third]);
   expect(measures.map(value => value.outcome)).toEqual(["success", "superseded", "success"]);
@@ -257,7 +253,7 @@ it("ends loading when a progressive panel callback throws instead of leaving an 
   const measures: OverviewRefreshMeasurement[] = [];
   let rejectProgress = true;
   const refresh = new OverviewRefresh({ intervalMs: 0, timeoutMs: 1000,
-    onPanel: (panel, loading) => { if (rejectProgress && loading && JSON.stringify(panel).includes("已返回")) throw new Error("view failed"); },
+    onPanel: (panel, loading) => { if (rejectProgress && loading && panel.some(section => section.kind !== "keyvalue" && section.rows.some(row => Number.isFinite(row.price)))) throw new Error("view failed"); },
     onMeasurement: value => { measures.push(value); }, poolFactory: (signal, budget) => new OverviewRequestPool({ signal, budget, fetcher: async () => bars() }),
   });
   disposables.push(refresh);
@@ -281,7 +277,7 @@ it("flushes settled rows waiting for a coalesced update when the batch fails", a
   disposables.push(refresh);
   await refresh.refresh();
   expect(panels).toHaveLength(3);
-  expect(JSON.stringify(panels.at(-1))).toContain("5/7 已返回");
+  expect(panels.at(-1)!.flatMap(section => section.kind === "keyvalue" ? [] : section.rows).filter(row => Number.isFinite(row.price))).toHaveLength(5);
   expect(JSON.stringify(panels.at(-1))).toContain("error");
   expect(measures[0]).toMatchObject({ outcome: "error", rows: 7, availableRows: 5 });
   const before = structuredClone(panels);
@@ -337,7 +333,7 @@ it("retains only on-time partial rows after synchronous work overruns the budget
   const panel = JSON.stringify(panels.at(-1));
   expect(panel).toContain('"price":100');
   expect(panel).not.toContain('"price":101');
-  expect(panel).toContain("1/5 已返回 · 未返回项 --");
+  expect(panels.at(-1)![0]!.refresh?.status).toBe("timeout");
   expect(panel).not.toContain("stale");
   overrun = false; await refresh.refresh();
   expect(measures[1]).toMatchObject({ outcome: "success", availableRows: 5 });
@@ -347,4 +343,31 @@ it("rejects invalid round budgets before starting refresh work", () => {
   for (const timeoutMs of [0, -1, 0.5, Number.NaN, Infinity, 2147483648]) {
     expect(() => new OverviewRefresh({ timeoutMs })).toThrow("timeout");
   }
+});
+
+it("timestamps the local attempt once, including loading and failed setup, without claiming quote freshness", async () => {
+  const panels: PanelSection[][] = [];
+  let release!: () => void;
+  let failSetup = false;
+  const refresh = new OverviewRefresh({ intervalMs: 0, timeoutMs: 1000,
+    loadPortfolio: () => { if (failSetup) throw new Error("PRIVATE"); return { symbols: [] }; },
+    onPanel: panel => panels.push(panel),
+    quoteFetcher: async entries => {
+      await new Promise<void>(resolve => { release = resolve; });
+      return entries.map(entry => ({ ...entry, price: 100, pct: 1 }));
+    }, holdingFetcher: async () => [],
+  });
+  disposables.push(refresh);
+  refresh.render();
+  expect(panels.at(-1)![0]!.refresh).toEqual({ at: null, status: "idle" });
+  setSystemTime(new Date(2026, 9, 25, 12, 30));
+  const pending = refresh.refresh();
+  expect(panels.at(-1)![0]!.refresh).toEqual({ at: "2026-10-25 12:30", status: "fetching" });
+  setSystemTime(new Date(2026, 9, 25, 12, 31));
+  release(); await pending;
+  expect(panels.at(-1)![0]!.refresh).toEqual({ at: "2026-10-25 12:30", status: "success" });
+  failSetup = true;
+  await refresh.refresh();
+  expect(panels.at(-1)![0]!.refresh).toMatchObject({ at: "2026-10-25 12:31", status: "error" });
+  expect(buildOverviewLines(panels.at(-1)!, 32).map(line => line.text).join("\n")).toContain("!");
 });
