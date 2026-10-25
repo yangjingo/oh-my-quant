@@ -10,11 +10,25 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class OnlineWindow {
+  public delegate bool EnumProc(IntPtr window, IntPtr parameter);
   [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc callback, IntPtr parameter);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr window, out Rect rect);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr window, IntPtr dc, uint flags);
   [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr window, int id);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+  public static IntPtr FindDialog(int process) {
+    IntPtr result = IntPtr.Zero;
+    EnumWindows((window, parameter) => {
+      uint owner; GetWindowThreadProcessId(window, out owner);
+      if (owner == process && GetDlgItem(window, 1) != IntPtr.Zero && GetDlgItem(window, 2) != IntPtr.Zero) {
+        result = window; return false;
+      }
+      return true;
+    }, IntPtr.Zero);
+    return result;
+  }
 }
 '@
 function Wait-For([scriptblock]$Condition, [string]$Description) {
@@ -41,8 +55,13 @@ function Capture-Window([IntPtr]$Window, [string]$Name) {
 # Only the generated test entry on a disposable account; never launch the application payload.
 $process = Start-Process -FilePath $Installer -PassThru -WindowStyle Hidden
 try {
-  Wait-For { $process.Refresh(); $process.MainWindowHandle -ne [IntPtr]::Zero } 'welcome window'
-  $window = $process.MainWindowHandle
+  # Process.MainWindowHandle excludes hidden windows. Locate this process's
+  # actual wizard by its dialog controls without changing window visibility.
+  Wait-For {
+    if ($process.HasExited) { throw "Entry exited before its welcome page: $($process.ExitCode)" }
+    [OnlineWindow]::FindDialog($process.Id) -ne [IntPtr]::Zero
+  } 'welcome window'
+  $window = [OnlineWindow]::FindDialog($process.Id)
   Capture-Window $window '01-welcome'
   $next = [OnlineWindow]::GetDlgItem($window, 1)
   if ($next -eq [IntPtr]::Zero) { throw 'Next button missing' }

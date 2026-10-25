@@ -74,6 +74,7 @@ test("real online executable verifies before launch, forwards arguments and prop
     assert.equal(await run("7"), 7);
     checks.push("child-exit-status");
     assert.ok(requests >= 6);
+    writeFileSync(join(evidence, "result.json"), JSON.stringify({ checks, requests, receipt, interactiveCancel: "pending" }, null, 2));
     if (process.env.GITHUB_ACTIONS === "true" && process.env.RUNNER_ENVIRONMENT === "github-hosted") {
       mode = "slow";
       writeFileSync(requested, "waiting");
@@ -89,6 +90,7 @@ test("real online executable verifies before launch, forwards arguments and prop
       assert.equal(readFileSync(marker, "utf8"), "existing application sentinel", "Cancellation launched the payload");
       checks.push("interactive-download-cancel");
     }
-    writeFileSync(join(evidence, "result.json"), JSON.stringify({ checks, requests, receipt }, null, 2));
+    writeFileSync(join(evidence, "result.json"), JSON.stringify({ checks, requests, receipt,
+      interactiveCancel: checks.includes("interactive-download-cancel") ? "passed" : "not-run" }, null, 2));
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
