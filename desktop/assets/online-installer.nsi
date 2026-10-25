@@ -39,6 +39,8 @@ download:
   Pop $R2
   StrCmp $R2 "OK" verify
   StrCmp $R2 "Cancelled" cancelled
+  ; INetC returns Terminated when cancelling a blocked transfer thread.
+  StrCmp $R2 "Terminated" cancelled
   DetailPrint "Download failed: $R2"
   IfSilent failed
   MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "Download failed: $R2.$\r$\nCheck your connection and retry, or use the complete offline installer." IDRETRY download

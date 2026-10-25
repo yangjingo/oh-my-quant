@@ -89,6 +89,10 @@ test("real online executable verifies before launch, forwards arguments and prop
       assert.equal(code, 0, "Interactive cancellation acceptance failed");
       assert.equal(readFileSync(marker, "utf8"), "existing application sentinel", "Cancellation launched the payload");
       checks.push("interactive-download-cancel");
+      mode = "valid";
+      assert.equal(await run(), 0, "A fresh attempt after cancellation must succeed");
+      assert.ok(readFileSync(marker, "utf8").includes("/S"));
+      checks.push("retry-after-cancel");
     }
     writeFileSync(join(evidence, "result.json"), JSON.stringify({ checks, requests, receipt,
       interactiveCancel: checks.includes("interactive-download-cancel") ? "passed" : "not-run" }, null, 2));

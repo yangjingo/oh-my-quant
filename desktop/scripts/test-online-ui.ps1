@@ -91,9 +91,9 @@ try {
   if (-not $process.WaitForInputIdle(10000)) { throw 'Welcome page did not become idle' }
   $window = [OnlineWindow]::FindDialog($process.Id)
   Capture-Window $window '01-welcome'
-  $next = [OnlineWindow]::GetDlgItem($window, 1)
-  if ($next -eq [IntPtr]::Zero) { throw 'Next button missing' }
-  [OnlineWindow]::PostMessage($window, 0x111, [IntPtr]1, $next) | Out-Null
+  $installButton = [OnlineWindow]::GetDlgItem($window, 1)
+  if ($installButton -eq [IntPtr]::Zero) { throw 'Install button missing' }
+  [OnlineWindow]::PostMessage($window, 0x111, [IntPtr]1, $installButton) | Out-Null
   Wait-For { (Get-Content -LiteralPath $Requested -Raw) -eq 'download started' } 'active download'
   # INetC disables the outer wizard's Cancel button and creates its own child.
   Wait-For { [OnlineWindow]::FindCancel($window) -ne [IntPtr]::Zero } 'enabled download Cancel button'
@@ -103,7 +103,7 @@ try {
   Wait-For { $process.HasExited } 'cancelled installer exit'
   if ($process.ExitCode -ne 2) { throw "Cancel must exit 2, got $($process.ExitCode)" }
   @{ installer = $Installer; sourceRevision = (git rev-parse HEAD); environment = 'GitHub-hosted Windows';
-    steps = @('capture actual welcome', 'Next', 'capture pending download', 'Cancel'); exitCode = $process.ExitCode
+    steps = @('capture actual welcome', 'Install', 'capture pending download', 'Cancel'); exitCode = $process.ExitCode
   } | ConvertTo-Json | Set-Content (Join-Path $evidence 'result.json')
 } catch {
   if ($window -and -not $process.HasExited) {
