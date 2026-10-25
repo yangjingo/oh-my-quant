@@ -5,48 +5,48 @@ description: Review PRs and their integration with current main, with reproducib
 
 # Review Skill
 
-目标：让改动更容易理解、验证和共同维护。读取适用的 `AGENTS.md`、相关模块文档及 [pr-skill](../pr-skill/SKILL.md)；沿用其交付规则，不重复建立审批或文档体系。方法依据与适用限制见 [参考材料](references/methods.md)，需要设计或解释流程时再读。
+Make changes easier to understand, verify, and maintain together. Read applicable AGENTS.md, relevant module docs, and [pr-skill](../pr-skill/SKILL.md). Reuse its delivery rules rather than creating another approval or documentation system. Read [methods and tradeoffs](references/methods.md) when explaining or adapting the review process.
 
-## 固定审查对象
+## Establish the Review Target
 
-- 记录远端 base SHA、每个 PR head SHA、目标分支和时间；区别本地 main、远端 main、PR 分支及未提交修改。拉取失败时可用远端 API 核对已有对象，明确限制，不能把旧 ref 当最新。
-- 保留其他人的工作；脏工作区用独立 worktree。评审只产生发现与本地复现材料，不自动修代码、发评论、合并或清理其他分支。
-- 先用一两句说明目标、关键假设和风险。以原 issue 的行为与非目标为准；缺少 issue 可以继续审查并标明缺口，不能凭 review 请求创建 issue。
+- Record remote base SHA, each PR head SHA, target branch, and observation time. Distinguish local main, remote main, PR branches, and uncommitted changes. If fetching fails, use the remote API where possible and disclose limits; do not present an old ref as current.
+- Preserve existing work; use an isolated worktree when needed. Review produces findings and local reproductions. It does not itself authorize fixes, public comments, merging, or branch cleanup.
+- State the objective, consequential assumptions, and risks briefly. Review against the issue's behavior and non-goals. A missing issue does not prevent review, but report the gap; a review request does not authorize creating an issue.
 
-## 从范围检查到行为验证
+## Inspect Scope, Then Verify Behavior
 
-1. **先看整体是否必要。** 检查完整 diff，再沿受影响的调用链追踪输入、状态所有者、持久化和消费方。按行为单元判断规模：一个功能必要的接线可以跨目录，独立 UI、存储或接口行为应拆分或重新明确范围。
-2. **保持简单。** 检查重复真源、为单个调用者增加的抽象、无当前需求的配置/依赖，以及功能撤销后的遗留调用。简化建议须指出具体维护或理解成本；不以个人偏好要求换架构、重命名或整库清理。
-3. **分别验证三件事。** 用 `git merge-tree --write-tree --name-only BASE HEAD` 检查文本冲突（0 为干净、1 为冲突、其他为执行失败）；对相互影响的 PR 检查共享接口和候选合并组合；最后核对最终 head 的 CI 与必要人工验收。无冲突不等于正确，有 checks 不等于全部通过。
-4. **用反例检查契约。** 根据变更选择取消/迟到结果、重复操作、损坏文件、过期编辑、恢复或升级等真实风险，不机械跑完整清单。核对新增功能是否复用了现有存储/生命周期契约。测试应区分原行为与预期行为；文档或机械变更不为凑数新增测试。
-5. **证据与结论同版本。** 记录命令、环境、结果及对应 SHA。复现于隔离数据，不调用真实付费服务替代本地验证。release gate、UI/安装验收沿用 pr-skill；只读 review 可复用已核实的最终提交 CI，并说明自己仅运行了哪些检查。候选组合、旧提交截图和作者自述各自标注，不能充当最终集成验证。
+1. **Question the overall change.** Read the full diff, then trace affected inputs, state ownership, persistence, and consumers. Judge scope by behavior: necessary integration can cross directories; independent UI, storage, or public-interface changes need separate scope.
+2. **Keep it simple.** Look for duplicated sources of truth, abstractions for one caller, unnecessary configuration or dependencies, and leftover callers of removed features. Explain the concrete maintenance cost; do not request architectural changes or broad cleanup based on taste alone.
+3. **Separate three checks.** Use `git merge-tree --write-tree --name-only BASE HEAD` for textual conflicts: exit 0 is clean, 1 means conflicts, other codes mean execution failure. For interacting PRs, inspect shared interfaces and candidate combinations. Then verify final-head CI and required manual acceptance. A clean merge is not correctness, and the presence of checks is not a pass.
+4. **Use relevant counterexamples.** Select cancellation, late results, duplicate operations, damaged files, stale edits, recovery, or upgrade cases according to the change. Check reuse of existing storage and lifecycle contracts. Tests should distinguish the failure from intended behavior; do not add tests merely to count them for prose or mechanical changes.
+5. **Bind evidence to the revision.** Record commands, environment, results, and SHA. Reproduce with isolated data rather than paid services by default. Follow pr-skill for release gates and UI/installer acceptance. Read-only reviews may reuse verified final-commit CI, stating which checks were run locally. Label candidate combinations, old captures, and author reports separately.
 
-## CI 与合并证据
+## CI and Integration Evidence
 
-- 用一行记录每项必要检查：`workflow/job · 触发事件 · head/base/实际受测 SHA · 环境 · 状态 · 运行链接`。分别列成功、失败、等待、取消、跳过和缺失；先读触发条件与失败日志，不能把“没有运行”算通过，也不能把 PR policy 通过当行为正确。
-- 按证据区分产品回归、基线已有失败、检查配置/基础设施失败与原因待查。相似报错不足以认定同根因；超时不自动等于偶发波动。重跑须说明理由并保留首次失败，不用反复重跑代替定位。
-- 区分 PR head、候选合并版本与合入 main 后的运行；某项 CI 通过不能代表另一工作流或安装验收通过。按变更风险选择适用检查；缺失必要证据就说明尚未就绪，不临时降低门槛。实际规则以仓库配置为准，技能文本不等于 branch protection。
-- 多 PR 先列依赖与顺序。合入后核对 main 的实际结果，后续 PR 更新 base 再检查；依赖尚未解除时保留父分支与 worktree，清理沿用 pr-skill。合入后的失败单独追踪，不能用合入前的绿灯覆盖。
+- Record required checks as `workflow/job · event · head/base/tested SHA · environment · status · run link`. Separate success, failure, pending, cancelled, skipped, and missing. Inspect triggers and logs; absent runs and passing PR policy do not prove product behavior.
+- Distinguish product regressions, baseline failures, check/infrastructure failures, and unknown causes. Similar errors do not prove a shared cause; a timeout is not automatically a flake. Explain reruns and preserve the original failure.
+- Distinguish PR-head, merge-candidate, and post-merge main runs. Apply checks appropriate to the change; report missing evidence without weakening the gate. Actual repository settings enforce merge rules, not skill prose.
+- For multiple PRs, establish dependencies and order. After a merge, verify main and refresh the next PR's base. Retain branches and worktrees while dependencies remain; cleanup follows pr-skill. Track post-merge failures separately.
 
-## 只留下值得处理的发现
+## Report Actionable Findings
 
-每条发现给出：`[P级别] 简短标题 → 触发条件 → 实际影响 → 当前 head 文件/行号 → 复现或可追踪证据 → 最小修复方向`。给作者修复目标，不替作者展开一整套实现。
+Each finding includes `[Priority] Short title → trigger → impact → current-head file/line → reproduction or evidence → smallest sufficient fix`. Explain the repair objective without prescribing an entire implementation.
 
-- P0：立即阻止交付的广泛严重故障；P1：高影响且正常使用可触发；P2：具体条件下应修复的正确性问题；P3/Nit：非阻塞维护建议。按后果与触发面判断，不按行数或语气判断。
-- 分开报告代码缺陷、集成/验证阻塞、已有问题及待验证猜测。先核对基线和设计意图；不把故意删除的功能当回归，也不把基础设施失败归咎于产品改动。
-- 默认省略纯风格意见；必要的非阻塞建议合并为一小段。没有确认的问题就写“本次范围内未发现可确认缺陷”，同时列验证限制，不制造问题数量。
-- 描述与评论沿用 [AGENTS 写作约定](../../../AGENTS.md#writing-style)，先写发现及影响，再给证据与最小修复方向。英文优先和 Issue/PR 篇幅都是建议，不因语言选择或超过建议字数单独阻塞；缺少必要问题说明或验证证据时指出具体缺口。
+- P0: widespread severe failure that immediately blocks delivery. P1: high-impact failure under normal use. P2: correctness issue under concrete conditions. P3/Nit: non-blocking maintenance advice. Judge consequences and exposure, not line count or tone.
+- Separate defects, integration/verification blockers, pre-existing issues, and unverified suspicions. Check baseline behavior and design intent; intentional feature removal is not automatically a regression.
+- Omit purely stylistic comments by default. Group worthwhile non-blocking advice. If no defect is confirmed, say so within the reviewed scope and state verification limits; do not manufacture findings.
+- Follow [AGENTS writing conventions](../../../AGENTS.md#writing-style): finding and impact first, then evidence and minimal fix. English preference and description length are guidance, not independent merge blockers.
 
-## 多人协作与收敛
+## Collaboration and Convergence
 
-- 给每个行为单元一个明确修复负责人；共享接口由相关维护者对齐，避免多人同时改同一真源。合并次序根据真实依赖决定，后合入者在更新后的 main 上复验。
-- 评论针对代码与可观测后果，不推断作者能力或动机。作者可修复，也可用契约或反例说明为何不改；异议保留理由，不用投票替代证据。
-- 首轮尽量集中报告同类问题及已检查范围。复审默认看新 diff、受影响调用链和此前发现；没有新证据，不反复扩大范围。多轮仍不收敛时明确尚存分歧，提出缩小 PR 或由维护者裁决，不能为轮次上限自动批准。
-- 不默认启动多个 Agent。已获授权的并行 review 按风险域分工，由一位汇总者去重、核实和统一结论；AI 结论不冒充人类批准。
-- 确认的重复缺陷优先转成最小回归测试或现有静态检查；少量跨次稳定约束进入技能或模块文档。不要把每次事故堆进 AGENTS.md。
+- Assign a clear repair owner for each behavior. Coordinate shared interfaces; avoid simultaneous edits to the same source of truth. Later PRs verify against the updated main.
+- Discuss code and observable consequences, not author ability or motives. Authors may fix or explain why the contract or counterexample does not apply. Resolve disagreement with evidence rather than votes.
+- Consolidate related findings in the first pass. Re-review the new diff, affected paths, and prior findings without repeatedly expanding scope absent new evidence. Persistent disagreement calls for a smaller PR or maintainer decision, not automatic approval after a round limit.
+- Do not start multiple agents by default. When parallel review is authorized, divide by risk area and use one coordinator to deduplicate and verify findings. AI conclusions are not human approvals.
+- Turn recurring confirmed defects into focused regression tests or existing static checks. Keep only stable reusable constraints in skills or module docs; do not append every incident to AGENTS.md.
 
-## 交付
+## Delivery
 
-先列发现，再给简短 PR 表：head、相对 main 的冲突、最终提交检查、结论与下一步。多 PR 时补依赖/合并顺序；分别说明“文本可合并”“已验证范围”“交付仍缺什么”。
+Lead with findings, then a concise PR summary: head, conflicts against main, final-revision checks, conclusion, and next step. For multiple PRs, include dependency order. Distinguish textual mergeability, verified behavior, and missing delivery evidence.
 
-末尾写明未运行项。head/base 变化后重新核对受影响证据；旧结论保留其 SHA。完成 review 不等于完成修复、批准或合并。
+List unrun checks. Refresh affected evidence when head or base changes; retain the SHA for historical conclusions. Completing review does not complete repair, approval, or merging.

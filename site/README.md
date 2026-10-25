@@ -2,9 +2,11 @@
 
 [正式官网](https://oh-my-quant.vercel.app) · [English](https://oh-my-quant.vercel.app/en/) · [Blog](https://oh-my-quant.vercel.app/blog/)
 
-官网与 CLI 在同一仓库维护，`site/` 是独立的静态部署单元。视觉真源是根目录 [DESIGN.md](../DESIGN.md)，产品文案以 [README](../README.md)、[配置参考](../docs/quant-harness/configuration.md) 和 [Quant UI/UX](../docs/quant-harness/quant-uiux.md) 为依据。
+官网与 CLI 在同一仓库维护，`site/` 是独立的静态部署单元。视觉真源是根目录 [DESIGN.md](../DESIGN.md)，产品文案以 [README](../README.md)、[配置参考](../docs/agent-runtime/configuration.md) 和 [Quant UI/UX](../docs/quant-harness/uiux.md#uiux) 为依据。
 
 ## 为什么这样维护
+
+产品文案按[产品指南](../docs/prd.md#scope)区分两种形态：Desktop 面向 Windows/macOS 用户，CLI/TUI 面向 Linux 专业用户并延续已有基础。Web 是共享界面及开发/验证入口，官网是公开展示。下载区只展示实际发布的平台；当前 Windows 包不代表 macOS 已交付。既有 CLI 下载入口的下线记录是网站展示决策，不表示 CLI 产品被取消；恢复该入口须作为网站改动单独交付。
 
 - **同仓库、独立目录**：产品功能、安装步骤与官网内容可以在一次 PR 中更新；不复制另一套产品规范。
 - **功能分支开发，合并回 main**：使用 `feat/website-*` 做短期开发与 Vercel Preview。不要用长期 `website` 分支保存第二份产品，否则设计和功能说明容易漂移。
@@ -15,6 +17,7 @@
 
 ```sh
 node site/scripts/prepare-blog.mjs # Run from repository root after article edits; requires Bun
+node site/scripts/prepare-desktop-blog.mjs # Approved HTML article; uses root linkedom dependency
 bun run --cwd site dev
 bun run --cwd site build
 bun run --cwd site preview
@@ -38,12 +41,15 @@ bun run --cwd site preview
 | `public/app.js` | 标签切换、演示偏好、导航与复制命令 |
 | `public/fonts/` | 自托管 Geist / Geist Mono 及 SIL OFL 许可；页面不请求第三方字体 |
 | `scripts/render.mjs` | 路由、静态语言渲染和浏览器交互文案；缺失翻译会使构建失败 |
-| `scripts/build.mjs` | 生成四个中英文入口和一篇中文文章，复制经校验的公开资产到 `dist/` |
+| `scripts/article.mjs` | 显式登记两篇中文文章的源文件、路径与哈希校验 |
+| `scripts/prepare-desktop-blog.mjs` | 将已确认的架构文章 HTML 适配到生产 CSP，保留原稿作为真源 |
+| `scripts/build.mjs` | 生成四个中英文入口和两篇中文文章，复制经校验的公开资产到 `dist/` |
 | `scripts/prepare-blog.mjs` | 从 Markdown 和已认可的阅读模板生成文章与哈希清单 |
 | `content/blog/vibe-repo-ops/` | 生成内容，不手工编辑；独立上传 site 时无需访问根目录 docs |
-| `scripts/article.mjs` | 检查文章文件哈希，本地存在稿件时同时拒绝过期的生成版本 |
 | `scripts/serve.mjs` | 仅本机开发/预览服务器，不作为生产服务 |
 | `vercel.json` | 构建路径、安全响应头与字体缓存 |
+
+新文章默认使用 Markdown 与现有阅读模板；架构文章的单文件 HTML 是已确认稿件的例外。两种流程都只保留一份正文真源，并生成带来源/资产哈希的独立文章包。
 
 字体来自 Google Fonts 的 Geist v5 / Geist Mono v6，使用固定资源版本。品牌文字采用 DESIGN 规定的 Geist，不使用旧图片 Logo 的衬线字体。
 
@@ -66,6 +72,7 @@ bun run --cwd site preview
 | 首页 | `/` | `/en/` |
 | Blog | `/blog/` | `/en/blog/` |
 | Repo Ops 文章 | `/blog/vibe-repo-ops/` | 英文列表标注 Chinese 并链接中文原文，尚未发布译文 |
+| Desktop 架构文章 | `/blog/agent-desktop-lifecycle/` | 英文列表标注 Chinese；已确认 HTML 为真源，不另写一份译稿 |
 
 页面在构建时生成完整的语言内容，直接访问或禁用 JavaScript 仍能阅读。语言按钮切换同一页面的另一种语言，并保留章节锚点；站内导航保持当前语言。`html lang`、页面标题、description、hreflang、无障碍标签和交互提示同步翻译。URL 决定语言，不依赖浏览器存储；演示偏好在两种语言之间共用。
 
@@ -83,7 +90,7 @@ Feature 目录指向首页已有的自然语言研究、因子与回测、报告
 
 ### 工作台预览
 
-工作台展示以 `templates/home.html` 的 `#workspace` 为交互内容来源。README 和 `docs/slides.html` 共用 `docs/assets/workspace-preview.png`，不另外绘制 CLI 或维护第二份示例。`docs/assets/workspace-design-reference.png` 只是历史配色与留白参考，不作为当前产品预览。
+工作台展示以 `templates/home.html` 的 `#workspace` 为交互内容来源。官网产品预览由 `site/public/workspace-preview.png` 维护，README、DESIGN 和 `docs/slides.html` 引用同一文件，不另外绘制 CLI 或维护第二份示例。网站截图归属 `site/public/`；`docs/assets/` 不保存网站预览或历史界面截图。验收截图仍放在忽略的 `output/` 或外部附件中。
 
 更新静态预览时：访问英文 `/en/`，清除 `whyj-quant-site-preferences-v1` 后刷新，选择 Market research、Overview 开启、red-up，并关闭动效；桌面视口设为 1440px，再截取 `#workspace`。不裁掉 Interactive demo / Synthetic data 标记。刷新同一 PNG 后，README 与幻灯片同时更新；不要增加根目录生成脚本。页面翻译、用户切换场景/偏好和响应式重排是预期变化，不应从某个保存了偏好的浏览器状态制作默认截图。
 

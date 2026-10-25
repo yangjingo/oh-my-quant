@@ -77,6 +77,6 @@ Pi AI / Agent Core 的具体版本以 [依赖声明](../../package.json)为准�
 
 - [Kernel 适配](../../src/agent/src/kernel/loop.ts)与[操作生命周期](../../src/agent/src/session-runtime/harness/operation.ts)。
 - [Session 契约](../../src/agent/src/session-contracts.ts)与[独立宿主回归](../../src/agent/test/session-dependencies.test.ts)。
-- [现行 Harness](../quant-harness/README.md)、[模块架构](../quant-harness/module-architecture.md)与[系列证据范围](./README.md)。
+- [现行 Harness](../quant-harness/README.md)、[模块架构](../agent-runtime/architecture.md)与[系列证据范围](./README.md)。
 
 [下一篇：一次数据源故障，为什么需要三种成功定义 →](./02-data-contracts.md)

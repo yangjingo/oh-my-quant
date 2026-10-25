@@ -19,7 +19,7 @@
 - 保留桌面首启 AKShare 默认值、固定随包 Python、Windows Git 目录别名、多行安全粘贴、中文长输入和终端尺寸/窗口状态修复；适配到当前 runtime 分组和测试目录。
 - 保留主分支最新的 Pi 1.2、SDK 按需加载、Node 分包和模块边界，不将桌面分支的旧 CLI 快照恢复为现行实现。
 - 文档统一归入 `docs/agent-runtime/` 与 `docs/quant-harness/`，完整量化应用包括数据、计算、执行、报告与 UI/UX；博客直接记录取舍，删除旧稿和归档副本。
-- 新增 [桌面维护文档](./docs/quant-harness/desktop.md)。运行包、个人工作区和本地验收输出不进入源码提交。
+- 新增 [桌面维护文档](./README.md#quick-start)。运行包、个人工作区和本地验收输出不进入源码提交。
 
 
 ### Runtime

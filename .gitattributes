@@ -1,4 +1,5 @@
 # Preserve reproducible article/template bytes across Windows and Linux.
+docs/blog/agentic/agent-desktop-lifecycle.html -text
 docs/blog/agentic/vibe-repo-ops-merged-draft.md text eol=lf
 docs/blog/agentic/images/*.svg text eol=lf
 site/public/icons.svg text eol=lf
