@@ -12,7 +12,7 @@ import { normalizeSymbol } from "../../../market/symbols.ts";
 import type { LiveBarsFetchResult } from "../../../source/index.ts";
 import { fetchLiveBars } from "../../data/source-runtime.ts";
 import { loadSettings, savePanelPortfolio, saveSettings } from "../../../storage/index.ts";
-import { buildOverviewLines } from "../../../tui/src/overview-render.ts";
+import { buildOverviewLines } from "../../../../apps/tui/src/overview-render.ts";
 import type { OverviewRefreshMeasurement } from "../../workspace/overview-refresh.ts";
 import { publicOverviewPortfolio } from "./public-overview-fixture.ts";
 import { publicOverviewEvidence, type PublicOverviewEvidence } from "./public-overview-evidence.ts";
@@ -107,7 +107,7 @@ try {
   const codeFiles = ["src/app-runtime.ts", "src/runtime/workspace/overview-refresh.ts", "src/runtime/workspace/overview-data.ts", "src/source/src/sources.ts", "src/source/src/source-providers.ts",
     "src/source/src/akshare.ts", "src/source/src/akshare-python.ts", "src/source/src/akshare-scripts.ts", "src/source/src/akshare-global-bars.ts", "src/source/src/eastmoney-fund-nav.ts",
     "src/source/src/sina-a-history.ts", "src/source/src/sina-global-history.ts", "src/source/src/sina-history-payload.ts", "src/source/src/http.ts", "src/source/src/vendor/sina-history-decoder.js",
-    "src/runtime/data/source-runtime.ts", "src/market/symbols.ts", "src/tui/src/overview-render.ts", "src/runtime/dev/overview/measure-public-overview-runtime.ts", "src/runtime/dev/overview/public-overview-fixture.ts", "src/runtime/dev/overview/public-overview-evidence.ts"];
+    "src/runtime/data/source-runtime.ts", "src/market/symbols.ts", "apps/tui/src/overview-render.ts", "src/runtime/dev/overview/measure-public-overview-runtime.ts", "src/runtime/dev/overview/public-overview-fixture.ts", "src/runtime/dev/overview/public-overview-evidence.ts"];
   const artifact = { version: 1, measuredAt: new Date().toISOString(), bun: Bun.version, platform: process.platform,
     mode: "actual-public-akshare-app-runtime-overview", portfolio: portfolio.map(item => item.code),
     defaultMarketIndices: MARKET_INDICES.length, expectedUniqueRequests, expectedRows, concurrency: 8, samples, timeoutMs,

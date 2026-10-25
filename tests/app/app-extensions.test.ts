@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { AppRuntime, createInitialAppState } from "../../src/app-runtime.ts";
-import { QuantTui } from "../../src/tui/src/tui.ts";
+import { QuantTui } from "../../apps/tui/src/tui.ts";
 import { RuntimeExtensions } from "../../src/runtime/extensions.ts";
 import { loadSettings, resolveSkillsDir, saveSettings } from "../../src/storage/index.ts";
 import { statisticsExtension } from "../../src/extensions/test/fixtures/statistics-extension.ts";

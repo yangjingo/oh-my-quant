@@ -12,7 +12,7 @@ import type { OverviewRefreshMeasurement } from "../../workspace/overview-refres
 import { fetchLiveBars } from "../../data/source-runtime.ts";
 import type { LiveBarsFetchResult } from "../../../source/index.ts";
 import { loadSettings, savePanelPortfolio, saveSettings } from "../../../storage/index.ts";
-import { buildOverviewLines } from "../../../tui/src/overview-render.ts";
+import { buildOverviewLines } from "../../../../apps/tui/src/overview-render.ts";
 import { publicOverviewPortfolio } from "./public-overview-fixture.ts";
 import { publicOverviewEvidence, type PublicOverviewEvidence } from "./public-overview-evidence.ts";
 
@@ -66,7 +66,7 @@ try {
     && item.rows === expectedSymbols.length && item.availableRows === expectedSymbols.length && item.rowIdentitiesMatch
     && item.requests.length === new Set(expectedSymbols).size && item.quoteAudit.length === expectedSymbols.length && item.quoteAudit.every(check => check.passed));
   const codeFiles = ["src/app-runtime.ts", "src/runtime/workspace/overview-refresh.ts", "src/runtime/workspace/overview-data.ts", "src/runtime/data/source-runtime.ts",
-    "src/source/src/sources.ts", "src/tui/src/overview-render.ts", "src/runtime/dev/overview/public-overview-fixture.ts", "src/runtime/dev/overview/public-overview-evidence.ts", "src/runtime/dev/overview/measure-public-overview-periodic.ts"];
+    "src/source/src/sources.ts", "apps/tui/src/overview-render.ts", "src/runtime/dev/overview/public-overview-fixture.ts", "src/runtime/dev/overview/public-overview-evidence.ts", "src/runtime/dev/overview/measure-public-overview-periodic.ts"];
   const artifact = { version: 1, mode: "actual-public-akshare-app-runtime-overview", schedule: "one-runtime-production-60000ms", passed,
     measuredAt: new Date().toISOString(), samples, intervalMs, timeoutMs, portfolio: portfolio.map(item => item.code),
     expectedRows: expectedSymbols.length, expectedUniqueRequests: new Set(expectedSymbols).size, schedulePassed, interrupted, watchdogExpired,
