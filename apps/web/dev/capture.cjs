@@ -48,11 +48,16 @@ async (page) => {
     check(await input.inputValue() === '草稿 B', 'Draft B must restore');
     await input.press('Enter');
     await page.getByRole('button', { name: '停止生成', exact: true }).waitFor();
+    await input.fill('Keep this next question as a draft'); await input.press('Enter');
+    check(await page.getByRole('button', { name: '停止生成', exact: true }).isVisible(), 'Enter must not cancel a running task');
+    check(await input.inputValue() === 'Keep this next question as a draft', 'Running Enter preserves draft');
     await capture('05-thinking');
     await page.getByRole('button', { name: /回撤结构研究.*300308/ }).click();
     await page.getByRole('button', { name: /结构跟踪.*002048/ }).click();
     await page.getByRole('button', { name: '停止生成', exact: true }).click();
     await page.getByText('已停止示例运行。', { exact: true }).waitFor();
+    check(await input.inputValue() === 'Keep this next question as a draft', 'Explicit stop preserves draft');
+    check(await page.locator('.turn-user').count() === 1, 'Stopping must not submit the next draft when the button changes mode');
     await capture('06-cancelled');
     await input.fill('/unsupported'); await input.press('Enter');
     check(await input.inputValue() === '/unsupported', 'Unsupported command must preserve draft');
@@ -60,12 +65,16 @@ async (page) => {
     await input.fill('');
     await page.getByRole('button', { name: /回撤结构研究.*300308/ }).click();
     await page.getByRole('button', { name: '收起会话', exact: true }).click();
-    await page.getByRole('button', { name: '研究报告 ↗', exact: true }).click();
-    await page.getByRole('heading', { name: '研究报告', exact: true }).waitFor();
+    await page.getByRole('button', { name: /研究报告.*个版本/ }).click();
+    await page.getByRole('heading', { name: '研究成果', exact: true }).waitFor();
+    await page.getByRole('button', { name: '对照最近两个版本的标识' }).click();
+    await page.getByRole('region', { name: '版本标识对照' }).waitFor();
     await capture('07-report');
-    await page.getByRole('button', { name: '证据', exact: true }).click();
-    await page.getByText('ev-news', { exact: true }).waitFor();
+    await page.getByRole('tab', { name: /证据/ }).click();
+    await page.getByRole('heading', { name: '公告核验（示例缺失）', exact: true }).waitFor();
     await capture('08-evidence');
+    await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+    await page.getByRole('button', { name: '本地合成 · 示例', exact: true }).click();
     await page.getByRole('button', { name: '数据源', exact: true }).click();
     await page.getByRole('combobox', { name: '数据源', exact: true }).selectOption('akshare');
     await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
@@ -75,6 +84,9 @@ async (page) => {
     await page.getByRole('combobox', { name: '数据源', exact: true }).selectOption('demo');
     await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
+    check(await page.locator('#overview').count() === 0, 'Narrow breakpoint closes retained overview');
+    await page.waitForFunction(() => { const input = document.querySelector('#input'); return input.scrollHeight <= input.clientHeight + 1; });
+    await capture('10-resized-mobile');
     await page.reload();
     await input.waitFor();
     await capture('10-mobile');
@@ -92,7 +104,15 @@ async (page) => {
     check(await input.isDisabled(), 'Default entry must refuse absent Host');
     check(await page.getByText('中际旭创', { exact: true }).count() === 0, 'Default entry must contain no sample data');
     await capture('13-disconnected');
+    await page.getByRole('button', { name: '模型未连接', exact: true }).click();
+    await page.getByRole('textbox', { name: '模型 ID', exact: true }).fill('not-saved-model');
+    await page.getByRole('button', { name: '保存偏好', exact: true }).click();
+    await page.locator('.error-feedback').waitFor();
+    check(await page.locator('.error-feedback').innerText() !== '', 'Failure is visible inside the dialog');
+    check(await page.getByRole('textbox', { name: '模型 ID', exact: true }).inputValue() === 'not-saved-model', 'Rejected save retains input');
+    check(await page.locator('.operation-feedback:not(.error-feedback)').count() === 0, 'Rejected save must not claim success');
+    await capture('14-rejected-preference');
     check(errors.length === 0, errors.join('\n'));
-    return { captures: 13, errors, viewports: ['1440x960', '390x844'], result: 'passed' };
+    return { captures: 15, errors, viewports: ['1440x960', '390x844'], result: 'passed' };
   } finally { page.off('pageerror', onError); page.off('console', onConsole); }
 }

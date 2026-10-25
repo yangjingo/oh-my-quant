@@ -69,6 +69,10 @@ export function createWorkbenchStore(client: WorkbenchClient) {
         if (event.identity.workspaceId !== snapshot.identity.workspaceId) return;
         const previousRun = snapshot.identity.runId;
         const eventRun = event.identity.runId;
+        if (previousRun && eventRun === null && event.type === "state") {
+          report(new Error("收到缺少运行标识的状态，当前研究状态未改变。请重新连接以核对。"));
+          return;
+        }
         const runKey = (run: string) => JSON.stringify([event.identity.workspaceId, event.identity.sessionId, run]);
         if (eventRun && retiredRuns.has(runKey(eventRun))) return;
         if (eventRun !== previousRun) {
@@ -97,9 +101,9 @@ export function createWorkbenchStore(client: WorkbenchClient) {
     },
     async rename(title: string) {
       const id = view.selected;
-      if (!id) return;
+      if (!id) throw new Error("请先选择会话。");
       try { await client.renameSession(id, title); publish({ sessions: await client.workspaces() }); }
-      catch (error) { report(error); }
+      catch (error) { report(error); throw error; }
     },
     async submit(text: string): Promise<boolean> {
       const snapshot = view.snapshot;
@@ -119,8 +123,9 @@ export function createWorkbenchStore(client: WorkbenchClient) {
       catch (error) { if (view.selected === id) report(error); }
     },
     async preferences(preferences: Preferences) {
+      publish({ error: null });
       try { await client.updatePreferences(preferences); publish({ preferences: await client.preferences() }); if (view.selected) await select(view.selected); }
-      catch (error) { report(error); }
+      catch (error) { report(error); throw error; }
     },
     clearError: () => publish({ error: null }),
   };
