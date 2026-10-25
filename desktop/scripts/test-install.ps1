@@ -28,7 +28,10 @@ $sentinel = Join-Path $dataDir 'installer-acceptance.txt'
 $marker = [Guid]::NewGuid().ToString()
 Set-Content -LiteralPath $sentinel -Value $marker -NoNewline
 function Assert-InstalledApp {
-  if (-not (Test-Path -LiteralPath $exe)) { throw "Installed executable missing: $exe" }
+  if (-not (Test-Path -LiteralPath $exe)) {
+    Get-InstalledApp | Select-Object DisplayName, DisplayVersion, InstallLocation | ConvertTo-Json | Write-Host
+    throw "Installed executable missing: $exe"
+  }
   if ((Get-InstalledApp).Count -ne 1) { throw 'Per-user uninstall registration missing or duplicated.' }
   if ((Get-InstalledApp)[0].DisplayVersion -ne $version) { throw 'Registered version does not match the installer.' }
   if ((Get-Content -LiteralPath $sentinel -Raw) -ne $marker) { throw 'Research data changed during installation.' }

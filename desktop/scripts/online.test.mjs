@@ -54,6 +54,9 @@ test("real online executable verifies before launch, forwards arguments and prop
     const run = (exit = "0") => new Promise((resolve, reject) => {
       const child = spawn(receipt.output, ["/S", "/currentuser", "/D=D:\\安装 验收\\WhyJ Quant"], {
         env: { ...process.env, WHYJ_FIXTURE_MARKER: marker, WHYJ_FIXTURE_EXIT: exit }, windowsHide: true, stdio: "ignore",
+        // NSIS requires /D last and unquoted, even with spaces. Node's default
+        // quoting would hide the original parameter-loss bug in this fixture.
+        windowsVerbatimArguments: true,
       });
       const timer = setTimeout(() => { child.kill(); reject(new Error("Online fixture timed out")); }, 25000);
       child.once("error", error => { clearTimeout(timer); reject(error); });
@@ -69,7 +72,7 @@ test("real online executable verifies before launch, forwards arguments and prop
     mode = "valid";
     assert.equal(await run(), 0);
     const args = readFileSync(marker, "utf8");
-    assert.ok(args.includes("/S") && args.includes("/currentuser") && args.includes("安装 验收\\WhyJ Quant"));
+    assert.ok(args.includes("/S") && args.includes("/currentuser") && args.endsWith("/D=D:\\安装 验收\\WhyJ Quant"));
     checks.push("verified-download-and-arguments");
     assert.equal(await run("7"), 7);
     checks.push("child-exit-status");

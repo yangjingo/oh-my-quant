@@ -13,8 +13,6 @@ VIAddVersionKey /LANG=1033 "FileVersion" "${APP_VERSION}"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "WhyJ Quant contributors"
 
 !include "MUI2.nsh"
-!include "FileFunc.nsh"
-!include "LogicLib.nsh"
 !include "StdUtils.nsh"
 
 !define MUI_ICON "${APP_ICON}"
@@ -31,7 +29,8 @@ FunctionEnd
 
 Section "Download and install"
   InitPluginsDir
-  ${GetParameters} $R0
+  ; NSIS strips an unquoted /D= from $CMDLINE. Preserve the original parameters.
+  ${StdUtils.GetAllParameters} $R0 "0"
   StrCpy $R1 "$PLUGINSDIR\WhyJ-Quant-Setup.exe"
   DetailPrint "Downloading ${PAYLOAD_MIB} MiB. No installed files are changed before verification."
 download:

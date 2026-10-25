@@ -43,4 +43,7 @@ try {
   assert.equal(requests.filter(path => path === "/corrupt").length, 1);
   writeFileSync(join(root, "output/desktop-online/installation.json"), JSON.stringify({ production, installer, failure, requests,
     transport: "loopback HTTP; same payload SHA-512 as the production HTTPS entry", checks: ["online-install", "online-reinstall", "failed-download-preserves-installation", "installed-app-acceptance"] }, null, 2));
-} finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+} finally {
+  writeFileSync(join(root, "output/desktop-online/installation-downloads.json"), JSON.stringify({ requests, payloadSha512: production.payloadSha512 }, null, 2));
+  server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
+}
