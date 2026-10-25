@@ -1,0 +1,22 @@
+export const commands = [
+  ["artifact", "研究报告", "浏览报告与版本", "研究", "report"],
+  ["resume", "继续研究", "从历史研究切换上下文", "研究", "resume"],
+  ["portfolio", "观察组合", "查看或维护观察组", "研究", "host"],
+  ["compact", "压缩上下文", "/compact [保留的重点]", "研究", "host"],
+  ["clear", "重置研究", "在本地原型打开空白研究", "研究", "clear"],
+  ["config", "设置", "调整阅读设置；模型配置需连接服务", "环境", "settings"],
+  ["doctor", "检查连接", "检查模型与行情数据是否就绪", "环境", "host"],
+  ["skill", "技能", "/skill list · 查看已安装技能", "环境", "host"],
+  ["mcp", "工具服务", "管理 MCP 预设", "环境", "host"],
+  ["help", "命令帮助", "查看命令与输入快捷键", "环境", "help"],
+  ["exit", "退出终端", "仅适用于 CLI；Web 保留当前页面", "环境", "host"],
+  ["evidence", "当前证据", "查看研究证据及缺失项", "Web 操作", "evidence"],
+].map(([name, label, description, group, action]) => ({
+  id: name,
+  name,
+  label: "/" + name,
+  description: label + " · " + description,
+  group,
+  action,
+  kind: "command",
+}));

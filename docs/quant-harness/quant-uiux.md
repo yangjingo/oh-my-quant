@@ -122,3 +122,7 @@ bun test src/tui/test/market-colors.test.ts src/artifact/test/market-colors.test
 ```
 
 这些回归覆盖缓存行重绘、混合市场、零/缺失、设置冲突与历史报告字节不改写；不是实体终端、所有浏览器或任意模型输出的普遍证明。旧独立 renderer 原型和固定配色被撤下的原因见[布局博客](../blog/10-layout-and-visual-language.md#visual-language)。
+
+## Web 终端视觉规格（设计原型）
+
+2026-10-25 的维护者交互迭代整理为 [Web UI 设计草案](./web-ui.md)：按页头、Sessions、对话、Overview、Composer、弹窗和底栏维护最终要求，并链接当前原型截图。配套 [静态参考原型](../../prototypes/web-terminal/README.md)用于审阅界面与输入交互；生产仍沿用 #50 / #81 的 React + TypeScript + Vite 方案及共享 Host 边界。原型不替换当前工作台，不证明真实模型、行情、持久化或多客户端运行已接通。

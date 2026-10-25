@@ -1,0 +1,329 @@
+/* modal region */
+dialog {
+  background: #141412;
+  color: var(--text);
+  border: 1px solid #474131;
+  border-radius: 5px;
+  padding: 0;
+  width: min(600px, calc(100% - 32px));
+  max-height: 80dvh;
+  box-shadow: 0 30px 100px #0008;
+}
+dialog::backdrop {
+  background: #0009;
+}
+dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--cream);
+}
+dialog header button {
+  padding: 5px 10px;
+}
+dialog .dialog-body {
+  padding: 20px 22px;
+  font-size: 13px;
+}
+dialog h3 {
+  font-size: 14px;
+  color: #e3ddcd;
+  font-weight: 500;
+}
+dialog select {
+  background: #22211b;
+  color: var(--text);
+  padding: 7px;
+  border: 1px solid var(--line);
+}
+.toast {
+  position: fixed;
+  bottom: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  background: #262319;
+  border: 1px solid #665638;
+  color: var(--cream);
+  font-size: 12px;
+  z-index: 40;
+} /* ModalShell -> navigation | main(content + actions). All dialogs reuse this layout. */
+.app-dialog {
+  width: min(820px, calc(100% - 40px));
+  max-height: min(720px, 88dvh);
+  background: var(--bg);
+  border-color: #494232;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.app-dialog .modal-header {
+  height: 55px;
+  padding: 0 20px;
+  flex: none;
+  font-size: 14px;
+}
+.app-dialog #modalBody {
+  padding: 0;
+  font-size: 12px;
+  min-height: 0;
+}
+.modal-layout {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  height: min(510px, calc(88dvh - 57px));
+  min-height: 260px;
+}
+.modal-layout.single-region {
+  grid-template-columns: minmax(0, 1fr);
+  height: auto;
+  max-height: calc(88dvh - 57px);
+  min-height: 200px;
+}
+.modal-navigation {
+  padding: 15px 10px;
+  border-right: 1px solid var(--line);
+  background: #11110f;
+  overflow: auto;
+}
+.modal-navigation button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 11px;
+  margin: 2px 0;
+  text-align: left;
+  font-size: 11px;
+  color: var(--muted);
+  border-left: 2px solid transparent;
+  border-radius: 2px;
+}
+.modal-navigation button[aria-selected="true"] {
+  background: #242016;
+  color: var(--cream);
+  border-left-color: var(--gold);
+}
+.modal-navigation .ui-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+.modal-navigation button[aria-selected="true"] .ui-icon {
+  color: var(--gold);
+}
+.modal-main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.modal-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+}
+.modal-content:focus-visible {
+  outline: 1px solid var(--gold);
+  outline-offset: -3px;
+}
+.modal-section + .modal-section {
+  margin-top: 26px;
+}
+.modal-section-header {
+  margin-bottom: 7px;
+}
+.app-dialog .modal-section-header h3 {
+  margin: 0;
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.7;
+}
+.modal-section-header > p {
+  margin: 5px 0 12px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.modal-section-body {
+  border-top: 1px solid var(--line);
+}
+.field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 15px 0;
+  border-bottom: 1px solid #24231d;
+  min-width: 0;
+}
+.field-row:last-child {
+  border-bottom: 0;
+}
+.field-copy {
+  min-width: 0;
+  flex: 1;
+}
+.field-copy label,
+.field-label {
+  color: var(--text);
+  font-size: 12px;
+}
+.field-copy p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.7;
+}
+.field-control {
+  flex: 0 0 auto;
+  max-width: 52%;
+  min-width: 0;
+}
+.field-status {
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.app-dialog select,
+.app-dialog input {
+  max-width: 100%;
+  font:
+    11px/1.6 Mono,
+    "Microsoft YaHei",
+    monospace;
+  background: #14130f;
+  border: 1px solid #494232;
+  border-radius: 3px;
+  color: var(--text);
+  padding: 6px 9px;
+}
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+  min-height: 51px;
+  border-top: 1px solid var(--line);
+  padding: 11px 20px;
+}
+.modal-footnote {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.modal-action-buttons {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  border-radius: 3px;
+}
+.action-button.primary {
+  color: var(--gold);
+  border-color: #66522b;
+}
+.action-button .ui-icon {
+  width: 13px;
+  height: 13px;
+}
+.modal-note {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.85;
+  margin: 20px 0 0;
+}
+.prose-block {
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--text);
+}
+.prose-block p {
+  margin: 15px 0;
+}
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+@media (max-width: 600px) {
+  .app-dialog {
+    width: calc(100% - 20px);
+    max-height: 88dvh;
+  }
+  .app-dialog .modal-header {
+    padding: 0 14px;
+    height: 49px;
+  }
+  .modal-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: min(560px, calc(88dvh - 51px));
+  }
+  .modal-navigation {
+    display: flex;
+    gap: 5px;
+    padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+  }
+  .modal-navigation button {
+    width: auto;
+    flex: none;
+    padding: 7px 9px;
+    border-left: 0;
+    border-bottom: 1px solid transparent;
+    font-size: 10px;
+    gap: 6px;
+    margin: 0;
+  }
+  .modal-navigation button[aria-selected="true"] {
+    border-bottom-color: var(--gold);
+  }
+  .modal-content {
+    padding: 18px 15px;
+  }
+  .modal-actions {
+    padding: 10px 15px;
+    flex-wrap: wrap;
+  }
+  .field-row {
+    gap: 10px;
+  }
+  .field-copy label,
+  .field-label {
+    font-size: 11px;
+  }
+  .field-copy p {
+    font-size: 10px;
+  }
+  .field-control {
+    max-width: 48%;
+  }
+  .modal-layout.single-region {
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 190px;
+  }
+}
+.runtime-actions {
+  margin-top: 20px;
+}
+.app-dialog button:disabled,
+.app-dialog input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

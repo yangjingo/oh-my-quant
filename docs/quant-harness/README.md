@@ -156,3 +156,7 @@ bun run check:architecture
 ```
 
 本地 Pi/SSE、JSONL 与合成输入回归可以检验调用、分支、压缩和拒绝行为，不证明任意模型解释或真实服务均正确。完整状态和真实模型评测方法分别由 [产品范围与验收](./product-guide.md#requirements)、[评测指南](./evaluation.md#tasks) 维护；本页不保存容易过时的阶段通过数。
+
+## Web UI 设计交付
+
+[按区域的 Web UI 设计草案](./web-ui.md)整理 #84 的布局、交互、组件和截图；附独立可运行原型。它是 #81 / #50 的设计输入，不是生产 Host 或 Electron 验收。

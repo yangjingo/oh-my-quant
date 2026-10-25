@@ -256,3 +256,7 @@ bun run docs/blog/check.ts
 覆盖检查以本页为完整目录，新增文件必须归到一处责任目录，并禁止重新引入淘汰的归档层、独立决策账和已合并专题页。本次检查不调用真实模型或市场，不改变产品完成度。
 
 仓库外层入口：[项目首页](../README.md) · [变更记录](../CHANGELOG.md) · [视觉规范](../DESIGN.md) · [投资笔记](../notes/README.md)。模块指南：[Agent](../src/agent/README.md) · [Source](../src/source/README.md) · [Storage](../src/storage/README.md) · [Artifact](../src/artifact/README.md) · [TUI](../src/tui/README.md)。
+
+## Web UI 设计交付
+
+[按区域的 Web UI 设计草案](./quant-harness/web-ui.md)整理 #84 的布局、交互、组件和截图；附独立可运行原型。它是 #81 / #50 的设计输入，不是生产 Host 或 Electron 验收。

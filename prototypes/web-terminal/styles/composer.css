@@ -1,0 +1,356 @@
+/* composer region */
+.composer {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 11px 16px;
+  margin-bottom: 6px;
+}
+.input-box {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 37px;
+}
+.input-box > .prompt {
+  padding: 0;
+  flex: 0 0 16px;
+  line-height: 32px;
+  text-align: left;
+}
+.input-box textarea {
+  resize: none;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  color: #e4dfd2;
+  outline: none;
+  height: 37px;
+  max-height: 110px;
+  line-height: 1.7;
+  font-size: 13px;
+  padding: 6px 0;
+}
+.input-box textarea::placeholder {
+  color: #858174;
+}
+.composer:focus-within {
+  border-color: var(--gold);
+}
+@media (max-width: 760px) {
+  .composer {
+    padding: 9px 12px;
+  }
+  .input-box {
+    gap: 8px;
+  }
+  .input-box textarea {
+    font-size: 12px;
+  }
+}
+.input-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.input-tools .prompt {
+  padding: 0 5px 0 0;
+  font-size: 18px;
+  color: var(--gold);
+}
+.editor-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.input-box .editor-wrap textarea,
+.input-mirror {
+  display: block;
+  width: 100%;
+  font:
+    13px/1.7 Mono,
+    "Microsoft YaHei",
+    monospace;
+  letter-spacing: normal;
+  tab-size: 4;
+  padding: 6px 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  border: 0;
+  margin: 0;
+}
+.input-box .editor-wrap textarea {
+  position: relative;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--cream);
+  height: 37px;
+  min-height: 37px;
+  overflow: auto;
+}
+.input-mirror {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: #e4dfd2;
+}
+.input-mirror mark {
+  background: none;
+  color: var(--gold);
+  text-decoration: underline;
+  text-decoration-color: #66522b;
+  text-underline-offset: 4px;
+}
+.input-box textarea::selection {
+  background: #62502a88;
+  color: var(--cream);
+}
+.input-box textarea:focus-visible {
+  outline: none;
+}
+.composer {
+  z-index: 12;
+}
+.suggestion-panel {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: -1px;
+  width: calc(100% + 2px);
+  background: #121210;
+  border: 1px solid #494232;
+  border-radius: 4px;
+  box-shadow: 0 -12px 45px #0005;
+  overflow: hidden;
+  font-size: 12px;
+}
+.suggestion-header {
+  padding: 12px 15px 9px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.suggestion-header strong {
+  font-weight: 500;
+  color: var(--cream);
+}
+.suggestion-header .symbol {
+  color: var(--gold);
+  font-size: 15px;
+}
+.suggestion-header small {
+  margin-left: auto;
+  font-size: 10px;
+}
+.suggestion-tabs {
+  display: flex;
+  gap: 16px;
+  padding: 5px 15px 0;
+  border-bottom: 1px solid var(--line);
+}
+.suggestion-tabs button {
+  border-radius: 0;
+  padding: 6px 0;
+  color: var(--muted);
+  font-size: 11px;
+  border-bottom: 1px solid transparent;
+}
+.suggestion-tabs button[aria-pressed="true"] {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+.suggestion-list {
+  overflow: auto;
+  max-height: min(300px, 40dvh);
+  padding: 6px;
+}
+.suggestion-group {
+  font-size: 10px;
+  color: var(--muted);
+  padding: 8px 9px 4px;
+  letter-spacing: 0.5px;
+}
+.suggestion-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
+  text-align: left;
+  padding: 8px 9px;
+  border-radius: 2px;
+  border-left: 2px solid transparent;
+  line-height: 1.5;
+}
+.suggestion-option[aria-selected="true"] {
+  background: #242117;
+  border-left-color: var(--gold);
+}
+.suggestion-icon {
+  width: 18px;
+  color: var(--gold);
+  flex: none;
+  text-align: center;
+}
+.suggestion-copy {
+  flex: 1;
+  min-width: 0;
+}
+.suggestion-label {
+  display: block;
+  color: #e2dccb;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.suggestion-description {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.suggestion-tag {
+  flex: none;
+  font-size: 10px;
+  color: var(--muted);
+}
+.suggestion-option[aria-selected="true"] .suggestion-tag {
+  color: var(--gold);
+}
+.suggestion-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 15px;
+  border-top: 1px solid var(--line);
+  font-size: 10px;
+  color: var(--muted);
+}
+.suggestion-footer kbd {
+  font: inherit;
+  color: var(--text);
+}
+.suggestion-empty {
+  padding: 24px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.composer-feedback {
+  position: absolute;
+  left: 16px;
+  bottom: calc(100% + 9px);
+  max-width: calc(100% - 32px);
+  padding: 10px 14px;
+  border: 1px solid #66522b;
+  background: #1d1a12;
+  color: var(--cream);
+  font-size: 12px;
+  box-shadow: 0 -8px 24px #0004;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.submitted-refs {
+  margin: 8px 0 12px 28px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.submitted-refs summary {
+  cursor: pointer;
+  color: var(--gold);
+}
+.submitted-refs pre {
+  font:
+    11px/1.8 Mono,
+    "Microsoft YaHei",
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.composer:has(textarea:disabled) {
+  opacity: 0.8;
+}
+@media (max-width: 760px) {
+  .input-box {
+    gap: 6px;
+  }
+  .input-tools {
+    gap: 0;
+  }
+  .input-box .editor-wrap textarea,
+  .input-mirror {
+    font-size: 12px;
+  }
+  .suggestion-panel {
+    left: -1px;
+    width: calc(100% + 2px);
+  }
+  .suggestion-header {
+    padding: 9px 11px;
+  }
+  .suggestion-footer {
+    padding: 8px 11px;
+    font-size: 9px;
+  }
+  .suggestion-footer .secondary-hint {
+    display: none;
+  }
+  .suggestion-list {
+    max-height: 32dvh;
+  }
+  .suggestion-option {
+    padding: 7px;
+  }
+  .suggestion-label {
+    font-size: 11px;
+  }
+  .suggestion-header small {
+    font-size: 9px;
+  }
+}
+.composer-actions {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+#composer #send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #66522b;
+  border-radius: 4px;
+  background: #211d13;
+  color: var(--gold);
+}
+#composer #send:hover {
+  color: var(--cream);
+  background: #302818;
+}
+#composer #send .ui-icon {
+  width: 17px;
+  height: 17px;
+}
+#composer #send[data-state="running"] {
+  color: var(--cream);
+  border-color: var(--gold);
+}
+#composer #send[data-state="running"] .ui-icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  stroke-width: 1;
+}
