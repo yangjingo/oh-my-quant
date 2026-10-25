@@ -92,9 +92,6 @@
   font-size: 10px;
   color: var(--muted);
 }
-.status .state {
-  color: var(--green);
-}
 .status .right {
   margin-left: auto;
   color: #77756b;
@@ -121,7 +118,10 @@
   padding-left: 12px;
   white-space: nowrap;
 }
-.status .state {
+.status-portfolio {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .drawer-shade {
@@ -246,9 +246,6 @@
 }
 .status > .status-source {
   padding-left: 12px;
-}
-.status > .state {
-  color: var(--green);
 }
 @media (max-width: 760px) {
   .status {

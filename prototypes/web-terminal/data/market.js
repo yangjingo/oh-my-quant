@@ -70,3 +70,9 @@ export const marketData = {
     },
   ],
 };
+
+// Synthetic portfolio choices for the design preview, not account holdings.
+export const portfolios = [
+  { id: "optical", name: "光通信观察组", quotes: marketData.watchlist },
+  { id: "indices", name: "宽基指数组合", quotes: marketData.market.slice(2) },
+];

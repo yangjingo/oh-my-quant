@@ -106,6 +106,37 @@ async (page) => {
   await page.locator('#projectSwitch').click();
   await capture('16-mobile-sessions');
   await page.getByRole('button', { name: '收起会话侧栏', exact: true }).click();
+  await page.getByRole('button', { name: '切换投资组合', exact: true }).click();
+  await page.locator('#portfolioSelect').selectOption('indices');
+  await capture('17-mobile-portfolio');
+  await page.keyboard.press('Escape');
+  await page.reload();
+  check(await page.locator('#statusText').innerText() === '宽基指数组合', 'Portfolio preference did not persist');
+  await page.setViewportSize({ width: 1440, height: 960 });
+  check((await page.locator('.portfolio-group').innerText()).includes('宽基指数组合'), 'Overview portfolio title did not switch');
+  check(!await page.locator('.portfolio-group').innerText().then(text => text.includes('300308.SZ')), 'Old portfolio quotes remain');
+  check((await page.locator('#thread').innerText()).includes('中际旭创'), 'Portfolio switch replaced the research conversation');
+  await capture('18-portfolio-overview');
+  check(await page.locator('#send').innerText() === '↵', 'Idle send affordance must show Enter');
+  await input.fill('组合选择不应被运行状态覆盖');
+  await page.getByRole('button', { name: '发送问题', exact: true }).click();
+  await page.getByRole('button', { name: '停止生成', exact: true }).waitFor();
+  check(await page.locator('#statusText').innerText() === '宽基指数组合', 'Running state overwrote portfolio');
+  await page.getByRole('button', { name: '界面设置', exact: true }).click();
+  await page.getByRole('tab', { name: '运行状态', exact: true }).click();
+  await page.locator('#stopRuntime').click();
+  check(await page.locator('#stopRuntime').isDisabled(), 'Runtime stop did not disable');
+  await page.keyboard.press('Escape');
+  check(await page.locator('#statusText').innerText() === '宽基指数组合', 'Stopped state overwrote portfolio');
+  await page.getByRole('button', { name: '设置数据源', exact: true }).click();
+  await page.locator('#marketSource').selectOption('akshare');
+  await page.getByRole('tab', { name: '投资组合', exact: true }).click();
+  await page.locator('#portfolioSelect').selectOption('optical');
+  await page.keyboard.press('Escape');
+  check(await page.locator('#overview [data-component="QuoteRow"]').count() === 0, 'Portfolio switch fabricated disconnected quotes');
+  await page.getByRole('button', { name: '设置数据源', exact: true }).click();
+  await page.locator('#marketSource').selectOption('demo');
+  await page.keyboard.press('Escape');
   check(errors.length === 0, `Browser errors: ${errors.join('; ')}`);
   return {
     passed: true,

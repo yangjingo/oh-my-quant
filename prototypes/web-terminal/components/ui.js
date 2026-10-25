@@ -27,12 +27,6 @@ export function iconButton({
   return `<button ${id ? `id="${escapeHtml(id)}"` : ""} type="${type}" class="icon-button ${escapeHtml(className)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}" ${extra}>${icon(name)}</button>`;
 }
 
-export function setIconButton(button, { name, label }) {
-  button.innerHTML = icon(name);
-  button.setAttribute("aria-label", label);
-  button.title = label;
-}
-
 export function panelHeader({ title, iconName = "", actions = "" }) {
   return `<div class="section-label" data-component="PanelHeader"><span class="panel-title">${iconName ? icon(iconName) : ""}${escapeHtml(title)}</span><div class="panel-actions">${actions}</div></div>`;
 }

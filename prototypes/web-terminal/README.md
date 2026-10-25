@@ -28,8 +28,8 @@ Session messages/drafts exist only for the page lifetime. Reading/model/source c
 
 1. Expand the session rail from the header. Search, pin, rename and switch to the empty session, then return to the sample.
 2. Type `/` and select a local UI command. Type `@`, enter `reports/`, and choose a file. Menus match the outer Composer width. There are no trigger buttons.
-3. Submit a sample question; stop using the send/stop icon or the footer runtime dialog.
-4. Open the footer model/source settings, change a local preference and reopen after refresh. AKShare selection must clear synthetic Overview rows and display unconnected status.
+3. Submit a sample question; stop using the composer control or the runtime page in settings.
+4. Use the footer portfolio button to switch the Overview group; confirm the selection survives reload and send/stop. Open the footer model/source settings, change a local preference and reopen after refresh. AKShare selection must clear synthetic Overview rows and display unconnected status.
 5. At 390px, check input/menu width, drawer close controls, settings navigation and footer ellipsis. The system IME and screen readers still need manual target-environment testing.
 
 The root release gate does not discover this isolated package's tests; run its check explicitly. Production React/Host behavior, performance and installed Desktop acceptance remain separate. Screenshot attachments and known limitations are recorded in the design document and linked Draft PR, not committed here.
@@ -43,4 +43,4 @@ npx --yes --package @playwright/cli@0.1.22 playwright-cli --session web-ui open 
 npx --yes --package @playwright/cli@0.1.22 playwright-cli --session web-ui run-code --filename prototypes/web-terminal/capture.cjs
 ```
 
-The walkthrough resets only this browser session's prototype preferences, checks the interactions above and saves 16 screenshots under ignored `output/web-ui/`. Check that its JSON result contains `"passed":true,"captures":16`; the CLI may exit zero when a snippet reports an error. Attach the images to the Draft PR with the tested revision, browser, OS and viewport. This walkthrough is an explicit local check, not part of the root CI gate. These are rendered synthetic fixtures, not live market or Host evidence.
+The walkthrough resets only this browser session's prototype preferences, checks the interactions above and saves 18 screenshots under ignored `output/web-ui/`. Check that its JSON result contains `"passed":true,"captures":18`; the CLI may exit zero when a snippet reports an error. Attach the images to the Draft PR with the tested revision, browser, OS and viewport. This walkthrough is an explicit local check, not part of the root CI gate. These are rendered synthetic fixtures, not live market or Host evidence.

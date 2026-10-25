@@ -1,4 +1,5 @@
 import { escapeHtml, section, fieldRow, actionButton } from "./ui.js";
+import { portfolios } from "../data/market.js";
 
 const options = (items, selected) =>
   items
@@ -119,6 +120,28 @@ export function environmentPages({ preferences, save, getRuntime, stopRun }) {
       },
     },
     {
+      id: "portfolio",
+      label: "投资组合",
+      icon: "list-tree",
+      render: () => section({
+        id: "portfolio-choice",
+        title: "投资组合",
+        description: "切换 Overview 中查看的组合，保留当前研究对话。",
+        content: fieldRow({
+          label: "当前组合",
+          forId: "portfolioSelect",
+          description: "示例组合 · 选择保存在此浏览器",
+          control: `<select id="portfolioSelect">${options(portfolios.map((item) => [item.id, item.name]), preferences.portfolioId)}</select>`,
+        }),
+      }),
+      bind: (root) => {
+        root.querySelector("#portfolioSelect").onchange = (event) => {
+          preferences.portfolioId = event.target.value;
+          save();
+        };
+      },
+    },
+    {
       id: "runtime",
       label: "运行状态",
       icon: "info",
@@ -154,7 +177,7 @@ export function environmentPages({ preferences, save, getRuntime, stopRun }) {
         };
         update();
         const observer = new MutationObserver(update);
-        observer.observe(document.querySelector("#statusText"), {
+        observer.observe(document.querySelector("#runSummary"), {
           childList: true,
           subtree: true,
           characterData: true,

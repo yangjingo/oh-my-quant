@@ -331,14 +331,15 @@
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 1px solid #66522b;
+  border: 1px solid transparent;
   border-radius: 4px;
-  background: #211d13;
-  color: var(--gold);
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
 }
 #composer #send:hover {
   color: var(--cream);
-  background: #302818;
+  background: #1c1b18;
 }
 #composer #send .ui-icon {
   width: 17px;
@@ -346,7 +347,6 @@
 }
 #composer #send[data-state="running"] {
   color: var(--cream);
-  border-color: var(--gold);
 }
 #composer #send[data-state="running"] .ui-icon {
   width: 14px;

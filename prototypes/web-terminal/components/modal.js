@@ -9,6 +9,7 @@ import {
 } from "./ui.js";
 import { environmentPages } from "./environment-settings.js";
 import { commands } from "../data/commands.js";
+import { portfolios } from "../data/market.js";
 
 export function renderModalShell() {
   return `<dialog id="modal" class="app-dialog" aria-labelledby="modalTitle" data-component="ModalShell">
@@ -34,6 +35,7 @@ export function createModalController({
     modelProvider: "none",
     modelName: "",
     marketSource: "demo",
+    portfolioId: portfolios[0].id,
   };
   try {
     const saved = JSON.parse(
@@ -45,6 +47,8 @@ export function createModalController({
       preferences.modelName = saved.modelName.trim().slice(0, 80);
     if (["demo", "akshare", "none"].includes(saved.marketSource))
       preferences.marketSource = saved.marketSource;
+    if (portfolios.some((item) => item.id === saved.portfolioId))
+      preferences.portfolioId = saved.portfolioId;
     if ([13, 15, 16].includes(saved.fontSize))
       preferences.fontSize = saved.fontSize;
     if (typeof saved.detailed === "boolean")
@@ -411,7 +415,7 @@ export function createModalController({
   }
 
   function open(kind) {
-    if (["model", "sources", "runtime"].includes(kind)) {
+    if (["model", "sources", "portfolio", "runtime"].includes(kind)) {
       settings(kind);
       return;
     }

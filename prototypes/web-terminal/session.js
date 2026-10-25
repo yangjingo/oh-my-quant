@@ -10,6 +10,7 @@ import { overviewContent } from "./components/overview.js";
 import { updateStatus } from "./components/status.js";
 import { setSendState } from "./components/composer.js";
 import { createModalController } from "./components/modal.js";
+import { portfolios } from "./data/market.js";
 const $ = (s) => document.querySelector(s),
   app = $("#app"),
   input = $("#input"),
@@ -78,12 +79,15 @@ const dialogs = createModalController({
 });
 detailed = dialogs.preferences.detailed;
 let overviewAvailable;
+let overviewPortfolio;
 function refreshEnvironment(preferences = dialogs.preferences) {
   const available =
     activeProject === "sample" && preferences.marketSource === "demo";
-  if (available !== overviewAvailable) {
-    $("#overview").innerHTML = overviewContent(available);
+  if (available !== overviewAvailable || preferences.portfolioId !== overviewPortfolio) {
+    const portfolio = portfolios.find((item) => item.id === preferences.portfolioId) || portfolios[0];
+    $("#overview").innerHTML = overviewContent(available, {}, portfolio);
     overviewAvailable = available;
+    overviewPortfolio = portfolio.id;
   }
   updateStatus(preferences, activeProject === "sample");
 }
@@ -230,7 +234,6 @@ function sendDemo(text, references = [], canonical = text) {
   $("#viewMode").hidden = false;
   running = true;
   setSendState(true);
-  $("#statusText").textContent = "◌ 演示中";
   $("#runSummary").textContent = "演示中";
   prepareLongMessages(thread);
   follow(true);
@@ -246,7 +249,6 @@ function sendDemo(text, references = [], canonical = text) {
       stream.scrollHeight - stream.scrollTop - stream.clientHeight < 150;
     turn.append(answer);
     setSendState(false);
-    $("#statusText").textContent = "● 就绪";
     $("#runSummary").textContent = "已完成";
     session.status = "演示完成";
     saveSession();
@@ -269,7 +271,6 @@ function stop() {
   currentRun = null;
   session.status = "已停止";
   setSendState(false);
-  $("#statusText").textContent = "● 就绪";
   $("#runSummary").textContent = "已停止";
   saveSession();
   renderSessions();

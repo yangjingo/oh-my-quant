@@ -1,5 +1,5 @@
 import { escapeHtml, icon, iconButton, panelHeader } from "./ui.js";
-import { marketData } from "../data/market.js";
+import { marketData, portfolios } from "../data/market.js";
 
 function quoteRow(quote) {
   return `<div class="quote-row" data-component="QuoteRow"><div class="quote-line"><span class="quote-code">${escapeHtml(quote.code)}</span><span class="quote-name">${escapeHtml(quote.name)}</span><span class="quote-change ${quote.direction}">${escapeHtml(quote.change)}</span></div></div>`;
@@ -7,7 +7,7 @@ function quoteRow(quote) {
 
 // Refresh describes the local event, never a common trading date for all rows.
 // Opening the panel does not change the timestamp of retained values.
-export function overviewContent(available = true, refresh = {}) {
+export function overviewContent(available = true, refresh = {}, portfolio = portfolios[0]) {
   const state = refresh.state || (available ? "demo" : "empty");
   const cues = {
     demo: "示例",
@@ -38,7 +38,7 @@ export function overviewContent(available = true, refresh = {}) {
   if (!available)
     return `${header}${refreshLine}<div class="empty-overview" data-region="empty">暂无研究数据。<br><small>模型与行情数据源尚未连接。</small></div>`;
   return `${header}${refreshLine}<div class="overview-body" data-region="content">
-    <details class="overview-group portfolio-group" open data-component="QuoteGroup"><summary class="group-title"><span class="fold">${icon("chevron-down")}</span>光通信观察组<span class="count">${marketData.watchlist.length}</span></summary>${marketData.watchlist.map(quoteRow).join("")}</details>
+    <details class="overview-group portfolio-group" open data-component="QuoteGroup"><summary class="group-title"><span class="fold">${icon("chevron-down")}</span>${escapeHtml(portfolio.name)}<span class="count">${portfolio.quotes.length}</span></summary>${portfolio.quotes.map(quoteRow).join("")}</details>
     <div class="overview-group" data-component="QuoteGroup"><h2 class="group-title">Market<span class="count">${marketData.market.length}</span></h2>${marketData.market.map(quoteRow).join("")}</div>
   </div>`;
 }

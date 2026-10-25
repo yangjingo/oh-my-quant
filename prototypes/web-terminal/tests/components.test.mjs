@@ -31,7 +31,7 @@ assert.match(
   renderComposer(),
   /id="send"[^>]*type="submit"|type="submit"[^>]*id="send"/,
 );
-assert.match(renderComposer(), /lucide.svg#arrow-up/);
+assert.match(renderComposer(), /aria-hidden="true">↵/);
 assert.ok(
   !overviewContent(false).includes("300308.SZ"),
   "Empty session must not inherit fixture market data",
