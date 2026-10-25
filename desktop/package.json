@@ -38,7 +38,7 @@
       "!node_modules/node-pty/lib/*.test.js{,.map}"
     ],
     "extraResources": [{ "from": "runtime", "to": "runtime", "filter": [
-      "**/*", "!**/__pycache__/**", "!**/*.pyc",
+      "**/*", "!git{,/**/*}", "!**/__pycache__/**", "!**/*.pyc",
       "!python/Lib/site-packages/{numpy,pandas,pyarrow}/**/tests{,/**/*}",
       "!python/Lib/site-packages/pyarrow/{include,includes,src}{,/**/*}",
       "!python/Lib/site-packages/pyarrow/**/*.{lib,pxd,pyx,pxi,h}",

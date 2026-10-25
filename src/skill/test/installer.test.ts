@@ -1,245 +1,169 @@
 import { expect, it } from "bun:test";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
-import { installSkillRepository, type SkillGit } from "../installer.ts";
-import { skillPaths } from "../../runtime/skills/skill-store.ts";
+import { installSkillRepository, type SkillFetch } from "../installer.ts";
+import { RECEIPT } from "../archive.ts";
+import { FIRST, NEXT, archiveEntries, skillArchive } from "./fixtures/archive.ts";
 
-async function fixture(run: (f: { root: string; upstream: string; target: string; git: SkillGit; transport: SkillGit; install: () => ReturnType<typeof installSkillRepository> }) => void | Promise<void>) {
-  const base = mkdtempSync(join(tmpdir(), "whyj-skill-install-"));
-  const root = join(base, "skills"), upstream = join(base, "upstream"), target = join(root, "owner-repo");
-  const config = join(base, "gitconfig");
-  writeFileSync(config, "");
-  const git: SkillGit = (args, timeout) => execFileSync("git", args, { encoding: "utf8", timeout, stdio: "pipe",
-    env: { ...process.env, GIT_CONFIG_GLOBAL: config, GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0" } }).trim();
-  const transport: SkillGit = (args, timeout) => {
-    if (args[0] === "clone") {
-      const local = [...args]; local[local.length - 2] = upstream;
-      const output = git(local, timeout);
-      git(["-C", local.at(-1)!, "remote", "set-url", "origin", "https://github.com/owner/repo.git"], timeout);
-      return output;
-    }
-    if (args.includes("pull")) return git(["-c", `url.${upstream.replace(/\\/g, "/")}.insteadOf=https://github.com/owner/repo.git`, ...args], timeout);
-    if (args.includes("fetch")) {
-      const local = [...args]; local[local.indexOf("origin")] = upstream;
-      return git(local, timeout);
-    }
-    return git(args, timeout);
+async function fixture(run: (f: { root: string; target: string; state: { revision: string; archive: Buffer; status: string }; calls: string[]; request: SkillFetch; install: () => ReturnType<typeof installSkillRepository> }) => void | Promise<void>) {
+  const base = mkdtempSync(join(tmpdir(), "whyj-skill-http-")), root = join(base, "skills"), target = join(root, "owner-repo");
+  const state = { revision: FIRST, archive: skillArchive(), status: "ahead" }, calls: string[] = [];
+  const request: SkillFetch = async url => {
+    calls.push(url);
+    if (url.includes("/commits/")) return Response.json({ sha: state.revision });
+    if (url.includes("/compare/")) return Response.json({ status: state.status });
+    if (url.includes("/tarball/")) return new Response(state.archive);
+    throw new Error("Unexpected request");
   };
-  try {
-    mkdirSync(upstream);
-    git(["init", "--initial-branch=main", upstream], 10_000);
-    writeFileSync(join(upstream, "SKILL.md"), "original\n");
-    git(["-C", upstream, "add", "."], 10_000);
-    git(["-C", upstream, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "initial"], 10_000);
-    await run({ root, upstream, target, git, transport, install: () => installSkillRepository(root, "owner/repo", transport) });
-  } finally {
+  try { await run({ root, target, state, calls, request, install: () => installSkillRepository(root, "owner/repo", request) }); }
+  finally {
     const within = relative(realpathSync(tmpdir()), realpathSync(base));
-    if (!within.startsWith("whyj-skill-install-") || within.includes(sep)) throw new Error("Unsafe fixture cleanup");
+    if (!within.startsWith("whyj-skill-http-") || within.includes(sep)) throw new Error("Unsafe fixture cleanup");
     rmSync(base, { recursive: true, force: true });
   }
 }
 
-it("publishes a complete clone and reports its exact source and revision", () => fixture(async f => {
-  const result = await f.install();
-  expect(result.success).toBe(true);
-  expect(result.source).toBe("https://github.com/owner/repo.git");
-  expect(result.revision).toBe(await f.git(["-C", f.upstream, "rev-parse", "HEAD"], 10_000));
-  expect(readFileSync(join(f.target, "SKILL.md"), "utf8").trim()).toBe("original");
+it("installs the exact immutable archive without Git/curl and records file hashes", () => fixture(async f => {
+  const previous = process.env.PATH;
+  try {
+    process.env.PATH = "";
+    const result = await f.install();
+    expect(result).toMatchObject({ success: true, revision: FIRST, source: "https://github.com/owner/repo.git" });
+    expect(f.calls.at(-1)).toEndWith(`/tarball/${FIRST}`);
+    expect(readFileSync(join(f.target, "中文.txt"), "utf8")).toBe("资源");
+    const receipt = JSON.parse(readFileSync(join(f.target, RECEIPT), "utf8"));
+    expect(receipt).toMatchObject({ version: 1, repo: "owner/repo", revision: FIRST });
+    expect(receipt.files["SKILL.md"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(existsSync(join(f.target, ".git"))).toBe(false);
+    expect(readdirSync(f.root)).toEqual(["owner-repo"]);
+  } finally { if (previous === undefined) delete process.env.PATH; else process.env.PATH = previous; }
+}));
+
+it("reuses a validated pin offline and fast-forwards by replacing the complete tree", () => fixture(async f => {
+  const pin = { revision: FIRST, requiredFiles: ["SKILL.md"] };
+  expect((await installSkillRepository(f.root, "owner/repo", f.request, undefined, pin)).success).toBe(true);
+  expect(f.calls).toHaveLength(1);
+  expect((await installSkillRepository(f.root, "owner/repo", async () => { throw new Error("offline"); }, undefined, pin)).success).toBe(true);
+  f.state.revision = NEXT; f.state.archive = skillArchive({ "SKILL.md": "updated", "new.md": "new" });
+  expect((await f.install()).revision).toBe(NEXT);
+  expect(readFileSync(join(f.target, "SKILL.md"), "utf8")).toBe("updated");
+  expect(existsSync(join(f.target, "中文.txt"))).toBe(false);
+  expect(f.calls.some(url => url.includes(`/compare/${FIRST}...${NEXT}`))).toBe(true);
   expect(readdirSync(f.root)).toEqual(["owner-repo"]);
 }));
 
-it.each(["tracked", "untracked", "ignored"])("preserves %s changes without attempting network update", kind => fixture(async f => {
-  expect((await f.install()).success).toBe(true);
-  const path = join(f.target, kind === "tracked" ? "SKILL.md" : "my-notes.md");
-  if (kind === "ignored") writeFileSync(join(f.target, ".git", "info", "exclude"), "my-notes.md\n");
-  writeFileSync(path, "my changes\n");
-  const before = f.git(["-C", f.target, "rev-parse", "HEAD"], 10_000);
-  let pulled = false;
-  const result = await installSkillRepository(f.root, "owner/repo", (args, timeout) => {
-    if (args.includes("pull")) pulled = true;
-    return f.transport(args, timeout);
-  });
-  expect(result.success).toBe(false);
-  expect(result.message).toContain("Local changes or untracked files");
-  expect(pulled).toBe(false);
-  expect(readFileSync(path, "utf8")).toBe("my changes\n");
-  expect(f.git(["-C", f.target, "rev-parse", "HEAD"], 10_000)).toBe(before);
-}));
-
-it("keeps the previous checkout after offline update and supports a later fast-forward", () => fixture(async f => {
-  expect((await f.install()).success).toBe(true);
-  const before = f.git(["-C", f.target, "rev-parse", "HEAD"], 10_000);
-  const failed = await installSkillRepository(f.root, "owner/repo", (args, timeout) => {
-    if (args.includes("pull")) throw new Error("fixture offline");
-    return f.transport(args, timeout);
-  });
-  expect(failed.success).toBe(false);
-  expect(failed.message).toContain("fixture offline");
-  expect(f.git(["-C", f.target, "rev-parse", "HEAD"], 10_000)).toBe(before);
-  writeFileSync(join(f.upstream, "SKILL.md"), "new upstream\n");
-  f.git(["-C", f.upstream, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-am", "update"], 10_000);
-  expect((await f.install()).success).toBe(true);
-  expect(readFileSync(join(f.target, "SKILL.md"), "utf8").trim()).toBe("new upstream");
-}));
-
-it("rejects diverged history without resetting local commits", () => fixture(async f => {
-  expect((await f.install()).success).toBe(true);
-  for (const [dir, content] of [[f.upstream, "remote"], [f.target, "local"]]) {
-    writeFileSync(join(dir!, "SKILL.md"), content!);
-    f.git(["-C", dir!, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-am", content!], 10_000);
-  }
-  const before = f.git(["-C", f.target, "rev-parse", "HEAD"], 10_000);
-  expect((await f.install()).success).toBe(false);
-  expect(f.git(["-C", f.target, "rev-parse", "HEAD"], 10_000)).toBe(before);
-  expect(readFileSync(join(f.target, "SKILL.md"), "utf8")).toBe("local");
-}));
-
-it("rejects a repository name collision with a different origin", () => fixture(async f => {
-  expect((await f.install()).success).toBe(true);
-  f.git(["-C", f.target, "remote", "set-url", "origin", "https://github.com/another/project.git"], 10_000);
+it.each(["behind", "diverged", "unknown"])("rejects %s history without changing the installed revision", status => fixture(async f => {
+  await f.install(); f.calls.length = 0; f.state.revision = NEXT; f.state.status = status;
   const result = await f.install();
-  expect(result.success).toBe(false);
-  expect(result.message).toContain("origin differs");
-  expect(existsSync(join(f.target, "SKILL.md"))).toBe(true);
+  expect(result.success).toBe(false); expect(result.message).toContain("not a fast-forward");
+  expect(f.calls.some(url => url.includes("tarball"))).toBe(false);
+  expect(JSON.parse(readFileSync(join(f.target, RECEIPT), "utf8")).revision).toBe(FIRST);
 }));
 
-it.skipIf(process.platform !== "win32")("accepts Windows directory aliases when Git reports a different path spelling", () => fixture(async f => {
-  expect((await f.install()).success).toBe(true);
-  const result = await installSkillRepository(f.root, "owner/repo", async (args, timeout) => {
-    const output = await f.transport(args, timeout);
-    return args.includes("--show-toplevel") ? output.toUpperCase() : output;
-  });
-  expect(result.success).toBe(true);
-}));
-
-it("does not treat a plain subdirectory of a Git repo as its own installation", () => fixture(async f => {
-  mkdirSync(f.target, { recursive: true });
-  writeFileSync(join(f.target, "notes"), "preserve");
-  f.git(["init", f.root], 10_000);
+it.each(["changed", "deleted", "untracked", "ignored"])("protects %s local files before any HTTP request", kind => fixture(async f => {
+  await f.install(); f.calls.length = 0;
+  if (kind === "deleted") rmSync(join(f.target, "SKILL.md"));
+  else writeFileSync(join(f.target, kind === "changed" ? "SKILL.md" : kind === "ignored" ? ".local-note" : "note.txt"), "keep");
   const result = await f.install();
-  expect(result.success).toBe(false);
-  expect(result.message).toContain("not its own Git repository");
-  expect(readFileSync(join(f.target, "notes"), "utf8")).toBe("preserve");
+  expect(result.success).toBe(false); expect(result.message).toContain("Local changes"); expect(f.calls).toEqual([]);
 }));
 
-it("hides and cleans partial clones, then permits retry", () => fixture(async f => {
-  const previous = process.env.OHQUANT_SKILLS_DIR;
-  process.env.OHQUANT_SKILLS_DIR = f.root;
-  try {
-    const failed = await installSkillRepository(f.root, "owner/repo", args => {
-      expect(args[0]).toBe("clone");
-      writeFileSync(join(args.at(-1)!, "SKILL.md"), "partial");
-      expect(skillPaths()).toEqual([]);
-      throw new Error("fixture interrupted clone");
-    });
-    expect(failed.success).toBe(false);
-    expect(existsSync(f.target)).toBe(false);
-    expect(readdirSync(f.root)).toEqual([]);
-    expect((await f.install()).success).toBe(true);
-    expect(skillPaths()).toEqual([f.target]);
-  } finally {
-    if (previous === undefined) delete process.env.OHQUANT_SKILLS_DIR;
-    else process.env.OHQUANT_SKILLS_DIR = previous;
-  }
-}));
-
-it.each(["../repo", "owner/..", "owner/repo/extra", "--owner/repo", "owner/repo;echo"])("rejects invalid repository %s before Git or filesystem work", async repo => {
-  const result = await installSkillRepository("unused", repo, () => { throw new Error("Git must not run"); });
-  expect(result.success).toBe(false);
-  expect(result.message).toContain("owner/repo format");
-});
-
-it("returns a failed install when real Git cannot clone the source", () => fixture(async f => {
-  const result = await installSkillRepository(f.root, "owner/repo", (args, timeout) => {
-    const local = [...args];
-    if (args[0] === "clone") local[local.length - 2] = join(f.upstream, "missing.git");
-    return f.git(local, timeout);
+it("rechecks edits made during the download and preserves a concurrently created destination", () => fixture(async f => {
+  await f.install(); f.state.revision = NEXT;
+  const result = await installSkillRepository(f.root, "owner/repo", async (url, init) => {
+    if (url.includes("tarball")) writeFileSync(join(f.target, "SKILL.md"), "concurrent edit");
+    return f.request(url, init);
   });
   expect(result.success).toBe(false);
-  expect(existsSync(f.target)).toBe(false);
-  expect(readdirSync(f.root)).toEqual([]);
-}));
-
-it("preserves a destination created while the new clone is being prepared", () => fixture(async f => {
-  const result = await installSkillRepository(f.root, "owner/repo", (args, timeout) => {
-    const output = f.transport(args, timeout);
-    if (args[0] === "clone") {
-      mkdirSync(f.target);
-      writeFileSync(join(f.target, "local-note"), "keep");
-    }
-    return output;
+  expect(readFileSync(join(f.target, "SKILL.md"), "utf8")).toBe("concurrent edit");
+  const other = await installSkillRepository(f.root, "another/repo", async (url, init) => {
+    if (url.includes("tarball")) { mkdirSync(join(f.root, "another-repo")); writeFileSync(join(f.root, "another-repo", "note"), "keep"); }
+    return f.request(url, init);
   });
-  expect(result.success).toBe(false);
-  expect(result.message).toContain("Another installation");
-  expect(readFileSync(join(f.target, "local-note"), "utf8")).toBe("keep");
-  expect(readdirSync(f.root)).toEqual(["owner-repo"]);
+  expect(other.success).toBe(false); expect(other.message).toContain("Another installation");
+  expect(readFileSync(join(f.root, "another-repo", "note"), "utf8")).toBe("keep");
 }));
 
-it("rejects overlapping installs and never publishes a clone cancelled during preparation", () => fixture(async f => {
-  const abort = new AbortController();
-  let release!: () => void;
-  const paused = new Promise<void>(resolve => { release = resolve; });
-  const install = installSkillRepository(f.root, "owner/repo", async (args, timeout) => {
-    const result = await f.transport(args, timeout);
-    if (args[0] === "clone") await paused;
-    return result;
-  }, abort.signal);
-  try {
-    const duplicate = await f.install();
-    expect(duplicate.success).toBe(false);
-    expect(duplicate.message).toContain("already running");
-    abort.abort(); release();
-    expect((await install).success).toBe(false);
-    expect(existsSync(f.target)).toBe(false);
-    expect(readdirSync(f.root)).toEqual([]);
-    expect((await f.install()).success).toBe(true);
-  } finally { abort.abort(); release(); await install; }
+it("preserves legacy Git/manual folders without network access or discarding history", () => fixture(async f => {
+  mkdirSync(join(f.target, ".git"), { recursive: true }); writeFileSync(join(f.target, ".git", "HEAD"), "local history");
+  writeFileSync(join(f.target, "SKILL.md"), "local skill");
+  const result = await f.install();
+  expect(result.success).toBe(false); expect(result.message).toContain("Move the folder outside");
+  expect(readFileSync(join(f.target, ".git", "HEAD"), "utf8")).toBe("local history"); expect(f.calls).toEqual([]);
 }));
 
-it("installs the pinned commit after upstream advances, fast-forwards explicitly and refuses rollback", () => fixture(async f => {
-  const first = await f.git(["-C", f.upstream, "rev-parse", "HEAD"], 10_000);
-  writeFileSync(join(f.upstream, "SKILL.md"), "second\n");
-  await f.git(["-C", f.upstream, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-am", "second"], 10_000);
-  const second = await f.git(["-C", f.upstream, "rev-parse", "HEAD"], 10_000);
-  const install = (revision: string) => installSkillRepository(f.root, "owner/repo", f.transport, undefined, { revision, requiredFiles: ["SKILL.md"] });
-  expect((await install(first)).revision).toBe(first);
-  expect(readFileSync(join(f.target, "SKILL.md"), "utf8").trim()).toBe("original");
-  expect((await install(second)).revision).toBe(second);
-  expect(readFileSync(join(f.target, "SKILL.md"), "utf8").trim()).toBe("second");
-  expect((await install(first)).success).toBe(false);
-  expect(await f.git(["-C", f.target, "rev-parse", "HEAD"], 10_000)).toBe(second);
+it("rejects malformed receipts, a different repository and symlink destinations", () => fixture(async f => {
+  await f.install(); const receipt = join(f.target, RECEIPT), original = readFileSync(receipt, "utf8");
+  writeFileSync(receipt, "broken"); expect((await f.install()).success).toBe(false);
+  writeFileSync(receipt, original.replace('"owner/repo"', '"other/repo"')); expect((await f.install()).success).toBe(false);
+  const link = join(f.root, "linked-repo"); symlinkSync(f.target, link, process.platform === "win32" ? "junction" : "dir");
+  expect((await installSkillRepository(f.root, "linked/repo", f.request)).success).toBe(false);
+  expect(readFileSync(join(f.target, "SKILL.md"), "utf8")).toBe("original\n");
 }));
 
-it("does not publish a pinned checkout with a missing core entry", () => fixture(async f => {
-  const revision = await f.git(["-C", f.upstream, "rev-parse", "HEAD"], 10_000);
-  const result = await installSkillRepository(f.root, "owner/repo", f.transport, undefined, { revision, requiredFiles: ["skills/missing/SKILL.md"] });
-  expect(result.success).toBe(false);
-  expect(result.message).toContain("entry is missing");
-  expect(existsSync(f.target)).toBe(false);
-  expect(readdirSync(f.root)).toEqual([]);
+it("rejects overlapping installs, cleans cancelled staging and permits retry", () => fixture(async f => {
+  const controller = new AbortController(); let release!: () => void, entered!: () => void;
+  const pause = new Promise<void>(resolve => { release = resolve; }), started = new Promise<void>(resolve => { entered = resolve; });
+  const pending = installSkillRepository(f.root, "owner/repo", async (url, init) => {
+    if (url.includes("tarball")) { entered(); await pause; }
+    return f.request(url, init);
+  }, controller.signal);
+  await started;
+  expect((await f.install()).message).toContain("already running");
+  controller.abort(); release();
+  expect((await pending).success).toBe(false); expect(existsSync(f.target)).toBe(false); expect(readdirSync(f.root)).toEqual([]);
+  expect((await f.install()).success).toBe(true);
 }));
 
-it("rejects mutable refs and escaping entry paths before Git", async () => {
-  for (const pin of [{ revision: "main", requiredFiles: ["SKILL.md"] }, { revision: "a".repeat(40), requiredFiles: ["skills/../../private"] }]) {
-    let called = false;
-    const result = await installSkillRepository("unused", "owner/repo", () => { called = true; return ""; }, undefined, pin);
+it("does not alter the previous tree on failed/corrupt downloads or a missing required entry", () => fixture(async f => {
+  await f.install(); f.state.revision = NEXT;
+  for (const body of [Buffer.from("broken gzip"), skillArchive({ "README.md": "no skill" })]) {
+    f.state.archive = body;
+    const result = await installSkillRepository(f.root, "owner/repo", f.request, undefined, { revision: NEXT, requiredFiles: ["SKILL.md"] });
     expect(result.success).toBe(false);
-    expect(called).toBe(false);
+    expect(readFileSync(join(f.target, "SKILL.md"), "utf8")).toBe("original\n");
+    expect(readdirSync(f.root)).toEqual(["owner-repo"]);
   }
+}));
+
+it.each(["../outside", "/absolute", "C:/outside", "root/../../outside", "root/file:stream", "root/CON.txt", "root/.git/config", "root/.whyj-skill.json"])("rejects unsafe archive path %s", path => fixture(async f => {
+  f.state.archive = archiveEntries([{ path, content: "escape" }]);
+  expect((await f.install()).success).toBe(false);
+  expect(existsSync(f.target)).toBe(false); expect(readdirSync(f.root)).toEqual([]);
+}));
+
+it.each(["SymbolicLink", "Link"] as const)("rejects archive %s entries before publication", type => fixture(async f => {
+  f.state.archive = archiveEntries([{ path: "root/SKILL.md", content: "valid" }, { path: "root/link", type, linkpath: "../../outside" }]);
+  expect((await f.install()).success).toBe(false); expect(existsSync(f.target)).toBe(false);
+}));
+
+it("omits internal example symlinks but requires real selected skill entries", () => fixture(async f => {
+  f.state.archive = archiveEntries([
+    { path: "root/skills/SKILL.md", content: "skill" },
+    { path: "root/examples/dashboard/.claude/skills", type: "SymbolicLink", linkpath: "../../../skills" },
+  ]);
+  const pin = { revision: FIRST, requiredFiles: ["skills/SKILL.md"] };
+  expect((await installSkillRepository(f.root, "owner/repo", f.request, undefined, pin)).success).toBe(true);
+  expect(existsSync(join(f.target, "examples/dashboard/.claude/skills"))).toBe(false);
+  const linked = { revision: FIRST, requiredFiles: ["examples/dashboard/.claude/skills/SKILL.md"] };
+  expect((await installSkillRepository(f.root, "other/repo", f.request, undefined, linked)).success).toBe(false);
+  expect(existsSync(join(f.root, "other-repo"))).toBe(false);
+}));
+
+it("rejects case-colliding paths and archives with multiple repository roots", () => fixture(async f => {
+  for (const paths of [["root/SKILL.md", "root/skill.md"], ["first/SKILL.md", "second/README.md"]]) {
+    f.state.archive = archiveEntries(paths.map(path => ({ path, content: "data" })));
+    expect((await f.install()).success).toBe(false); expect(readdirSync(f.root)).toEqual([]);
+  }
+}));
+
+it.each(["../repo", "owner/..", "owner/repo/extra", "--owner/repo", "owner/repo;echo"])("rejects invalid repository %s before IO", async repo => {
+  expect((await installSkillRepository("unused", repo, async () => { throw new Error("Must not fetch"); })).message).toContain("owner/repo format");
 });
 
-it("validates the pinned tree before changing an existing checkout", () => fixture(async f => {
-  const initial = await f.install();
-  expect(initial.success).toBe(true);
-  rmSync(join(f.upstream, "SKILL.md"));
-  writeFileSync(join(f.upstream, "README.md"), "entry removed");
-  await f.git(["-C", f.upstream, "add", "."], 10_000);
-  await f.git(["-C", f.upstream, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "remove entry"], 10_000);
-  const revision = await f.git(["-C", f.upstream, "rev-parse", "HEAD"], 10_000);
-  const result = await installSkillRepository(f.root, "owner/repo", f.transport, undefined, { revision, requiredFiles: ["SKILL.md"] });
-  expect(result.success).toBe(false);
-  expect(await f.git(["-C", f.target, "rev-parse", "HEAD"], 10_000)).toBe(initial.revision!);
-  expect(readFileSync(join(f.target, "SKILL.md"), "utf8").trim()).toBe("original");
-}));
+it("rejects mutable pins and escaping required entries before IO", async () => {
+  for (const pin of [{ revision: "main", requiredFiles: ["SKILL.md"] }, { revision: FIRST, requiredFiles: ["skills/../../private"] }]) {
+    expect((await installSkillRepository("unused", "owner/repo", async () => { throw new Error("Must not fetch"); }, undefined, pin)).message).toContain("Invalid pinned");
+  }
+});

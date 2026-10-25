@@ -83,6 +83,13 @@ test.each(["cli", "skill", "quant", "insight", "runtime", "tools", "research", "
   }
 });
 
+test("skill permits the archive parser but rejects arbitrary external dependencies", () => {
+  file("src/skill/service.ts", 'import { extract } from "tar";');
+  expect(check().code).toBe(0);
+  file("src/skill/service.ts", 'import host from "some-host";');
+  expect(check()).toMatchObject({ code: 1, error: expect.stringContaining("skill-is-independent-of-host") });
+});
+
 test.each(["agent", "runtime", "source", "storage", "cli", "new-feature"])("skill cannot import the %s host, even as a type", module => {
   file(`src/${module}/host.ts`, "export type Host = string;");
   file("src/skill/service.ts", `import type { Host } from "../${module}/host.ts";`);

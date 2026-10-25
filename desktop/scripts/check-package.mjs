@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const app = resolve(process.argv[2] ?? join(root, "release/win-unpacked"));
 const runtime = join(app, "resources/runtime");
+assert.equal(existsSync(join(runtime, "git")), false, "Git must not be bundled, including stale preparation output");
+assert.deepEqual(JSON.parse(readFileSync(join(runtime, "sources.json"), "utf8")).map(source => source.Name).sort(), ["bun", "python"]);
+for (const name of ["tar", "chownr", "minipass", "minizlib", "yallist", "@isaacs/fs-minipass"]) {
+  assert.ok(readdirSync(join(runtime, "licenses", name)).some(file => file.startsWith("LICENSE")), `Missing archive dependency license: ${name}`);
+}
 const packages = join(runtime, "python/Lib/site-packages");
 const pty = join(app, "resources/app.asar.unpacked/node_modules/node-pty");
 assert.deepEqual(readdirSync(join(app, "locales")).filter(name => name.endsWith(".pak")).sort(), ["en-US.pak", "zh-CN.pak", "zh-TW.pak"]);
