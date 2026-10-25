@@ -8,7 +8,7 @@ import type { OverviewRefreshMeasurement } from "../../workspace/overview-refres
 import { fetchLiveBars } from "../../../source/index.ts";
 import type { BarProviderAdapter } from "../../../source/index.ts";
 import { loadPanelPortfolio, savePanelPortfolio } from "../../../storage/index.ts";
-import { buildOverviewView } from "../../../tui/src/overview-render.ts";
+import { buildOverviewView } from "../../../../apps/tui/src/overview-render.ts";
 
 const samples = 10, delayMs = 8;
 const { values } = parseArgs({ args: process.argv.slice(2), options: { output: { type: "string" } }, allowPositionals: false });

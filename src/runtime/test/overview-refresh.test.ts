@@ -8,11 +8,11 @@ import { OverviewRefresh } from "../workspace/overview-refresh.ts";
 import type { OverviewRefreshMeasurement } from "../workspace/overview-refresh.ts";
 import { OverviewRequestPool } from "../workspace/overview-data.ts";
 import { savePanelPortfolio, loadPanelPortfolio } from "../../storage/index.ts";
-import { buildOverviewLines } from "../../tui/src/overview-render.ts";
+import { buildOverviewLines } from "../../../apps/tui/src/overview-render.ts";
 import type { PanelSection } from "../../types/ui.ts";
 import type { LiveBarsFetchResult } from "../../source/index.ts";
-import { Buffer } from "../../tui/src/buffer.ts";
-import { drawStatus } from "../../tui/src/chrome.ts";
+import { Buffer } from "../../../apps/tui/src/buffer.ts";
+import { drawStatus } from "../../../apps/tui/src/chrome.ts";
 import { createInitialAppState } from "../../app-runtime.ts";
 
 let root: string, previous: string | undefined;

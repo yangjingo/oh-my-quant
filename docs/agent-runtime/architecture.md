@@ -1,14 +1,15 @@
 # WhyJ Quant 模块架构
 
-更新：2026-10-25。职责与边界见本文；产品见[PRD](../prd.md)，交互见[UI/UX](../quant-harness/uiux.md)，进展见 GitHub Issues/PR。
+更新：2026-10-25。产品见[PRD](../prd.md)，交互见[UI/UX](../quant-harness/uiux.md)，进展见 Issues/PR。
 
 ## 当前顶层布局
 
 | 位置 | 职责 |
 |---|---|
-| `src/index.ts`、`src/cli/`、`src/tui/` | 启动与业务命令、JSON 单次调用、终端交互；TUI 不持有会话真值 |
-| `src/app-runtime.ts`、`src/app-watchlist.ts` | 应用组装与动作；AppRuntime 仍耦合 CLI/TUI 类型和回调 |
+| `src/index.ts`、`src/cli/` | 现有启动与业务命令、JSON 单次调用；CLI 入口迁移仍待 #76 |
+| `apps/tui/` | 终端布局、输入与面板；包含源码、测试和探针，不持有会话真值 |
 | `apps/web/` | 共享 React 界面及客户端端口；Host 待接入 |
+| `src/app-runtime.ts`、`src/app-watchlist.ts` | 应用组装与动作；AppRuntime 仍使用界面回调，共享会话投影类型归 `src/types` |
 | `desktop/` | Electron main/preload、PTY/xterm 与安装包 |
 | `src/app/research-workspace/` | HTTP/SSE、研究管理器与原生 Web UI；不是目标 Host |
 | `src/app/paper-execution/` | 显式私有模拟盘宿主与独立账本 |
@@ -20,7 +21,7 @@
 
 当前 Web 原型的运行与取消由独立[研究宿主](../../src/app/research-workspace/manager.ts)管理，未保存进度只在内存中：页面刷新可接回，服务重启则只从显式保存的对话和固定证据重建上下文，不重放完整 journal 或自动获取新行情。关闭浏览器只断开订阅，不停止任务。首次研究须有结构化发布结果才能保存，后续解释型对话不冒充新研究；复核另开会话取证并关联旧版本。这些现状边界不能由下方目标 Host 的恢复承诺代替。
 
-`apps/web` 按组件、快照投影、客户端端口和纯编辑逻辑组织。`dev` 适配器只用于显式演示；正常入口未连接 Host 时拒绝操作，不替代旧研究宿主。详见 [Web 模块](../quant-harness/web-ui.md)。
+React 展示及演示/正常入口的边界见 [Web 模块](../quant-harness/web-ui.md)；Host 尚未接入。
 
 ## 当前依赖契约
 
@@ -76,7 +77,9 @@ flowchart TB
   class Host,Commands,Services,Runtime,Agent,Quant,Source,Storage shared
 ```
 
-`whyj` 由 `apps/cli` 启动 `apps/tui`；`whyj -c "…"` 执行单次命令，不加载 TUI；`whyj web` 连接或启动 Host 后打开 Web；桌面图标由 Electron 加载同一 Web UI。TUI 保留自绘实现，不意味着改用 Ink，也不新增命令或独立发行包。其他领域模块留在 `src/`，官网仍在 `site/`。
+`whyj` 由 `apps/cli` 启动 `apps/tui`；`whyj -c "…"` 执行单次命令，不加载 TUI；`whyj web` 连接或启动 Host 后打开 Web；桌面图标由 Electron 加载同一 Web UI。TUI 保留自绘实现，不意味着改用 Ink，也不新增命令或独立发行包。
+
+#93 迁移 TUI；#76 的启动链仍待实现。
 
 先提取 AppRuntime 的无界面服务，再接入口；业务状态和执行不反向依赖 apps。UI 可基于已审阅契约先行，完整交付依赖真实 Host；持久化与取消语义在接口设计时确定。本阶段不拆领域 packages、不迁移用户数据。同步 bin、构建、安装与测试发现，保留 CLI/npm 契约、Electron appId、用户目录及历史读取，再撤旧入口。
 
@@ -84,7 +87,7 @@ GUI 采用 React＋TypeScript＋Vite，服务采用 Bun HTTP/SSE；不假定 Bun
 
 ## 目标服务与 Host 契约
 
-入口只持有参数、焦点、窗口与订阅；应用服务拥有提交、取消、追问、保存、复核和身份/状态规则，不依赖 UI 或传输。Host 管实例生命周期，journal/storage 管已提交事件与不可变成果。
+入口持有参数、焦点、窗口与订阅；应用服务管理提交、取消、追问、保存、复核和身份/状态，不依赖 UI 或传输。Host 管实例生命周期，journal/storage 管已提交事件与不可变成果。
 
 跨入口接续要求同机、同一 workspace/session/run 和 Host，不承诺跨设备同步。单次 CLI 可直调服务，需要共享运行时才连接 Host；帮助/版本查询不启动 Host。
 
@@ -105,9 +108,9 @@ daemon 与休眠期间运行不在本阶段范围。Host 登记/锁、兼容判�
 
 ## 测试布局
 
-当前测试在 `src/<module>/test/`（保留 `source/tests/`）与 `tests/app/`。`test:fence` 守目录；[依赖回归](../../tests/architecture/module-boundaries.test.ts)和[入口回归](../../tests/architecture/development-entrypoints.test.ts)守边界，违规基线为空。
+测试在 `src/<module>/test/`（保留 `source/tests/`）、`apps/tui/test/` 与 `tests/app/`；默认/watch/模块测试及类型检查覆盖 TUI，`dev` 探针不自动执行。[依赖回归](../../tests/architecture/module-boundaries.test.ts)覆盖 `src`/`apps`，除启动桥接外禁止共享层导入入口；[入口回归](../../tests/architecture/development-entrypoints.test.ts)验证发现与构建，违规基线为空。
 
-目标：服务测试在 `src/app/services/test`，TUI 测试/探针在 `apps/tui/{test,dev}`，CLI 启动测试在 `apps/cli/test`。`tests/contracts` 复用直调服务与 Host API 的身份、状态和错误断言，验证单次命令不加载 TUI。
+后续目标：服务测试在 `src/app/services/test`，CLI 启动测试在 `apps/cli/test`。`tests/contracts` 复用直调服务与 Host API 的身份、状态和错误断言，验证单次命令不加载 TUI。
 
 `tests/e2e` 用真实 Host、临时工作区和假模型贯通 Web 提交 → Desktop 接回 → 关窗继续 → CLI 取消 → 拒绝晚到事件，另验保存/追问及恢复不重复副作用。发现规则、依赖围栏和 CI 随迁移同步。
 
@@ -117,4 +120,4 @@ daemon 与休眠期间运行不在本阶段范围。Host 登记/锁、兼容判�
 
 工具保留各模块 `dev/`：构建归 cli，测量/评测归 runtime，绘制/报告归 tui/artifact，IO 基准归 storage。根 `scripts/` 已退役；探针不进入默认 Agent 能力。子进程回归固定 cwd、隔离配置并使用假服务。
 
-`npm test` 发现 src/tests；`web:check` 检查 apps/web 的类型、契约、依赖边界与无演示数据的生产构建，两者均纳入发布门槛。保留必需 CI 汇总检查，完整门槛 `bun run check:release` 见[CI/Release](../ci-release.md)。Linux 另验命令、JSON、退出码及无 GUI 运行；Windows 在干净目标机对同一候选哈希验安装、升级与数据保留；macOS 另验构建、原生依赖、签名/公证与安装升级，不能沿用 Windows 结论。
+`npm test` 覆盖 src/apps/tui/tests；`web:check` 验 Web 类型、测试及生产包不含演示数据，两者均纳入发布门槛。保留必需 CI 汇总检查，完整门槛 `bun run check:release` 见[CI/Release](../ci-release.md)。Linux 另验命令、JSON、退出码及无 GUI 运行；Windows 在干净目标机对同一候选哈希验安装、升级与数据保留；macOS 另验构建、原生依赖、签名/公证与安装升级，不能沿用 Windows 结论。

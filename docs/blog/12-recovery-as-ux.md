@@ -14,7 +14,7 @@ Agent Engineering / oh-my-quant · 初稿 2026-10-13 · 修订 2026-10-13 · 反
 
 ## 诊断已经完成，修复建议却到不了用户眼前
 
-2026-09-15 的 Doctor 视图会按面板高度停止绘制。前面的模型 warning 足够多，后面的数据失败、修复建议与操作就全部被截掉；方向键也无法滚动。后台已经生成了报告，用户却没有办法读到与故障相关的部分。这条失败路径成为[Doctor 导航回归](../../src/tui/test/doctor-navigation.test.ts)的检查对象。
+2026-09-15 的 Doctor 视图会按面板高度停止绘制。前面的模型 warning 足够多，后面的数据失败、修复建议与操作就全部被截掉；方向键也无法滚动。后台已经生成了报告，用户却没有办法读到与故障相关的部分。这条失败路径成为[Doctor 导航回归](../../apps/tui/test/doctor-navigation.test.ts)的检查对象。
 
 另一次生产 PTY 检查暴露的是摘要问题：只检查数据阶段并通过，不能展示成整个系统通过。后来标题明确显示 `data pass · model+tools untested`，让未测试状态不会被一个成功标记吞掉。
 
@@ -32,7 +32,7 @@ Agent Engineering / oh-my-quant · 初稿 2026-10-13 · 修订 2026-10-13 · 反
 
 输入错误则尽量留在操作发生的位置。Settings 的编辑区域保留草稿与字段，错误另有空间，Enter save / Esc cancel 保持可见。用户可以修正刚才的内容，而不是因为一次校验失败重新输入整段配置。
 
-OAuth 退出曾暴露一个更隐蔽的完成边界：凭证文件已经删除，文件锁却还在异步释放。原 UI 测试等待文件消失和一次 tick 就继续按键，偶发地找不到 `Use API key`。问题不是再等几毫秒，而是等待对象选错了；测试后来等待已有 Sign out Promise，并用可控门槛检查“文件已删、操作未完”时仍不能切换。这次修正没有修改生产退出逻辑，也没有加大超时。[退出回归](../../src/tui/test/model-oauth-panel.test.ts)
+OAuth 退出曾暴露一个更隐蔽的完成边界：凭证文件已经删除，文件锁却还在异步释放。原 UI 测试等待文件消失和一次 tick 就继续按键，偶发地找不到 `Use API key`。问题不是再等几毫秒，而是等待对象选错了；测试后来等待已有 Sign out Promise，并用可控门槛检查“文件已删、操作未完”时仍不能切换。这次修正没有修改生产退出逻辑，也没有加大超时。[退出回归](../../apps/tui/test/model-oauth-panel.test.ts)
 
 另一次 Windows 崩溃接管失败确实属于实现：多个请求争抢过期凭证锁时，mkdir 与 rmdir 都可能短暂被拒绝。修正只对该凭证锁路径的这两类竞争做有界重试，保留取消和总等待上限；不是把全部文件错误吞掉重试。远端已轮换而响应丢失，仍可能只能重新登录。恢复机制应明确能恢复到哪里，而不是用一次重试成功许诺所有账号都不会丢失。[凭证锁](../../src/storage/src/model-auth.ts)
 
@@ -50,8 +50,8 @@ OAuth 退出曾暴露一个更隐蔽的完成边界：凭证文件已经删除�
 
 ## 实现索引
 
-- [Doctor 视口](../../src/tui/src/doctor-panel.ts)、[滚动与操作回归](../../src/tui/test/doctor-navigation.test.ts)。
-- [数据草稿生命周期](../../src/runtime/data/data-settings.ts)、[草稿回归](../../src/runtime/test/data-settings.test.ts)、[小屏编辑回归](../../src/tui/test/panel-small-screen.test.ts)。
+- [Doctor 视口](../../apps/tui/src/doctor-panel.ts)、[滚动与操作回归](../../apps/tui/test/doctor-navigation.test.ts)。
+- [数据草稿生命周期](../../src/runtime/data/data-settings.ts)、[草稿回归](../../src/runtime/test/data-settings.test.ts)、[小屏编辑回归](../../apps/tui/test/panel-small-screen.test.ts)。
 - [诊断契约](../agent-runtime/configuration.md#diagnostics)、[界面契约](../quant-harness/uiux.md#uiux)。
 
 [← 上一篇](./11-discoverable-interactions.md) · [返回系列目录](./README.md)

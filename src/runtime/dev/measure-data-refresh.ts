@@ -6,7 +6,7 @@ import type { BarProviderAdapter, SourceRuntimeDeps } from "../../source/index.t
 import { loadCachedBars, saveBars } from "../../storage/index.ts";
 import { normalizeBarSeries } from "../../market/bars.ts";
 import { buildOverviewPanelSections } from "../workspace/overview.ts";
-import { buildOverviewView } from "../../tui/src/overview-render.ts";
+import { buildOverviewView } from "../../../apps/tui/src/overview-render.ts";
 import type { Bar } from "../../types/data.ts";
 
 // Public ports and real local storage/TUI view construction, with synthetic loopback transport.

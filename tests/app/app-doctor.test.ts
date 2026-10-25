@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { setImmediate } from "node:timers/promises";
 import { AppRuntime, createInitialAppState } from "../../src/app-runtime.ts";
-import { QuantTui } from "../../src/tui/src/tui.ts";
+import { QuantTui } from "../../apps/tui/src/tui.ts";
 import { loadSettings, saveSettings } from "../../src/storage/index.ts";
 import type { DoctorResult } from "../../src/types/doctor.ts";
 
