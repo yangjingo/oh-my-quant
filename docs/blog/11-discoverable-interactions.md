@@ -47,7 +47,7 @@ Help 改为全宽 Commands / Hotkeys 两类视图，Tab 或 Shift+Tab 切换，�
 ## 实现索引
 
 - [统一命令目录](../../src/runtime/workspace/command-catalog.ts)、[详细帮助](../../src/runtime/workspace/command-help.ts)、[静态预检](../../src/runtime/workspace/command-preflight.ts)。
-- [Help 交互](../../src/tui/src/help-panel.ts)、[键盘发现回归](../../src/tui/test/help-navigation.test.ts)。
+- [Help 交互](../../apps/tui/src/help-panel.ts)、[键盘发现回归](../../apps/tui/test/help-navigation.test.ts)。
 - [用户命令参考](../../README.md#commands)。
 
 [← 上一篇](./10-layout-and-visual-language.md) · [下一篇：失败后的恢复 →](./12-recovery-as-ux.md)

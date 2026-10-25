@@ -3,6 +3,13 @@ import type { QuoteObservation } from "./market-observation.ts";
 import type { MarketColorScheme } from "./theme-colors.ts";
 import type { HudMode } from "./config.ts";
 
+export interface CurrentSessionMeta {
+  id: string;
+  createdAt: string;
+  usage: { tokens: number; contextWindow: number; percent: number | null } | null;
+  entryCount: { messages: number; compactions: number; branches: number };
+}
+
 export interface Holding {
   code: string;
   name: string;

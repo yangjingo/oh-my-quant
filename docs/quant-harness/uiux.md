@@ -6,6 +6,8 @@
 
 <a id="uiux"></a>
 
+终端实现与专属测试/探针位于 [apps/tui](../../apps/tui/README.md)，共享界面预留 [apps/web](../../apps/web/README.md)。目录迁移保持现有交互；共享 Host、React GUI 和新启动方式仍按架构计划推进。
+
 ## 多入口共享语义，不强求相同布局
 
 Desktop 面向 Windows/macOS 用户，CLI/TUI 面向 Linux 专业用户。它们复用研究服务，但输入能力、屏幕空间与使用习惯不同。界面层接收用户意图、调用状态与结果，交付可操作的呈现；它不接管模型循环、行情口径或研究完成判定。

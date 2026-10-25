@@ -23,6 +23,7 @@
   },
   "include": [
     "src/**/*",
+    "apps/tui/**/*",
     "tests/**/*"
   ],
   "exclude": [

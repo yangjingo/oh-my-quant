@@ -16,7 +16,7 @@ Analyzing 是主要工作区域，Overview 提供市场背景，Composer 保留�
 
 2026-09-15 的小屏审计发现，60×20 中带完整预览的会话列表只能看到两行，报告列表只能看到四行。原因不是内容太多，而是从已扣过顶部区域的 `contentH` 中再次扣除了元信息高度。界面看起来不拥挤，却浪费了本来可以用于阅读的位置。
 
-同一次复核还发现，空报告列表把整句下一步指引放在单行页脚，窄屏只剩前半句。这个“简洁”让用户失去了行动信息。Settings 没有常驻操作提示，进入编辑后还需要凭经验猜测怎样保存或退出。这些问题对应的[小屏回归](../../src/tui/test/panel-small-screen.test.ts)继续留在代码中。
+同一次复核还发现，空报告列表把整句下一步指引放在单行页脚，窄屏只剩前半句。这个“简洁”让用户失去了行动信息。Settings 没有常驻操作提示，进入编辑后还需要凭经验猜测怎样保存或退出。这些问题对应的[小屏回归](../../apps/tui/test/panel-small-screen.test.ts)继续留在代码中。
 
 这些反例使“Whitespace first”不能被解释为尽量空。需要保留的是能帮助用户理解分组和层级的空白，而不是由重复扣高、无效装饰或截断造成的空白。
 
@@ -57,8 +57,8 @@ Analyzing 是主要工作区域，Overview 提供市场背景，Composer 保留�
 
 ## 实现索引
 
-- [视觉设计源](../../DESIGN.md)、[共享主题](../../src/types/theme-colors.ts)、[布局计算](../../src/tui/src/render.ts)。
-- [面板容量与分区](../../src/tui/src/panel-views.ts)、[小屏回归](../../src/tui/test/panel-small-screen.test.ts)。
+- [视觉设计源](../../DESIGN.md)、[共享主题](../../src/types/theme-colors.ts)、[布局计算](../../apps/tui/src/render.ts)。
+- [面板容量与分区](../../apps/tui/src/panel-views.ts)、[小屏回归](../../apps/tui/test/panel-small-screen.test.ts)。
 - [UI/UX 契约](../quant-harness/uiux.md#uiux)、[报告颜色回归](../../src/artifact/test/market-colors.test.ts)。
 
 [← 上一篇](./08-research-workbench.md) · [下一篇：让功能被发现 →](./11-discoverable-interactions.md)

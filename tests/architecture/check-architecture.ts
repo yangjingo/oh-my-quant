@@ -192,7 +192,8 @@ function assertKernelDependencies(): void {
 }
 
 function findViolations(): Violation[] {
-  const files = listTsFiles(SRC_ROOT);
+  const appsRoot = join(ROOT, "apps");
+  const files = [...listTsFiles(SRC_ROOT), ...(existsSync(appsRoot) ? listTsFiles(appsRoot) : [])];
   const violations: Violation[] = [];
   for (const file of files) {
     const source = readFileSync(file, "utf8");
@@ -218,6 +219,10 @@ function findViolations(): Violation[] {
         const from = toProjectPath(file), to = target ? toProjectPath(target) : specifier;
         violations.push({ rule, from, to, specifier, reason, key: [rule, from, to, specifier].join("|") });
       };
+      if (target && toProjectPath(target).startsWith("apps/") && toProjectPath(file).startsWith("src/")
+        && !["src/app.ts", "src/index.ts"].includes(toProjectPath(file))) {
+        boundary("shared-layers-do-not-import-apps", "Only existing entry composition bridges may load apps; shared services and contracts must remain UI-independent.");
+      }
       if (target && toProjectPath(target).includes("/dev/")) {
         boundary("production-does-not-import-dev", "Module-local development entrypoints are manual consumers; production modules must not import them.");
       }
@@ -311,7 +316,7 @@ function listTsFiles(dir: string): string[] {
       out.push(...listTsFiles(full));
       continue;
     }
-    if (!entry.endsWith(".ts")) continue;
+    if (!/\.[cm]?[jt]sx?$/.test(entry)) continue;
     const projectPath = toProjectPath(full);
     if (projectPath.endsWith(".test.ts")) continue;
     if (projectPath.includes("/test/") || projectPath.includes("/tests/")) continue;
@@ -346,6 +351,7 @@ function resolveLocalImport(fromFile: string, rawSpecifier: string): string | nu
 
 function moduleOf(file: string): string | null {
   const rel = toProjectPath(file);
+  if (rel.startsWith("apps/")) return rel.split("/")[1] === "tui" ? "tui" : `apps/${rel.split("/")[1]}`;
   if (!rel.startsWith("src/")) return null;
   const rest = rel.slice("src/".length);
   const first = rest.split("/")[0]!;

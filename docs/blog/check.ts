@@ -7,6 +7,7 @@ async function listFiles(directory: string): Promise<string[]> {
   const entries = await readdir(resolve(root, directory), { withFileTypes: true });
   const files = await Promise.all(entries.map(async (entry) => {
     const path = `${directory}/${entry.name}`;
+    if (["node_modules", "dist"].includes(entry.name)) return [];
     return entry.isDirectory() ? listFiles(path) : [path];
   }));
   return files.flat().sort();
@@ -14,7 +15,7 @@ async function listFiles(directory: string): Promise<string[]> {
 const docsFiles = await listFiles("docs");
 const markdownFiles = docsFiles.filter((name) => name.endsWith(".md"));
 const blogFiles = markdownFiles.filter((name) => /^docs\/blog\/[^/]+\.md$/.test(name));
-const sourceGuides = (await listFiles("src")).filter((name) => name.endsWith(".md"));
+const sourceGuides = [...await listFiles("src"), ...await listFiles("apps")].filter((name) => name.endsWith(".md"));
 const current = [...markdownFiles, "README.md", "DESIGN.md", "site/README.md", ...sourceGuides];
 const failures: string[] = [];
 // The scoped product/architecture reading limit includes code and tables.

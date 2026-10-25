@@ -6,11 +6,11 @@ import { COMMAND_CATALOG } from "../workspace/command-catalog.ts";
 import { commandHelpResult } from "../workspace/command-help.ts";
 import { executeCommand, parseCommand } from "../../cli/registry.ts";
 import { AppRuntime } from "../../app-runtime.ts";
-import { buildSuggestions } from "../../tui/src/input.ts";
-import { buildHelpPanelData } from "../../tui/src/panel-models.ts";
-import { Buffer as TerminalBuffer } from "../../tui/src/buffer.ts";
-import { drawPanelFrame } from "../../tui/src/panel-chrome.ts";
-import { renderHelpPanelView } from "../../tui/src/panel-views.ts";
+import { buildSuggestions } from "../../../apps/tui/src/input.ts";
+import { buildHelpPanelData } from "../../../apps/tui/src/panel-models.ts";
+import { Buffer as TerminalBuffer } from "../../../apps/tui/src/buffer.ts";
+import { drawPanelFrame } from "../../../apps/tui/src/panel-chrome.ts";
+import { renderHelpPanelView } from "../../../apps/tui/src/panel-views.ts";
 
 let root: string, previous: string | undefined;
 beforeEach(() => {
