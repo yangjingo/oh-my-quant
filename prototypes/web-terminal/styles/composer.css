@@ -61,7 +61,10 @@
   transform: translateY(-1.5px);
 }
 #composer #send > span {
-  transform: translateY(0.5px);
+  /* At 12px, ↵ has the same 8px ink height as the 18px ›. */
+  font-size: 12px;
+  line-height: 18px;
+  transform: translateY(1px);
 }
 .editor-wrap {
   position: relative;
