@@ -42,7 +42,7 @@
     "start": "node dist/index.js",
     "check:architecture": "bun run tests/architecture/check-architecture.ts",
     "check": "npm run check:release",
-    "check:release": "npm run typecheck && npm run check:architecture && npm run check:quality && npm test && npm run build && npm run docs:build && npm run check:docs",
+    "check:release": "npm run typecheck && npm run check:architecture && npm run check:quality && npm test && npm run build && npm run docs:build && npm run check:docs && npm run web:check",
     "check:quality": "node --test .github/scripts/quality.test.mjs",
     "typecheck": "bun run tsc --noEmit",
     "gen:insights": "bun run src/insight/dev/generate-insights.ts",
@@ -59,7 +59,11 @@
     "check:docs": "bun run docs/blog/check.ts",
     "prepublishOnly": "npm run gen:insights && npm run check:release",
     "desktop:build": "bun run --cwd desktop build",
-    "desktop:dist": "bun run desktop:build && bun run --cwd desktop dist:win"
+    "desktop:dist": "bun run desktop:build && bun run --cwd desktop dist:win",
+    "web:dev": "bun run --cwd apps/web dev",
+    "web:demo": "bun run --cwd apps/web dev:demo",
+    "web:build": "bun run --cwd apps/web build",
+    "web:check": "bun run --cwd apps/web check"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "1.2.0",
