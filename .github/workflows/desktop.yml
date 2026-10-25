@@ -58,6 +58,8 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           bun run --cwd desktop dist:win
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node desktop/scripts/package-size.mjs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Install and exercise the shipped application
         run: |
           ./desktop/scripts/test-install.ps1
@@ -67,6 +69,12 @@ jobs:
         with:
           name: desktop-evidence
           path: output/playwright/desktop
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-size-evidence
+          path: output/desktop-size/package-size.json
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:

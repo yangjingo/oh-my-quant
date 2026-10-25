@@ -48,6 +48,8 @@ Write-Host 'PASS first install: non-system drive, Unicode/spaces, per-user short
 # No /D: the installer must recover the previous folder from its own registry.
 Install-App @('/S', '/currentuser')
 Write-Host 'PASS reinstall: selected directory and existing research data retained'
+& node (Join-Path $desktopRoot 'scripts/check-package.mjs') $installDir
+if ($LASTEXITCODE -ne 0) { throw 'Installed payload and Python runtime checks failed' }
 $env:WHYJ_SMOKE_EXE = $exe
 $evidence = Join-Path $repoRoot 'output/playwright/desktop'
 New-Item -ItemType Directory -Path $evidence -Force | Out-Null
