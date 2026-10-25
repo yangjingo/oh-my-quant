@@ -32,6 +32,7 @@ test("real online executable verifies before launch, forwards arguments and prop
   let mode = "missing", requests = 0;
   const server = createServer((_request, response) => {
     requests++;
+    if (mode === "retry") { mode = "valid"; response.writeHead(404); response.end("retry fixture"); return; }
     if (mode === "missing") { response.writeHead(404); response.end("missing"); return; }
     if (mode === "disconnected") { response.destroy(); return; }
     if (mode === "slow") {
@@ -82,20 +83,25 @@ test("real online executable verifies before launch, forwards arguments and prop
       mode = "slow";
       writeFileSync(requested, "waiting");
       writeFileSync(marker, "existing application sentinel");
-      const code = await new Promise((resolve, reject) => {
+      const runUi = scenario => new Promise((resolve, reject) => {
         const child = spawn("pwsh", ["-NoProfile", "-File", join(root, "desktop/scripts/test-online-ui.ps1"),
-          "-Installer", receipt.output, "-Requested", requested], {
+          "-Installer", receipt.output, "-Requested", requested, "-Scenario", scenario], {
           env: { ...process.env, WHYJ_FIXTURE_MARKER: marker, WHYJ_FIXTURE_EXIT: "0" }, stdio: "inherit", windowsHide: true,
         });
         child.once("error", reject); child.once("exit", resolve);
       });
-      assert.equal(code, 0, "Interactive cancellation acceptance failed");
+      assert.equal(await runUi("cancel"), 0, "Interactive cancellation acceptance failed");
       assert.equal(readFileSync(marker, "utf8"), "existing application sentinel", "Cancellation launched the payload");
       checks.push("interactive-download-cancel");
       mode = "valid";
       assert.equal(await run(), 0, "A fresh attempt after cancellation must succeed");
       assert.ok(readFileSync(marker, "utf8").includes("/S"));
       checks.push("retry-after-cancel");
+      mode = "retry";
+      writeFileSync(marker, "existing application sentinel");
+      assert.equal(await runUi("retry"), 0, "Interactive network retry acceptance failed");
+      assert.notEqual(readFileSync(marker, "utf8"), "existing application sentinel");
+      checks.push("interactive-network-retry");
     }
     writeFileSync(join(evidence, "result.json"), JSON.stringify({ checks, requests, receipt,
       interactiveCancel: checks.includes("interactive-download-cancel") ? "passed" : "not-run" }, null, 2));

@@ -1,4 +1,5 @@
-param([Parameter(Mandatory)][string]$Installer, [Parameter(Mandatory)][string]$Requested)
+param([Parameter(Mandatory)][string]$Installer, [Parameter(Mandatory)][string]$Requested,
+  [ValidateSet('cancel', 'retry')][string]$Scenario = 'cancel')
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted') {
   throw 'Interactive acceptance requires a disposable GitHub-hosted Windows runner.'
@@ -90,24 +91,37 @@ try {
   } 'welcome window'
   if (-not $process.WaitForInputIdle(10000)) { throw 'Welcome page did not become idle' }
   $window = [OnlineWindow]::FindDialog($process.Id)
-  Capture-Window $window '01-welcome'
+  Capture-Window $window "$Scenario-01-welcome"
   $installButton = [OnlineWindow]::GetDlgItem($window, 1)
   if ($installButton -eq [IntPtr]::Zero) { throw 'Install button missing' }
   [OnlineWindow]::PostMessage($window, 0x111, [IntPtr]1, $installButton) | Out-Null
-  Wait-For { (Get-Content -LiteralPath $Requested -Raw) -eq 'download started' } 'active download'
-  # INetC disables the outer wizard's Cancel button and creates its own child.
-  Wait-For { [OnlineWindow]::FindCancel($window) -ne [IntPtr]::Zero } 'enabled download Cancel button'
-  Capture-Window $window '02-downloading'
-  $cancel = [OnlineWindow]::FindCancel($window)
-  [OnlineWindow]::PostMessage($cancel, 0xF5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
-  Wait-For { $process.HasExited } 'cancelled installer exit'
-  if ($process.ExitCode -ne 2) { throw "Cancel must exit 2, got $($process.ExitCode)" }
+  if ($Scenario -eq 'cancel') {
+    Wait-For { (Get-Content -LiteralPath $Requested -Raw) -eq 'download started' } 'active download'
+    # INetC disables the outer wizard's Cancel button and creates its own child.
+    Wait-For { [OnlineWindow]::FindCancel($window) -ne [IntPtr]::Zero } 'enabled download Cancel button'
+    Capture-Window $window 'cancel-02-downloading'
+    $cancel = [OnlineWindow]::FindCancel($window)
+    [OnlineWindow]::PostMessage($cancel, 0xF5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+    $expected = 2
+    $steps = @('capture actual welcome', 'Install', 'capture pending download', 'Cancel')
+  } else {
+    Wait-For { [OnlineWindow]::GetLastActivePopup($window) -ne $window } 'download failure dialog'
+    $dialog = [OnlineWindow]::GetLastActivePopup($window)
+    Capture-Window $dialog 'retry-02-error'
+    $retry = [OnlineWindow]::GetDlgItem($dialog, 4)
+    if ($retry -eq [IntPtr]::Zero) { throw 'Retry button missing from the download failure dialog' }
+    [OnlineWindow]::PostMessage($retry, 0xF5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+    $expected = 0
+    $steps = @('capture actual welcome', 'Install', 'capture HTTP failure', 'Retry', 'verified fixture executes')
+  }
+  Wait-For { $process.HasExited } "$Scenario installer exit"
+  if ($process.ExitCode -ne $expected) { throw "$Scenario must exit $expected, got $($process.ExitCode)" }
   @{ installer = $Installer; sourceRevision = (git rev-parse HEAD); environment = 'GitHub-hosted Windows';
-    steps = @('capture actual welcome', 'Install', 'capture pending download', 'Cancel'); exitCode = $process.ExitCode
-  } | ConvertTo-Json | Set-Content (Join-Path $evidence 'result.json')
+    steps = $steps; exitCode = $process.ExitCode
+  } | ConvertTo-Json | Set-Content (Join-Path $evidence "$Scenario-result.json")
 } catch {
   if ($window -and -not $process.HasExited) {
-    try { Capture-Window ([OnlineWindow]::GetLastActivePopup($window)) '03-failure' } catch { Write-Warning $_ }
+    try { Capture-Window ([OnlineWindow]::GetLastActivePopup($window)) "$Scenario-03-failure" } catch { Write-Warning $_ }
   }
   throw
 } finally {
