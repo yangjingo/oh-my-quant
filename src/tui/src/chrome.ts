@@ -1,12 +1,13 @@
 import { Buffer, charWidth, strWidth, truncate } from "./buffer.ts";
 import { S, HEADER_H, COMPOSER_H, STATUS_H, DIVIDER_CHAR, GOLD_HIGHLIGHT } from "./styles.ts";
-import { BRAND_MARK_ROWS, BRAND_NAME } from "./brand.ts";
+import { BRAND_MARK_ROWS, BRAND_NAME, thinkingBrandMark } from "./brand.ts";
 import type { ComposerSuggestion } from "./input.ts";
 import type { AppState } from "../../types/ui.ts";
 
-export function drawHeader(buf: Buffer, st: AppState): void {
+export function drawHeader(buf: Buffer, st: AppState, now = Date.now()): void {
   const C = buf.w;
-  BRAND_MARK_ROWS.forEach((line, y) => buf.text(2, y, line, S.gold));
+  const mark = st.activity === "thinking" ? thinkingBrandMark(now - (st.researchStartedAt ?? 0)) : BRAND_MARK_ROWS[0];
+  buf.text(2, 0, mark, S.gold);
   const logoX = 2 + strWidth(BRAND_MARK_ROWS[0]) + 1;
   buf.text(logoX, 0, BRAND_NAME, S.creamB);
   buf.text(logoX + strWidth(BRAND_NAME) + 1, 0, `v${st.version}`, S.dim);

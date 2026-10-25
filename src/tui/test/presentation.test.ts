@@ -1,12 +1,36 @@
 import { expect, it } from "bun:test";
 import { Buffer, strWidth } from "../src/buffer.ts";
 import { drawHeader, drawStatus } from "../src/chrome.ts";
-import { BRAND_MARK_ROWS } from "../src/brand.ts";
+import { BRAND_MARK_ROWS, thinkingBrandMark } from "../src/brand.ts";
 import { buildConversationLines } from "../src/render-lines.ts";
 import { buildOverviewLines, overviewContentHeight } from "../src/overview-render.ts";
 import { buildOverviewPanelSections } from "../../runtime/workspace/overview.ts";
 import type { AppState } from "../../types/ui.ts";
 import { S } from "../src/styles.ts";
+
+it("animates only the two header cells while thinking and restores the static mark when thinking ends", () => {
+  const frames = Array.from({ length: 8 }, (_, index) => thinkingBrandMark(index * 160));
+  expect(new Set(frames).size).toBe(8);
+  expect(frames.every(frame => strWidth(frame) === 2)).toBe(true);
+  expect(thinkingBrandMark(1280)).toBe(frames[0]);
+  expect(thinkingBrandMark(159)).toBe(frames[0]);
+  for (const width of [60, 120]) {
+    const state = { activity: "thinking", researchStartedAt: 1000, version: "test" } as AppState;
+    const buffer = new Buffer(width, 2);
+    drawHeader(buffer, state, 1000);
+    const first = buffer.toPlain();
+    drawHeader(buffer, state, 1160);
+    const next = buffer.toPlain();
+    expect(next[0]!.slice(2, 4)).not.toBe(first[0]!.slice(2, 4));
+    expect(next[0]!.slice(4)).toBe(first[0]!.slice(4));
+    expect(next[1]).toBe(first[1]);
+    for (const activity of ["ready", "running tool", "compacting", "starting"] as const) {
+      state.activity = activity;
+      drawHeader(buffer, state, 1320);
+      expect(buffer.toPlain()[0]!.slice(2, 4)).toBe(BRAND_MARK_ROWS[0]);
+    }
+  }
+});
 
 it("uses warm reading text, selective cream emphasis and labelled thinking throughout streaming", () => {
   const thinking = { role: "thinking" as const, text: "Check the dates.\n\nCheck missing values.", thinkingLive: true };
