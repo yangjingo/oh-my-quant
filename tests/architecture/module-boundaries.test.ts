@@ -199,3 +199,11 @@ test("TUI test fence accepts the moved suite and rejects scattered tests", () =>
   file("apps/tui/src/render.test.ts", "// misplaced");
   expect(check("check-test-fence.ts")).toMatchObject({ code: 1, error: expect.stringContaining("TUI tests must live under apps/tui/test/") });
 });
+
+test("Web's explicit demo bootstrap is allowed while component dev imports remain blocked", () => {
+  file("apps/web/dev/demo-client.ts", "export const createDemoClient = () => ({});");
+  file("apps/web/src/main.tsx", 'if (import.meta.env.MODE === "demo") { const demo = await import("../dev/demo-client"); }');
+  expect(check().code).toBe(0);
+  file("apps/web/src/Component.tsx", 'import { createDemoClient } from "../dev/demo-client";');
+  expect(check()).toMatchObject({ code: 1, error: expect.stringContaining("production-does-not-import-dev") });
+});
