@@ -60,10 +60,26 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           node desktop/scripts/package-size.mjs
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          bun run --cwd desktop dist:online
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Verify online download failures and cancellation
+        run: |
+          bun run --cwd desktop test:online
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Install and exercise the shipped application
         run: |
-          ./desktop/scripts/test-install.ps1
+          node desktop/scripts/test-online-install.mjs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           Get-ChildItem release/*.exe | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)" } | Set-Content release/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-online-evidence
+          path: |
+            output/desktop-online/*.json
+            output/desktop-online/fixture/*.json
+            output/desktop-online/ui/*
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()
         with:

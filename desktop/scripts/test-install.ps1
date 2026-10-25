@@ -1,3 +1,4 @@
+param([string]$InstallerPath, [string]$FailureInstallerPath)
 $ErrorActionPreference = 'Stop'
 # Installs the real appId: run only on a disposable hosted CI account.
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted') {
@@ -6,7 +7,8 @@ if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hoste
 $desktopRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $repoRoot = Split-Path $desktopRoot
 $version = (Get-Content (Join-Path $desktopRoot 'package.json') | ConvertFrom-Json).version
-$installer = (Resolve-Path (Join-Path $repoRoot "release/WhyJ-Quant-Setup-$version-win-x64.exe")).Path
+if (-not $InstallerPath) { $InstallerPath = Join-Path $repoRoot "release/WhyJ-Quant-Setup-$version-win-x64.exe" }
+$installer = (Resolve-Path -LiteralPath $InstallerPath).Path
 $installDir = Join-Path $env:RUNNER_TEMP '安装 验收\WhyJ Quant'
 $exe = Join-Path $installDir 'WhyJ Quant.exe'
 $uninstallRoot = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
@@ -25,9 +27,7 @@ New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
 $sentinel = Join-Path $dataDir 'installer-acceptance.txt'
 $marker = [Guid]::NewGuid().ToString()
 Set-Content -LiteralPath $sentinel -Value $marker -NoNewline
-function Install-App([string[]]$InstallerArguments) {
-  $process = Start-Process -FilePath $installer -ArgumentList $InstallerArguments -PassThru -Wait -WindowStyle Hidden
-  if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
+function Assert-InstalledApp {
   if (-not (Test-Path -LiteralPath $exe)) { throw "Installed executable missing: $exe" }
   if ((Get-InstalledApp).Count -ne 1) { throw 'Per-user uninstall registration missing or duplicated.' }
   if ((Get-InstalledApp)[0].DisplayVersion -ne $version) { throw 'Registered version does not match the installer.' }
@@ -42,12 +42,25 @@ function Install-App([string[]]$InstallerArguments) {
     if ($target -ne $exe) { throw "Shortcut target mismatch: $link -> $target (expected $exe)" }
   }
 }
+function Install-App([string[]]$InstallerArguments) {
+  $process = Start-Process -FilePath $installer -ArgumentList $InstallerArguments -PassThru -Wait -WindowStyle Hidden
+  if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
+  Assert-InstalledApp
+}
 # NSIS requires /D last, with no quotes around its value, including spaces.
 Install-App @('/S', '/currentuser', "/D=$installDir")
 Write-Host 'PASS first install: non-system drive, Unicode/spaces, per-user shortcuts, data retained'
 # No /D: the installer must recover the previous folder from its own registry.
 Install-App @('/S', '/currentuser')
 Write-Host 'PASS reinstall: selected directory and existing research data retained'
+if ($FailureInstallerPath) {
+  $before = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
+  $failure = Start-Process -FilePath $FailureInstallerPath -ArgumentList '/S' -PassThru -Wait -WindowStyle Hidden
+  if ($failure.ExitCode -ne 2) { throw "Expected online checksum failure exit 2, got $($failure.ExitCode)" }
+  Assert-InstalledApp
+  if ((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash -ne $before) { throw 'Failed download changed the installed executable.' }
+  Write-Host 'PASS rejected online download: installed executable, registration, shortcuts and research data retained'
+}
 & node (Join-Path $desktopRoot 'scripts/check-package.mjs') $installDir
 if ($LASTEXITCODE -ne 0) { throw 'Installed payload and Python runtime checks failed' }
 $env:WHYJ_SMOKE_EXE = $exe
