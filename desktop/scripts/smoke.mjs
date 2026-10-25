@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { inspectProcesses } from "./smoke-processes.mjs";
 
 const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const version = JSON.parse(readFileSync(join(desktop, "package.json"), "utf8")).version;
@@ -24,7 +25,17 @@ const launch = () => electron.launch({
 });
 let application;
 const checks = [];
-const record = (name) => { checks.push(name); console.log(`PASS ${name}`); };
+let stage = "launch";
+let processQuery;
+const saveResult = (status, error) => {
+  const failure = error && { message: String(error), stack: error.stack, code: error.code };
+  writeFileSync(join(evidence, "result.json"), JSON.stringify({ version,
+    executable: executable || "development", home, revision: process.env.GITHUB_SHA || null,
+    status, stage, checks, processQuery: error?.processQuery || processQuery,
+    error: failure, at: new Date().toISOString() }, null, 2));
+  if (error) writeFileSync(join(evidence, "failure.txt"), error.stack || String(error));
+};
+const record = (name) => { checks.push(name); stage = `after: ${name}`; saveResult("running"); console.log(`PASS ${name}`); };
 async function waitFor(page, text, present = true) {
   await page.waitForFunction(({ text, present }) =>
     !!document.querySelector(".xterm-accessibility-tree")?.textContent?.includes(text) === present,
@@ -119,22 +130,29 @@ try {
   const bounds = JSON.parse(readFileSync(join(home, "window.json"), "utf8"));
   assert.equal(bounds.width, 820);
   record("native window close and persisted window bounds");
-  const remaining = execFileSync(join(process.env.SystemRoot, "System32/WindowsPowerShell/v1.0/powershell.exe"),
-    ["-NoProfile", "-Command", "Get-CimInstance Win32_Process -Filter \"Name='whyj.exe'\" | Select-Object -ExpandProperty ProcessId"],
-    { windowsHide: true, encoding: "utf8", timeout: 20000 }).trim();
-  assert.equal(remaining, "", "The isolated test runner must have no orphaned WhyJ CLI processes");
+  stage = "process-cleanup-query";
+  saveResult("running");
+  processQuery = inspectProcesses("whyj");
+  assert.deepEqual(processQuery.pids, [], "The isolated test runner must have no orphaned WhyJ CLI processes");
   record("no CLI process survives desktop shutdown");
   assert.deepEqual(errors, []);
-  writeFileSync(join(evidence, "result.json"), JSON.stringify({ version, executable: executable || "development", home, checks, at: new Date().toISOString() }, null, 2));
+  stage = "complete";
+  saveResult("passed");
   console.log(`Evidence: ${evidence}`);
 } catch (error) {
-  if (application) {
-    const page = await application.firstWindow().catch(() => null);
-    if (page) {
-      await page.screenshot({ path: join(evidence, "failure.png") }).catch(() => {});
-      writeFileSync(join(evidence, "failure.txt"), `${error}\n${await page.locator("body").innerText().catch(() => "")}`);
-    }
+  // Shutdown failures have no live window. Persist them before optional UI capture.
+  try { saveResult("failed", error); } catch (diagnosticError) {
+    console.error("Could not save smoke failure diagnostics:", diagnosticError);
   }
+  try {
+    if (application) {
+      const page = await application.firstWindow().catch(() => null);
+      if (page) {
+        await page.screenshot({ path: join(evidence, "failure.png") }).catch(() => {});
+        writeFileSync(join(evidence, "failure-page.txt"), await page.locator("body").innerText().catch(() => ""));
+      }
+    }
+  } catch (diagnosticError) { console.error("Could not capture the failed window:", diagnosticError); }
   throw error;
 } finally {
   if (application) await application.close().catch(() => {});

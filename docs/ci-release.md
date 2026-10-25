@@ -27,6 +27,10 @@ The [CI workflow](../.github/workflows/ci.yml) uses Bun 1.3.14 and Node 24 on Li
 
 Outdated PR runs may be cancelled; main and manual runs are preserved. CI diagnostic artifacts last 14 days. Report the tested revision, environment and run link; distinguish failure, cancellation, skipped checks and missing evidence. A rerun does not erase its original failure. [Review-skill](../.agents/skills/review-skill/SKILL.md) defines the review procedure.
 
+Desktop CI also runs `bun run --cwd desktop test` before packaging. These regressions inject shutdown failures into the smoke script and verify the Windows process query with a controlled child; they do not replace installed-application acceptance. The final no-orphan check uses `System.Diagnostics.Process` rather than CIM/WMI, keeps a 20-second query budget, and rejects query errors or malformed responses. Any surviving `whyj` process fails the isolated-runner check.
+
+Smoke writes `result.json` after each completed check and on success/failure, including the tested revision, stage, completed checks, and process-query timing or error details. A shutdown failure also writes `failure.txt` without requiring a live Electron window; optional page capture cannot replace the original failure. Inspect these files in `desktop-evidence` alongside the job log. A query timeout proves neither a leak nor clean shutdown; a successful retry does not explain an earlier stall. These changes improve the check and its diagnostics, not application shutdown semantics.
+
 ## Main Branch Protection
 
 Workflow files do not configure enforcement. In the matching main protection rule, require PRs and select actual check names: `CI required`, `PR policy`, and `Desktop required`. Choose GitHub Actions as their source where supported. Workflow titles and manual publishing jobs are unsuitable substitutes.

@@ -51,6 +51,8 @@ jobs:
         run: |
           bun run --cwd desktop typecheck
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          bun run --cwd desktop test
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Bundle runtimes and installer
         run: |
           ./desktop/scripts/prepare-runtime.ps1

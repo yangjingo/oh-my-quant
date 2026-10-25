@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "start": "electron .",
     "dist:win": "electron-builder --win nsis --x64 --publish never",
-    "test:smoke": "node scripts/smoke.mjs"
+    "test:smoke": "node scripts/smoke.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": { "node-pty": "1.1.0" },
   "devDependencies": {
