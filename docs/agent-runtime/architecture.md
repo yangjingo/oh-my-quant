@@ -8,7 +8,7 @@
 |---|---|
 | `src/index.ts`、`src/cli/`、`src/tui/` | 启动与业务命令、JSON 单次调用、终端交互；TUI 不持有会话真值 |
 | `src/app-runtime.ts`、`src/app-watchlist.ts` | 应用组装与动作；AppRuntime 仍耦合 CLI/TUI 类型和回调 |
-| `desktop/` | Electron/PTY、运行时与安装器；目标 `apps/desktop/` |
+| `desktop/` | Electron main/preload、PTY/xterm 与安装包 |
 | `src/app/research-workspace/` | HTTP/SSE、研究管理器与原生 Web UI；不是目标 Host |
 | `src/app/paper-execution/` | 显式私有模拟盘宿主与独立账本 |
 | `site/` | 独立静态官网，不连接本地研究数据 |

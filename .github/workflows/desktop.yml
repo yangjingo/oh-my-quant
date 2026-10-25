@@ -51,6 +51,10 @@ jobs:
         run: |
           bun run --cwd desktop typecheck
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Verify online download failures and cancellation
+        run: |
+          bun run --cwd desktop test:online
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Bundle runtimes and installer
         run: |
           ./desktop/scripts/prepare-runtime.ps1
@@ -61,10 +65,6 @@ jobs:
           node desktop/scripts/package-size.mjs
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           bun run --cwd desktop dist:online
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - name: Verify online download failures and cancellation
-        run: |
-          bun run --cwd desktop test:online
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Install and exercise the shipped application
         run: |
