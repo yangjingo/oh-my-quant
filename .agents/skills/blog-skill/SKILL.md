@@ -1,57 +1,57 @@
 ---
 name: blog-skill
-description: Draft, consolidate, review, and render oh-my-quant blogs with SVG figures, animations, interactive tables and analysis charts; clean up superseded posts, maintain bilingual content, and perform authorized Vercel updates. Use for blog/document-to-website workflows, not general module specification edits.
+description: Edit, simplify, consolidate, preview, and publish oh-my-quant docs and blogs. Use for text-first design documentation, illustrated articles, bilingual content, and their website update workflows.
 ---
 
 # Blog Skill
 
-Turn a maintainable article with clear evidence boundaries into verifiable website content that follows the selected product design and supports Chinese and English readers. Skill instructions are maintained in English; article language follows the user's request.
+Write for people who want to understand a decision. Apply AGENTS' Keep It Simple and Make Surgical Changes principles to prose without changing AGENTS itself. Keep skill instructions in English and prose in the reader's language.
 
-## Choose the delivery stage
+## Choose Docs or Blog
 
-- Writing or review: read the article, relevant current design, and [editorial notes](../../../docs/blog/editorial-notes.md); use [content checks](references/content-checks.md).
-- Duplicate topics: use the consolidation procedure in content checks. Identify overlap and unique evidence, produce a coherent draft, then handle originals, assets, links, and navigation in the authorized order.
-- Figures or HTML: start with the [accepted HTML template](references/html-template.md), verify the selected design revision, and read [visual rendering](references/visual-rendering.md). Deliver and inspect an actual browser preview.
-- SVG animation, tables, or charts: read [interactive visuals](references/interactive-visuals.md). Every published HTML table needs the required interactions and a static fallback.
-- Video, YouTube, or Bilibili: read [embedded media](references/embedded-media.md). Reference-only videos are ordinary links. Body videos show a compact cover and content summary, with playback on demand.
-- Translation: follow the primary-source and derived-translation procedure in content checks; do not maintain two independent article structures.
-- Upload, update, or rollback: read [Vercel publishing](references/vercel-publishing.md), verify the target and existing authorization, then execute that stage.
+**Docs** explain the problem, solution structure, and interface boundaries, primarily through text. Explain what each layer receives and delivers, who owns decisions and state, and why responsibilities are divided that way. Make the difficult assumption or failure mode visible, compare meaningful alternatives, and explain the chosen tradeoff. Keep essential evidence and limits. Design prose should not become a command manual, parameter table, file inventory, implementation recipe, or progress log. Retain only short examples and links that clarify a decision; leave detailed schemas and procedures in their existing implementation or operational references. Configuration and operational guides retain the minimal steps readers need. Do not generate illustrations or apply the blog page template by default; add a small diagram only when explicitly requested or necessary to explain a difficult relationship.
 
-A local-draft request authorizes a local draft. A request to upload a Preview authorizes that deployment; an explicit publication request authorizes the corresponding Production update. Do not ask for the same permission twice. Creating a skill, discussing deployment, or rendering local HTML does not authorize uploading. Preserve the user's sequence for deleting originals and updating navigation. Prepare the exact reviewable candidate and checks before requesting any still-needed publication approval.
+**Blogs** explain a concrete problem through alternatives, decisions, evidence, and limits. Add illustrations where they clarify the argument, following the visual references below. Diagrams are not a quota, and a topic does not need a blog merely because its Docs changed.
 
-## Keep one content provenance chain
+For both, target a 5–10 minute read, including figures. For a substantial Chinese design document, use roughly 2,000–3,000 prose characters as an editorial guide, allowing fewer for a simple topic and more when the reasoning needs it. English prose usually fits within 1,500 words. These are estimates, not quotas or new CI gates; existing scoped character caps remain ceilings. Do not pad short explanations or remove essential reasoning to hit a count. Cut repetition before splitting into distinct reader questions. Keep one current owner for a topic, using [docs/README.md](../../../docs/README.md#design) for placement. Do not create a new history ledger or hide excess detail in an appendix.
 
-1. Identify the Markdown source, selected brand/design revision, and source-code or execution evidence. Distinguish this checkout, other branches, live production, and a requested future design.
-2. Current Docs define contracts; Blogs explain problems, reasoning, evidence, and tradeoffs. Consolidate by argument, preserving unique constraints, counterexamples, historical failures, and valid citations.
-3. Maintain Chinese or the user-selected language as the primary manuscript. Translations, responsive figures, and HTML are derived artifacts tied to a source revision. Keep page chrome separate from article prose.
-4. Use a problem-driven causal structure: observed failure, inadequate assumption, decision and mechanism, then results and costs. Do not use PR chronology as the argument or treat passing CI as overall product correctness. See the [Manus / Langfuse editorial reference](references/visual-rendering.md#manus-and-langfuse-editorial-reference).
-5. Edit sources or generators, then rebuild. Do not independently edit the same content in Markdown, translations, SVG, and HTML.
+Read and verify the relevant design before editing. Preserve important constraints and distinguish intended behavior from what exists. Evidence supports the reasoning; it need not become a per-sentence traceability exercise.
 
-## Delivery requirements
+Add a few primary references where they support a design choice or clarify its limits. Cite them near the relevant argument and use a compact References section when useful. Distinguish external guidance from this repository's decision and actual implementation. Do not turn design documentation into a literature survey or imply that citing a standard establishes compliance.
 
-- Begin with `TL;DR` and end with `References`. Keep claims and evidence boundaries consistent; cite specific claims locally and collect sources at the end. Use compact, continuously numbered academic-style entries with verified metadata and separate editorial annotations; see content checks.
-- Prefer editable SVG for technical figures, using selected JQ theme tokens. Choose suitable raster formats for photographs and actual screenshots.
-- Use English inside illustrations and architecture diagrams: titles, nodes, edges, legends, annotations, and SVG accessibility text. Both article languages reuse the same figures; localize external captions and alt text.
-- Give every figure a visible title, number, explanatory caption, and alt text. For reused or adapted figures, identify the original creator, source, adaptation, and applicable permission alongside the figure. Do not repeat figure-source explanations in References.
-- Keep interactions professional and minimal. All tables support column filters, column visibility, and selected-row comparison. Reveal controls through a few Lucide icons rather than permanent forms. Keep chart scope and units visible. Preserve keyboard access, reduced-motion behavior, and no-JS/print fallbacks.
-- Reference videos, including YouTube and Bilibili, use links only: no poster cards, empty player boxes, or embeds in References. Body videos show a compact cover, original title, source, and concise content summary; load or expand playback only on activation.
-- Put desktop contents on the left, aligned with the article body rather than the hero title. Reveal it progressively on scroll and smoothly expand the active section, respecting reduced motion. Show estimated reading time and accessible Lucide share and print/save-PDF controls near the article title. Keep a compact mobile contents disclosure. Native sharing may fall back to copying the canonical public URL; draft previews share their actual preview URL. Printing opens the browser dialog and must not be described as an automatic PDF download.
+## Write the argument
 
-A temporary HTML preview still follows these requirements. Details and acceptance checks live in the references.
+Never prefix prose with author-branded analysis labels, including "WhyJ analysis" or its Chinese equivalent. Integrate interpretation naturally into the argument while keeping source attribution clear.
 
-## Repository entry points
+Start with the concrete problem, explain why it matters and what choice followed, then discuss the result and cost. Use only examples and implementation details that make the reasoning clearer. Avoid PR chronology, exhaustive code indexes, verification ledgers, and repeated caveats. Distinguish a proposal from shipped behavior without narrating every delivery stage.
 
-- [DESIGN.md](../../../DESIGN.md), [site README](../../../site/README.md), `site/public/styles.css`, and `site/public/icons.svg`: compare the current checkout with the user-selected design.
-- `docs/blog/build.ts` / `docs/blog/check.ts`: existing twelve-article offline collection and directory checks, not a universal new-article renderer.
-- `site/scripts/render.mjs` / `site/scripts/build.mjs` / `site/vercel.json`: production routes, asset allowlist, Node build, and deployment configuration.
-- [Long-form preview example](../../../site/previews/vibe-repo-ops/README.md): JQ reading page, Lucide, responsive SVG, captions, and zoom. Its build assumes the Repo Ops manuscript's section and figure counts; adapt those assumptions for other articles.
+Blogs begin with `TL;DR` and end with `References`; retain useful citations, not a source link for every sentence. Docs use headings appropriate to the reader's question, without a mandatory article outline. Follow [content checks](references/content-checks.md) for citations, consolidation, and translation.
 
-Do not expand editorial work into runtime upgrades, a full docs reorganization, CI policy changes, or unrelated feature deployment. Continue related work already authorized by the user.
+Maintain one primary manuscript. Derive translations and HTML from it; edit sources and rebuild rather than maintaining independent copies. Merge duplicate articles around one argument, preserving important tradeoffs. Respect the user's agreed order for draft review, deleting originals, and updating navigation.
 
-## Report what was verified
+## Blog illustrations and presentation
 
-Deliver the source/HTML or deployment link, content and design revisions, performed checks, and remaining limits. Report structural checks, browser preview, Preview Ready, and Production domain verification separately.
+Use [DESIGN.md](../../../DESIGN.md) and the [accepted HTML template](references/html-template.md). Read only the references needed for the current stage:
 
-Retain concrete failure explanations. If navigation updates are deferred, new review drafts may remain outside the full-directory coverage check. Complete article-level checks, but do not claim the repository docs gate passed or remove checks to obtain green results.
+| Work | Reference |
+| --- | --- |
+| Figures, icons, reading layout | [Visual rendering](references/visual-rendering.md) |
+| SVG animation, tables, charts | [Interactive visuals](references/interactive-visuals.md) |
+| YouTube, Bilibili, other video | [Embedded media](references/embedded-media.md) |
+| Preview, publication, rollback | [Vercel publishing](references/vercel-publishing.md) |
 
-For implementation PRs, follow [pr-skill](../pr-skill/SKILL.md) for commits and final-revision verification. Ordinary article review or local rendering does not require creating an Issue to continue.
+Prefer SVG; use English inside figures and give each a visible title and caption. Keep JQ styling professional and minimal. Published HTML tables support column filtering, hiding, and row comparison through compact icons. Preserve accessible, static/print fallbacks. Reference videos are links; body videos use compact covers and summaries with playback on demand.
+
+Keep desktop contents on the left, aligned with the body, with restrained progressive reveal. Show estimated reading time and Lucide share and print/save-PDF controls near the title. Preview these behaviors in a browser; detailed requirements remain in the references.
+
+## Update, preview, and publish Docs or Blogs
+
+Edit the source manuscript first. After consolidation, update affected links, anchors, navigation, and translations; respect any agreed review-before-deletion sequence. Rebuild derived content rather than editing generated pages independently.
+
+For website updates, first locate the actual content source, route, and build in [site/README.md](../../../site/README.md). A repository Docs edit does not automatically create a website page. Use an existing Docs layout for Docs and the accepted article template for Blogs. If no Docs publishing route exists, report that gap rather than silently publishing the document as a blog. Check the affected page in a local preview, then follow the authorized deployment stage and verify its URL.
+
+Local editing does not authorize deployment. Use existing authorization for Preview or Production without asking twice; prepare the reviewable candidate before requesting any missing approval.
+
+For the existing offline collection, run `bun run docs:build` and `bun run check:docs`. Independent website articles use the renderer and build described in [website publishing](../../../docs/blog/website-publishing.md); the collection builder is not a universal renderer.
+
+Report changed files, preview or deployment links, checks actually run, and material limitations briefly. Keep detailed verification receipts in the PR or delivery report; retain evidence and limits necessary to understand the document itself. Do not claim an unrun check passed. Follow [pr-skill](../pr-skill/SKILL.md) when implementing a PR.

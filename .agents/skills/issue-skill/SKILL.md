@@ -17,7 +17,7 @@ description: Draft and manage single-module issues for oh-my-quant with explicit
 ## Preparation
 
 1. Confirm the repository, base branch, version, and related issues or PRs. Use `main` as the stable iterative development version and the final integration target; distinguish it from published releases and local changes. Feature branches and temporary prototypes are not alternative stable development lines.
-2. Read the [documentation index](../../../docs/README.md), [module architecture](../../../docs/quant-harness/module-architecture.md), and relevant module documentation.
+2. Read the [documentation index](../../../docs/README.md), [module architecture](../../../docs/agent-runtime/architecture.md), and relevant module documentation.
 3. Separate observed behavior, user reports, and suspected causes. Mark unverified claims explicitly.
 
 ## Worktree Handoff
