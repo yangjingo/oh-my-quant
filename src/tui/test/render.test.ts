@@ -226,7 +226,7 @@ describe("panel isolation", () => {
     const rows = buf.toPlain();
     const y = rows.findIndex((row) => row.includes("Need to inspect source quality first."));
     expect(y).toBeGreaterThanOrEqual(0);
-    expect(rows.join("\n")).toContain("Thinking");
+    expect(rows.join("\n")).not.toContain("Thinking");
     expect(rows.some((row) => row.includes("The data source is ready."))).toBe(true);
 
     const x = rows[y].indexOf("Need");
@@ -235,7 +235,7 @@ describe("panel isolation", () => {
     expect(cell.dim).not.toBe(true);
   });
 
-  it("keeps finalized thinking content with an explicit Thinking label", () => {
+  it("keeps finalized thinking content without a redundant Thinking heading", () => {
     const buf = new Buffer(100, 24);
     const L = layout(100, 24);
     const msgs: UIMessage[] = [
@@ -248,7 +248,7 @@ describe("panel isolation", () => {
     const rows = buf.toPlain();
     const y = rows.findIndex((row) => row.includes("Need to inspect source quality first."));
     expect(y).toBeGreaterThanOrEqual(0);
-    expect(rows.join("\n")).toContain("Thinking");
+    expect(rows.join("\n")).not.toContain("Thinking");
     expect(rows.some((row) => row.includes("The data source is ready."))).toBe(true);
 
     const x = rows[y].indexOf("Need");

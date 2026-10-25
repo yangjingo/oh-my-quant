@@ -23,7 +23,7 @@ function buildOverviewBlocks(sections: PanelSection[]): OverviewBlock[] {
   const refresh = sections.find(section => section.refresh)?.refresh;
   if (refresh) {
     const lines: RenderLine[] = [{ text: `Refresh: ${refresh.at ?? "--"}`, style: S.dim }];
-    const cues = { idle: "Waiting for refresh", fetching: "Loading · ~ previous", success: "", partial: "Partial · ! old / -- missing", unavailable: "No data · ! old / -- missing", timeout: "Timeout · ! old / -- missing", error: "Failed · ! old / -- missing" };
+    const cues = { idle: "Waiting for refresh", fetching: "Loading · ~ previous", success: "", partial: "", unavailable: "No data · ! old / -- missing", timeout: "Timeout · ! old / -- missing", error: "Failed · ! old / -- missing" };
     if (cues[refresh.status]) lines.push({ text: cues[refresh.status], style: S.dim });
     if (refresh.retryKey) lines.push({ text: `Retry failed: ${refresh.retryKey}`, style: S.dim });
     blocks.push({ kind: "refresh", lines }, { kind: "gap" });

@@ -49,7 +49,6 @@ function renderMsg(msg: UIMessage, width: number): RenderLine[] {
     const bodyPrefix = "  ";
     const body = sanitizeTerminalText(msg.text ?? "").trim();
     if (body || msg.thinkingLive) {
-      lines.push({ text: "  Thinking", style: S.thinking });
       for (const line of wrap(body, Math.max(1, w - strWidth(bodyPrefix)))) {
         lines.push({ text: `${bodyPrefix}${line}`, style: S.thinking });
       }

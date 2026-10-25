@@ -32,13 +32,13 @@ it("animates only the two header cells while thinking and restores the static ma
   }
 });
 
-it("uses warm reading text, selective cream emphasis and labelled thinking throughout streaming", () => {
+it("uses warm reading text and selective cream emphasis without a separate thinking heading", () => {
   const thinking = { role: "thinking" as const, text: "Check the dates.\n\nCheck missing values.", thinkingLive: true };
   const answer = { role: "assistant" as const, text: "## Summary\nOrdinary explanation.\n- Check **risk** first.\n\n| Metric | Value |\n| --- | --- |\n| Count | 3 |\n\n```ts\n## literal code\n```" };
   for (const width of [32, 72]) {
     const lines = buildConversationLines([thinking, answer], width);
     expect(lines.every(line => strWidth(line.text) <= width)).toBe(true);
-    expect(lines.filter(line => line.text.includes("Thinking"))).toHaveLength(1);
+    expect(lines.filter(line => line.text.includes("Thinking"))).toHaveLength(0);
     expect(lines.find(line => line.text.includes("Check the dates"))).toMatchObject({ text: "  Check the dates.", style: { fg: "#8F8A7B" } });
     const parts = lines.flatMap(line => line.segments ?? [{ text: line.text, style: line.style }]);
     expect(parts.find(part => part.text === "Ordinary explanation.")?.style?.fg).toBe("#B8B4A8");
@@ -49,7 +49,7 @@ it("uses warm reading text, selective cream emphasis and labelled thinking throu
     thinking.text += " More evidence.";
     expect(buildConversationLines([thinking], width).map(line => line.text.trim()).join(" ")).toContain("More evidence.");
     thinking.thinkingLive = false;
-    expect(buildConversationLines([thinking], width)[0]!.text).toBe("  Thinking");
+    expect(buildConversationLines([thinking], width)[0]!.text).toBe("  Check the dates.");
     thinking.text = "Check the dates.\n\nCheck missing values.";
   }
 });

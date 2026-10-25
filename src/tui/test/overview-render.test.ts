@@ -4,6 +4,20 @@ import type { PanelSection } from "../../types/ui.ts";
 import { strWidth } from "../src/buffer.ts";
 
 describe("overview render", () => {
+  it("omits the partial legend while preserving stale rows, missing values and retry", () => {
+    const sections: PanelSection[] = [{ kind: "quotes", title: "Market", rows: [
+      { code: "OLD", name: "Retained", price: 100, pct: 1, refreshState: "stale" },
+      { code: "NONE", name: "Unavailable", price: NaN, pct: NaN },
+    ], refresh: { at: "2026-10-25 12:30", status: "partial", retryKey: "Ctrl+R" } }];
+    const text = buildOverviewLines(sections, 40).map(line => line.text).join("\n");
+    expect(text).not.toContain("Partial");
+    expect(text).not.toContain("old / -- missing");
+    expect(text).toContain("Refresh: 2026-10-25 12:30");
+    expect(text).toContain("Retry failed: Ctrl+R");
+    expect(text).toMatch(/OLD.*!/);
+    expect(text).toMatch(/NONE.*--/);
+  });
+
   it("builds structured lines for group, quote, and keyvalue sections", () => {
     const sections: PanelSection[] = [
       { kind: "group", groupId: "g1", title: "Tech", rows: [{ code: "NVDA", name: "NVIDIA", price: 100, pct: 1.2 }], collapsed: false },
