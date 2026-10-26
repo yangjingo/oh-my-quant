@@ -4,7 +4,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const app = resolve(process.argv[2] ?? join(root, "release/win-unpacked"));
 const runtime = join(app, "resources/runtime");
 assert.equal(existsSync(join(runtime, "git")), false, "Git must not be bundled, including stale preparation output");
@@ -43,7 +43,7 @@ for (const folder of ["plotly/labextension/static", "share/jupyter/labextensions
   assert.ok(existsSync(join(packages, folder, "third-party-licenses.json")), `Missing Plotly extension license: ${folder}`);
 }
 // Package metadata/licenses and all non-test native/data assets must survive.
-const sourcePackages = join(root, "desktop/runtime/python/Lib/site-packages");
+const sourcePackages = join(root, "apps/desktop/runtime/python/Lib/site-packages");
 for (const path of files(sourcePackages)) {
   if (/(^|\/)tests\//.test(path) || /(^|\/)__pycache__\//.test(path)) continue;
   if (/^[^/]+\.dist-info\//.test(path) || /\.(dll|pyd|dat)$/.test(path)) {
@@ -52,6 +52,6 @@ for (const path of files(sourcePackages)) {
 }
 const options = { cwd: root, stdio: "inherit", windowsHide: true, timeout: 180_000,
   env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" } };
-execFileSync(join(runtime, "python/python.exe"), [join(root, "desktop/scripts/check-python-runtime.py")], options);
+execFileSync(join(runtime, "python/python.exe"), [join(root, "apps/desktop/scripts/check-python-runtime.py")], options);
 execFileSync("bun", ["run", "src/alpha/dev/check-akquant.ts", "--python", join(runtime, "python/python.exe")], options);
 console.log("PASS packaged layout, licenses, native resources and Python runtime behavior");

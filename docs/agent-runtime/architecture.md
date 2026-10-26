@@ -1,6 +1,6 @@
 # WhyJ Quant 模块架构
 
-更新：2026-10-25。产品见[PRD](../prd.md)，交互见[UI/UX](../quant-harness/uiux.md)，进展见 Issues/PR。
+更新：2026-10-26。产品见[PRD](../prd.md)，交互见[UI/UX](../quant-harness/uiux.md)，进展见 Issues/PR。
 
 ## 当前顶层布局
 
@@ -10,7 +10,7 @@
 | `apps/tui/` | 终端布局、输入与面板；包含源码、测试和探针，不持有会话真值 |
 | `apps/web/` | 共享 React 界面及客户端端口；Host 待接入 |
 | `src/app-runtime.ts`、`src/app-watchlist.ts` | 应用组装与动作；AppRuntime 仍使用界面回调，共享会话投影类型归 `src/types` |
-| `desktop/` | Electron main/preload、PTY/xterm 与安装包 |
+| `apps/desktop/` | Electron main/preload、PTY/xterm 与安装包 |
 | `src/app/research-workspace/` | HTTP/SSE、研究管理器与原生 Web UI；不是目标 Host |
 | `src/app/paper-execution/` | 显式私有模拟盘宿主与独立账本 |
 | `site/` | 独立静态官网，不连接本地研究数据 |
@@ -21,7 +21,7 @@
 
 当前 Web 原型的运行与取消由独立[研究宿主](../../src/app/research-workspace/manager.ts)管理，未保存进度只在内存中：页面刷新可接回，服务重启则只从显式保存的对话和固定证据重建上下文，不重放完整 journal 或自动获取新行情。关闭浏览器只断开订阅，不停止任务。首次研究须有结构化发布结果才能保存，后续解释型对话不冒充新研究；复核另开会话取证并关联旧版本。这些现状边界不能由下方目标 Host 的恢复承诺代替。
 
-React 展示及演示/正常入口的边界见 [Web 模块](../quant-harness/web-ui.md)；Host 尚未接入。
+React 入口边界见 [Web 模块](../quant-harness/web-ui.md)；Host 尚未接入。
 
 ## 当前依赖契约
 
@@ -41,7 +41,7 @@ Pi 负责技能扫描、模型索引及 MCP 连接/认证；skill 负责安装�
 
 **图 1 · 多入口与共享执行层（待迁移目标）**
 
-箭头表示启动、请求或服务调用，不是完整的静态 import 图。虚线是无需 Host/TUI 的单次命令路径；Web 是共享界面，不是第三种产品。
+箭头表示调用而非完整 import 图；虚线为无需 Host/TUI 的单次命令。Web 为共享界面。
 
 ```mermaid
 flowchart TB
@@ -79,7 +79,7 @@ flowchart TB
 
 `whyj` 由 `apps/cli` 启动 `apps/tui`；`whyj -c "…"` 执行单次命令，不加载 TUI；`whyj web` 连接或启动 Host 后打开 Web；桌面图标由 Electron 加载同一 Web UI。TUI 保留自绘实现，不意味着改用 Ink，也不新增命令或独立发行包。
 
-#93 迁移 TUI；#76 的启动链仍待实现。
+Desktop 已迁目录，关窗仍退出；Host 接入待 #47/#48，CLI 待 #76。
 
 先提取 AppRuntime 的无界面服务，再接入口；业务状态和执行不反向依赖 apps。UI 可基于已审阅契约先行，完整交付依赖真实 Host；持久化与取消语义在接口设计时确定。本阶段不拆领域 packages、不迁移用户数据。同步 bin、构建、安装与测试发现，保留 CLI/npm 契约、Electron appId、用户目录及历史读取，再撤旧入口。
 

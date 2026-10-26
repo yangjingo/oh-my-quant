@@ -10,7 +10,7 @@ import { buildOnline } from "./build-online.mjs";
 if (process.env.GITHUB_ACTIONS !== "true" || process.env.RUNNER_ENVIRONMENT !== "github-hosted") {
   throw new Error("Online installation acceptance requires a disposable GitHub-hosted Windows runner");
 }
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const production = await buildOnline();
 const payload = join(root, "release", production.payloadName);
 const requests = [];
@@ -34,7 +34,7 @@ try {
   const failure = await buildOnline({ payload, testUrl: `${url}/corrupt`, testName: "installed-failure" });
   assert.equal(installer.payloadSha512, production.payloadSha512);
   const code = await new Promise((resolve, reject) => {
-    const child = spawn("pwsh", ["-NoProfile", "-File", join(root, "desktop/scripts/test-install.ps1"),
+    const child = spawn("pwsh", ["-NoProfile", "-File", join(root, "apps/desktop/scripts/test-install.ps1"),
       "-InstallerPath", installer.output, "-FailureInstallerPath", failure.output], { stdio: "inherit", windowsHide: true });
     child.once("error", reject); child.once("exit", resolve);
   });

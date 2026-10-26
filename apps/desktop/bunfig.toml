@@ -2,4 +2,4 @@
 registry = "https://registry.npmjs.org"
 
 [install.cache]
-dir = "../.bun-cache"
+dir = "../../.bun-cache"

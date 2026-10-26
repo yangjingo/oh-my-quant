@@ -7,7 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildOnline, ONLINE_LIMIT_BYTES, onlineIdentity } from "./build-online.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 test("production identity is immutable HTTPS; test endpoints cannot become release assets", () => {
   const prod = onlineIdentity("1.4.0");
   assert.equal(prod.url, "https://github.com/yangjingo/oh-my-quant/releases/download/v1.4.0/WhyJ-Quant-Setup-1.4.0-win-x64.exe");
@@ -84,7 +84,7 @@ test("real online executable verifies before launch, forwards arguments and prop
       writeFileSync(requested, "waiting");
       writeFileSync(marker, "existing application sentinel");
       const runUi = scenario => new Promise((resolve, reject) => {
-        const child = spawn("pwsh", ["-NoProfile", "-File", join(root, "desktop/scripts/test-online-ui.ps1"),
+        const child = spawn("pwsh", ["-NoProfile", "-File", join(root, "apps/desktop/scripts/test-online-ui.ps1"),
           "-Installer", receipt.output, "-Requested", requested, "-Scenario", scenario], {
           env: { ...process.env, WHYJ_FIXTURE_MARKER: marker, WHYJ_FIXTURE_EXIT: "0" }, stdio: "inherit", windowsHide: true,
         });
