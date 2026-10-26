@@ -8,6 +8,7 @@ import type { QuantAgentDependencies, QuantAgentEvent, QuantAgentSession } from 
 import type { AgentPhase, Preferences, RunState, SessionSnapshot, SubmitRequest, ToolActivity, Turn, WorkbenchClient, WorkbenchEvent, WorkspaceSummary } from "../../types/workbench.ts";
 import { WorkbenchError, modelError } from "./errors.ts";
 import { localSettings, publicPreferences, secretValues, updateModel, type SettingsPort } from "./model.ts";
+import { toolPresentation } from "./tool-presentation.ts";
 
 interface Running {
   id: string; controller: AbortController; promise: Promise<void>; finished: string[];
@@ -50,13 +51,21 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
   };
   const redact = (run: Running, text: string) => run.secrets.reduce((value, secret) => value.split(secret).join("[REDACTED]"), text);
   const assistant = (session: Session, run: Running, text?: string) => {
-    const activity = [...run.activity.values()].map(({ started: _, ...item }) => item);
+    const activity = [...run.activity.values()].map(({ started: _, ...item }) => ({ ...item, name: redact(run, item.name),
+      ...(item.context ? { context: redact(run, item.context) } : {}) }));
     const old = session.turns.find(turn => turn.id === run.id + "-assistant");
     const visible = text === undefined ? old?.text ?? "" : redact(run, text);
     if (old?.text === visible && old.state === session.state && old.phase === run.phase && JSON.stringify(old.activity) === JSON.stringify(activity)) return;
     session.turns = session.turns.map(turn => turn.id === run.id + "-assistant" ? { ...turn, text: visible, activity, phase: run.phase, state: session.state,
       ...(session.state === "running" ? {} : { endedAt: new Date().toISOString() }) } : turn);
     emit(session);
+  };
+  const finishActivities = (session: Session, run: Running) => {
+    for (const [id, item] of run.activity) {
+      if (item.state === "preparing") run.activity.set(id, { ...item, state: "not-run" });
+      else if (item.state === "running") run.activity.set(id, { ...item, state: session.state === "cancelled" ? "cancelled" : "failed",
+        elapsedMs: Math.max(0, Math.round(performance.now() - item.started)) });
+    }
   };
   const observe = (session: Session, run: Running, event: QuantAgentEvent) => {
     if (session.active !== run || session.state !== "running" || run.controller.signal.aborted) return;
@@ -65,7 +74,17 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
         const kind = event.assistantMessageEvent.type;
         if (kind === "thinking_start" || kind === "thinking_delta") run.phase = "thinking";
         else if (kind === "text_start" || kind === "text_delta") run.phase = "answering";
-        else if (kind === "thinking_end" || kind === "toolcall_start") run.phase = "waiting";
+        else if (kind === "thinking_end") run.phase = "waiting";
+        const update = event.assistantMessageEvent;
+        if ((kind === "toolcall_start" || kind === "toolcall_delta" || kind === "toolcall_end") && "contentIndex" in update) {
+          const part = event.message.content[update.contentIndex];
+          if (part?.type === "toolCall" && part.id && part.name) {
+            const old = run.activity.get(part.id);
+            if (!old || old.state === "preparing") run.activity.set(part.id, { id: part.id, name: part.name,
+              ...toolPresentation(part.name), state: "preparing", started: old?.started ?? performance.now() });
+            run.phase = "preparing";
+          }
+        }
       }
       const text = textOf(event.message);
       if (event.type === "message_end") { if (text) run.finished.push(text); assistant(session, run, run.finished.join("\n\n")); }
@@ -73,11 +92,12 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
     }
     if (event.type === "tool_execution_start") {
       run.phase = "tool";
-      run.activity.set(event.toolCallId, { id: event.toolCallId, name: event.toolName, state: "running", started: performance.now() }); assistant(session, run);
+      run.activity.set(event.toolCallId, { id: event.toolCallId, name: event.toolName, ...toolPresentation(event.toolName, event.args), state: "running", started: performance.now() }); assistant(session, run);
     }
     if (event.type === "tool_execution_end") {
       const old = run.activity.get(event.toolCallId);
-      run.activity.set(event.toolCallId, { id: event.toolCallId, name: event.toolName, state: event.isError ? "failed" : "completed", started: old?.started ?? performance.now(), elapsedMs: Math.max(0, Math.round(performance.now() - (old?.started ?? performance.now()))) });
+      run.activity.set(event.toolCallId, { id: event.toolCallId, name: event.toolName, ...toolPresentation(event.toolName), ...old,
+        state: event.isError ? "failed" : "completed", started: old?.started ?? performance.now(), elapsedMs: Math.max(0, Math.round(performance.now() - (old?.started ?? performance.now()))) });
       run.phase = [...run.activity.values()].some(item => item.state === "running") ? "tool" : "waiting";
       assistant(session, run);
     }
@@ -99,11 +119,12 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
       await session.agent.waitForIdle();
       run.controller.signal.throwIfAborted();
       if (session.agent.state.errorMessage) throw modelError(new Error(session.agent.state.errorMessage));
-      if (!run.finished.some(value => value.trim()) && !run.activity.size) throw new WorkbenchError("EMPTY_REPLY", "模型未返回可显示的回答，请检查配置或重试。", 502);
-      if (session.active === run && session.state === "running") { session.state = "settled"; assistant(session, run, run.finished.join("\n\n") || "本轮工具调用已结束，模型未提供文字总结。请检查工具状态或继续追问。"); }
+      if (!run.finished.some(value => value.trim()) && ![...run.activity.values()].some(item => item.state !== "preparing")) throw new WorkbenchError("EMPTY_REPLY", "模型未返回可显示的回答，请检查配置或重试。", 502);
+      if (session.active === run && session.state === "running") { session.state = "settled"; finishActivities(session, run); assistant(session, run, run.finished.join("\n\n") || "本轮工具调用已结束，模型未提供文字总结。请检查工具状态或继续追问。"); }
     } catch (error) {
       if (session.active === run && session.state === "running") {
         session.state = run.controller.signal.aborted ? "cancelled" : "failed";
+        finishActivities(session, run);
         const partial = run.finished.join("\n\n") || session.turns.find(turn => turn.id === run.id + "-assistant")?.text || "";
         const message = session.state === "cancelled" ? "当前研究已停止，已返回的内容保留。" : (error instanceof WorkbenchError ? error : modelError(error)).message;
         assistant(session, run, [partial, message].filter(Boolean).join("\n\n"));
@@ -155,7 +176,7 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
       if (!run || session.state !== "running") return;
       run.controller.abort(); session.agent?.abort();
       session.state = "cancelled";
-      for (const [key, value] of run.activity) if (value.state === "running") run.activity.set(key, { ...value, state: "cancelled" });
+      finishActivities(session, run);
       assistant(session, run, [session.turns.find(turn => turn.id === id + "-assistant")?.text, "当前研究已停止，草稿与已返回内容保留。"].filter(Boolean).join("\n\n"));
       await run.promise;
     },

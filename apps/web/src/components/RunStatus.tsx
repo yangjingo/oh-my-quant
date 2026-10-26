@@ -5,7 +5,8 @@ import { runLabels } from "../presentation";
 export function runStatusLabel(turn: Turn): string {
   if (turn.state !== "running") return runLabels[turn.state];
   if (turn.activity?.some(item => item.state === "running")) return "正在调用工具";
-  return ({ waiting: "等待模型响应", thinking: "思考中", tool: "正在调用工具", answering: "正在生成回答" })[turn.phase ?? (turn.text ? "answering" : "waiting")];
+  if (turn.activity?.some(item => item.state === "preparing")) return "准备调用工具";
+  return ({ waiting: "等待模型响应", thinking: "思考中", preparing: "准备调用工具", tool: "正在调用工具", answering: "正在生成回答" })[turn.phase ?? (turn.text ? "answering" : "waiting")];
 }
 
 export function elapsedLabel(turn: Turn, now: number): string | null {
@@ -26,11 +27,11 @@ export function RunStatus({ turn }: { turn: Turn }) {
     return () => clearInterval(timer);
   }, [turn.id, running]);
   const elapsed = elapsedLabel(turn, now);
-  const tools = turn.activity?.filter(item => item.state === "running").map(item => item.name);
+  const tools = turn.activity?.filter(item => running && (item.state === "running" || item.state === "preparing"));
   return <div className={"agent-status" + (running ? " is-running" : "")}>
     <span className="agent-status-mark" aria-hidden="true" />
     <span role="status" className="agent-status-label">{runStatusLabel(turn)}</span>
     {elapsed && <small aria-hidden="true">已用 {elapsed}</small>}
-    {!!tools?.length && <code className="agent-status-tool">{tools.join(" · ")}</code>}
+    {!!tools?.length && <span className="agent-status-tool">{tools.map(item => item.title ?? "研究工具").join(" · ")}</span>}
   </div>;
 }

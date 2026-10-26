@@ -12,20 +12,30 @@ const KEY = "fixture-workbench-secret-101";
 let root: string, previous: string | undefined, proxy: string | undefined;
 let model: ReturnType<typeof Bun.serve>, host: ReturnType<typeof startWorkbenchServer> | undefined;
 let service: ReturnType<typeof createWorkbenchService> | undefined;
-let mode: "answer" | "tool" | "hold" | "empty" | "thinking", requests: Record<string, unknown>[], toolSent: boolean;
+let mode: "answer" | "tool" | "hold" | "empty" | "thinking" | "preparing" | "bad-tool", requests: Record<string, unknown>[], toolSent: boolean;
 let reached: (() => void) | undefined;
+let releasePreparation: (() => void) | undefined;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "whyj-workbench-")); previous = process.env.OHQUANT_DIR; proxy = process.env.NO_PROXY;
   process.env.OHQUANT_DIR = root; process.env.NO_PROXY = "127.0.0.1,localhost";
-  mode = "answer"; requests = []; toolSent = false; reached = undefined;
+  mode = "answer"; requests = []; toolSent = false; reached = undefined; releasePreparation = undefined;
   model = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
     const payload = await request.json() as Record<string, unknown>; requests.push(payload); reached?.();
     if (mode === "hold") return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(": waiting\n\n")); } }), { headers: { "Content-Type": "text/event-stream" } });
-    const call = mode === "tool" && !toolSent;
+    const call = ["tool", "preparing", "bad-tool"].includes(mode) && !toolSent;
     if (call) toolSent = true;
-    const delta = call ? { role: "assistant", tool_calls: [{ index: 0, id: "core-tool-101", type: "function", function: { name: "calculate_position_scenarios", arguments: JSON.stringify({ shares: 100, costPerShare: 10, observedClose: 12, observationDate: "2026-10-23", currency: "CNY", changes: [-0.1, 0, 0.1] }) } }] }
+    const args = JSON.stringify({ shares: mode === "bad-tool" ? KEY : 100, costPerShare: 10, observedClose: 12, observationDate: "2026-10-23", currency: "CNY", changes: [-0.1, 0, 0.1] });
+    const delta = call ? { role: "assistant", tool_calls: [{ index: 0, id: "core-tool-101", type: "function", function: { name: "calculate_position_scenarios", arguments: args } }] }
       : mode === "empty" ? { role: "assistant", content: "" } : { role: "assistant", content: `这是同一核心会话的回答，仅作假设计算。${KEY}` };
     const chunk = { id: "fixture", object: "chat.completion.chunk", created: 0, model: String(payload.model) };
+    const encode = (delta: unknown, finish_reason: string | null = null) => new TextEncoder().encode("data: " + JSON.stringify({ ...chunk, choices: [{ index: 0, delta, finish_reason }] }) + "\n\n");
+    if (mode === "preparing" && call) return new Response(new ReadableStream({ start(controller) {
+      controller.enqueue(encode({ role: "assistant", tool_calls: [{ index: 0, id: "core-tool-101", type: "function", function: { name: "calculate_position_scenarios", arguments: "{" } }] }));
+      releasePreparation = () => {
+        controller.enqueue(encode({ tool_calls: [{ index: 0, function: { arguments: args.slice(1) } }] }));
+        controller.enqueue(encode({}, "tool_calls")); controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n")); controller.close();
+      };
+    } }), { headers: { "Content-Type": "text/event-stream" } });
     const reasoning = mode === "thinking" ? Array.from({ length: 10 }, () => ({ ...chunk, choices: [{ index: 0, delta: { role: "assistant", reasoning_content: "PRIVATE_REASONING_NOT_FOR_UI" }, finish_reason: null }] })) : [];
     return new Response([...reasoning, { ...chunk, choices: [{ index: 0, delta, finish_reason: null }] }, { ...chunk, choices: [{ index: 0, delta: {}, finish_reason: call ? "tool_calls" : "stop" }] }]
       .map(value => "data: " + JSON.stringify(value) + "\n\n").join("") + "data: [DONE]\n\n", { headers: { "Content-Type": "text/event-stream" } });
@@ -49,6 +59,14 @@ async function terminal(client: WorkbenchClient, id: string): Promise<SessionSna
 async function setup() {
   service = createWorkbenchService({ cwd: root }); const identity = await service.client.identity();
   return { client: service.client, identity, submit: (text: string) => service!.client.submit({ ...identity, text }) };
+}
+async function preparing(client: WorkbenchClient, id: string) {
+  for (let attempt = 0; attempt < 250; attempt++) {
+    const snapshot = await client.session(id);
+    if (snapshot.turns[1]?.activity?.some(item => item.state === "preparing")) return snapshot;
+    await Bun.sleep(10);
+  }
+  throw new Error("Expected a preparing tool before dispatch");
 }
 test("the default entry resolves built assets under the repository apps directory", () => {
   expect(WORKBENCH_ASSETS_ROOT).toBe(resolve(import.meta.dir, "../../../..", "apps/web/dist"));
@@ -101,6 +119,30 @@ test("thinking events project only a phase, avoid per-token snapshots, and freez
   expect(JSON.stringify(snapshots)).not.toContain("PRIVATE_REASONING_NOT_FOR_UI");
   expect(Number.isFinite(Date.parse(finished.turns[1]!.endedAt!))).toBe(true);
   expect((await client.session(identity.sessionId)).turns[1]?.endedAt).toBe(finished.turns[1]?.endedAt);
+});
+
+test("one actual tool call moves from preparation through execution to a readable completed record", async () => {
+  mode = "preparing"; const { client, identity, submit } = await setup();
+  const states: string[] = [];
+  const detach = client.subscribe(event => { if (event.type === "snapshot") states.push(...event.snapshot.turns.flatMap(turn => turn.activity?.map(item => item.state) ?? [])); });
+  await submit("准备完成前不要显示执行成功");
+  const pending = await preparing(client, identity.sessionId);
+  expect(pending.turns[1]?.activity).toHaveLength(1);
+  expect(pending.turns[1]?.activity?.[0]).toMatchObject({ id: "core-tool-101", title: "计算持仓情景", state: "preparing" });
+  expect(pending.turns[1]?.activity?.[0]?.elapsedMs).toBeUndefined();
+  releasePreparation!(); const done = await terminal(client, identity.sessionId); detach();
+  expect(states).toContain("running"); expect(done.turns[1]?.activity).toHaveLength(1);
+  expect(done.turns[1]?.activity?.[0]).toMatchObject({ id: "core-tool-101", title: "计算持仓情景", context: "100 股 · 3 个情景", state: "completed" });
+});
+
+test("cancelled preparation never becomes executed history, and tool failure never becomes completed evidence", async () => {
+  mode = "preparing"; const { client, identity, submit } = await setup();
+  const run = await submit("停止尚未执行的调用"); await preparing(client, identity.sessionId); await client.cancel(run.runId);
+  expect((await client.session(identity.sessionId)).turns[1]?.activity?.[0]?.state).toBe("not-run");
+  mode = "bad-tool"; toolSent = false;
+  await submit("无效参数仍保留失败记录"); const result = await terminal(client, identity.sessionId);
+  expect(result.turns[3]?.activity?.[0]).toMatchObject({ title: "计算持仓情景", state: "failed" });
+  expect(JSON.stringify(result)).not.toContain(KEY);
 });
 test("model settings have storage revisions, reject stale saves and never project credentials", async () => {
   const { client, submit } = await setup();

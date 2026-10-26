@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { MarketSnapshot, SessionSnapshot } from "../client/contract";
 import { IconButton } from "./UI";
-import { confidenceLabels, runLabels } from "../presentation";
+import { confidenceLabels } from "../presentation";
 import { RunStatus } from "./RunStatus";
+import { ToolHistory } from "./ToolHistory";
 
 const AnswerMarkdown = lazy(() => import("./Markdown").then(module => ({ default: module.ResearchMarkdown })));
 
@@ -42,8 +43,7 @@ export function Transcript({ snapshot, positions, onEvidence, onReport, onSugges
     <div className="thread-inner">{snapshot.turns.map(turn => <article className={"turn turn-" + turn.role} key={turn.id}>
       {turn.role === "user" ? <div className="question"><span className="prompt">›</span><p>{turn.text}</p></div> : <>
         <RunStatus turn={turn} />
-        <details className="process" open={turn.state === "running" && !!turn.activity?.length}><summary>运行详情</summary><p>状态：{runLabels[turn.state]}。界面只显示服务提供的执行状态，不推测分析进度。</p>
-          {!!turn.activity?.length && <ol className="tool-activity">{turn.activity.map(item => <li key={item.id}><code>{item.name}</code><span>{({ running: "执行中", completed: "已完成", failed: "未成功", cancelled: "已停止" })[item.state]}{item.elapsedMs === undefined ? "" : ` · ${(item.elapsedMs / 1000).toFixed(2)} 秒`}</span></li>)}</ol>}</details>
+        <ToolHistory turn={turn} />
         <span className="assistant-label">WhyJ</span><div className="answer markdown-body">{turn.text ? <Suspense fallback={<p className="plain-answer">{turn.text}</p>}><AnswerMarkdown text={turn.text} /></Suspense> : <p className="waiting-message">{turn.state === "running" ? "Agent 正在处理，你可以继续写下一条草稿。" : "本轮未返回文字内容。"}</p>}</div>
       </>}
       <div className="turn-meta"><small>{turn.at}</small><button onClick={() => void copy(turn.text)}>复制{turn.role === "user" ? "问题" : "回答"}</button></div>
