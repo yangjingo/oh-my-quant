@@ -5,8 +5,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const desktop = join(root, "desktop");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const desktop = join(root, "apps/desktop");
 export const ONLINE_LIMIT_BYTES = 50_000_000;
 const quote = value => String(value).replaceAll("$", () => "$$").replaceAll('"', '$\\"');
 
@@ -54,7 +54,7 @@ export async function buildOnline({ payload, testUrl, testName } = {}) {
   if (onlineBytes >= ONLINE_LIMIT_BYTES) throw new Error("Online installer exceeds the 50,000,000-byte limit");
   const receipt = { ...identity, payloadBytes, payloadSha512: sha512, onlineBytes,
     onlineSha256: createHash("sha256").update(readFileSync(identity.output)).digest("hex"),
-    sourceHashes: Object.fromEntries(["desktop/scripts/build-online.mjs", "desktop/assets/online-installer.nsi"].map(path =>
+    sourceHashes: Object.fromEntries(["apps/desktop/scripts/build-online.mjs", "apps/desktop/assets/online-installer.nsi"].map(path =>
       [path, createHash("sha256").update(readFileSync(join(root, path))).digest("hex")])),
     sourceRevision: spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8", windowsHide: true }).stdout.trim() };
   mkdirSync(join(root, "output/desktop-online"), { recursive: true });

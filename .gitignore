@@ -28,8 +28,8 @@ skills/portfolio/data/sst_*.json
 reference/
 
 # Generated desktop runtimes, installers and local verification evidence
-desktop/runtime/
-desktop/.downloads/
+apps/desktop/runtime/
+apps/desktop/.downloads/
 release/
 output/
 .playwright-cli/

@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted') {
   throw 'Interactive acceptance requires a disposable GitHub-hosted Windows runner.'
 }
-$evidence = Join-Path $PSScriptRoot '../../output/desktop-online/ui'
+$evidence = Join-Path $PSScriptRoot '../../../output/desktop-online/ui'
 New-Item -ItemType Directory -Path $evidence -Force | Out-Null
 Add-Type -AssemblyName System.Drawing
 Add-Type @'

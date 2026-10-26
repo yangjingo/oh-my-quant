@@ -1,4 +1,4 @@
-import { WHYJ_THEME } from "../../src/types/theme-colors.ts";
+import { WHYJ_THEME } from "../../../src/types/theme-colors.ts";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, net, protocol, screen, session, shell } from "electron";
 import type { IpcMainEvent, IpcMainInvokeEvent } from "electron";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

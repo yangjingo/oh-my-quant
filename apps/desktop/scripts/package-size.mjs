@@ -4,9 +4,9 @@ import { createReadStream, mkdirSync, readdirSync, readFileSync, statSync, write
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const app = resolve(process.argv[2] ?? join(root, "release/win-unpacked"));
-const manifest = JSON.parse(readFileSync(join(root, "desktop/package.json"), "utf8"));
+const manifest = JSON.parse(readFileSync(join(root, "apps/desktop/package.json"), "utf8"));
 const version = manifest.version;
 const installer = resolve(process.argv[3] ?? join(root, "release", `WhyJ-Quant-Setup-${version}-win-x64.exe`));
 const output = resolve(process.argv[4] ?? join(root, "output/desktop-size/package-size.json"));

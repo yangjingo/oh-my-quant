@@ -9,7 +9,7 @@ const required = [
   '"**/gen-*.test.ts"',
   '"**/dev/**"',
   '"reference/**"',
-  '"desktop/**"',
+  '"apps/desktop/**"',
   '"site/**"',
   '"output/**"',
   '".ohquant/**"',

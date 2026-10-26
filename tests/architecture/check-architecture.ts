@@ -290,10 +290,17 @@ function findViolations(): Violation[] {
 
 function findOhquantPathViolations(file: string, source: string, fromModule: string): Violation[] {
   if (fromModule === "storage") return [];
+  const path = toProjectPath(file);
+  // This executable acceptance test reads its own isolated workspace, not user data.
+  if (path === "apps/desktop/scripts/smoke.mjs") return [];
   const violations: Violation[] = [];
   const lines = source.split("\n");
   lines.forEach((lineText, index) => {
     if (!/(^|[^.\w])(?:join|resolve)\s*\(/.test(lineText) || !lineText.includes(".ohquant")) return;
+    // The process bootstrap supplies the storage root to the CLI. Child paths and
+    // all renderer filesystem access remain owned by storage.
+    if (path === "apps/desktop/src/main.ts"
+      && /^\s*OHQUANT_DIR:\s*join\(workspace, ["']\.ohquant["']\),/.test(lineText)) return;
     const pathLiteral = lineText.match(/["'](\.ohquant[^"']*)["']/)?.[1] ?? ".ohquant";
     const violation = {
       rule: "storage-owns-ohquant-paths",
@@ -317,6 +324,7 @@ function listTsFiles(dir: string): string[] {
     const stat = statSync(full);
     if (stat.isDirectory()) {
       if (entry === "node_modules" || entry === "dist") continue;
+      if (["apps/desktop/runtime", "apps/desktop/.downloads"].includes(toProjectPath(full))) continue;
       out.push(...listTsFiles(full));
       continue;
     }

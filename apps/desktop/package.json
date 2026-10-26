@@ -32,7 +32,7 @@
     "appId": "io.github.yangjingo.whyj-quant",
     "productName": "WhyJ Quant",
     "electronLanguages": ["en-US", "zh-CN", "zh-TW"],
-    "directories": { "output": "../release", "buildResources": "assets" },
+    "directories": { "output": "../../release", "buildResources": "assets" },
     "files": [
       "dist/**/*", "package.json", "node_modules/node-pty/**/*",
       "!node_modules/node-pty/prebuilds/linux-*", "!node_modules/node-pty/prebuilds/darwin-*", "!node_modules/node-pty/prebuilds/win32-arm64",

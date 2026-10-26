@@ -5,7 +5,7 @@ if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hoste
   throw 'Installer acceptance requires a disposable GitHub-hosted Windows runner.'
 }
 $desktopRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$repoRoot = Split-Path $desktopRoot
+$repoRoot = Split-Path (Split-Path $desktopRoot)
 $version = (Get-Content (Join-Path $desktopRoot 'package.json') | ConvertFrom-Json).version
 if (-not $InstallerPath) { $InstallerPath = Join-Path $repoRoot "release/WhyJ-Quant-Setup-$version-win-x64.exe" }
 $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
@@ -115,7 +115,7 @@ for ($index = 0; $index -lt $iconPaths.Count; $index++) {
 Write-Host 'PASS installed executable, installer and both shortcut icons contain the JQ brand; captures saved for review'
 Push-Location $repoRoot
 try {
-  bun run --cwd desktop test:smoke
+  bun run --cwd apps/desktop test:smoke
   if ($LASTEXITCODE) { throw "Installed application smoke failed: $LASTEXITCODE" }
   @{ version = $version; installDir = $installDir; dataDir = $dataDir;
     checks = @('unicode-spaces-non-system-drive', 'per-user-shortcuts', 'reinstall-location', 'data-retention')
