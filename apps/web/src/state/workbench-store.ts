@@ -51,7 +51,7 @@ export function createWorkbenchStore(client: WorkbenchClient) {
       ]);
       if (ticket !== generation) return;
       publish({ sessions, preferences });
-      await select(view.selected ?? identity.sessionId);
+      await select(sessions.some(session => session.sessionId === view.selected) ? view.selected! : identity.sessionId);
     } catch (error) {
       if (ticket === generation) { report(error); publish({ phase: "error" }); }
     }
@@ -62,11 +62,28 @@ export function createWorkbenchStore(client: WorkbenchClient) {
     connect() {
       release?.();
       release = client.subscribe(event => {
+        if (event.type === "connection") {
+          if (event.connected) void load();
+          else publish({ phase: "error", error: event.error ?? "研究服务连接已中断，请重新连接。" });
+          return;
+        }
         if (event.identity.sessionId !== view.selected) return;
         eventRevision++;
         const snapshot = view.snapshot;
         if (!snapshot) return;
         if (event.identity.workspaceId !== snapshot.identity.workspaceId) return;
+        if (event.type === "snapshot") {
+          const next = event.snapshot;
+          if (next.identity.workspaceId !== event.identity.workspaceId || next.identity.sessionId !== event.identity.sessionId || next.identity.runId !== event.identity.runId
+            || !Number.isSafeInteger(next.revision) || next.revision! <= (snapshot.revision ?? -1)) return;
+          const oldRun = snapshot.identity.runId, newRun = next.identity.runId;
+          const key = (run: string) => JSON.stringify([event.identity.workspaceId, event.identity.sessionId, run]);
+          if (newRun && retiredRuns.has(key(newRun))) return;
+          if (oldRun === newRun && oldRun && ["cancelled", "failed", "settled"].includes(snapshot.state)) return;
+          if (oldRun && oldRun !== newRun) retiredRuns.add(key(oldRun));
+          publish({ snapshot: next, sessions: view.sessions.map(session => session.sessionId === view.selected ? { ...session, state: next.state } : session) });
+          return;
+        }
         const previousRun = snapshot.identity.runId;
         const eventRun = event.identity.runId;
         if (previousRun && eventRun === null && event.type === "state") {
