@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { MarketSnapshot, SessionSnapshot } from "../client/contract";
 import { IconButton } from "./UI";
 import { confidenceLabels, runLabels } from "../presentation";
+import { RunStatus } from "./RunStatus";
 
 const AnswerMarkdown = lazy(() => import("./Markdown").then(module => ({ default: module.ResearchMarkdown })));
 
@@ -40,9 +41,10 @@ export function Transcript({ snapshot, positions, onEvidence, onReport, onSugges
     {!snapshot.turns.length && <div className="empty-state research-welcome"><span className="eyebrow">从一个明确的问题开始</span><h2>开始一份研究</h2><p>{mode === "host" ? "本机 Agent 已连接。可以先用给定数据验证工具；真实行情来源需要单独配置。" : "说明研究对象、时间区间，以及你想验证的判断。"}</p><div className="starter-questions">{suggestions.map(item => <button key={item.label} onClick={() => onSuggestion(item.text)}>{item.label}<span aria-hidden="true">↗</span></button>)}</div><p className="supporting">{mode === "host" ? "点击只会填入草稿。请核对并修改后再发送；当前连接暂未启用文件引用。" : "点击只会填入草稿。发送前可以修改问题或用 @ 添加引用。"}</p></div>}
     <div className="thread-inner">{snapshot.turns.map(turn => <article className={"turn turn-" + turn.role} key={turn.id}>
       {turn.role === "user" ? <div className="question"><span className="prompt">›</span><p>{turn.text}</p></div> : <>
-        <details className="process" open={turn.state === "running" && !!turn.activity?.length}><summary>{turn.state === "running" ? "研究进行中" : turn.state === "cancelled" ? "已停止" : "工具与运行状态"}</summary><p>状态：{runLabels[turn.state]}。界面只显示服务提供的执行状态，不推测分析进度。</p>
+        <RunStatus turn={turn} />
+        <details className="process" open={turn.state === "running" && !!turn.activity?.length}><summary>运行详情</summary><p>状态：{runLabels[turn.state]}。界面只显示服务提供的执行状态，不推测分析进度。</p>
           {!!turn.activity?.length && <ol className="tool-activity">{turn.activity.map(item => <li key={item.id}><code>{item.name}</code><span>{({ running: "执行中", completed: "已完成", failed: "未成功", cancelled: "已停止" })[item.state]}{item.elapsedMs === undefined ? "" : ` · ${(item.elapsedMs / 1000).toFixed(2)} 秒`}</span></li>)}</ol>}</details>
-        <span className="assistant-label">WhyJ</span><div className="answer markdown-body">{turn.text ? <Suspense fallback={<p className="plain-answer">{turn.text}</p>}><AnswerMarkdown text={turn.text} /></Suspense> : <p className="waiting-message">正在等待研究结果。你可以先写下一条草稿，或切换会话查看其他研究。</p>}</div>
+        <span className="assistant-label">WhyJ</span><div className="answer markdown-body">{turn.text ? <Suspense fallback={<p className="plain-answer">{turn.text}</p>}><AnswerMarkdown text={turn.text} /></Suspense> : <p className="waiting-message">{turn.state === "running" ? "Agent 正在处理，你可以继续写下一条草稿。" : "本轮未返回文字内容。"}</p>}</div>
       </>}
       <div className="turn-meta"><small>{turn.at}</small><button onClick={() => void copy(turn.text)}>复制{turn.role === "user" ? "问题" : "回答"}</button></div>
     </article>)}

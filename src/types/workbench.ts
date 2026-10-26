@@ -36,6 +36,7 @@ export interface WorkspaceSummary {
 }
 
 export type TurnRole = "user" | "assistant";
+export type AgentPhase = "waiting" | "thinking" | "tool" | "answering";
 
 export interface Turn {
   readonly id: string;
@@ -44,6 +45,9 @@ export interface Turn {
   readonly state: RunState;
   readonly at: string;
   readonly activity?: readonly ToolActivity[];
+  /** Public execution metadata only; never reasoning text. */
+  readonly phase?: AgentPhase;
+  readonly endedAt?: string;
 }
 
 export interface ToolActivity {
@@ -191,7 +195,9 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
   if (!object(value) || !object(value.identity) || !string(value.identity.workspaceId) || !string(value.identity.sessionId) || !nullable(value.identity.runId)
     || !states.includes(String(value.state)) || !Number.isSafeInteger(value.revision) || Number(value.revision) < 0) return false;
   if (!Array.isArray(value.turns) || !value.turns.every(turn => object(turn) && string(turn.id) && ["user", "assistant"].includes(String(turn.role))
-    && string(turn.text) && string(turn.at) && states.includes(String(turn.state)) && (turn.activity === undefined || (Array.isArray(turn.activity)
+    && string(turn.text) && string(turn.at) && states.includes(String(turn.state))
+    && (turn.phase === undefined || ["waiting", "thinking", "tool", "answering"].includes(String(turn.phase)))
+    && (turn.endedAt === undefined || string(turn.endedAt) && Number.isFinite(Date.parse(turn.endedAt))) && (turn.activity === undefined || (Array.isArray(turn.activity)
       && turn.activity.every(item => object(item) && string(item.id) && string(item.name) && ["running", "completed", "failed", "cancelled"].includes(String(item.state))
         && (item.elapsedMs === undefined || typeof item.elapsedMs === "number" && Number.isFinite(item.elapsedMs) && item.elapsedMs >= 0)))))) return false;
   if (!object(value.market) || !Array.isArray(value.market.quotes) || !string(value.market.refreshedAt) || !object(value.market.source)) return false;

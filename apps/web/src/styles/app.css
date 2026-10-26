@@ -164,4 +164,12 @@ summary { cursor: pointer; min-height: 36px; display: list-item; align-content: 
 }
 @media (max-width: 360px) { .brand { font-size: 11px; }.brand img { width: 18px; height: 18px; }.topbar { gap: 2px; }.section-label { flex-wrap: wrap; height: auto; min-height: 52px; padding-block: 4px; }.session-actions { margin-left: auto; } }
 @media (max-height: 540px) { .app { grid-template-rows: 48px minmax(0,1fr) auto 36px; padding-bottom: 4px; }.workspace { padding-block: 6px; }.composer-hint { display: none; }.status > button { min-height: 34px; }.input-box .editor-wrap textarea { max-height: 88px; }.stream { padding-block: 12px; }.research-welcome { padding-block: 12px; } }
+.agent-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--muted); font-size: 13px; }
+.agent-status.is-running { position: sticky; top: 0; z-index: 2; padding-block: 8px; background: var(--bg); }
+.agent-status.is-running .agent-status-label { color: var(--cream); }
+.agent-status small { font-variant-numeric: tabular-nums; }
+.agent-status-mark { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.is-running .agent-status-mark { width: 14px; height: 14px; background: transparent; border: 2px solid var(--line); border-top-color: var(--gold); animation: agent-spin 1s linear infinite; }
+.agent-status-tool { flex-basis: 100%; padding-left: 24px; overflow-wrap: anywhere; color: var(--gold); font-size: 12px; }
+@keyframes agent-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }

@@ -12,7 +12,7 @@ const KEY = "fixture-workbench-secret-101";
 let root: string, previous: string | undefined, proxy: string | undefined;
 let model: ReturnType<typeof Bun.serve>, host: ReturnType<typeof startWorkbenchServer> | undefined;
 let service: ReturnType<typeof createWorkbenchService> | undefined;
-let mode: "answer" | "tool" | "hold" | "empty", requests: Record<string, unknown>[], toolSent: boolean;
+let mode: "answer" | "tool" | "hold" | "empty" | "thinking", requests: Record<string, unknown>[], toolSent: boolean;
 let reached: (() => void) | undefined;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "whyj-workbench-")); previous = process.env.OHQUANT_DIR; proxy = process.env.NO_PROXY;
@@ -26,7 +26,8 @@ beforeEach(() => {
     const delta = call ? { role: "assistant", tool_calls: [{ index: 0, id: "core-tool-101", type: "function", function: { name: "calculate_position_scenarios", arguments: JSON.stringify({ shares: 100, costPerShare: 10, observedClose: 12, observationDate: "2026-10-23", currency: "CNY", changes: [-0.1, 0, 0.1] }) } }] }
       : mode === "empty" ? { role: "assistant", content: "" } : { role: "assistant", content: `这是同一核心会话的回答，仅作假设计算。${KEY}` };
     const chunk = { id: "fixture", object: "chat.completion.chunk", created: 0, model: String(payload.model) };
-    return new Response([{ ...chunk, choices: [{ index: 0, delta, finish_reason: null }] }, { ...chunk, choices: [{ index: 0, delta: {}, finish_reason: call ? "tool_calls" : "stop" }] }]
+    const reasoning = mode === "thinking" ? Array.from({ length: 10 }, () => ({ ...chunk, choices: [{ index: 0, delta: { role: "assistant", reasoning_content: "PRIVATE_REASONING_NOT_FOR_UI" }, finish_reason: null }] })) : [];
+    return new Response([...reasoning, { ...chunk, choices: [{ index: 0, delta, finish_reason: null }] }, { ...chunk, choices: [{ index: 0, delta: {}, finish_reason: call ? "tool_calls" : "stop" }] }]
       .map(value => "data: " + JSON.stringify(value) + "\n\n").join("") + "data: [DONE]\n\n", { headers: { "Content-Type": "text/event-stream" } });
   } });
   const settings = structuredClone(DEFAULT_SETTINGS); settings.provider = "custom"; settings.model = "workbench-fixture"; settings.thinkingLevel = "off";
@@ -86,6 +87,20 @@ test("an empty provider reply cannot appear as a successfully completed answer",
   expect(finished.state).toBe("failed");
   expect(finished.turns[1]?.text).toContain("模型未返回可显示的回答");
   expect(finished.output.artifacts).toHaveLength(0);
+});
+
+test("thinking events project only a phase, avoid per-token snapshots, and freeze the terminal clock", async () => {
+  mode = "thinking"; const { client, identity, submit } = await setup();
+  const snapshots: SessionSnapshot[] = [];
+  const detach = client.subscribe(event => { if (event.type === "snapshot") snapshots.push(event.snapshot); });
+  await submit("验证真实 thinking 事件的安全状态投影");
+  const finished = await terminal(client, identity.sessionId); detach();
+  expect(finished.state).toBe("settled");
+  expect(snapshots.filter(value => value.turns[1]?.phase === "thinking")).toHaveLength(1);
+  expect(snapshots.some(value => value.turns[1]?.phase === "answering")).toBe(true);
+  expect(JSON.stringify(snapshots)).not.toContain("PRIVATE_REASONING_NOT_FOR_UI");
+  expect(Number.isFinite(Date.parse(finished.turns[1]!.endedAt!))).toBe(true);
+  expect((await client.session(identity.sessionId)).turns[1]?.endedAt).toBe(finished.turns[1]?.endedAt);
 });
 test("model settings have storage revisions, reject stale saves and never project credentials", async () => {
   const { client, submit } = await setup();

@@ -5,14 +5,14 @@ import { createDefaultSessionDependencies } from "../../runtime/session-dependen
 import { BUILTIN_TOOL_REGISTRY } from "../../tools/registry.ts";
 import { resolveOhquantDir } from "../../storage/index.ts";
 import type { QuantAgentDependencies, QuantAgentEvent, QuantAgentSession } from "../../agent/src/session-contracts.ts";
-import type { Preferences, RunState, SessionSnapshot, SubmitRequest, ToolActivity, Turn, WorkbenchClient, WorkbenchEvent, WorkspaceSummary } from "../../types/workbench.ts";
+import type { AgentPhase, Preferences, RunState, SessionSnapshot, SubmitRequest, ToolActivity, Turn, WorkbenchClient, WorkbenchEvent, WorkspaceSummary } from "../../types/workbench.ts";
 import { WorkbenchError, modelError } from "./errors.ts";
 import { localSettings, publicPreferences, secretValues, updateModel, type SettingsPort } from "./model.ts";
 
 interface Running {
   id: string; controller: AbortController; promise: Promise<void>; finished: string[];
   activity: Map<string, ToolActivity & { started: number }>;
-  secrets: string[];
+  secrets: string[]; phase: AgentPhase;
 }
 interface Session {
   id: string; name: string; state: RunState; revision: number; runCount: number;
@@ -53,23 +53,32 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
     const activity = [...run.activity.values()].map(({ started: _, ...item }) => item);
     const old = session.turns.find(turn => turn.id === run.id + "-assistant");
     const visible = text === undefined ? old?.text ?? "" : redact(run, text);
-    if (old?.text === visible && old.state === session.state && JSON.stringify(old.activity) === JSON.stringify(activity)) return;
-    session.turns = session.turns.map(turn => turn.id === run.id + "-assistant" ? { ...turn, text: visible, activity, state: session.state } : turn);
+    if (old?.text === visible && old.state === session.state && old.phase === run.phase && JSON.stringify(old.activity) === JSON.stringify(activity)) return;
+    session.turns = session.turns.map(turn => turn.id === run.id + "-assistant" ? { ...turn, text: visible, activity, phase: run.phase, state: session.state,
+      ...(session.state === "running" ? {} : { endedAt: new Date().toISOString() }) } : turn);
     emit(session);
   };
   const observe = (session: Session, run: Running, event: QuantAgentEvent) => {
     if (session.active !== run || session.state !== "running" || run.controller.signal.aborted) return;
     if ((event.type === "message_update" || event.type === "message_end") && event.message.role === "assistant") {
+      if (event.type === "message_update") {
+        const kind = event.assistantMessageEvent.type;
+        if (kind === "thinking_start" || kind === "thinking_delta") run.phase = "thinking";
+        else if (kind === "text_start" || kind === "text_delta") run.phase = "answering";
+        else if (kind === "thinking_end" || kind === "toolcall_start") run.phase = "waiting";
+      }
       const text = textOf(event.message);
       if (event.type === "message_end") { if (text) run.finished.push(text); assistant(session, run, run.finished.join("\n\n")); }
       else assistant(session, run, [...run.finished, text].filter(Boolean).join("\n\n"));
     }
     if (event.type === "tool_execution_start") {
+      run.phase = "tool";
       run.activity.set(event.toolCallId, { id: event.toolCallId, name: event.toolName, state: "running", started: performance.now() }); assistant(session, run);
     }
     if (event.type === "tool_execution_end") {
       const old = run.activity.get(event.toolCallId);
       run.activity.set(event.toolCallId, { id: event.toolCallId, name: event.toolName, state: event.isError ? "failed" : "completed", started: old?.started ?? performance.now(), elapsedMs: Math.max(0, Math.round(performance.now() - (old?.started ?? performance.now()))) });
+      run.phase = [...run.activity.values()].some(item => item.state === "running") ? "tool" : "waiting";
       assistant(session, run);
     }
   };
@@ -131,10 +140,10 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
       const session = get(request.sessionId);
       if (session.active) throw new WorkbenchError("RUN_ACTIVE", "当前会话仍在运行，请等待或显式停止。", 409);
       const id = randomUUID(), at = new Date().toISOString();
-      const run: Running = { id, controller: new AbortController(), promise: Promise.resolve(), finished: [], activity: new Map(), secrets: secretValues(settings.read()) };
+      const run: Running = { id, controller: new AbortController(), promise: Promise.resolve(), finished: [], activity: new Map(), secrets: secretValues(settings.read()), phase: "waiting" };
       session.runId = id; session.state = "running"; session.active = run; session.runCount++;
       if (!session.turns.length && session.name === "新研究") session.name = request.text.trim().slice(0, 32);
-      session.turns.push({ id: id + "-user", role: "user", text: redact(run, request.text.trim()), state: "settled", at }, { id: id + "-assistant", role: "assistant", text: "", state: "running", at, activity: [] });
+      session.turns.push({ id: id + "-user", role: "user", text: redact(run, request.text.trim()), state: "settled", at }, { id: id + "-assistant", role: "assistant", text: "", state: "running", at, activity: [], phase: "waiting" });
       emit(session);
       run.promise = Promise.resolve().then(() => execute(session, run, redact(run, request.text.trim())));
       return { sessionId: session.id, runId: id };
