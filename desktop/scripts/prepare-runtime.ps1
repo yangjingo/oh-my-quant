@@ -7,7 +7,6 @@ $runtimeRoot = Join-Path $desktopRoot 'runtime'
 New-Item -ItemType Directory -Path $downloads, $runtimeRoot -Force | Out-Null
 $archives = @(
   @{ Name = 'python'; Url = 'https://www.python.org/ftp/python/3.13.12/python-3.13.12-embed-amd64.zip'; Hash = '76f238f606250c87c6beac75dccd35ee99070a13490555936abb6cb64ecce3d0'; Direct = $true },
-  @{ Name = 'git'; Url = 'https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.2/MinGit-2.56.0.2-64-bit.zip'; Hash = 'da35e72aa21c005a5a0d298cfbae110bc1609a815730ea0dde84b01a1b3cd3be'; Direct = $false },
   @{ Name = 'bun'; Url = 'https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-windows-x64-baseline.zip'; Hash = '538f9c846355d9e847b2671bc00c47da4229a0befb24df3282b739770f3b475f'; Direct = $false }
 )
 foreach ($archive in $archives) {
@@ -31,7 +30,5 @@ if ($Offline) { $uvArgs += '--offline' }
 if ($LASTEXITCODE -ne 0) { throw 'Python dependency installation failed' }
 & (Join-Path $pythonRoot 'python.exe') -c 'import akshare, akquant, yfinance, pandas_market_calendars; print("Bundled Python imports passed: AKShare " + akshare.__version__)'
 if ($LASTEXITCODE -ne 0) { throw 'Bundled Python import check failed' }
-& (Join-Path $runtimeRoot 'git/cmd/git.exe') --version
-if ($LASTEXITCODE -ne 0) { throw 'Bundled Git check failed' }
 $archives | Select-Object Name, Url, Hash | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtimeRoot 'sources.json')
 Copy-Item -LiteralPath (Join-Path $desktopRoot 'python-requirements.txt') -Destination $runtimeRoot

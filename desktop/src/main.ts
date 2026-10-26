@@ -53,13 +53,12 @@ function startTerminal(size: TerminalSize): void {
   const executable = join(runtime, "whyj.exe");
   if (!existsSync(executable)) throw new Error("The bundled terminal is missing. Please reinstall WhyJ Quant.");
   const python = join(runtime, "python");
-  const git = join(runtime, "git", "cmd");
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== undefined && !["path", "electron_run_as_node", "node_options", "pythonhome", "pythonpath"].includes(key.toLowerCase())) env[key] = value;
   }
   Object.assign(env, {
-    PATH: [python, git, process.env.PATH || process.env.Path || ""].join(";"),
+    PATH: [python, process.env.PATH || process.env.Path || ""].join(";"),
     TERM: "xterm-256color", COLORTERM: "truecolor", FORCE_COLOR: "3",
     OHQUANT_DIR: join(workspace, ".ohquant"), WHYJ_PYTHON: join(python, "python.exe"),
     WHYJ_DESKTOP: "1",

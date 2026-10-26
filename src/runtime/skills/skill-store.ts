@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { readSkillSelection, resolveSkillsDir, updateSkillSelection } from "../../storage/index.ts";
-import { installSkillRepository, type SkillGit, type SkillInstallResult } from "../../skill/index.ts";
+import { installSkillRepository, type SkillFetch, type SkillInstallResult } from "../../skill/index.ts";
 import { CURATED_SKILL_REPOSITORIES, curatedSkillRepository } from "../../skill/index.ts";
 import { invalidateSkillDiscovery } from "../../agent/src/skills.ts";
 import { loadSkillsFromDir } from "../../agent/src/pi-skills.ts";
@@ -60,7 +60,7 @@ export function managedSkillCatalog(root = skillsDir()) {
   return entries.map(entry => ({ ...entry, selected: entry.downloaded && (selection[entry.directory]?.includes(entry.name) ?? true) }));
 }
 
-export async function installSelectedSkills(names: string[], options: { root?: string; git?: SkillGit; signal?: AbortSignal } = {}) {
+export async function installSelectedSkills(names: string[], options: { root?: string; fetch?: SkillFetch; signal?: AbortSignal } = {}) {
   const root = options.root ?? skillsDir();
   const catalog = managedSkillCatalog(root);
   const requested = [...new Set(names)];
@@ -75,10 +75,10 @@ export async function installSelectedSkills(names: string[], options: { root?: s
     const chosen = catalog.filter(entry => entry.directory === directory && requested.includes(entry.name));
     const preset = DEFAULT_REPO_DIRS.get(directory);
     if (!existsSync(join(root, directory)) && preset) {
-      // Publish a choice before the shared clone: failure/cancellation or another
+      // Publish a choice before the shared download: failure/cancellation or another
       // concurrent discovery must not activate unselected sibling workflows.
       updateSkillSelection(selection => { selection[directory] ??= []; }, root);
-      const result = await installSkillRepository(root, preset.repo, options.git, options.signal, {
+      const result = await installSkillRepository(root, preset.repo, options.fetch, options.signal, {
         revision: preset.revision, requiredFiles: chosen.map(skill => `skills/${skill.name}/SKILL.md`),
       });
       options.signal?.throwIfAborted();

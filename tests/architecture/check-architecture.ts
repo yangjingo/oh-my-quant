@@ -248,8 +248,8 @@ function findViolations(): Violation[] {
       }
       if (fromModule === "skill" && (target
         ? !["skill", "types"].includes(targetModule ?? "") || toProjectPath(target) === "src/types/commands.ts"
-        : !specifier.startsWith("node:"))) {
-        boundary("skill-is-independent-of-host", "Skill domain services accept explicit paths and process ports; commands, discovery, settings and providers belong to the host.");
+        : !specifier.startsWith("node:") && specifier !== "tar")) {
+        boundary("skill-is-independent-of-host", "Skill services accept explicit paths and HTTP ports; only Node built-ins and tar are allowed. Commands, discovery, settings and providers belong to the host.");
       }
       if (fromModule === "quant" && (!target || !["quant", "market", "types"].includes(targetModule ?? "")
         || toProjectPath(target) === "src/types/commands.ts")) {

@@ -5,6 +5,7 @@ import { join, resolve, sep } from "node:path";
 import { installSelectedSkills, managedSkillCatalog, removeSelectedSkills, skillPaths } from "../skills/skill-store.ts";
 import { CURATED_SKILL_REPOSITORIES } from "../../skill/index.ts";
 import { createDefaultSessionDependencies } from "../session-dependencies.ts";
+import { skillArchive } from "../../skill/test/fixtures/archive.ts";
 
 async function fixture(run: (root: string) => Promise<void>) {
   const root = mkdtempSync(join(tmpdir(), "whyj-selected-skills-"));
@@ -36,10 +37,11 @@ it("downloads a shared repository once and exposes only the chosen skills to a c
   const local = createDefaultSessionDependencies({ cwd: root, skillPaths, settings: { skillIntegrations: { external: false } } });
   expect(await local.loadSkills()).toEqual([]);
   const before = local.readSkillRevision!(); let downloads = 0;
-  const result = await installSelectedSkills(["llmquant-risk", "llmquant-data"], { git: args => {
-    if (args.includes("fetch")) downloads++;
-    if (args.includes("checkout")) for (const skill of repository.skills) writeSkill(join(args[1]!, "skills"), skill.name);
-    return repository.revision;
+  const result = await installSelectedSkills(["llmquant-risk", "llmquant-data"], { fetch: async url => {
+    expect(url).toEndWith(`/tarball/${repository.revision}`); downloads++;
+    return new Response(skillArchive(Object.fromEntries(repository.skills.map(skill => [
+      `skills/${skill.name}/SKILL.md`, `---\nname: ${skill.name}\ndescription: Fixture workflow\n---\nLocal instructions`,
+    ]))));
   } });
   expect(result.success).toBe(true); expect(downloads).toBe(1);
   expect(local.readSkillRevision!()).not.toBe(before);
@@ -58,7 +60,7 @@ it("persists individual removal, retains local edits and restores only the selec
   expect(readFileSync(file, "utf8")).toBe(original);
   expect((await local.loadSkills()).map(skill => skill.name)).toEqual(["llmquant-data"]);
   expect(JSON.parse(readFileSync(join(process.env.OHQUANT_SKILLS_DIR!, ".selection.json"), "utf8"))["LLMQuant-skills"]).toEqual(["llmquant-data"]);
-  const result = await installSelectedSkills(["llmquant-risk"], { git: () => { throw new Error("Must stay offline"); } });
+  const result = await installSelectedSkills(["llmquant-risk"], { fetch: () => { throw new Error("Must stay offline"); } });
   expect(result.success).toBe(true);
   expect((await local.loadSkills()).map(skill => skill.name).sort()).toEqual(["llmquant-data", "llmquant-risk"]);
   expect(removeSelectedSkills(["llmquant-data", "llmquant-risk"]).success).toBe(true);
@@ -67,7 +69,7 @@ it("persists individual removal, retains local edits and restores only the selec
 
 it("validates the whole selection before downloading or removing and does not adopt external skills", () => fixture(async () => {
   let calls = 0;
-  const result = await installSelectedSkills(["llmquant-risk", "unknown"], { git: () => { calls++; return ""; } });
+  const result = await installSelectedSkills(["llmquant-risk", "unknown"], { fetch: async () => { calls++; return new Response(); } });
   expect(result.success).toBe(false); expect(calls).toBe(0);
   expect(removeSelectedSkills(["external-skill"]).success).toBe(false);
   expect(existsSync(process.env.OHQUANT_SKILLS_DIR!)).toBe(false);
@@ -75,7 +77,7 @@ it("validates the whole selection before downloading or removing and does not ad
 
 it("does not select or download further repositories after cancellation", () => fixture(async () => {
   const abort = new AbortController(); let calls = 0;
-  await expect(installSelectedSkills(["llmquant-risk", "technical-analyst"], { signal: abort.signal, git: () => { calls++; abort.abort(); return ""; } })).rejects.toThrow();
+  await expect(installSelectedSkills(["llmquant-risk", "technical-analyst"], { signal: abort.signal, fetch: async () => { calls++; abort.abort(); return new Response(); } })).rejects.toThrow();
   expect(calls).toBe(1);
   expect(JSON.parse(readFileSync(join(process.env.OHQUANT_SKILLS_DIR!, ".selection.json"), "utf8"))).toEqual({ "LLMQuant-skills": [] });
   expect(managedSkillCatalog().every(skill => !skill.selected)).toBe(true);
@@ -86,7 +88,7 @@ it("preserves invalid selection files and refuses to download over an unreadable
   const file = join(process.env.OHQUANT_SKILLS_DIR!, ".selection.json");
   writeFileSync(file, "broken");
   let calls = 0;
-  await expect(installSelectedSkills(["llmquant-risk"], { git: () => { calls++; return ""; } })).rejects.toThrow("invalid");
+  await expect(installSelectedSkills(["llmquant-risk"], { fetch: async () => { calls++; return new Response(); } })).rejects.toThrow("invalid");
   expect(calls).toBe(0); expect(readFileSync(file, "utf8")).toBe("broken");
 }));
 
@@ -107,13 +109,13 @@ it("keeps a removed Markdown sibling out of the composed session", () => fixture
   expect((await session.loadSkills()).map(skill => skill.name).sort()).toEqual(["alpha", "beta"]);
   expect(removeSelectedSkills(["alpha"]).success).toBe(true);
   expect((await session.loadSkills()).map(skill => skill.name)).toEqual(["beta"]);
-  expect((await installSelectedSkills(["alpha"], { git: () => { throw new Error("Must stay offline"); } })).success).toBe(true);
+  expect((await installSelectedSkills(["alpha"], { fetch: () => { throw new Error("Must stay offline"); } })).success).toBe(true);
   expect((await session.loadSkills()).map(skill => skill.name).sort()).toEqual(["alpha", "beta"]);
 }));
 
 it("rejects ambiguous names before changing selections or downloading", () => fixture(async () => {
   for (const repo of ["someone-one", "someone-two"]) writeSkill(join(process.env.OHQUANT_SKILLS_DIR!, repo, "skills"), "duplicate");
-  const install = await installSelectedSkills(["duplicate"], { git: () => { throw new Error("Must stay offline"); } });
+  const install = await installSelectedSkills(["duplicate"], { fetch: () => { throw new Error("Must stay offline"); } });
   expect(install.success).toBe(false);
   expect(install.message).toContain("Ambiguous");
   expect(removeSelectedSkills(["duplicate"]).success).toBe(false);
