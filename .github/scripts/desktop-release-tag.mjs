@@ -19,7 +19,7 @@ export function verifyReleaseTag(version, sha, readRefs) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { version } = JSON.parse(readFileSync("desktop/package.json", "utf8"));
+  const { version } = JSON.parse(readFileSync("apps/desktop/package.json", "utf8"));
   verifyReleaseTag(version, process.env.GITHUB_SHA, tag =>
     execFileSync("git", ["ls-remote", "origin", tag, `${tag}^{}`], { encoding: "utf8" }));
 }

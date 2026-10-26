@@ -2,7 +2,7 @@ import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const desktop = resolve(import.meta.dir, "..");
-const root = resolve(desktop, "..");
+const root = resolve(desktop, "../..");
 const manifest = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
 const appManifest = JSON.parse(readFileSync(resolve(desktop, "package.json"), "utf8"));
 if (manifest.version !== appManifest.version) throw new Error("CLI and desktop versions must match");

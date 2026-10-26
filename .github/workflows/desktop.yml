@@ -42,35 +42,35 @@ jobs:
         run: |
           bun install --frozen-lockfile
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          Set-Location desktop
+          Set-Location apps/desktop
           bun install --frozen-lockfile
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           node node_modules/electron/install.js
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Check desktop
         run: |
-          bun run --cwd desktop typecheck
+          bun run --cwd apps/desktop typecheck
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          bun run --cwd desktop test
+          bun run --cwd apps/desktop test
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Verify online download failures and cancellation
         run: |
-          bun run --cwd desktop test:online
+          bun run --cwd apps/desktop test:online
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Bundle runtimes and installer
         run: |
-          ./desktop/scripts/prepare-runtime.ps1
+          ./apps/desktop/scripts/prepare-runtime.ps1
           bun run desktop:build
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          bun run --cwd desktop dist:win
+          bun run --cwd apps/desktop dist:win
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          node desktop/scripts/package-size.mjs
+          node apps/desktop/scripts/package-size.mjs
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          bun run --cwd desktop dist:online
+          bun run --cwd apps/desktop dist:online
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Install and exercise the shipped application
         run: |
-          node desktop/scripts/test-online-install.mjs
+          node apps/desktop/scripts/test-online-install.mjs
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           Get-ChildItem release/*.exe | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)" } | Set-Content release/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
@@ -116,7 +116,7 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import { readFileSync } from 'node:fs';
-          const desktop = JSON.parse(readFileSync('desktop/package.json', 'utf8'));
+          const desktop = JSON.parse(readFileSync('apps/desktop/package.json', 'utf8'));
           const cli = JSON.parse(readFileSync('package.json', 'utf8'));
           if (process.env.GITHUB_REF !== 'refs/heads/main' || desktop.version !== cli.version ||
               !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(desktop.version)) {
@@ -131,8 +131,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(node -p "require('./desktop/package.json').version")
+          version=$(node -p "require('./apps/desktop/package.json').version")
           node .github/scripts/desktop-release-tag.mjs
-          cp desktop/RELEASE-NOTES.md release/notes.md
+          cp apps/desktop/RELEASE-NOTES.md release/notes.md
           printf '\nVerification: [Windows build and installation acceptance](%s/%s/actions/runs/%s).\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> release/notes.md
           gh release create "v$version" release/*.exe release/SHA256SUMS.txt --target "$GITHUB_SHA" --title "WhyJ Quant Desktop $version" --notes-file release/notes.md --latest

@@ -1,4 +1,4 @@
-import { WHYJ_THEME } from "../../src/types/theme-colors.ts";
+import { WHYJ_THEME } from "../../../src/types/theme-colors.ts";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";

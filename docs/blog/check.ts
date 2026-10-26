@@ -8,6 +8,7 @@ async function listFiles(directory: string): Promise<string[]> {
   const files = await Promise.all(entries.map(async (entry) => {
     const path = `${directory}/${entry.name}`;
     if (["node_modules", "dist"].includes(entry.name)) return [];
+    if (["apps/desktop/runtime", "apps/desktop/.downloads"].includes(path)) return [];
     return entry.isDirectory() ? listFiles(path) : [path];
   }));
   return files.flat().sort();
