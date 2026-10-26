@@ -19,6 +19,8 @@ async (page) => {
     await capture('01-desktop');
     await input.focus();
     check(await input.evaluate(el => el.selectionStart === 0 && el.selectionEnd === 0), 'Empty caret must start at zero');
+    check(await page.getByRole('button', { name: '发送问题', exact: true }).isDisabled(), 'Empty input cannot be submitted');
+    await input.fill('检查输入强调色');
     const colors = await page.evaluate(() => [getComputedStyle(document.querySelector('#composer .prompt')).color, getComputedStyle(document.querySelector('#send span')).color]);
     check(colors[0] === colors[1], 'Prompt and send accent must match');
     await input.fill('/');
