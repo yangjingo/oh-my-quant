@@ -134,10 +134,10 @@ test("desktop publishing rejects other branches, prereleases, and mismatched ver
   const step = workflow.jobs.publish.steps.find(step => step.name === "Validate desktop release branch and version");
   const code = step.run.split("\n").slice(1, -2).join("\n");
   const directory = mkdtempSync(resolve(tmpdir(), "ohquant-desktop-guard-"));
-  const desktop = resolve(directory, "desktop"); mkdirSync(desktop);
+  const desktop = resolve(directory, "apps/desktop"); mkdirSync(desktop, { recursive: true });
   t.after(() => {
     unlinkSync(resolve(desktop, "package.json")); unlinkSync(resolve(directory, "package.json"));
-    rmdirSync(desktop); rmdirSync(directory);
+    rmdirSync(desktop); rmdirSync(resolve(directory, "apps")); rmdirSync(directory);
   });
   for (const [ref, cli, app, succeeds] of [
     ["refs/heads/main", "1.4.0", "1.4.0", true],

@@ -46,7 +46,7 @@ test("default and npm test discovery include moved TUI tests but exclude manual,
     file("src/example/test/module.test.ts", pass);
     file("tests/app/integration.test.ts", pass);
     file("apps/tui/test/render.test.ts", pass);
-    for (const directory of ["src/example/dev", "apps/tui/dev", "apps/tui/node_modules/example", "reference", "desktop", "site", "output", ".ohquant", "node_modules/example"]) {
+    for (const directory of ["src/example/dev", "apps/tui/dev", "apps/tui/node_modules/example", "reference", "apps/desktop", "site", "output", ".ohquant", "node_modules/example"]) {
       file(`${directory}/unwanted.test.ts`, 'throw new Error("manual or external tree must not execute");');
     }
     file("src/example/test/gen-example.test.ts", 'throw new Error("manual artifact must not execute");');

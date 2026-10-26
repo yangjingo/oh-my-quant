@@ -23,7 +23,7 @@ beforeEach(() => {
     "@earendil-works/pi-agent-core": "1.2.0", "@earendil-works/pi-ai": "1.2.0",
   } }));
   file("tsconfig.json", "{}");
-  file("bunfig.toml", '[test]\nroot = "."\npathIgnorePatterns = ["**/gen-*.test.ts", "**/dev/**", "reference/**", "desktop/**", "site/**", "output/**", ".ohquant/**", "**/node_modules/**"]\n');
+  file("bunfig.toml", '[test]\nroot = "."\npathIgnorePatterns = ["**/gen-*.test.ts", "**/dev/**", "reference/**", "apps/desktop/**", "site/**", "output/**", ".ohquant/**", "**/node_modules/**"]\n');
 });
 
 afterEach(() => {
@@ -37,6 +37,26 @@ function check(script = "check-architecture.ts") {
   });
   return { code: result.exitCode, error: new TextDecoder().decode(result.stderr) };
 }
+
+test("Desktop bootstrap may configure the storage root but cannot own data files", () => {
+  file("apps/desktop/src/main.ts", 'const env = {\n  OHQUANT_DIR: join(workspace, ".ohquant"),\n};');
+  expect(check().code).toBe(0);
+  file("apps/desktop/src/main.ts", 'const settings = join(workspace, ".ohquant/settings.json");');
+  expect(check()).toMatchObject({ code: 1, error: expect.stringContaining("storage-owns-ohquant-paths") });
+});
+
+test("Desktop renderer cannot construct storage paths", () => {
+  file("apps/desktop/src/renderer.ts", 'const data = join(workspace, ".ohquant");');
+  expect(check()).toMatchObject({ code: 1, error: expect.stringContaining("storage-owns-ohquant-paths") });
+});
+
+test("generated Desktop runtimes are excluded without excluding Desktop sources", () => {
+  file("apps/desktop/runtime/vendor.js", 'import "bun:test";');
+  file("apps/desktop/.downloads/vendor.js", 'import "bun:test";');
+  expect(check().code).toBe(0);
+  file("apps/desktop/src/renderer.ts", 'import "bun:test";');
+  expect(check()).toMatchObject({ code: 1, error: expect.stringContaining("production-does-not-import-tests") });
+});
 
 test.each(["performance", "alpha", "execution", "extensions", "skill", "quant"])("%s consumers use the public entry, including type exports", feature => {
   file(`src/${feature}/internal.ts`, "export type Contract = string;");

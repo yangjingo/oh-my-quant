@@ -10,7 +10,7 @@ import { inspectProcesses } from "./smoke-processes.mjs";
 const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const version = JSON.parse(readFileSync(join(desktop, "package.json"), "utf8")).version;
 const home = process.env.WHYJ_SMOKE_HOME || mkdtempSync(join(tmpdir(), "whyj-desktop-smoke-"));
-const evidence = resolve(desktop, "../output/playwright/desktop");
+const evidence = resolve(desktop, "../../output/playwright/desktop");
 mkdirSync(evidence, { recursive: true });
 mkdirSync(join(home, "profile"), { recursive: true });
 const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>

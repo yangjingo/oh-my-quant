@@ -24,9 +24,9 @@ function fixture(t) {
 // files. This reproduces the post-close catch path without installing an app.
 async function runSmoke(t, { queryError, pids = [], failDiagnosticWrite = false } = {}) {
   const root = fixture(t), home = join(root, "home");
-  mkdirSync(join(root, "desktop/scripts"), { recursive: true });
+  mkdirSync(join(root, "apps/desktop/scripts"), { recursive: true });
   mkdirSync(join(home, "workspace/.ohquant"), { recursive: true });
-  writeFileSync(join(root, "desktop/package.json"), JSON.stringify({ version: "1.4.0" }));
+  writeFileSync(join(root, "apps/desktop/package.json"), JSON.stringify({ version: "1.4.0" }));
   writeFileSync(join(home, "workspace/.ohquant/settings.json"), JSON.stringify({ preferences: { source: "akshare", marketColorScheme: "green-up" } }));
   writeFileSync(join(home, "window.json"), JSON.stringify({ width: 820 }));
   const page = {
@@ -67,7 +67,7 @@ async function runSmoke(t, { queryError, pids = [], failDiagnosticWrite = false 
   };
   const bindings = { electron: { launch: async () => application }, assert, mkdtempSync, mkdirSync,
     readFileSync, existsSync, tmpdir, dirname, join, resolve, fileURLToPath,
-    scriptUrl: pathToFileURL(join(root, "desktop/scripts/smoke.mjs")).href,
+    scriptUrl: pathToFileURL(join(root, "apps/desktop/scripts/smoke.mjs")).href,
     process: { env: { SystemRoot: process.env.SystemRoot || "C:\\Windows", WHYJ_SMOKE_HOME: home, GITHUB_SHA: "fixture-revision" } },
     console: { log() {}, error() {} }, execFileSync: command,
     inspectProcesses: name => inspectProcesses(name, command),

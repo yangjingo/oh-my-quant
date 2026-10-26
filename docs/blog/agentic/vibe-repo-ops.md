@@ -249,7 +249,7 @@ Anthropic 的 [Effective harnesses for long-running agents](https://www.anthropi
 | DisplayName 带版本号 | 安装器展示名始终固定 | 调整识别规则以匹配实际安装项 | 不把其他应用误识别成本应用 |
 | Unicode 快捷方式目标读取错误 | 两种 COM 接口返回的路径等价 | 使用 Shell.Application 的链接目标读取 | 目标仍严格位于选择的安装目录 |
 
-这些故障分别可在 [compiler 运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38156159819)、[依赖运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38583475117)、[首次安装运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38591545423)和 [Unicode 运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38592615490)中追踪。当前执行入口是 [prepare-runtime.ps1](../../../desktop/scripts/prepare-runtime.ps1)、[build.ts](../../../desktop/scripts/build.ts)和 [test-install.ps1](../../../desktop/scripts/test-install.ps1)。compiler 日志只证明提取失败并提示下载可能不完整，不能直接证明某一网络服务是根因。
+这些故障分别可在 [compiler 运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38156159819)、[依赖运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38583475117)、[首次安装运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38591545423)和 [Unicode 运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38592615490)中追踪。当前执行入口是 [prepare-runtime.ps1](../../../apps/desktop/scripts/prepare-runtime.ps1)、[build.ts](../../../apps/desktop/scripts/build.ts)和 [test-install.ps1](../../../apps/desktop/scripts/test-install.ps1)。compiler 日志只证明提取失败并提示下载可能不完整，不能直接证明某一网络服务是根因。
 
 这些验收有实际副作用。安装、覆盖升级、卸载测试应该运行在可丢弃的 GitHub runner 用户环境；开发机上运行一次打包命令，不能替代安装验收，也不应为了补一项检查冒险改变日常安装。
 
