@@ -45,6 +45,12 @@ code, kbd { font-family: Mono, monospace; }
 .run-badge[data-state=interrupted] { color: var(--gold); }
 .recovery-notice { padding: 16px 24px; border-bottom: 1px solid var(--border); color: var(--cream); background: #211d13; line-height: 1.7; }
 .recovery-notice p { margin: 6px 0 12px; font-size: 14px; }
+.thinking-process { margin: 12px 0; color: var(--muted); font-size: 14px; }
+.thinking-process > summary { display: list-item; cursor: pointer; padding: 8px 0; }
+.thinking-process > summary small { margin-left: 12px; color: var(--gold); }
+.thinking-body { max-height: 280px; overflow: auto; overscroll-behavior: contain; padding: 12px 16px; border-left: 2px solid var(--gold); background: #151410; }
+.thinking-body p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; margin: 0; }
+.thinking-note { display: block; margin-top: 8px; line-height: 1.6; }
 .stream { min-height: 0; flex: 1; overflow: auto; padding: 28px clamp(16px,3vw,40px); scroll-padding-block: 20px; }
 .thread-inner { max-width: 880px; margin-inline: auto; }
 .turn { margin: 0 0 32px; }

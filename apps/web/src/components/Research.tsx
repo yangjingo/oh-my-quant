@@ -4,6 +4,7 @@ import { IconButton } from "./UI";
 import { confidenceLabels } from "../presentation";
 import { RunStatus } from "./RunStatus";
 import { ToolHistory } from "./ToolHistory";
+import { Thinking } from "./Thinking";
 
 const AnswerMarkdown = lazy(() => import("./Markdown").then(module => ({ default: module.ResearchMarkdown })));
 
@@ -43,6 +44,7 @@ export function Transcript({ snapshot, positions, onEvidence, onReport, onSugges
     <div className="thread-inner">{snapshot.turns.map(turn => <article className={"turn turn-" + turn.role} key={turn.id}>
       {turn.role === "user" ? <div className="question"><span className="prompt">›</span><p>{turn.text}</p></div> : <>
         <RunStatus turn={turn} />
+        <Thinking turn={turn} />
         <ToolHistory turn={turn} />
         <span className="assistant-label">WhyJ</span><div className="answer markdown-body">{turn.text ? <Suspense fallback={<p className="plain-answer">{turn.text}</p>}><AnswerMarkdown text={turn.text} /></Suspense> : <p className="waiting-message">{turn.state === "running" ? "Agent 正在处理，你可以继续写下一条草稿。" : "本轮未返回文字内容。"}</p>}</div>
       </>}

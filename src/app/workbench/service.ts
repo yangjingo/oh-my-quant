@@ -9,12 +9,13 @@ import type { AgentPhase, Preferences, RunState, SessionSnapshot, SubmitRequest,
 import { WorkbenchError, modelError } from "./errors.ts";
 import { localSettings, publicPreferences, secretValues, updateModel, type SettingsPort } from "./model.ts";
 import { recoverSnapshot } from "./session-recovery.ts";
+import { redactModelText, thinkingText } from "./thinking.ts";
 import { toolPresentation } from "./tool-presentation.ts";
 
 interface Running {
   id: string; controller: AbortController; promise: Promise<void>; finished: string[];
   activity: Map<string, ToolActivity & { started: number }>;
-  secrets: string[]; phase: AgentPhase;
+  secrets: string[]; phase: AgentPhase; thinking: string; finishedThinking: string[];
 }
 interface Session {
   id: string; name: string; state: RunState; revision: number; runCount: number;
@@ -105,14 +106,15 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
     const current = snapshot(session);
     for (const listener of listeners) { try { listener({ type: "snapshot", identity: current.identity, snapshot: current }); } catch { listeners.delete(listener); } }
   };
-  const redact = (run: Running, text: string) => run.secrets.reduce((value, secret) => value.split(secret).join("[REDACTED]"), text);
+  const redact = (run: Running, text: string) => redactModelText(text, run.secrets);
   const assistant = (session: Session, run: Running, text?: string) => {
     const activity = [...run.activity.values()].map(({ started: _, ...item }) => ({ ...item, name: redact(run, item.name),
       ...(item.context ? { context: redact(run, item.context) } : {}) }));
     const old = session.turns!.find(turn => turn.id === run.id + "-assistant");
-    const visible = text === undefined ? old?.text ?? "" : redact(run, text);
-    if (old?.text === visible && old.state === session.state && old.phase === run.phase && JSON.stringify(old.activity) === JSON.stringify(activity)) return;
-    session.turns = session.turns!.map(turn => turn.id === run.id + "-assistant" ? { ...turn, text: visible, activity, phase: run.phase, state: session.state,
+    const visible = text === undefined ? old?.text ?? "" : redactModelText(text, run.secrets, session.state === "running");
+    const thinking = redactModelText(run.thinking, run.secrets, run.phase === "thinking") || undefined;
+    if (old?.text === visible && old.thinking === thinking && old.state === session.state && old.phase === run.phase && JSON.stringify(old.activity) === JSON.stringify(activity)) return;
+    session.turns = session.turns!.map(turn => turn.id === run.id + "-assistant" ? { ...turn, text: visible, thinking, activity, phase: run.phase, state: session.state,
       ...(session.state === "running" ? {} : { endedAt: new Date().toISOString() }) } : turn);
     emit(session);
   };
@@ -143,8 +145,15 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
         }
       }
       const text = textOf(event.message);
-      if (event.type === "message_end") { if (text) run.finished.push(text); assistant(session, run, run.finished.join("\n\n")); }
-      else assistant(session, run, [...run.finished, text].filter(Boolean).join("\n\n"));
+      const thinking = thinkingText(event.message);
+      if (event.type === "message_end") {
+        if (text) run.finished.push(text);
+        if (thinking) run.finishedThinking.push(thinking);
+        run.thinking = run.finishedThinking.join("\n\n"); assistant(session, run, run.finished.join("\n\n"));
+      } else {
+        run.thinking = [...run.finishedThinking, thinking].filter(Boolean).join("\n\n");
+        assistant(session, run, [...run.finished, text].filter(Boolean).join("\n\n"));
+      }
     }
     if (event.type === "tool_execution_start") {
       run.phase = "tool";
@@ -246,7 +255,7 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
       if (session.active) throw new WorkbenchError("RUN_ACTIVE", "当前会话仍在运行，请等待或显式停止。", 409);
       if (session.recovery?.acknowledgementRequired) throw new WorkbenchError("RECONCILE_REQUIRED", "上次工具结果待核对，请先确认后再提问。", 409);
       const id = randomUUID(), at = new Date().toISOString();
-      const run: Running = { id, controller: new AbortController(), promise: Promise.resolve(), finished: [], activity: new Map(), secrets: secretValues(settings.read()), phase: "waiting" };
+      const run: Running = { id, controller: new AbortController(), promise: Promise.resolve(), finished: [], activity: new Map(), secrets: secretValues(settings.read()), phase: "waiting", thinking: "", finishedThinking: [] };
       session.recovery = undefined; session.runId = id; session.state = "running"; session.active = run; session.runCount++;
       if (!session.turns!.length && session.name === "新研究") session.name = request.text.trim().slice(0, 32);
       session.turns!.push({ id: id + "-user", role: "user", text: redact(run, request.text.trim()), state: "settled", at }, { id: id + "-assistant", role: "assistant", text: "", state: "running", at, activity: [], phase: "waiting" });

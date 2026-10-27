@@ -42,6 +42,8 @@ export interface Turn {
   readonly id: string;
   readonly role: TurnRole;
   readonly text: string;
+  /** Optional provider-returned, non-redacted thinking text; distinct from the answer. */
+  readonly thinking?: string;
   readonly state: RunState;
   readonly at: string;
   readonly activity?: readonly ToolActivity[];
@@ -201,7 +203,7 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
   if (!object(value) || !object(value.identity) || !string(value.identity.workspaceId) || !string(value.identity.sessionId) || !nullable(value.identity.runId)
     || !states.includes(String(value.state)) || !Number.isSafeInteger(value.revision) || Number(value.revision) < 0) return false;
   if (!Array.isArray(value.turns) || !value.turns.every(turn => object(turn) && string(turn.id) && ["user", "assistant"].includes(String(turn.role))
-    && string(turn.text) && string(turn.at) && states.includes(String(turn.state))
+    && string(turn.text) && (turn.thinking === undefined || string(turn.thinking)) && string(turn.at) && states.includes(String(turn.state))
     && (turn.phase === undefined || ["waiting", "thinking", "preparing", "tool", "answering"].includes(String(turn.phase)))
     && (turn.endedAt === undefined || string(turn.endedAt) && Number.isFinite(Date.parse(turn.endedAt))) && (turn.activity === undefined || (Array.isArray(turn.activity)
       && turn.activity.every(item => object(item) && string(item.id) && string(item.name)

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { isWorkbenchSnapshot } from "../src/client/contract";
 import { createHostClient } from "../src/client/host";
 import { createDemoClient } from "../dev/demo-client";
 import { createWorkbenchStore } from "../src/state/workbench-store";
@@ -77,4 +78,13 @@ test("startup ready is sufficient without replaying histories, and scoped storag
   const events: WorkbenchEvent[] = []; let release!: () => void;
   await new Promise<void>(resolve => { release = client.subscribe(event => { events.push(event); if (event.type === "session-error") { release(); resolve(); } }); });
   expect(events).toEqual([{ type: "connection", connected: true }, frames[1]]); expect(paths).toHaveLength(2);
+});
+
+
+test("optional thinking survives snapshot validation while malformed thinking is rejected", async () => {
+  const old = { ...await createDemoClient().session("sample"), revision: 1 };
+  expect(isWorkbenchSnapshot(old)).toBe(true);
+  const turns = old.turns.map(turn => turn.role === "assistant" ? { ...turn, thinking: "模型返回的过程文本" } : turn);
+  expect(isWorkbenchSnapshot({ ...old, turns })).toBe(true);
+  expect(isWorkbenchSnapshot({ ...old, turns: turns.map(turn => ({ ...turn, thinking: { signature: "opaque" } })) })).toBe(false);
 });
