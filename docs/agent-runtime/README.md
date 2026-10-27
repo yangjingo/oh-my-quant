@@ -78,7 +78,7 @@ Pi 1.x 使用 TranscriptContext；手写摘要请求先经 `normalizeContext()`�
 
 ## 4. 队列、分支与持久化
 
-空闲输入进入 prompt，工具执行期间进入 steer，其余流式期间进入 follow-up；Composer 消费 `queue_update`，不持有另一份执行队列。turn、compaction、branch summary 互斥，清理在 finally 完成。`abort` 贯穿准备、模型与工具，并清理待续队列；监听器异常不能留下永久 busy，未成功 flush 的事件不能提前出队。取消不撤销已经提交的事实。
+空闲输入进入 prompt，工具执行期间进入 steer，其余流式期间进入 follow-up；Composer 消费 `queue_update`，不另建执行队列。只有仍消费输入的 turn 接受 steer/follow-up：最后的空轮询同步关闭入口，并接住两次轮询间的 steering；结束持久化、监听器等待、取消和非 turn 操作期间拒绝插入。失败或结束清空本轮队列，显式 nextTurn 保留到下一次 prompt；abort 清空全部队列。turn、compaction、branch summary 互斥，finally 释放占用；监听器异常不能留下永久 busy，未成功 flush 的事件不能提前出队。取消不撤销已提交事实。
 
 JSONL v3 用 id、parent、timestamp 和 type 形成分支树。当前上下文只沿 leaf 祖先链读取，恢复最近的模型、thinking、活动工具及摘要；全文分支证据与经过压缩的模型上下文是两个视图。Session 读口返回副本，写操作从已提交 leaf 串行计算。
 

@@ -130,6 +130,7 @@ export class AgentHarness<
 	private tools = new Map<string, TTool>();
 	private activeToolNames: string[];
 	private steerQueue: AgentMessage[] = [];
+	private acceptingQueuedInput = false;
 	private steeringQueueMode: QueueMode;
 	private followUpQueue: AgentMessage[] = [];
 	private followUpQueueMode: QueueMode;
@@ -347,7 +348,11 @@ export class AgentHarness<
 
 	private async drainQueuedMessages(queue: AgentMessage[], mode: QueueMode): Promise<AgentMessage[]> {
 		const messages = mode === "all" ? queue.splice(0) : queue.splice(0, 1);
-		if (messages.length === 0) return messages;
+		if (messages.length === 0) {
+			// The final continuation poll must close admission before yielding.
+			if (queue === this.followUpQueue) this.acceptingQueuedInput = false;
+			return messages;
+		}
 		try {
 			await this.emitQueueUpdate();
 			return messages;
@@ -355,6 +360,19 @@ export class AgentHarness<
 			queue.unshift(...messages);
 			throw normalizeHookError(error);
 		}
+	}
+
+	private async clearTurnQueues(): Promise<void> {
+		this.acceptingQueuedInput = false;
+		const changed = this.steerQueue.length + this.followUpQueue.length > 0;
+		this.steerQueue.length = 0;
+		this.followUpQueue.length = 0;
+		if (changed) await this.emitQueueUpdate();
+	}
+
+	private assertQueueAdmission(): void {
+		if (this.operation.phase !== "turn" || !this.acceptingQueuedInput || this.operation.signal.aborted)
+			throw new AgentHarnessError("invalid_state", "AgentHarness is not accepting queued input");
 	}
 
 	private createLoopConfig(
@@ -404,7 +422,10 @@ export class AgentHarness<
 				};
 			},
 			getSteeringMessages: async () => this.drainQueuedMessages(this.steerQueue, this.steeringQueueMode),
-			getFollowUpMessages: async () => this.drainQueuedMessages(this.followUpQueue, this.followUpQueueMode),
+			// Steering may arrive after the last steering poll but before this poll.
+			getFollowUpMessages: async () => this.steerQueue.length > 0
+				? this.drainQueuedMessages(this.steerQueue, this.steeringQueueMode)
+				: this.drainQueuedMessages(this.followUpQueue, this.followUpQueueMode),
 		};
 	}
 
@@ -448,6 +469,9 @@ export class AgentHarness<
 
 	private async handleAgentEvent(event: AgentEvent, signal?: AbortSignal): Promise<void> {
 		if (event.type === "message_end") {
+			if (event.message.role === "assistant" &&
+				(event.message.stopReason === "error" || event.message.stopReason === "aborted"))
+				await this.clearTurnQueues();
 			await this.session.appendMessage(event.message);
 			await this.emitAny(event, signal);
 			return;
@@ -466,6 +490,7 @@ export class AgentHarness<
 			return;
 		}
 		if (event.type === "agent_end") {
+			await this.clearTurnQueues();
 			await this.flushPendingSessionWrites();
 			await this.emitAny(event, signal);
 			await this.emitAny({ type: "settled", nextTurnCount: this.nextTurnQueue.length }, signal);
@@ -480,6 +505,7 @@ export class AgentHarness<
 		aborted: boolean,
 		signal: AbortSignal,
 	): Promise<AgentMessage[]> {
+		await this.clearTurnQueues();
 		const failureMessage = createFailureMessage(model, error, aborted);
 		await this.handleAgentEvent({ type: "message_start", message: failureMessage }, signal);
 		await this.handleAgentEvent({ type: "message_end", message: failureMessage }, signal);
@@ -564,13 +590,14 @@ export class AgentHarness<
 	async prompt(text: string, options?: { images?: ImageContent[]; displayText?: string }): Promise<AssistantMessage> {
 		if (this.operation.phase !== "idle") throw new AgentHarnessError("busy", "AgentHarness is busy");
 		const finishRunPromise = this.operation.start("turn");
+		this.acceptingQueuedInput = true;
 		try {
 			const turnState = await this.createTurnState();
 			return await this.executeTurn(turnState, text, options);
 		} catch (error) {
 			throw normalizeHarnessError(error, "unknown");
 		} finally {
-			finishRunPromise();
+			try { await this.clearTurnQueues(); } finally { finishRunPromise(); }
 		}
 	}
 
@@ -581,6 +608,7 @@ export class AgentHarness<
 	): Promise<AssistantMessage> {
 		if (this.operation.phase !== "idle") throw new AgentHarnessError("busy", "AgentHarness is busy");
 		const finishRunPromise = this.operation.start("turn");
+		this.acceptingQueuedInput = true;
 		try {
 			const turnState = await this.createTurnState();
 			const skill = (turnState.resources.skills ?? []).find((candidate) => candidate.name === name);
@@ -591,13 +619,14 @@ export class AgentHarness<
 		} catch (error) {
 			throw normalizeHarnessError(error, "unknown");
 		} finally {
-			finishRunPromise();
+			try { await this.clearTurnQueues(); } finally { finishRunPromise(); }
 		}
 	}
 
 	async promptFromTemplate(name: string, args: string[] = []): Promise<AssistantMessage> {
 		if (this.operation.phase !== "idle") throw new AgentHarnessError("busy", "AgentHarness is busy");
 		const finishRunPromise = this.operation.start("turn");
+		this.acceptingQueuedInput = true;
 		try {
 			const turnState = await this.createTurnState();
 			const template = (turnState.resources.promptTemplates ?? []).find((candidate) => candidate.name === name);
@@ -606,18 +635,18 @@ export class AgentHarness<
 		} catch (error) {
 			throw normalizeHarnessError(error, "unknown");
 		} finally {
-			finishRunPromise();
+			try { await this.clearTurnQueues(); } finally { finishRunPromise(); }
 		}
 	}
 
 	async steer(text: string, options?: { images?: ImageContent[]; displayText?: string }): Promise<void> {
-		if (this.operation.phase === "idle") throw new AgentHarnessError("invalid_state", "Cannot steer while idle");
+		this.assertQueueAdmission();
 		this.steerQueue.push(createUserMessage(text, options?.images, options?.displayText ?? text));
 		await this.emitQueueUpdate();
 	}
 
 	async followUp(text: string, options?: { images?: ImageContent[]; displayText?: string }): Promise<void> {
-		if (this.operation.phase === "idle") throw new AgentHarnessError("invalid_state", "Cannot follow up while idle");
+		this.assertQueueAdmission();
 		this.followUpQueue.push(createUserMessage(text, options?.images, options?.displayText ?? text));
 		await this.emitQueueUpdate();
 	}
