@@ -42,6 +42,9 @@ code, kbd { font-family: Mono, monospace; }
 .run-badge { font-size: 12px; white-space: nowrap; color: var(--muted); }
 .run-badge[data-state=running] { color: var(--gold); }
 .run-badge[data-state=failed] { color: var(--red); }
+.run-badge[data-state=interrupted] { color: var(--gold); }
+.recovery-notice { padding: 16px 24px; border-bottom: 1px solid var(--border); color: var(--cream); background: #211d13; line-height: 1.7; }
+.recovery-notice p { margin: 6px 0 12px; font-size: 14px; }
 .stream { min-height: 0; flex: 1; overflow: auto; padding: 28px clamp(16px,3vw,40px); scroll-padding-block: 20px; }
 .thread-inner { max-width: 880px; margin-inline: auto; }
 .turn { margin: 0 0 32px; }

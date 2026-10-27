@@ -2,16 +2,17 @@ import type { ToolActivity, Turn } from "../client/contract";
 import { runLabels } from "../presentation";
 
 export const toolStateLabels: Record<ToolActivity["state"], string> = {
-  preparing: "准备中", running: "执行中", completed: "已完成", failed: "未成功", cancelled: "已停止", "not-run": "未执行",
+  preparing: "准备中", running: "执行中", completed: "已完成", failed: "未成功", cancelled: "已停止", "not-run": "未执行", unconfirmed: "待核对",
 };
 export function activitySummary(items: readonly ToolActivity[]): string {
-  const counts = ["running", "preparing", "completed", "failed", "cancelled", "not-run"] as const;
+  const counts = ["running", "preparing", "unconfirmed", "completed", "failed", "cancelled", "not-run"] as const;
   return counts.map(state => {
     const count = items.filter(item => item.state === state).length;
     return count ? `${toolStateLabels[state]} ${count}` : "";
   }).filter(Boolean).join(" · ");
 }
 const explanations: Record<ToolActivity["state"], string> = {
+  unconfirmed: "服务在执行期间中断，结果尚未确认。请核对本地记录，不能将此记录视为已成功或已取消。",
   preparing: "正在准备调用参数，工具尚未开始执行。",
   running: "工具正在执行，结果返回后会更新这条记录。",
   completed: "工具已返回结果；这不代表研究结论已完成独立核验。",

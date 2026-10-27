@@ -1,9 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { DEFAULT_SETTINGS } from "../../../types/config.ts";
-import { readSettings, saveSettings } from "../../../storage/index.ts";
+import { createWorkbenchSessionStore, readSettings, saveSettings } from "../../../storage/index.ts";
+import { createDefaultSessionDependencies } from "../../../runtime/session-dependencies.ts";
 import { createWorkbenchService } from "../service.ts";
 import { startWorkbenchServer, WORKBENCH_ASSETS_ROOT } from "../server.ts";
 import type { SessionSnapshot, WorkbenchClient } from "../../../types/workbench.ts";
@@ -12,7 +14,7 @@ const KEY = "fixture-workbench-secret-101";
 let root: string, previous: string | undefined, proxy: string | undefined;
 let model: ReturnType<typeof Bun.serve>, host: ReturnType<typeof startWorkbenchServer> | undefined;
 let service: ReturnType<typeof createWorkbenchService> | undefined;
-let mode: "answer" | "tool" | "hold" | "empty" | "thinking" | "preparing" | "bad-tool", requests: Record<string, unknown>[], toolSent: boolean;
+let mode: "answer" | "tool" | "hold" | "empty" | "thinking" | "preparing" | "bad-tool" | "hold-thinking", requests: Record<string, unknown>[], toolSent: boolean;
 let reached: (() => void) | undefined;
 let releasePreparation: (() => void) | undefined;
 beforeEach(() => {
@@ -21,7 +23,7 @@ beforeEach(() => {
   mode = "answer"; requests = []; toolSent = false; reached = undefined; releasePreparation = undefined;
   model = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
     const payload = await request.json() as Record<string, unknown>; requests.push(payload); reached?.();
-    if (mode === "hold") return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(": waiting\n\n")); } }), { headers: { "Content-Type": "text/event-stream" } });
+    if (mode === "hold" || mode === "hold-thinking") return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(mode === "hold" ? ": waiting\n\n" : "data: " + JSON.stringify({id:"hold-thinking",object:"chat.completion.chunk",created:0,model:payload.model,choices:[{index:0,delta:{role:"assistant",reasoning_content:"PRIVATE_REASONING_NOT_FOR_UI"},finish_reason:null}]}) + "\n\n")); } }), { headers: { "Content-Type": "text/event-stream" } });
     const call = ["tool", "preparing", "bad-tool"].includes(mode) && !toolSent;
     if (call) toolSent = true;
     const args = JSON.stringify({ shares: mode === "bad-tool" ? KEY : 100, costPerShare: 10, observedClose: 12, observationDate: "2026-10-23", currency: "CNY", changes: [-0.1, 0, 0.1] });
@@ -178,7 +180,7 @@ test("SSE clients observe one shared run; cancelling the reader only releases it
   const bootstrap = await (await fetch(url + "/api/workbench/bootstrap")).json() as { token: string };
   const response = await fetch(url + "/api/workbench/events", { headers: { "x-workbench-token": bootstrap.token } });
   expect(response.headers.get("Content-Type")).toContain("text/event-stream");
-  const reader = response.body!.getReader(); const initial = await reader.read(); expect(new TextDecoder().decode(initial.value)).toContain('"type":"snapshot"');
+  const reader = response.body!.getReader(); const initial = await reader.read(); expect(new TextDecoder().decode(initial.value)).toContain('"type":"ready"');
   const identity = await client.identity(), started = new Promise<void>(resolve => { reached = resolve; });
   const run = await client.submit({ ...identity, text: "共享运行" }); await started;
   await reader.cancel(); expect((await client.session(identity.sessionId)).state).toBe("running");
@@ -191,4 +193,156 @@ test("a second Host cannot own the workspace, and normal close releases the lock
   expect(() => startWorkbenchServer({ port: 0, assetsRoot: join(root, "assets") })).toThrow("此工作区已有本地研究服务");
   await host.close(); host = startWorkbenchServer({ port: 0, assetsRoot: join(root, "assets") });
   expect((await host.service.client.identity()).workspaceId).toHaveLength(24);
+});
+
+
+test("restart restores names and tool history without requests, then opens the original core context", async () => {
+  mode = "tool"; const { client, identity, submit } = await setup();
+  await submit("计算假设情景，保存后继续"); const before = await terminal(client, identity.sessionId);
+  await client.renameSession(identity.sessionId, "持仓情景研究"); await service!.close(); service = undefined;
+  const count = requests.length;
+  service = createWorkbenchService({ cwd: join(root, "different-checkout") });
+  expect((await service.client.identity()).sessionId).toBe(identity.sessionId);
+  expect((await service.client.workspaces())[0]?.name).toBe("持仓情景研究");
+  expect((await service.client.session(identity.sessionId)).turns).toEqual(before.turns);
+  expect(requests.length).toBe(count);
+  await service.client.submit({ ...identity, text: "继续解释旧计算" });
+  const after = await terminal(service.client, identity.sessionId);
+  expect(after.turns).toHaveLength(4);
+  expect(JSON.stringify(requests.at(-1)?.messages)).toContain("calculate_position_scenarios");
+  expect(JSON.stringify(requests.at(-1)?.messages)).toContain("计算假设情景，保存后继续");
+});
+
+
+for (const phase of ["waiting", "thinking", "tool"] as const) test(`actual Host kill/restart preserves ${phase} without replay`, async () => {
+  const spawn = async (hold: boolean) => {
+    const child = Bun.spawn([process.execPath, join(import.meta.dir, "fixtures/host-process.ts")], {
+      env: { ...process.env, WHYJ_TEST_HOLD_TOOL: hold ? "1" : "" }, stdout: "pipe", stderr: "pipe",
+    });
+    const reader = child.stdout.getReader(); let text = "";
+    const timeout = setTimeout(() => child.kill(), 30000);
+    try {
+      while (!text.includes("\n")) { const chunk = await reader.read(); if (chunk.done) throw new Error("Host exited: " + await new Response(child.stderr).text()); text += new TextDecoder().decode(chunk.value); }
+      const { url } = JSON.parse(text.split("\n").find(line => line.startsWith("{"))!);
+      return { child, url: url as string };
+    } catch (error) { child.kill("SIGKILL"); await child.exited; throw error; }
+    finally { clearTimeout(timeout); reader.releaseLock(); }
+  };
+  const rpcClient = async (url: string) => {
+    const { token } = await (await fetch(url + "/api/workbench/bootstrap", { signal: AbortSignal.timeout(10000) })).json() as { token: string };
+    return async <T>(method: string, args: unknown[] = []): Promise<T> => {
+      const reply = await (await fetch(url + "/api/workbench/rpc", { method: "POST", headers: { "Content-Type": "application/json", "x-workbench-token": token }, signal: AbortSignal.timeout(10000), body: JSON.stringify({ method, args }) })).json() as { ok: boolean; result: T; error?: unknown };
+      if (!reply.ok) throw new Error(JSON.stringify(reply.error)); return reply.result;
+    };
+  };
+  console.log(`Crash fixture ${phase}: starting isolated Host`);
+  mode = phase === "waiting" ? "hold" : phase === "thinking" ? "hold-thinking" : "tool"; toolSent = false;
+  let processHost = await spawn(phase === "tool");
+  try {
+    let rpc = await rpcClient(processHost.url);
+    const identity = await rpc<SessionSnapshot["identity"]>("identity");
+    const target = phase === "tool" ? await rpc<{ sessionId: string }>("createSession") : identity;
+    const submitted = await rpc<{ runId: string }>("submit", [{ workspaceId: identity.workspaceId, sessionId: target.sessionId, text: "受控中断测试 " + phase }]);
+    for (let i = 0; i < 400; i++) {
+      const current = await rpc<SessionSnapshot>("session", [target.sessionId]);
+      if (phase === "tool" ? existsSync(join(root, "tool-receipt")) : phase === "thinking" ? current.turns.at(-1)?.phase === "thinking" : requests.length > 0) break;
+      await Bun.sleep(10);
+    }
+    expect(requests.length).toBeGreaterThan(0);
+    if (phase === "thinking") expect((await rpc<SessionSnapshot>("session", [target.sessionId])).turns.at(-1)?.phase).toBe("thinking");
+    if (phase === "tool") expect(readFileSync(join(root, "tool-receipt"), "utf8")).toBe("started\n");
+    processHost.child.kill("SIGKILL"); await processHost.child.exited;
+    console.log(`Crash fixture ${phase}: killed; waiting for ownership lease`);
+    const originals = readdirSync(root, { recursive: true }).filter((name): name is string => typeof name === "string" && (/settings|sessions/.test(name)) && name.endsWith(".json") || typeof name === "string" && name.endsWith(".jsonl"))
+      .map(name => ({ name, bytes: readFileSync(join(root, name)) }));
+    const count = requests.length;
+    // A killed production Host retains its ownership lease until natural stale expiry.
+    await Bun.sleep(31000);
+    processHost = await spawn(false); rpc = await rpcClient(processHost.url);
+    console.log(`Crash fixture ${phase}: restarted`);
+    const recovered = await rpc<SessionSnapshot>("session", [target.sessionId]);
+    expect(recovered.state).toBe("interrupted"); expect(recovered.identity.runId).toBe(submitted.runId);
+    expect(requests.length).toBe(count);
+    for (const file of originals) expect(readFileSync(join(root, file.name))).toEqual(file.bytes);
+    if (phase === "tool") {
+      expect(recovered.turns[1]?.activity?.[0]?.state).toBe("unconfirmed");
+      await expect(rpc("submit", [{ workspaceId: identity.workspaceId, sessionId: target.sessionId, text: "不应发送" }])).rejects.toThrow("RECONCILE_REQUIRED");
+      expect(requests.length).toBe(count);
+      await rpc("acknowledgeInterruption", [submitted.runId]); expect(requests.length).toBe(count);
+      expect((await rpc<SessionSnapshot>("session", [target.sessionId])).turns[1]?.activity?.[0]?.state).toBe("unconfirmed");
+    }
+    mode = "answer";
+    await rpc("submit", [{ workspaceId: identity.workspaceId, sessionId: target.sessionId, text: "用户明确的新问题" }]);
+    for (let i = 0; i < 300; i++) { if ((await rpc<SessionSnapshot>("session", [target.sessionId])).state !== "running") break; await Bun.sleep(10); }
+    expect(JSON.stringify(requests.at(-1)?.messages)).toContain("受控中断测试 " + phase);
+    expect((await rpc<SessionSnapshot>("session", [target.sessionId])).state).toBe("settled");
+    if (phase === "tool") expect(readFileSync(join(root, "tool-receipt"), "utf8")).toBe("started\n");
+  } finally { processHost.child.kill("SIGKILL"); await processHost.child.exited; }
+  console.log(`Crash fixture ${phase}: verified recovery and explicit follow-up`);
+}, 120000);
+
+
+test("a failed acceptance checkpoint sends no request and leaves other new sessions usable", async () => {
+  const store = createWorkbenchSessionStore();
+  service = createWorkbenchService({ cwd: root, store: { ...store, save: (record, revision) => record.runCount > 0 ? Promise.reject(new Error("disk failure")) : store.save(record, revision) } });
+  const identity = await service.client.identity();
+  await expect(service.client.submit({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, text: "必须先保存" })).rejects.toThrow("无法安全保存");
+  expect(requests).toHaveLength(0);
+  expect(store.load(identity.workspaceId, identity.sessionId).record.snapshot.state).toBe("idle");
+  const other = await service.client.createSession(); expect((await service.client.session(other.sessionId)).state).toBe("idle");
+});
+
+test("an unsaved tool intent never dispatches the tool", async () => {
+  mode = "tool"; const store = createWorkbenchSessionStore(); let executions = 0;
+  let blocked!: () => void; const intentFailure = new Promise<void>(resolve => { blocked = resolve; });
+  service = createWorkbenchService({ cwd: root, store: { ...store, save: (record, revision) => record.snapshot.turns.some(turn => turn.activity?.some(item => item.state === "running")) ? (blocked(), Promise.reject(new Error("disk failure"))) : store.save(record, revision) },
+    dependencies: () => { const deps = createDefaultSessionDependencies({ cwd: root }); return { ...deps, tools: deps.tools.map(tool => tool.name !== "calculate_position_scenarios" ? tool : { ...tool, async execute(...args) { executions++; return tool.execute(...args); } }) }; } });
+  const failures: string[] = []; const detach = service.client.subscribe(event => { if (event.type === "session-error") failures.push(event.message); });
+  const identity = await service.client.identity(); await service.client.submit({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, text: "先保存工具意图" });
+  await Promise.race([intentFailure, Bun.sleep(2500).then(() => { throw new Error("tool intent was not reached"); })]);
+  await service.close(); detach(); expect(executions).toBe(0); expect(requests.length).toBe(1); expect(failures[0]).toContain("无法安全保存");
+});
+
+
+test("large stored histories stay lazy in lists and startup SSE, then release their Agent after each turn", async () => {
+  const store = createWorkbenchSessionStore();
+  service = createWorkbenchService({ cwd: root }); const identity = await service.client.identity(); await service.close();
+  const template = store.load(identity.workspaceId, identity.sessionId).record;
+  for (let i = 0; i < 30; i++) {
+    const id = randomUUID(); await store.save({ ...template, sessionId: id, name: "历史 " + i,
+      snapshot: { ...template.snapshot, identity: { ...template.snapshot.identity, sessionId: id }, turns: [{ id: "history", role: "assistant", state: "settled", text: "payload".repeat(10000), at: template.updatedAt }] } }, null);
+  }
+  let loads = 0, agents = 0, cleanups = 0;
+  service = createWorkbenchService({ cwd: root, store: { ...store, load: (workspace, id) => { loads++; return store.load(workspace, id); } }, dependencies: () => {
+    agents++; const deps = createDefaultSessionDependencies({ cwd: root }), cleanup = deps.env.cleanup.bind(deps.env);
+    deps.env.cleanup = async () => { cleanups++; await cleanup(); }; return deps;
+  } });
+  const start = performance.now(); const rows = await service.client.workspaces(); const listMs = performance.now() - start;
+  expect(rows).toHaveLength(31); expect(loads).toBe(0); expect(agents).toBe(0);
+  host = startWorkbenchServer({ service, port: 0, assetsRoot: join(root, "assets") });
+  const url = host.server.url.origin, { token } = await (await fetch(url + "/api/workbench/bootstrap")).json() as { token: string };
+  const response = await fetch(url + "/api/workbench/events", { headers: { "x-workbench-token": token } });
+  const reader = response.body!.getReader(), chunk = await reader.read(); await reader.cancel();
+  const frame = new TextDecoder().decode(chunk.value); expect(frame).toContain('"type":"ready"'); expect(frame).not.toContain("payload");
+  expect(loads).toBe(0); expect(agents).toBe(0);
+  const before = performance.now(); const snapshot = await service.client.session(rows.find(row => row.name === "历史 0")!.sessionId);
+  expect(snapshot.turns[0]?.text).toHaveLength(70000); expect(loads).toBe(1); expect(agents).toBe(0);
+  console.log(JSON.stringify({ fixture: "30 histories x 70000 characters", listMs, selectedReadMs: performance.now() - before, listBytes: Buffer.byteLength(JSON.stringify(rows)), selectedBytes: Buffer.byteLength(JSON.stringify(snapshot)), startupSseBytes: chunk.value!.byteLength }));
+  for (let i = 0; i < 2; i++) { await service.client.submit({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, text: "资源释放检查 " + i }); await terminal(service.client, identity.sessionId); }
+  expect(agents).toBe(2); expect(cleanups).toBe(2);
+  expect(readdirSync(join(root, "sessions"), { recursive: true }).filter(name => String(name).endsWith(".jsonl"))).toHaveLength(1);
+});
+
+
+test("missing original context fails explicitly without a provider call or a replacement journal", async () => {
+  const { client, identity, submit } = await setup(); await submit("保存原始上下文"); await terminal(client, identity.sessionId);
+  await service!.close(); service = undefined;
+  const files = readdirSync(join(root, "sessions"), { recursive: true }).filter(name => String(name).endsWith(".jsonl"));
+  expect(files).toHaveLength(1); rmSync(join(root, "sessions", String(files[0])));
+  const count = requests.length; service = createWorkbenchService({ cwd: root });
+  await service.client.submit({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, text: "无法恢复时不能假装记得" });
+  const stopped = await terminal(service.client, identity.sessionId);
+  expect(stopped.state).toBe("failed"); expect(stopped.turns.at(-1)?.text).toContain("原研究上下文无法读取");
+  expect(requests.length).toBe(count);
+  expect(readdirSync(join(root, "sessions"), { recursive: true }).filter(name => String(name).endsWith(".jsonl"))).toHaveLength(0);
 });

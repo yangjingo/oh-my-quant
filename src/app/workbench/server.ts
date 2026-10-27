@@ -10,7 +10,7 @@ import { publicError, WorkbenchError } from "./errors.ts";
 
 export const WORKBENCH_ASSETS_ROOT = resolve(import.meta.dir, "../../..", "apps/web/dist");
 
-/** Initial local connection, not Host discovery or durable restart recovery. */
+/** Local connection; restoring a checkpoint never starts an Agent request. */
 export function startWorkbenchServer(options: { port?: number; assetsRoot?: string; service?: ReturnType<typeof createWorkbenchService> } = {}) {
   ensureDirs();
   const requestedAssets = options.assetsRoot ?? WORKBENCH_ASSETS_ROOT;
@@ -63,9 +63,9 @@ export function startWorkbenchServer(options: { port?: number; assetsRoot?: stri
               } catch { cleanup(); }
             };
             const queue = (event: WorkbenchEvent) => {
-              if (event.type !== "snapshot" || ended) return;
-              pending.set(event.identity.sessionId, event);
-              if (event.snapshot.state !== "running") { clearTimeout(timer); flush(); }
+              if ((event.type !== "snapshot" && event.type !== "session-error") || ended) return;
+              pending.set(event.identity.sessionId + ":" + event.type, event);
+              if (event.type === "session-error" || event.snapshot.state !== "running") { clearTimeout(timer); flush(); }
               else timer ??= setTimeout(flush, 50);
             };
             const stream = new ReadableStream<Uint8Array>({ start(value) {
@@ -73,9 +73,8 @@ export function startWorkbenchServer(options: { port?: number; assetsRoot?: stri
               if (request.signal.aborted) { cleanup(); return; }
               streams.add(cleanup); request.signal.addEventListener("abort", cleanup, { once: true });
               detach = service.client.subscribe(queue);
-              void service.client.workspaces().then(rows => Promise.all(rows.map(row => service.client.session(row.sessionId)))).then(snapshots => {
-                for (const snapshot of snapshots) queue({ type: "snapshot", identity: snapshot.identity, snapshot }); flush();
-              }, cleanup);
+              // A small handshake lets the client fetch only its selected history.
+              controller.enqueue(encoder.encode("data: " + JSON.stringify({ type: "ready", workspaceId: service.workspaceId }) + "\n\n"));
               heartbeat = setInterval(() => { if (!ended && (controller.desiredSize ?? 0) > 0) { try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch { cleanup(); } } }, 15000);
             }, pull: flush, cancel: cleanup });
             return new Response(stream, { headers: { ...headers, "Content-Type": "text/event-stream; charset=utf-8", "X-Accel-Buffering": "no" } });

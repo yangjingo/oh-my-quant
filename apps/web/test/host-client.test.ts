@@ -65,3 +65,16 @@ test("authoritative revisions resync missed starts but never revive a cancelled 
   emit({ type: "snapshot", identity: second, snapshot: { ...first, identity: second, revision: 1, state: "running" } });
   expect(store.getSnapshot().snapshot?.state).toBe("settled"); release();
 });
+
+
+test("startup ready is sufficient without replaying histories, and scoped storage errors reach observers", async () => {
+  const frames = [ { type: "ready", workspaceId: "w" }, { type: "session-error", identity: { workspaceId: "w", sessionId: "s", runId: "r" }, message: "会话无法安全保存" } ] as const;
+  const paths: string[] = [];
+  const request = (async (url: RequestInfo | URL) => { paths.push(String(url)); if (String(url).endsWith("bootstrap")) return bootstrap();
+    return new Response(new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new TextEncoder().encode(frames.map(event => "data: " + JSON.stringify(event) + "\n\n").join(""))); } }), { headers: { "Content-Type": "text/event-stream" } });
+  }) as typeof fetch;
+  const client = createHostClient({ baseUrl: "http://workbench.test", fetch: request });
+  const events: WorkbenchEvent[] = []; let release!: () => void;
+  await new Promise<void>(resolve => { release = client.subscribe(event => { events.push(event); if (event.type === "session-error") { release(); resolve(); } }); });
+  expect(events).toEqual([{ type: "connection", connected: true }, frames[1]]); expect(paths).toHaveLength(2);
+});

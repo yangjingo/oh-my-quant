@@ -29,6 +29,10 @@ export async function dispatchWorkbench(client: WorkbenchClient, payload: unknow
     case "transcript": count(1); return client.transcript(string(args[0]));
     case "output": count(1); return client.output(string(args[0]));
     case "cancel": count(1); return client.cancel(string(args[0]));
+    case "acknowledgeInterruption": count(1); {
+      if (!client.acknowledgeInterruption) throw new WorkbenchError("UNAVAILABLE", "当前服务不支持恢复确认。");
+      return client.acknowledgeInterruption(string(args[0]));
+    }
     case "renameSession": count(2); return client.renameSession(string(args[0]), string(args[1], 100));
     case "references": count(2); return client.references(string(args[0]), string(args[1], 1000));
     case "submit": {

@@ -55,6 +55,16 @@ export function createHostClient(options: { baseUrl?: string; fetch?: typeof fet
             const data = frame.split(/\r?\n/).filter(line => line.startsWith("data:")).map(line => line.slice(5).trimStart()).join("\n");
             if (!data) continue;
             const event: unknown = JSON.parse(data);
+            if (object(event) && event.type === "ready" && typeof event.workspaceId === "string" && event.workspaceId.length > 0) {
+              if (!connected) { connected = true; emit({ type: "connection", connected: true }); }
+              continue;
+            }
+            if (object(event) && event.type === "session-error" && object(event.identity) && typeof event.identity.workspaceId === "string"
+              && typeof event.identity.sessionId === "string" && (event.identity.runId === null || typeof event.identity.runId === "string")
+              && typeof event.message === "string" && event.message.length <= 500) {
+              emit({ type: "session-error", identity: { workspaceId: event.identity.workspaceId, sessionId: event.identity.sessionId, runId: event.identity.runId }, message: event.message });
+              continue;
+            }
             if (!object(event) || event.type !== "snapshot" || !isWorkbenchSnapshot(event.snapshot) || !object(event.identity)
               || event.identity.workspaceId !== event.snapshot.identity.workspaceId || event.identity.sessionId !== event.snapshot.identity.sessionId || event.identity.runId !== event.snapshot.identity.runId) throw new Error("研究服务事件无效，请重新连接。");
             if (!connected) { connected = true; emit({ type: "connection", connected: true }); }
@@ -78,6 +88,7 @@ export function createHostClient(options: { baseUrl?: string; fetch?: typeof fet
     renameSession: (id, title) => rpc("renameSession", [id, title]), references: (id, query) => rpc("references", [id, query]),
     updatePreferences: (next: Preferences) => rpc("updatePreferences", [{ revision: next.revision, model: next.model, source: next.source, portfolio: next.portfolio, ...(next.thinkingLevel === undefined ? {} : { thinkingLevel: next.thinkingLevel }) }]),
     submit: value => rpc("submit", [value]), cancel: id => rpc("cancel", [id]),
+    acknowledgeInterruption: id => rpc("acknowledgeInterruption", [id]),
     subscribe(listener) {
       listeners.add(listener);
       if (!observer) { observer = new AbortController(); void observe(observer.signal); }

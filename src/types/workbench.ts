@@ -18,7 +18,7 @@
  *    null means no associated run, never "finish whichever run is active".
  */
 
-export type RunState = "idle" | "running" | "settled" | "failed" | "cancelled";
+export type RunState = "idle" | "running" | "settled" | "failed" | "cancelled" | "interrupted";
 
 export interface WorkspaceIdentity {
   readonly workspaceId: string;
@@ -55,7 +55,7 @@ export interface ToolActivity {
   readonly name: string;
   readonly title?: string;
   readonly context?: string;
-  readonly state: "preparing" | "running" | "completed" | "failed" | "cancelled" | "not-run";
+  readonly state: "preparing" | "running" | "completed" | "failed" | "cancelled" | "not-run" | "unconfirmed";
   readonly elapsedMs?: number;
 }
 
@@ -130,19 +130,21 @@ export interface SubmitResult {
  */
 export type WorkbenchEvent =
   | { readonly type: "connection"; readonly connected: boolean; readonly error?: string }
+  | { readonly type: "session-error"; readonly identity: WorkspaceIdentity; readonly message: string }
   | { readonly type: "snapshot"; readonly identity: WorkspaceIdentity; readonly snapshot: SessionSnapshot }
   | { readonly type: "turn"; readonly identity: WorkspaceIdentity; readonly turn: Turn }
   | { readonly type: "state"; readonly identity: WorkspaceIdentity; readonly state: RunState }
   | { readonly type: "market"; readonly identity: WorkspaceIdentity; readonly snapshot: MarketSnapshot };
 
 export interface SessionSnapshot {
-  /** Monotonic within one Host session; full snapshots resynchronize missed events. */
+  /** Monotonic within one stored conversation; full snapshots resynchronize missed events. */
   readonly revision?: number;
   readonly identity: WorkspaceIdentity;
   readonly state: RunState;
   readonly turns: readonly Turn[];
   readonly market: MarketSnapshot;
   readonly output: WorkspaceOutput;
+  readonly recovery?: { readonly runId: string; readonly unconfirmedTools: number; readonly acknowledgementRequired: boolean };
 }
 
 export interface ReferenceCandidate {
@@ -185,6 +187,8 @@ export interface WorkbenchClient {
   submit(request: SubmitRequest): Promise<SubmitResult>;
   /** Explicit user intent. Releasing a subscription must never do this. */
   cancel(runId: string): Promise<void>;
+  /** Acknowledges uncertain prior effects only; never resumes or replays work. */
+  acknowledgeInterruption?(runId: string): Promise<void>;
   subscribe(listener: (event: WorkbenchEvent) => void): Release;
 }
 
@@ -193,7 +197,7 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
   const object = (item: unknown): item is Record<string, unknown> => !!item && typeof item === "object" && !Array.isArray(item);
   const string = (item: unknown): item is string => typeof item === "string";
   const nullable = (item: unknown) => item === null || string(item);
-  const states = ["idle", "running", "settled", "failed", "cancelled"];
+  const states = ["idle", "running", "settled", "failed", "cancelled", "interrupted"];
   if (!object(value) || !object(value.identity) || !string(value.identity.workspaceId) || !string(value.identity.sessionId) || !nullable(value.identity.runId)
     || !states.includes(String(value.state)) || !Number.isSafeInteger(value.revision) || Number(value.revision) < 0) return false;
   if (!Array.isArray(value.turns) || !value.turns.every(turn => object(turn) && string(turn.id) && ["user", "assistant"].includes(String(turn.role))
@@ -202,8 +206,10 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
     && (turn.endedAt === undefined || string(turn.endedAt) && Number.isFinite(Date.parse(turn.endedAt))) && (turn.activity === undefined || (Array.isArray(turn.activity)
       && turn.activity.every(item => object(item) && string(item.id) && string(item.name)
         && (item.title === undefined || string(item.title) && item.title.length <= 100) && (item.context === undefined || string(item.context) && item.context.length <= 160)
-        && ["preparing", "running", "completed", "failed", "cancelled", "not-run"].includes(String(item.state))
+        && ["preparing", "running", "completed", "failed", "cancelled", "not-run", "unconfirmed"].includes(String(item.state))
         && (item.elapsedMs === undefined || typeof item.elapsedMs === "number" && Number.isFinite(item.elapsedMs) && item.elapsedMs >= 0)))))) return false;
+  if (value.recovery !== undefined && (!object(value.recovery) || value.state !== "interrupted" || !string(value.recovery.runId) || value.recovery.runId !== value.identity.runId
+    || !Number.isSafeInteger(value.recovery.unconfirmedTools) || Number(value.recovery.unconfirmedTools) < 0 || typeof value.recovery.acknowledgementRequired !== "boolean")) return false;
   if (!object(value.market) || !Array.isArray(value.market.quotes) || !string(value.market.refreshedAt) || !object(value.market.source)) return false;
   if (!nullable(value.market.source.provider) || !nullable(value.market.source.updatedAt)
     || ![value.market.source.available, value.market.source.total].every(item => typeof item === "number" && Number.isSafeInteger(item) && item >= 0)) return false;
