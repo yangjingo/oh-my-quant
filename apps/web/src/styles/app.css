@@ -192,3 +192,4 @@ summary { cursor: pointer; min-height: 36px; display: list-item; align-content: 
 .agent-status-tool { flex-basis: 100%; padding-left: 24px; overflow-wrap: anywhere; color: var(--gold); font-size: 12px; }
 @keyframes agent-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+.markdown-body pre.legacy-answer { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; line-height: 1.8; background: transparent; border: 0; padding: 0; font-size: inherit; }

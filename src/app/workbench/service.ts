@@ -173,7 +173,7 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
     try {
       run.controller.signal.throwIfAborted();
       if (!session.agent) {
-        const dependencies = options.dependencies?.() ?? createDefaultSessionDependencies({ cwd: session.cwd });
+        const dependencies = options.dependencies?.() ?? createDefaultSessionDependencies({ cwd: session.cwd }, "markdown");
         cleanup = () => dependencies.env.cleanup();
         const allowed = new Set(BUILTIN_TOOL_REGISTRY.filter(item => item.domain !== "system").map(item => item.tool.name));
         // No shell or dynamically loaded external tool registry at this initial Web boundary.

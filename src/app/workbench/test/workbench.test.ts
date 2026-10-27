@@ -88,6 +88,16 @@ async function preparing(client: WorkbenchClient, id: string) {
 test("the default entry resolves built assets under the repository apps directory", () => {
   expect(WORKBENCH_ASSETS_ROOT).toBe(resolve(import.meta.dir, "../../../..", "apps/web/dist"));
 });
+
+test("Web model requests consistently select Markdown instead of terminal-only formatting", async () => {
+  const { submit, client, identity } = await setup(); await submit("比较两个给定指标，列一个表格");
+  await terminal(client, identity.sessionId);
+  const messages = requests[0]?.messages as { role: string; content: unknown }[];
+  const system = JSON.stringify(messages.filter(message => ["system", "developer"].includes(message.role)));
+  const user = JSON.stringify(messages.filter(message => message.role === "user"));
+  expect(system).toContain("Use Markdown"); expect(system).not.toContain("NO markdown");
+  expect(user).toContain("GFM table"); expect(user).not.toContain("three-line plain-text");
+});
 test("uses the real core and registered calculator, then preserves context on a follow-up", async () => {
   mode = "tool"; const { client, identity, submit } = await setup();
   const result = await submit("请调用 calculate_position_scenarios 计算给定假设值。");

@@ -5,12 +5,12 @@
  */
 import { listCachedSymbols as listStoredSymbols, readBarsSnapshot } from "../../storage/index.ts";
 import type { Skill } from "./session-runtime/index.ts";
-import { COMPARISON_RENDER_GUIDANCE, formatSystemPrompt } from "./system-prompt.ts";
+import { COMPARISON_RENDER_GUIDANCE, COMPARISON_METRIC_GUIDANCE, formatSystemPrompt, type OutputPresentation } from "./system-prompt.ts";
 export { BASE_SYSTEM_PROMPT } from "./system-prompt.ts";
 
 /** Default local host observations; pure policy and rendering live in system-prompt.ts. */
-export function buildSystemPrompt(extra?: string, skills: Skill[] = [], tools: readonly { name: string }[] = []): string {
-  return formatSystemPrompt({ extra, skills, tools, cached: listCachedSymbols() });
+export function buildSystemPrompt(extra?: string, skills: Skill[] = [], tools: readonly { name: string }[] = [], presentation: OutputPresentation = "terminal"): string {
+  return formatSystemPrompt({ extra, skills, tools, cached: listCachedSymbols(), presentation });
 }
 
 // ── Session context injection (into user messages, from pi: context hook) ──
@@ -45,23 +45,23 @@ export function injectSessionContext(input: string, ctx: SessionCtx): string {
   return parts.join("\n");
 }
 
-export function injectTurnContext(input: string, ctx: SessionCtx): string {
+export function injectTurnContext(input: string, ctx: SessionCtx, presentation: OutputPresentation = "terminal"): string {
   const withSession = injectSessionContext(input, ctx);
   const turnHints = [
     buildToolExecutionGuidance(),
     buildQuantAnalysisGuidance(input, ctx),
-    buildRenderGuidance(input, ctx),
+    buildRenderGuidance(input, ctx, presentation),
   ].filter((value): value is string => Boolean(value));
   if (turnHints.length === 0) return withSession;
   return `${withSession}\n\n${turnHints.join("\n\n")}`;
 }
 
-export function injectSkillContext(skillName: string, additionalInstructions?: string): string {
+export function injectSkillContext(skillName: string, additionalInstructions?: string, presentation: OutputPresentation = "terminal"): string {
   const base = (additionalInstructions ?? "").trim();
   const hints = [
     buildToolExecutionGuidance(),
     buildQuantSkillGuidance(skillName),
-    buildSkillRenderGuidance(skillName),
+    buildSkillRenderGuidance(skillName, presentation),
   ].filter((value): value is string => Boolean(value));
   const appended = hints.join("\n\n");
   return base ? `${base}\n\n${appended}` : appended;
@@ -90,8 +90,14 @@ function listCachedSymbols(): CachedInfo[] {
   return result.slice(0, 15);
 }
 
-function buildRenderGuidance(input: string, ctx: SessionCtx): string | null {
+function buildRenderGuidance(input: string, ctx: SessionCtx, presentation: OutputPresentation): string | null {
   if (!needsStructuredRenderGuidance(input, ctx)) return null;
+  if (presentation === "markdown") return [
+    "<!-- render guidance -->",
+    "Use a GFM table for comparable rows, with explicit headers; keep sources, units, dates, missing values and caveats visible. Do not simulate tables with space alignment or box-drawing separators.",
+    COMPARISON_METRIC_GUIDANCE,
+    ...buildToolSpecificRenderGuidance(input, ctx),
+  ].join("\n");
   const guidance = [
     "<!-- render guidance -->",
     "If the answer contains multiple comparable rows or a time-series summary:",
@@ -121,7 +127,7 @@ function buildToolExecutionGuidance(): string {
   ].join("\n");
 }
 
-function buildSkillRenderGuidance(skillName: string): string {
+function buildSkillRenderGuidance(skillName: string, presentation: OutputPresentation): string {
   const lower = skillName.toLowerCase();
   const skillSpecific =
     lower.includes("quant") || lower.includes("trader") || lower.includes("benchmark")
@@ -129,7 +135,7 @@ function buildSkillRenderGuidance(skillName: string): string {
       : "If the skill produces structured comparisons, keep them visible instead of collapsing them into prose.";
   const lines = [
     skillSpecific,
-    "Prefer compact plain-text tables or chart-style blocks over long narrative output.",
+    presentation === "markdown" ? "Prefer GFM tables with labeled columns for structured comparisons; preserve units, dates and missing values." : "Prefer compact plain-text tables or chart-style blocks over long narrative output.",
     "Add at most 3 short lines of interpretation around the structured block.",
   ];
   if (lower.includes("benchmark") || lower.includes("quant") || lower.includes("trader")) {

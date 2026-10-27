@@ -4,6 +4,11 @@ import { memo } from "react";
 
 /** Model prose cannot enable HTML or automatically load external images. */
 export const ResearchMarkdown = memo(function ResearchMarkdown({ text }: { text: string }) {
+  // Older terminal replies contain whitespace-aligned rows, not Markdown tables.
+  // Keep their original bytes visible without interpreting HTML or guessing columns.
+  const terminalLayout = /^[ \t]*[─━═]{8,}[ \t]*$/m.test(text);
+  const fencedMarkdown = /^[ \t]*(?:`{3,}|~{3,})/m.test(text);
+  if (terminalLayout && !fencedMarkdown) return <pre className="legacy-answer">{text}</pre>;
   return <Markdown skipHtml remarkPlugins={[remarkGfm]} urlTransform={url => /^(https?:\/\/|#)/i.test(url) ? url : ""} components={{
     a: ({ children, href }) => href ? <a href={href} target={href.startsWith("#") ? undefined : "_blank"} rel="noopener noreferrer">{children}</a> : <span>{children}</span>,
     img: ({ alt }) => <span className="inline-note">图片引用：{alt || "未提供说明"}（未自动加载）</span>,
