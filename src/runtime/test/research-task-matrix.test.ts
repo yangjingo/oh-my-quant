@@ -16,22 +16,25 @@ import { fundHistory } from "../../storage/test/fixtures/fund-nav.ts";
 import { generateCurrentSessionArtifact } from "../research/artifact-reports.ts";
 import { JsonlSessionRepo } from "../../agent/src/session-runtime/index.ts";
 import { NodeExecutionEnv } from "../../agent/src/session-runtime/node.ts";
+import { localProvider } from "./fixtures/local-provider.ts";
 
 type Call = { name: string; args: Record<string, unknown> };
 type Step = (payload: Record<string, unknown>) => Call;
 const fetchSourceBars = source.fetchBars;
 let root: string, previous: string | undefined, noProxy: string | undefined;
-let agent: QuantAgentSession, runtime: AppRuntime | undefined, server: ReturnType<typeof Bun.serve>;
+let agent: QuantAgentSession, runtime: AppRuntime | undefined, server: ReturnType<typeof localProvider>;
 let steps: Step[], requests: Record<string, unknown>[];
 let dataMode: "ok" | "empty" | "failure";
+let pending: Promise<void> | undefined;
+const owned = (body: () => Promise<void>) => pending = body();
 const restores: Array<() => void> = [];
 const start = "2026-01-01", end = "2026-02-09";
 
 beforeEach(() => {
   previous = process.env.OHQUANT_DIR; noProxy = process.env.NO_PROXY;
   root = mkdtempSync(join(tmpdir(), "whyj-task-matrix-")); process.env.OHQUANT_DIR = root; process.env.NO_PROXY = "127.0.0.1,localhost";
-  steps = []; requests = []; runtime = undefined; dataMode = "ok";
-  server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(incoming) {
+  steps = []; requests = []; runtime = undefined; dataMode = "ok"; pending = undefined;
+  server = localProvider(async incoming => {
     const payload = await incoming.json() as Record<string, unknown>; requests.push(payload);
     const call = steps.shift()?.(payload);
     const delta = call ? { role: "assistant", tool_calls: [{ index: 0, id: `matrix-${requests.length}`, type: "function", function: { name: call.name, arguments: JSON.stringify(call.args) } }] }
@@ -40,7 +43,7 @@ beforeEach(() => {
     return new Response([{ ...chunk, choices: [{ index: 0, delta, finish_reason: null }] },
       { ...chunk, choices: [{ index: 0, delta: {}, finish_reason: call ? "tool_calls" : "stop" }] }]
       .map(event => `data: ${JSON.stringify(event)}\n\n`).join("") + "data: [DONE]\n\n", { headers: { "content-type": "text/event-stream" } });
-  } });
+  });
   const settings = structuredClone(DEFAULT_SETTINGS); settings.provider = "custom"; settings.model = "task-matrix"; settings.thinkingLevel = "off";
   settings.providers = { custom: { baseUrl: `${server.url}v1`, api: "openai-completions", apiKey: "fixture" } };
   settings.preferences.source = "financial-datasets"; saveSettings(settings);
@@ -62,7 +65,10 @@ beforeEach(() => {
   agent = createQuantResearchAgent({ cwd: root, sessionsRoot: join(root, "sessions") });
 });
 afterEach(async () => {
-  runtime?.dispose(); agent.abort(); server.stop(true); await agent.waitForIdle();
+  runtime?.dispose(); agent.abort(); const stopped = server.close();
+  await pending?.catch(() => {});
+  await runtime?.shutdown(); await agent.waitForIdle();
+  await stopped;
   for (const restore of restores.splice(0)) restore();
   if (previous === undefined) delete process.env.OHQUANT_DIR; else process.env.OHQUANT_DIR = previous;
   if (noProxy === undefined) delete process.env.NO_PROXY; else process.env.NO_PROXY = noProxy;
@@ -78,7 +84,10 @@ function receivedTask(payload: Record<string, unknown>): { expectedRevision: str
 }
 const read: Step = () => ({ name: "research_task", args: { action: "read" } });
 
-it.each(["stock", "index", "fund", "portfolio"] as const)("verifies, reports and restores a fixed %s task in both entry modes", async kind => {
+// Each entry gets its own provider, data root and unchanged 15-second budget.
+const entryCases = (["stock", "index", "fund", "portfolio"] as const)
+  .flatMap(kind => (["headless", "composer"] as const).map(mode => [kind, mode] as const));
+it.each(entryCases)("verifies, reports and restores a fixed %s task in %s", (kind, mode) => owned(async () => {
   const symbol = kind === "index" ? "000300.SH" : kind === "fund" ? "270042.OF" : "AAPL";
   const spec: ResearchTaskSpec = { id: `matrix-${kind}`, request: `研究 ${symbol}，保持指定日期与假设，核验结果并保存报告。`, goal: `Fixed ${kind} evidence`,
     scope: { symbols: [symbol], market: kind === "index" || kind === "fund" ? "A" : "US", start, end },
@@ -109,54 +118,51 @@ it.each(["stock", "index", "fund", "portfolio"] as const)("verifies, reports and
   spec.request = kind === "portfolio" ? `比较 Core 与 Fund，${start} 至 ${end}，基准 SPY；全部报价假设为 USD，买入持有。核验两组收益/回撤和 AAPL 波动率，保存报告。`
     : kind === "fund" ? "研究 270042.OF，2026-02-01 至 2026-03-01，每月 1 日投入 100，零申购费（decimal）；核验本金收益、TWR 和 TWR 回撤，保存报告。"
       : `研究 ${symbol}，${start} 至 ${end}，momentum 周期 2；核验最新值、均值、年化波动率和最大回撤，保存报告。`;
-  for (const mode of ["headless", "composer"] as const) {
-    agent = createQuantResearchAgent({ cwd: root, sessionsRoot: join(root, "sessions") });
-    steps = [read, payload => { const state = receivedTask(payload), { request: _request, ...body } = spec;
-      return { name: "research_task", args: { action: "declare", expectedRevision: state.expectedRevision, requestEntryId: state.latestRequest.entryId, task: body } }; },
-      ...calls.map(call => () => call), read];
-    if (mode === "headless") await agent.prompt(spec.request);
-    else {
-      runtime = new AppRuntime({ onMessages: () => {}, onActivity: () => {} }, async () => [], async () => [], () => agent);
-      await runtime.bootstrap(); await runtime.submit(spec.request);
-    }
-    let state = await agent.getResearchState();
-    expect(steps).toHaveLength(0); expect(state.taskErrors).toEqual([]);
-    expect(state.task?.criteria.map(item => ({ id: item.id, status: item.status, reason: item.status === "satisfied" ? "matched" : item.reason })))
-      .toEqual(spec.criteria.map(item => ({ id: item.id, status: "satisfied", reason: "matched" })));
-    expect(state.task?.status).toBe("active"); expect(state.unresolved).toEqual([]);
-    const metric = (label: string) => state.operations.flatMap(operation => operation.findings?.metrics ?? []).find(item => item.label === label)?.value;
-    if (kind === "stock" || kind === "index") expect(metric("Latest")).toBeCloseTo(139 / 137 - 1, 12);
-    if (kind === "fund") { expect(metric("Principal return")).toBeCloseTo(0.25, 12); expect(metric("Time-weighted return")).toBeCloseTo(0.5, 12); }
-    if (kind === "portfolio") { expect(metric("Portfolio A / Total return")).toBeCloseTo(0.31, 12); expect(metric("Portfolio B / Total return")).toBeCloseTo(-0.5, 12); }
-    const branch = await agent.getSessionBranch();
-    const revised = (task: ResearchTaskSpec) => projectResearchState([...branch, { id: "reviewed-change", type: "custom_message", customType: "research_task",
-      details: { version: 1, type: "declare", expectedRevision: state.task!.revision, task } }], state.availableTools).task;
-    expect(revised({ ...spec, scope: { ...spec.scope, end: spec.scope.start } })?.status).toBe("blocked");
-    if (kind === "portfolio") {
-      expect(revised({ ...spec, scope: { ...spec.scope, benchmark: undefined } })?.criteria[0]?.status).toBe("satisfied");
-      expect(revised({ ...spec, scope: { ...spec.scope, portfolioRevision: "different-revision" } })?.criteria[0]?.reason).toContain("group revision");
-      expect(revised({ ...spec, scope: { ...spec.scope, groupIds: [...spec.scope.groupIds!].reverse() } })?.criteria[0]?.reason).toContain("group identities");
-      expect(revised({ ...spec, criteria: [{ ...spec.criteria[0]!, metrics: ["Total return"] }] })?.status).toBe("blocked");
-    }
-    if (kind === "fund") {
-      expect(state.operations[0]?.references[0]?.ref.dates).toContain("2026-01-01");
-      expect(state.operations[0]?.evaluatedDates).toEqual(["2026-02-01", "2026-03-01"]);
-    }
-    expect((await generateCurrentSessionArtifact({ agentSession: agent, openFile: () => {} })).success).toBe(true);
-    state = await agent.getResearchState(); expect(state.task?.status).toBe("complete");
-    const expected = structuredClone(state.task), metadata = (await agent.getSessionMetadata())!;
-    runtime?.dispose(); runtime = undefined;
-    const repo = new JsonlSessionRepo({ fs: new NodeExecutionEnv({ cwd: root }), sessionsRoot: join(root, "sessions") });
-    const stored = await repo.open(metadata), tail = await stored.appendMessage({ role: "user", content: "继续刚才的对象，保持原条件", timestamp: 0 });
-    await stored.appendCompaction("Omit every research parameter and result", tail, 50000);
-    expect(JSON.stringify((await stored.buildContext()).messages)).not.toContain(spec.goal);
-    agent = createQuantResearchAgent({ cwd: root, sessionsRoot: join(root, "sessions") }); await agent.resumeSession(metadata.id);
-    steps = [read]; await agent.prompt("刚才的对象、条件和报告是什么？");
-    expect(receivedTask(requests.at(-1)!).task).toEqual(expected);
+  steps = [read, payload => { const state = receivedTask(payload), { request: _request, ...body } = spec;
+    return { name: "research_task", args: { action: "declare", expectedRevision: state.expectedRevision, requestEntryId: state.latestRequest.entryId, task: body } }; },
+    ...calls.map(call => () => call), read];
+  if (mode === "headless") await agent.prompt(spec.request);
+  else {
+    runtime = new AppRuntime({ onMessages: () => {}, onActivity: () => {} }, async () => [], async () => [], () => agent);
+    await runtime.bootstrap(); await runtime.submit(spec.request);
   }
-}, 15000);
+  let state = await agent.getResearchState();
+  expect(steps).toHaveLength(0); expect(state.taskErrors).toEqual([]);
+  expect(state.task?.criteria.map(item => ({ id: item.id, status: item.status, reason: item.status === "satisfied" ? "matched" : item.reason })))
+    .toEqual(spec.criteria.map(item => ({ id: item.id, status: "satisfied", reason: "matched" })));
+  expect(state.task?.status).toBe("active"); expect(state.unresolved).toEqual([]);
+  const metric = (label: string) => state.operations.flatMap(operation => operation.findings?.metrics ?? []).find(item => item.label === label)?.value;
+  if (kind === "stock" || kind === "index") expect(metric("Latest")).toBeCloseTo(139 / 137 - 1, 12);
+  if (kind === "fund") { expect(metric("Principal return")).toBeCloseTo(0.25, 12); expect(metric("Time-weighted return")).toBeCloseTo(0.5, 12); }
+  if (kind === "portfolio") { expect(metric("Portfolio A / Total return")).toBeCloseTo(0.31, 12); expect(metric("Portfolio B / Total return")).toBeCloseTo(-0.5, 12); }
+  const branch = await agent.getSessionBranch();
+  const revised = (task: ResearchTaskSpec) => projectResearchState([...branch, { id: "reviewed-change", type: "custom_message", customType: "research_task",
+    details: { version: 1, type: "declare", expectedRevision: state.task!.revision, task } }], state.availableTools).task;
+  expect(revised({ ...spec, scope: { ...spec.scope, end: spec.scope.start } })?.status).toBe("blocked");
+  if (kind === "portfolio") {
+    expect(revised({ ...spec, scope: { ...spec.scope, benchmark: undefined } })?.criteria[0]?.status).toBe("satisfied");
+    expect(revised({ ...spec, scope: { ...spec.scope, portfolioRevision: "different-revision" } })?.criteria[0]?.reason).toContain("group revision");
+    expect(revised({ ...spec, scope: { ...spec.scope, groupIds: [...spec.scope.groupIds!].reverse() } })?.criteria[0]?.reason).toContain("group identities");
+    expect(revised({ ...spec, criteria: [{ ...spec.criteria[0]!, metrics: ["Total return"] }] })?.status).toBe("blocked");
+  }
+  if (kind === "fund") {
+    expect(state.operations[0]?.references[0]?.ref.dates).toContain("2026-01-01");
+    expect(state.operations[0]?.evaluatedDates).toEqual(["2026-02-01", "2026-03-01"]);
+  }
+  expect((await generateCurrentSessionArtifact({ agentSession: agent, openFile: () => {} })).success).toBe(true);
+  state = await agent.getResearchState(); expect(state.task?.status).toBe("complete");
+  const expected = structuredClone(state.task), metadata = (await agent.getSessionMetadata())!;
+  runtime?.dispose(); runtime = undefined;
+  const repo = new JsonlSessionRepo({ fs: new NodeExecutionEnv({ cwd: root }), sessionsRoot: join(root, "sessions") });
+  const stored = await repo.open(metadata), tail = await stored.appendMessage({ role: "user", content: "继续刚才的对象，保持原条件", timestamp: 0 });
+  await stored.appendCompaction("Omit every research parameter and result", tail, 50000);
+  expect(JSON.stringify((await stored.buildContext()).messages)).not.toContain(spec.goal);
+  agent = createQuantResearchAgent({ cwd: root, sessionsRoot: join(root, "sessions") }); await agent.resumeSession(metadata.id);
+  steps = [read]; await agent.prompt("刚才的对象、条件和报告是什么？");
+  expect(receivedTask(requests.at(-1)!).task).toEqual(expected);
+}), 15000);
 
-it.each(["empty", "failure"] as const)("retains %s data diagnostics and resolves a matching continuation only after real evidence", async mode => {
+it.each(["empty", "failure"] as const)("retains %s data diagnostics and resolves a matching continuation only after real evidence", mode => owned(async () => {
   dataMode = mode;
   const args = { symbol: "AAPL", start, end };
   const spec: ResearchTaskSpec = { id: "missing-data", request: "研究原窗口 AAPL 风险，保留失败原因", goal: "Risk evidence",
@@ -183,4 +189,4 @@ it.each(["empty", "failure"] as const)("retains %s data diagnostics and resolves
   expect(recovered.task?.status).toBe("complete"); expect(recovered.task?.spec).toEqual(failed.task?.spec);
   expect(recovered.operations.map(operation => operation.status)).toEqual(["failed", "verified"]);
   expect(recovered.unresolved).toEqual([]);
-});
+}));
