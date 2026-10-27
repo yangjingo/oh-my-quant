@@ -506,9 +506,13 @@ export class NodeExecutionEnv implements ExecutionEnv {
 					const info = fileInfoFromStats(entryPath, await lstat(entryPath));
 					if (info.ok) infos.push(info.value);
 				} catch (error) {
+					// A concurrent writer may remove a temporary entry after readdir.
+					if (isNodeError(error) && error.code === "ENOENT") continue;
 					return err(toFileError(error, entryPath));
 				}
 			}
+			const afterListAbort = abortResult<FileInfo[]>(abortSignal, resolved);
+			if (afterListAbort) return afterListAbort;
 			return ok(infos);
 		} catch (error) {
 			return err(toFileError(error, resolved));

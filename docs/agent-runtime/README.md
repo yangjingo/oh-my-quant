@@ -84,6 +84,8 @@ JSONL v3 用 id、parent、timestamp 和 type 形成分支树。当前上下文�
 
 默认 `SessionFilePort` / `LocalSessionFile` 用精确字节版本、进程锁、唯一临时文件及 fsync/rename 整体替换；外部编辑、追加或删除使旧 writer 冲突，内存只在提交成功后发布。完整 fork 一次提交；分支 fork 保留目标与标签所需祖先，不带入其它分支上下文。leaf 移动与摘要在同一批次提交，取消传播到锁等待，文件观察者异常不改变已确认提交。
 
+本地 `listDir` 跳过在枚举后、读取属性前消失的子项（`ENOENT`），例如并发写入释放的临时锁。父目录缺失、权限及其它错误仍失败，取消不返回成功。列表不是事务快照；打开会话仍须核对存在性与内容。
+
 失败重试保留原 entry 身份；提交结果不确定时先重新打开核实，不能改 ID 盲目重发。重复/歧义 ID、缺父节点、环、缺 leaf 或截断 JSON 拒绝恢复，Resume 隐藏坏记录但保留原文件。整文件复制成本随历史增长；[存储测量脚本](../../src/storage/dev/measure-session-storage.ts)用于观察这一代价，不承诺所有文件系统的断电安全。
 
 reset/restore 等待旧初始化结束并取消旧工作，目标打开和资源准备全部成功后才替换；失败保留当前会话，迟到的旧事件不得发布。报告恢复即使仍在同一会话，也先完成全部来源核验和资源准备，再提交 leaf；领域要求见 [Quant 恢复](../quant-harness/README.md#recovery)。
