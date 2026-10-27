@@ -6,6 +6,7 @@ import type { WorkspaceScope } from "../../types/workspace.ts";
 import {
   resolveProjectDirPath,
   resolveWorkspaceMetaPath,
+  createHostRuntimeStore,
   type WorkspaceMetadata,
 } from "../../storage/index.ts";
 import { revealInFileManager } from "./reveal.ts";
@@ -229,8 +230,13 @@ export function startWorkspaceServer(
   };
 }
 if (import.meta.main) {
-  const { server } = startWorkspaceServer();
-  console.log(
-    `WhyJ Research Workspace: ${server.url}（仅本机；Ctrl+C 停止服务）`,
-  );
+  // The legacy foreground entry cannot coexist with a shared Quant writer.
+  // It does not register as a compatible generic Host or claim resumable work.
+  const lease = createHostRuntimeStore().acquire("owner");
+  try {
+    const { server } = startWorkspaceServer();
+    const stop = () => { void server.stop(true).finally(() => { lease.release(); process.exit(0); }); };
+    process.once("SIGINT", stop); process.once("SIGTERM", stop);
+    console.log(`WhyJ Research Workspace: ${server.url}（仅本机；Ctrl+C 停止服务）`);
+  } catch (error) { lease.release(); throw error; }
 }

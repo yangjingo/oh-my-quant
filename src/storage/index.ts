@@ -49,6 +49,8 @@ export { saveResearchDecision, loadResearchDecision, listResearchDecisionFiles, 
 export { listStoredSessions } from "./src/sessions.ts";
 export { LocalSessionFile } from "./src/session-file.ts";
 export { createWorkbenchSessionStore } from "./src/workbench-sessions.ts";
+export { createHostRuntimeStore, hostProcessState } from "./src/host-runtime.ts";
+export type { HostOwner, HostRegistration, HostLockKind } from "./src/host-runtime.ts";
 export { createWorkspaceStore, workspaceHash, canArchiveWorkspaceReply } from "./src/workspace.ts";
 export {
   loadWorkspaceMetadata,

@@ -26,6 +26,7 @@ Desktop 面向 Windows/macOS，CLI/TUI 面向 Linux 专业用户；Web 是共享
 | [Agent Runtime](./agent-runtime/README.md) | 会话、资源快照、取消与恢复 |
 | [WhyJ Quant 模块架构](./agent-runtime/architecture.md) | 入口、共享服务与 Host 边界 |
 | [无界面研究服务](./agent-runtime/services.md) | 运行身份、固定报告、独立复核与删除保护 |
+| [工作区 Host](./agent-runtime/host.md) | 实例发现、执行所有权、客户端 detach 与显式停止 |
 | [存储](./agent-runtime/storage.md) | 提交点、缓存、不可变历史与私有状态 |
 | [Quant 配置](./agent-runtime/configuration.md) | Quant 数据、组合、报告与引擎设置 |
 | [扩展宿主](./agent-runtime/extensions.md) | 显式扩展、启停与资源修订 |
