@@ -89,6 +89,29 @@ test("the default entry resolves built assets under the repository apps director
   expect(WORKBENCH_ASSETS_ROOT).toBe(resolve(import.meta.dir, "../../../..", "apps/web/dist"));
 });
 
+test("research source routing persists separately from overview and rejects invalid or stale changes", async () => {
+  const { client } = await setup();
+  const before = await client.preferences();
+  expect(before.researchSources?.map(item => item.id)).toEqual(["akshare", "tushare", "llmquant-data", "financial-datasets"]);
+  expect(JSON.stringify(before)).not.toContain(KEY);
+  await client.updatePreferences({ ...before, researchSource: "akshare" });
+  const saved = await client.preferences();
+  expect(saved.researchSource).toBe("akshare"); expect(saved.source).toBe("none");
+  expect(readSettings().preferences.source).toBe("akshare");
+  await expect(client.updatePreferences({ ...before, researchSource: "tushare" })).rejects.toThrow();
+  await expect(client.updatePreferences({ ...saved, researchSource: "adata" as "akshare" })).rejects.toThrow("已接入");
+  await client.updatePreferences({ ...saved, researchSource: undefined });
+  expect((await client.preferences()).researchSource).toBe("akshare");
+  mode = "hold"; const started = new Promise<void>(resolve => { reached = resolve; });
+  const run = await client.submit({ ...await client.identity(), text: "运行中不能换源" }); await started;
+  await expect(client.updatePreferences({ ...await client.preferences(), researchSource: "tushare" })).rejects.toThrow("请先等待或停止");
+  await client.cancel(run.runId);
+  const configured = readSettings(); configured.env.WHYJ_QUANT_TUSHARE_TOKEN = "data-credential-must-stay-local"; saveSettings(configured);
+  const publicState = await client.preferences();
+  expect(publicState.researchSources?.find(item => item.id === "tushare")?.credentialConfigured).toBe(true);
+  expect(JSON.stringify(publicState)).not.toContain("data-credential-must-stay-local");
+});
+
 test("Web model requests consistently select Markdown instead of terminal-only formatting", async () => {
   const { submit, client, identity } = await setup(); await submit("比较两个给定指标，列一个表格");
   await terminal(client, identity.sessionId);

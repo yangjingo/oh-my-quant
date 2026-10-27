@@ -158,7 +158,10 @@ export interface ReferenceCandidate {
 }
 
 export interface Preferences {
-  /** Opaque storage revision for concurrent model-setting edits; never a credential. */
+  /** Research-tool routing is separate from the overview feed below. No credential values. */
+  readonly researchSource?: "akshare" | "tushare" | "llmquant-data" | "financial-datasets";
+  readonly researchSources?: readonly { id: NonNullable<Preferences["researchSource"]>; label: string; credentialConfigured: boolean; requiresCredential: boolean }[];
+  /** Opaque storage revision for concurrent setting edits; never a credential. */
   readonly revision?: string;
   readonly modelProvider?: string;
   readonly modelProtocol?: string;

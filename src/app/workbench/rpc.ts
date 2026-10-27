@@ -1,4 +1,4 @@
-import type { WorkbenchClient } from "../../types/workbench.ts";
+import type { Preferences, WorkbenchClient } from "../../types/workbench.ts";
 import { WorkbenchError } from "./errors.ts";
 
 function object(value: unknown): Record<string, unknown> {
@@ -40,10 +40,11 @@ export async function dispatchWorkbench(client: WorkbenchClient, payload: unknow
       return client.submit({ workspaceId: string(value.workspaceId), sessionId: string(value.sessionId), text: string(value.text, 16000) });
     }
     case "updatePreferences": {
-      count(1); const value = object(args[0]); keys(value, ["revision", "model", "thinkingLevel", "source", "portfolio"]);
+      count(1); const value = object(args[0]); keys(value, ["revision", "model", "thinkingLevel", "source", "portfolio", "researchSource"]);
       if (value.source !== "none" && value.source !== "akshare") throw new WorkbenchError("INPUT_INVALID", "此连接不接受演示数据源。");
       return client.updatePreferences({ revision: string(value.revision), model: string(value.model), source: value.source,
-        portfolio: string(value.portfolio), ...(value.thinkingLevel === undefined ? {} : { thinkingLevel: string(value.thinkingLevel, 20) }) });
+        portfolio: string(value.portfolio), ...(value.thinkingLevel === undefined ? {} : { thinkingLevel: string(value.thinkingLevel, 20) }),
+        ...(value.researchSource === undefined ? {} : { researchSource: string(value.researchSource, 30) as NonNullable<Preferences["researchSource"]> }) });
     }
     default: throw new WorkbenchError("METHOD_NOT_FOUND", "此连接不支持该操作。", 404);
   }

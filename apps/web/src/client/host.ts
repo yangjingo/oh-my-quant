@@ -86,7 +86,7 @@ export function createHostClient(options: { baseUrl?: string; fetch?: typeof fet
     session: async id => { const value: unknown = await rpc("session", [id]); if (!isWorkbenchSnapshot(value)) throw new Error("研究服务会话无效。"); return value; },
     transcript: id => rpc("transcript", [id]), output: id => rpc("output", [id]), createSession: () => rpc("createSession"),
     renameSession: (id, title) => rpc("renameSession", [id, title]), references: (id, query) => rpc("references", [id, query]),
-    updatePreferences: (next: Preferences) => rpc("updatePreferences", [{ revision: next.revision, model: next.model, source: next.source, portfolio: next.portfolio, ...(next.thinkingLevel === undefined ? {} : { thinkingLevel: next.thinkingLevel }) }]),
+    updatePreferences: (next: Preferences) => rpc("updatePreferences", [{ revision: next.revision, model: next.model, source: next.source, portfolio: next.portfolio, ...(next.researchSource === undefined ? {} : { researchSource: next.researchSource }), ...(next.thinkingLevel === undefined ? {} : { thinkingLevel: next.thinkingLevel }) }]),
     submit: value => rpc("submit", [value]), cancel: id => rpc("cancel", [id]),
     acknowledgeInterruption: id => rpc("acknowledgeInterruption", [id]),
     subscribe(listener) {

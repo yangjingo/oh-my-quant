@@ -28,8 +28,8 @@ test("only editable model preferences cross the RPC boundary", async () => {
     body = String(init?.body); return Response.json({ ok: true, result: null });
   }) as typeof fetch;
   const client = createHostClient({ baseUrl: "http://workbench.test", fetch: request });
-  await client.updatePreferences({ revision: "rev", model: "model", thinkingLevel: "max", source: "none", portfolio: "", modelProvider: "not-editable", modelCredentialsConfigured: true });
-  expect(JSON.parse(body)).toEqual({ method: "updatePreferences", args: [{ revision: "rev", model: "model", thinkingLevel: "max", source: "none", portfolio: "" }] });
+  await client.updatePreferences({ revision: "rev", model: "model", thinkingLevel: "max", source: "none", researchSource: "akshare", portfolio: "", modelProvider: "not-editable", modelCredentialsConfigured: true });
+  expect(JSON.parse(body)).toEqual({ method: "updatePreferences", args: [{ revision: "rev", model: "model", thinkingLevel: "max", source: "none", researchSource: "akshare", portfolio: "" }] });
 });
 test("SSE decodes split UTF-8 snapshots and releasing observation does not send cancellation", async () => {
   const snapshot = { ...await createDemoClient().session("sample"), revision: 2 };

@@ -244,7 +244,7 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
     async references() { throw new WorkbenchError("UNAVAILABLE", "此本地连接暂未开放文件引用，请直接描述研究问题。"); },
     async preferences() { return publicPreferences(settings.read()); },
     async updatePreferences(next: Preferences) {
-      if ([...sessions.values()].some(session => !!session.active)) throw new WorkbenchError("RUN_ACTIVE", "请先等待或停止研究，再修改模型。", 409);
+      if ([...sessions.values()].some(session => !!session.active)) throw new WorkbenchError("RUN_ACTIVE", "请先等待或停止研究，再修改研究设置。", 409);
       updateModel(settings, next);
     },
     async submit(request: SubmitRequest) {
