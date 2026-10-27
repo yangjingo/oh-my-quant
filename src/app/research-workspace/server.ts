@@ -1,10 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
-import { createWorkspaceManager, type WorkspacePorts } from "./manager.ts";
+import type { WorkspacePorts } from "./manager.ts";
+import { createResearchWorkspaceService, ResearchWorkspaceError } from "../services/research-workspace.ts";
 import type { WorkspaceScope } from "../../types/workspace.ts";
 import {
-  loadWorkspaceMetadata,
-  saveWorkspaceMetadata,
   resolveProjectDirPath,
   resolveWorkspaceMetaPath,
   type WorkspaceMetadata,
@@ -15,7 +14,8 @@ import { revealInFileManager } from "./reveal.ts";
 export function startWorkspaceServer(
   options: WorkspacePorts & { port?: number; metaPath?: string } = {},
 ) {
-  const manager = createWorkspaceManager(options),
+  const service = createResearchWorkspaceService(options),
+    manager = service.manager,
     token = randomBytes(32).toString("hex"),
     metaPath = options.metaPath;
   const assets: Record<string, string> = {
@@ -70,7 +70,7 @@ export function startWorkspaceServer(
           });
         if (request.method === "GET" && url.pathname === "/api/workspace/meta") {
           try {
-            return json(loadWorkspaceMetadata(metaPath));
+            return json(service.metadata());
           } catch (err: any) {
             return json(
               { error: err?.message || "工作区元数据读取失败", code: err?.code },
@@ -98,7 +98,7 @@ export function startWorkspaceServer(
           if (url.pathname === "/api/workspace/meta") {
             try {
               const meta = JSON.parse(text) as WorkspaceMetadata;
-              return json(saveWorkspaceMetadata(meta, metaPath));
+              return json(service.updateMetadata(meta));
             } catch (err: any) {
               const status =
                 err?.code === "ESTORAGECONFLICT"
@@ -146,75 +146,23 @@ export function startWorkspaceServer(
           if (match) {
             const id = match[1]!;
             if (match[2] === "delete") {
-              let meta: WorkspaceMetadata;
-              try {
-                meta = loadWorkspaceMetadata(metaPath);
-              } catch (err: any) {
-                if (err?.code === "ESTORAGEFORMAT") {
-                  return json(
-                    {
-                      error:
-                        err?.message ||
-                        "工作区元数据读取失败，文件损坏已保留原样。",
-                      code: err?.code,
-                    },
-                    500,
-                  );
-                }
-                throw err;
+              try { return json(service.deleteStudy(id)); }
+              catch (error) {
+                if (!(error instanceof ResearchWorkspaceError)) throw error;
+                if (error.operation === "metadata-read" && error.code !== "ESTORAGEFORMAT") throw error;
+                const status = error.operation === "delete" ? 400 : error.code === "ESTORAGECONFLICT" ? 409 : 500;
+                return json({ error: error.message, code: error.code }, status);
               }
-              let result: { ok: boolean; id: string };
-              try {
-                result = manager.delete(id);
-              } catch (err: any) {
-                return json(
-                  { error: err?.message || "删除研究失败", code: err?.code },
-                  400,
-                );
-              }
-              if (meta.studies && meta.studies[id]) {
-                delete meta.studies[id];
-                try {
-                  meta = saveWorkspaceMetadata(meta, metaPath);
-                } catch (err: any) {
-                  const status =
-                    err?.code === "ESTORAGECONFLICT"
-                      ? 409
-                      : err?.code === "ESTORAGEFORMAT"
-                        ? 500
-                        : 500;
-                  return json(
-                    {
-                      error: err?.message || "工作区元数据保存失败",
-                      code: err?.code,
-                    },
-                    status,
-                  );
-                }
-              }
-              return json({
-                ...result,
-                revision: meta.revision,
-                meta,
-              });
             }
             if (match[2] === "followup")
               return json(manager.followup(id, body.question), 202);
             if (match[2] === "review") {
-              const old = manager.get(id);
-              if (!old.saved)
-                return json(
-                  { error: "请先保存本次研究，再发起独立复核。" },
-                  409,
-                );
-              return json(
-                manager.start(
-                  old.history?.[0]?.question ?? old.question,
-                  { ...old.scope, end: body.end ?? old.scope.end },
-                  id,
-                ),
-                202,
-              );
+              try { return json(service.review(id, body.end), 202); }
+              catch (error) {
+                if (error instanceof ResearchWorkspaceError && error.operation === "review")
+                  return json({ error: error.message }, 409);
+                throw error;
+              }
             }
             return json(
               manager[match[2] as "cancel" | "continue" | "save"](id),
@@ -274,6 +222,7 @@ export function startWorkspaceServer(
   });
   return {
     server,
+    service,
     manager,
     token,
     metaPath: metaPath ?? resolveWorkspaceMetaPath(),

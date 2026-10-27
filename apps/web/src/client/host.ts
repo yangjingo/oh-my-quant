@@ -85,9 +85,13 @@ export function createHostClient(options: { baseUrl?: string; fetch?: typeof fet
     identity: () => rpc("identity"), workspaces: () => rpc("workspaces"), preferences: () => rpc("preferences"), market: () => rpc("market"),
     session: async id => { const value: unknown = await rpc("session", [id]); if (!isWorkbenchSnapshot(value)) throw new Error("研究服务会话无效。"); return value; },
     transcript: id => rpc("transcript", [id]), output: id => rpc("output", [id]), createSession: () => rpc("createSession"),
-    renameSession: (id, title) => rpc("renameSession", [id, title]), references: (id, query) => rpc("references", [id, query]),
+    renameSession: value => rpc("renameSession", [value]), references: (id, query) => rpc("references", [id, query]),
     updatePreferences: (next: Preferences) => rpc("updatePreferences", [{ revision: next.revision, model: next.model, source: next.source, portfolio: next.portfolio, ...(next.thinkingLevel === undefined ? {} : { thinkingLevel: next.thinkingLevel }) }]),
     submit: value => rpc("submit", [value]), cancel: id => rpc("cancel", [id]),
+    continue: value => rpc("continue", [value]), followup: value => rpc("followup", [value]),
+    save: value => rpc("save", [value]), reload: value => rpc("reload", [value]),
+    review: value => rpc("review", [value]),
+    deleteSession: value => rpc("deleteSession", [value]),
     acknowledgeInterruption: id => rpc("acknowledgeInterruption", [id]),
     subscribe(listener) {
       listeners.add(listener);

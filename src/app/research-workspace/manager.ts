@@ -623,24 +623,41 @@ function scrubValue<T>(val: T): T {
       return structuredClone(get(id));
     },
     continue(id: string) {
-      const run = get(id),
+      const old = get(id),
         state = live.get(id);
       if (
         !state ||
         state.context.run.id !== id ||
         state.busy ||
-        !["cancelled", "failed"].includes(run.status) ||
+        !["cancelled", "failed"].includes(old.status) ||
         [...live.values()].some((s) => s.busy)
       )
         throw new Error("该研究目前不能继续。");
+      if ((old.history?.length ?? 0) >= 12 || runs.size >= 50)
+        throw new Error("本轮会话已达上限，请保存后新建对话。");
+      const at = new Date().toISOString();
+      const run: WorkspaceRun = {
+        ...structuredClone(old),
+        id: randomUUID(),
+        conversationId: old.conversationId ?? old.id,
+        history: [...(old.history ?? []), turnSnapshot(old)],
+        createdAt: at,
+        updatedAt: at,
+        status: "running",
+        saved: false,
+        error: null,
+        answer: null,
+        reply: undefined,
+        clarification: null,
+        thinking: undefined,
+        events: [],
+      };
+      state.context.run = run;
       state.controller = new AbortController();
       state.calls = 0;
       state.agent.clearAllQueues();
-      run.status = "running";
-      run.error = null;
-      run.answer = null;
-      run.reply = undefined;
-      run.clarification = null;
+      runs.set(run.id, run);
+      live.set(run.id, state);
       event(
         run,
         "continue",

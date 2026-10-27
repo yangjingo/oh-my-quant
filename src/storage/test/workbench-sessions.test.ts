@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import { randomUUID } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWorkbenchSessionStore } from "../src/workbench-sessions.ts";
@@ -50,4 +50,21 @@ test("listing does not load or validate a transcript payload; selected reads val
   expect(() => store.load(record.workspaceId, record.sessionId)).toThrow();
   expect(() => store.load("another-workspace", record.sessionId)).toThrow();
   expect(() => store.load(record.workspaceId, "../settings")).toThrow();
+});
+
+test("checkpoint deletion preserves concurrent revisions and corrupt bytes even with their known hash", async () => {
+  const { record, store, file } = fixture();
+  const first = await store.save(record, null);
+  const next = { ...record, name: "另一客户端更新", snapshot: { ...record.snapshot, revision: 1 } };
+  const second = await store.save(next, first), bytes = readFileSync(file);
+  await expect(store.delete(record.workspaceId, record.sessionId, first)).rejects.toMatchObject({ code: "ESTORAGECONFLICT" });
+  expect(readFileSync(file)).toEqual(bytes);
+  writeFileSync(file, "damaged checkpoint");
+  const damaged = createHash("sha256").update(readFileSync(file)).digest("hex");
+  await expect(store.delete(record.workspaceId, record.sessionId, damaged)).rejects.toMatchObject({ code: "ESTORAGEFORMAT" });
+  expect(readFileSync(file, "utf8")).toBe("damaged checkpoint");
+  writeFileSync(file, bytes);
+  await expect(store.delete("another-workspace", record.sessionId, second)).rejects.toMatchObject({ code: "ESTORAGEFORMAT" });
+  await store.delete(record.workspaceId, record.sessionId, second);
+  expect(existsSync(file)).toBe(false);
 });

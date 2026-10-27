@@ -5,7 +5,7 @@ import { createWorkbenchStore } from "../src/state/workbench-store";
 import type { SessionSnapshot, WorkbenchEvent } from "../src/client/contract";
 
 const tick = () => new Promise(resolve => setTimeout(resolve, 5));
-const request = { workspaceId: "demo-workspace", sessionId: "empty", text: "研究回撤结构" };
+const request = { workspaceId: "demo-workspace", sessionId: "empty", requestId: "demo-request", expectedRevision: 0, text: "研究回撤结构" };
 
 describe("client lifecycle and presentation isolation", () => {
   test("detaching never cancels shared work; cancellation is explicit", async () => {
@@ -17,14 +17,14 @@ describe("client lifecycle and presentation isolation", () => {
     const count = events.length;
     expect((await client.session("empty")).identity.runId).toBe(runId);
     expect((await client.session("empty")).state).toBe("running");
-    await client.cancel(runId);
+    await client.cancel({ workspaceId: request.workspaceId, sessionId: request.sessionId, runId });
     expect(events.length).toBe(count);
     expect((await client.session("empty")).state).toBe("cancelled");
   });
   test("cancelled runs cannot be resurrected by delayed completion", async () => {
     const client = createDemoClient({ settleAfterMs: 10 });
     const result = await client.submit(request);
-    await client.cancel(result.runId);
+    await client.cancel({ workspaceId: request.workspaceId, ...result });
     await new Promise(resolve => setTimeout(resolve, 30));
     const snapshot = await client.session("empty");
     expect(snapshot.state).toBe("cancelled");
@@ -34,11 +34,11 @@ describe("client lifecycle and presentation isolation", () => {
     const client = createDemoClient({ settleAfterMs: 60_000 });
     const first = await client.submit(request);
     const second = await client.submit({ ...request, sessionId: "sample", text: "另一个会话" });
-    await client.cancel(first.runId);
+    await client.cancel({ workspaceId: request.workspaceId, ...first });
     expect((await client.session("sample")).state).toBe("running");
     expect((await client.transcript("empty")).map(t => t.role)).toEqual(["user", "assistant"]);
     expect((await client.transcript("empty"))[0]?.text).toBe(request.text);
-    await client.cancel(second.runId);
+    await client.cancel({ workspaceId: request.workspaceId, ...second });
   });
   test("missing source stays missing and sample output remains labelled", async () => {
     const client = createDemoClient();
@@ -97,7 +97,7 @@ describe("client lifecycle and presentation isolation", () => {
     expect(store.getSnapshot().snapshot?.turns).toHaveLength(0);
     disconnect();
     expect((await client.session("sample")).state).toBe("running");
-    await client.cancel(background.runId);
+    await client.cancel({ workspaceId: request.workspaceId, ...background });
   });
   test("failed submission retains the selected session and exposes the failure", async () => {
     const client = createDemoClient();

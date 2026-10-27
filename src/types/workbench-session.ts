@@ -8,6 +8,8 @@ export interface WorkbenchSessionRecord {
   name: string;
   cwd: string;
   coreSessionId: string | null;
+  /** Private journal leaf committed by the terminal run; absent on older checkpoints. */
+  coreLeafId?: string | null;
   runCount: number;
   updatedAt: string;
   snapshot: SessionSnapshot;

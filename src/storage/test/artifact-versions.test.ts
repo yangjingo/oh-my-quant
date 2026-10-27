@@ -55,6 +55,21 @@ it("archives the previous legacy report when a new version is generated", () => 
   expect(loadArtifact(artifactReference(versions[1]!))).toBe("<html>legacy output</html>");
 });
 
+it("compares the expected report head inside the write lock and preserves conflicts and corruption", () => {
+  const first = saveArtifact("research", "original", {}, null);
+  const second = saveArtifact("research", "new version", {}, first.revision!);
+  const head = join(root, "artifacts", "research.report.json"), bytes = readFileSync(head);
+  for (const stale of [null, first.revision!]) {
+    expect(() => saveArtifact("research", "stale overwrite", {}, stale)).toThrow("Report changed");
+    expect(readFileSync(head)).toEqual(bytes);
+  }
+  expect(listArtifactVersions("research").map(meta => meta.revision)).toEqual([second.revision!, first.revision!]);
+  writeFileSync(head, "damaged report");
+  expect(() => saveArtifact("research", "repair without consent", {}, second.revision!)).toThrow("damaged");
+  expect(readFileSync(head, "utf8")).toBe("damaged report");
+  expect(loadArtifact(artifactReference(first))).toBe("original");
+});
+
 it("keeps all committed revisions from eight independent writers", async () => {
   const children = Array.from({ length: 8 }, (_, index) => Bun.spawn([
     process.execPath, join(import.meta.dir, "fixtures", "report-writer.ts"), String(index),

@@ -104,7 +104,7 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
           const oldRun = snapshot.identity.runId, newRun = next.identity.runId;
           const key = (run: string) => JSON.stringify([event.identity.workspaceId, event.identity.sessionId, run]);
           if (newRun && retiredRuns.has(key(newRun))) return;
-          if (oldRun === newRun && oldRun && ["cancelled", "failed", "settled", "interrupted"].includes(snapshot.state) && !(snapshot.state === "interrupted" && next.state === "interrupted")) return;
+          if (oldRun === newRun && oldRun && ["cancelled", "failed", "settled", "needs_input", "interrupted"].includes(snapshot.state) && !(snapshot.state === "interrupted" && next.state === "interrupted")) return;
           if (oldRun && oldRun !== newRun) retiredRuns.add(key(oldRun));
           publish({ snapshot: next, sessions: view.sessions.map(session => session.sessionId === view.selected ? { ...session, state: next.state } : session) });
           return;
@@ -120,7 +120,7 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
         if (eventRun !== previousRun) {
           if (event.type !== "state" || event.state !== "running") return;
           if (previousRun) retiredRuns.add(runKey(previousRun));
-        } else if (["cancelled", "failed", "settled", "interrupted"].includes(snapshot.state) && eventRun !== null) return;
+        } else if (["cancelled", "failed", "settled", "needs_input", "interrupted"].includes(snapshot.state) && eventRun !== null) return;
         if (event.type === "turn") {
           if (snapshot.state === "cancelled" && event.identity.runId === snapshot.identity.runId) return;
           if (snapshot.identity.runId && event.identity.runId !== snapshot.identity.runId) return;
@@ -144,8 +144,13 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
     },
     async rename(title: string) {
       const id = view.selected;
-      if (!id) throw new Error("请先选择会话。");
-      try { await client.renameSession(id, title); publish({ sessions: await client.workspaces() }); }
+      const snapshot = view.snapshot;
+      if (!id || !snapshot) throw new Error("请先选择会话。");
+      try {
+        await client.renameSession({ workspaceId: snapshot.identity.workspaceId, sessionId: id, expectedRevision: snapshot.revision ?? 0, title });
+        publish({ sessions: await client.workspaces() });
+        if (view.selected === id) await select(id);
+      }
       catch (error) { report(error); throw error; }
     },
     async submit(text: string): Promise<boolean> {
@@ -153,7 +158,12 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
       if (!snapshot || snapshot.state === "running" || snapshot.recovery?.acknowledgementRequired) return false;
       const id = view.selected, scope = workspace;
       try {
-        await client.submit({ workspaceId: snapshot.identity.workspaceId, sessionId: snapshot.identity.sessionId, text });
+        const request = { workspaceId: snapshot.identity.workspaceId, sessionId: snapshot.identity.sessionId,
+          requestId: crypto.randomUUID(), expectedRevision: snapshot.revision ?? 0, text };
+        if (snapshot.state === "needs_input") {
+          if (!client.followup || !snapshot.identity.runId) throw new Error("当前服务不能接收澄清回答，请重新连接。");
+          await client.followup({ ...request, previousRunId: snapshot.identity.runId });
+        } else await client.submit(request);
         if (id && drafts.get(draftKey(scope, id)) === text) saveDraft(scope, id, "");
         if (view.selected === id) await select(snapshot.identity.sessionId);
         // Submission is already accepted: a metadata refresh failure cannot turn it into a retry.
@@ -162,16 +172,16 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
       } catch (error) { if (view.selected === id) report(error); return false; }
     },
     async acknowledgeInterruption() {
-      const id = view.selected, run = view.snapshot?.recovery?.runId;
-      if (!run || !client.acknowledgeInterruption) return;
-      try { await client.acknowledgeInterruption(run); if (view.selected === id) await select(id!); }
+      const id = view.selected, snapshot = view.snapshot, run = snapshot?.recovery?.runId;
+      if (!run || !snapshot || !client.acknowledgeInterruption) return;
+      try { await client.acknowledgeInterruption({ ...snapshot.identity, runId: run, expectedRevision: snapshot.revision ?? 0 }); if (view.selected === id) await select(id!); }
       catch (error) { if (view.selected === id) report(error); }
     },
     async cancel() {
       const id = view.selected;
       const run = view.snapshot?.identity.runId;
-      if (!run) return;
-      try { await client.cancel(run); }
+      if (!run || !view.snapshot) return;
+      try { await client.cancel({ ...view.snapshot.identity, runId: run }); }
       catch (error) { if (view.selected === id) report(error); }
     },
     async preferences(preferences: Preferences) {

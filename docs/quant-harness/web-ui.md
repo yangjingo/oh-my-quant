@@ -19,17 +19,27 @@
 
 组件通过 `WorkbenchClient` 读取会话、行情、证据、成果及偏好，并提交、取消或订阅。`mountWorkbench(element, client)` 是集成入口。实际服务实现属于 `src/app`；依赖组装属于 `src/runtime`；文件与 journal 属于 storage。renderer 不通过相对导入绕过这些边界。
 
+旧单股工作台的复核和删除协调已提取至 `src/app/services/research-workspace.ts`，HTTP 路由调用同一服务。删除先读取并校验元数据，再删除研究并以原 revision 提交关联变更；结果返回完整的最新元数据，让直接调用和浏览器都保留其他客户端新增的项目。损坏元数据仍阻止删除，陈旧写入仍被拒绝。该提取不改变旧保存格式，也不表示通用 Quant 会话已具备完整的共享服务契约。
+
+旧单股界面的显式继续会跟随返回的新 runId，并在对话中保留上一轮取消/失败状态。新运行仍属于原 conversationId，复用已有证据；对旧 run 的停止请求不会停止新运行。原有 50 次研究和 12 轮历史上限继续生效。
+
 独立 Vite/preview 入口使用未连接适配器并禁用提交；`web:start` 构建后由本机 Host 提供静态页面，入口标记选择真实客户端。只有显式 `demo` 模式加载 `dev/demo-client.ts`；生产构建检查拒绝示例运行和会话标记。演示模式明确标注合成行情、证据及报告；其偏好可存入独立浏览器键，模拟会话只在内存中。
 
 ## 初步本机 Agent 连接（#101）
 
-`src/app/workbench` 通过现有 `createQuantResearchAgent` 与 runtime 依赖组装复用 Pi 会话、工具和 journal；不新增执行循环。初始连接排除 shell、外部 skills 和动态工具配置。共享 DTO 归 `src/types/workbench.ts`，Web 只通过 `client/host.ts` 的 HTTP RPC 与 fetch SSE 交互。Host 仅监听 127.0.0.1，校验 Host/Origin、内存 capability token 和严格参数；token 不写 URL，模型凭证不发给 renderer。工作区锁限制单一写入者，但不提供 Host 发现和跨入口接续。
+`src/app/services/research.ts` 通过现有 `createQuantResearchAgent` 与 runtime 依赖组装复用 Pi 会话、工具和 journal；`src/app/workbench` 提供 HTTP/SSE 适配，不新增执行循环。初始连接排除 shell、外部 skills 和动态工具配置。共享 DTO 归 `src/types/workbench.ts`，Web 只通过 `client/host.ts` 的 HTTP RPC 与 fetch SSE 交互。Host 仅监听 127.0.0.1，校验 Host/Origin、内存 capability token 和严格参数；token 不写 URL，模型凭证不发给 renderer。工作区锁限制单一写入者，但不提供 Host 发现和跨入口接续。
 
 同一会话追问复用 Agent 上下文。SSE 提供带单调 revision 的全量快照，合并短时间内的更新；重连重新同步，拒绝旧 revision 和取消运行的迟到事件。断开只释放订阅；停止按钮/Ctrl+G 显式定位运行并中止请求。请求结果未知时不自动重发提交，以免重复工作。模型连接失败保留已显示内容并提示错误类别，不暴露 provider 原始响应。
 
+服务明确请求澄清时显示“等待补充信息”，保留问题并停止本轮计时。输入框的回答以 `followup` 携带问题所属 run 和修订发送，创建新轮次；页面刷新不自动回答，旧轮次迟到事件不能恢复运行。重命名成功后重新读取会话修订，后续提交使用最新值。
+
+提交携带 `requestId` 与已读取快照的 `expectedRevision`；直接调用和 HTTP 共用运行时校验。相同 Host 内同一请求返回原接受结果，不再创建 Agent；相同 ID 改变输入或陈旧修订会被拒绝。此回执只在内存中，不能作为 Host 重启后的自动重放依据。取消携带完整 workspace/session/run 身份，不允许只凭 runId 改变其他会话。服务关闭后，仍在等待就绪的提交与新建会话也会被拒绝。
+
+服务端口还提供显式 continue/followup、固定版本 save/reload、分叉 review 与修订检查后的 deleteSession。继续和追问创建新 run，报告重开只读取，复核另开会话；当前页面尚未增加对应操作按钮。完整身份、损坏保护、终态 journal 位置及失败边界见[无界面研究服务](../agent-runtime/services.md)。
+
 设置可修改当前 provider 的模型 ID 和支持的 thinking level，使用存储 revision 拒绝覆盖其他修改；运行时拒绝改模型。已配置凭证不等于已验证连接，新增 provider/key 仍通过本机配置。默认保留当前推理深度。回答上方持续显示动态状态与累计用时：等待模型响应、思考中、调用工具、正在生成回答；仅收到真实 thinking 事件才标为思考中，不传递推理内容。工具执行时直接显示工具名称，展开可看历史与耗时。计时在完成、失败或停止时冻结；减少动态效果设置禁用旋转动画。计时只表示等待时长，不表示完成比例。示例只填入假设数据草稿，用户确认发送后才调用模型。
 
-本阶段行情概览、文件引用、证据/报告投影仍为空，不以回答完成冒充核验归档。会话投影保存在独立的私有检查点中，Host 重启后恢复列表；新问题按需打开原 Quant journal，不自动重放原任务。浏览器按工作区/会话保存选择与未发送草稿，存储不可用时明确提示。意外中断的工具结果标为待核对，显式确认只解除提问限制。格式与失败边界见[会话连续性](./workbench-sessions.md)。#46 的完整服务提取、#75 的发现/生命周期与 #77 的完整执行恢复仍是后续工作。启动和私有配置目录选择见 [README](../../apps/web/README.md)。
+本阶段行情概览与文件引用仍未接通；只有显式保存成功才返回报告版本，普通回答完成不会自动变成核验归档。会话投影保存在独立的私有检查点中，Host 重启后恢复列表；新问题按需打开原 Quant journal，不自动重放原任务。浏览器按工作区/会话保存选择与未发送草稿，存储不可用时明确提示。意外中断的工具结果标为待核对，显式确认只解除提问限制。格式与失败边界见[会话连续性](./workbench-sessions.md)。#75 的发现/生命周期与 #77 的完整执行恢复仍是后续工作。启动和私有配置目录选择见 [README](../../apps/web/README.md)。
 
 执行记录按同一调用标识合并“准备中 → 执行中 → 返回结果”，准备参数不等于已执行；准备阶段被取消时记为“未执行”。可读动作标题来自现有工具注册表的展示元数据，原有终端标签不变。Host 只提供经过校验、限长的输入摘要，不转发原始参数、查询、文件路径或工具响应。每轮默认汇总状态与数量，运行时展开执行记录；单条记录按需展开工具身份与调用标识。失败、停止、未执行分别呈现，工具返回不代表结论已独立核验。设计借鉴 [DSH 的同一调用三阶段](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/.agents/notes/implemented/architecture/2026-09-22-tool-call-three-phases.md)和 [Codex 的执行条目生命周期](https://openai.com/index/unlocking-the-codex-harness/)，继续复用现有 Agent 及事件流。
 

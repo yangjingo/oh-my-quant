@@ -18,13 +18,15 @@
  *    null means no associated run, never "finish whichever run is active".
  */
 
-export type RunState = "idle" | "running" | "settled" | "failed" | "cancelled" | "interrupted";
+export type RunState = "idle" | "running" | "needs_input" | "settled" | "failed" | "cancelled" | "interrupted";
 
 export interface WorkspaceIdentity {
   readonly workspaceId: string;
   readonly sessionId: string;
   readonly runId: string | null;
 }
+
+export interface RunIdentity extends WorkspaceIdentity { readonly runId: string }
 
 export interface WorkspaceSummary {
   readonly sessionId: string;
@@ -48,6 +50,9 @@ export interface Turn {
   /** Public execution metadata only; never reasoning text. */
   readonly phase?: AgentPhase;
   readonly endedAt?: string;
+  /** Accepted user action and its prior run; retained when later runs start. */
+  readonly operation?: "submit" | "continue" | "followup" | "review";
+  readonly previousRunId?: string;
 }
 
 export interface ToolActivity {
@@ -105,6 +110,7 @@ export interface ArtifactSummary {
   readonly version: number;
   readonly sha256: string;
   readonly createdAt: string;
+  readonly runId?: string;
 }
 
 export interface WorkspaceOutput {
@@ -116,12 +122,48 @@ export interface WorkspaceOutput {
 export interface SubmitRequest {
   readonly workspaceId: string;
   readonly sessionId: string;
+  /** Retry identity within the current Host instance; reconnect never resubmits automatically. */
+  readonly requestId: string;
+  readonly expectedRevision: number;
   readonly text: string;
 }
 
 export interface SubmitResult {
   readonly sessionId: string;
   readonly runId: string;
+}
+
+export interface FollowupRequest extends SubmitRequest { readonly previousRunId: string }
+export type ContinueRequest = Omit<FollowupRequest, "text">;
+
+export interface SaveRequest extends RunIdentity {
+  readonly expectedRevision: number;
+  readonly expectedArtifactRevision: string | null;
+}
+export interface ArtifactRequest {
+  readonly workspaceId: string;
+  readonly sessionId: string;
+  readonly artifactId: string;
+  readonly sha256: string;
+}
+export interface ReviewRequest extends ArtifactRequest {
+  readonly requestId: string;
+  readonly expectedRevision: number;
+  readonly text: string;
+}
+export interface DeleteSessionRequest {
+  readonly workspaceId: string;
+  readonly sessionId: string;
+  readonly expectedRevision: number;
+}
+export interface RenameSessionRequest extends DeleteSessionRequest { readonly title: string }
+export interface RunRevisionRequest extends RunIdentity { readonly expectedRevision: number }
+/** Read-only saved research; opening it does not start or resume a run. */
+export interface SavedResearch {
+  readonly identity: RunIdentity;
+  readonly artifact: ArtifactSummary;
+  readonly turns: readonly Turn[];
+  readonly evidence: readonly EvidenceItem[];
 }
 
 /**
@@ -145,6 +187,7 @@ export interface SessionSnapshot {
   readonly market: MarketSnapshot;
   readonly output: WorkspaceOutput;
   readonly recovery?: { readonly runId: string; readonly unconfirmedTools: number; readonly acknowledgementRequired: boolean };
+  readonly source?: ArtifactRequest & { readonly runId: string };
 }
 
 export interface ReferenceCandidate {
@@ -175,7 +218,7 @@ export interface WorkbenchClient {
   readonly mode: "demo" | "host" | "disconnected";
   session(sessionId: string): Promise<SessionSnapshot>;
   createSession(): Promise<WorkspaceSummary>;
-  renameSession(sessionId: string, title: string): Promise<void>;
+  renameSession(request: RenameSessionRequest): Promise<void>;
   references(sessionId: string, query: string): Promise<readonly ReferenceCandidate[]>;
   preferences(): Promise<Preferences>;
   updatePreferences(preferences: Preferences): Promise<void>;
@@ -185,10 +228,16 @@ export interface WorkbenchClient {
   market(): Promise<MarketSnapshot>;
   output(sessionId: string): Promise<WorkspaceOutput>;
   submit(request: SubmitRequest): Promise<SubmitResult>;
+  continue?(request: ContinueRequest): Promise<SubmitResult>;
+  followup?(request: FollowupRequest): Promise<SubmitResult>;
+  save?(request: SaveRequest): Promise<ArtifactSummary>;
+  reload?(request: ArtifactRequest): Promise<SavedResearch>;
+  review?(request: ReviewRequest): Promise<SubmitResult>;
+  deleteSession?(request: DeleteSessionRequest): Promise<void>;
   /** Explicit user intent. Releasing a subscription must never do this. */
-  cancel(runId: string): Promise<void>;
+  cancel(identity: RunIdentity): Promise<void>;
   /** Acknowledges uncertain prior effects only; never resumes or replays work. */
-  acknowledgeInterruption?(runId: string): Promise<void>;
+  acknowledgeInterruption?(request: RunRevisionRequest): Promise<void>;
   subscribe(listener: (event: WorkbenchEvent) => void): Release;
 }
 
@@ -197,11 +246,13 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
   const object = (item: unknown): item is Record<string, unknown> => !!item && typeof item === "object" && !Array.isArray(item);
   const string = (item: unknown): item is string => typeof item === "string";
   const nullable = (item: unknown) => item === null || string(item);
-  const states = ["idle", "running", "settled", "failed", "cancelled", "interrupted"];
+  const states = ["idle", "running", "needs_input", "settled", "failed", "cancelled", "interrupted"];
   if (!object(value) || !object(value.identity) || !string(value.identity.workspaceId) || !string(value.identity.sessionId) || !nullable(value.identity.runId)
     || !states.includes(String(value.state)) || !Number.isSafeInteger(value.revision) || Number(value.revision) < 0) return false;
   if (!Array.isArray(value.turns) || !value.turns.every(turn => object(turn) && string(turn.id) && ["user", "assistant"].includes(String(turn.role))
     && string(turn.text) && string(turn.at) && states.includes(String(turn.state))
+    && (turn.operation === undefined || ["submit", "continue", "followup", "review"].includes(String(turn.operation)))
+    && (turn.previousRunId === undefined || string(turn.previousRunId) && turn.previousRunId.length > 0 && turn.previousRunId.length <= 160)
     && (turn.phase === undefined || ["waiting", "thinking", "preparing", "tool", "answering"].includes(String(turn.phase)))
     && (turn.endedAt === undefined || string(turn.endedAt) && Number.isFinite(Date.parse(turn.endedAt))) && (turn.activity === undefined || (Array.isArray(turn.activity)
       && turn.activity.every(item => object(item) && string(item.id) && string(item.name)
@@ -210,6 +261,9 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
         && (item.elapsedMs === undefined || typeof item.elapsedMs === "number" && Number.isFinite(item.elapsedMs) && item.elapsedMs >= 0)))))) return false;
   if (value.recovery !== undefined && (!object(value.recovery) || value.state !== "interrupted" || !string(value.recovery.runId) || value.recovery.runId !== value.identity.runId
     || !Number.isSafeInteger(value.recovery.unconfirmedTools) || Number(value.recovery.unconfirmedTools) < 0 || typeof value.recovery.acknowledgementRequired !== "boolean")) return false;
+  const source = value.source;
+  if (source !== undefined && (!object(source) || !["workspaceId", "sessionId", "runId", "artifactId"].every(key => string(source[key]) && source[key].length > 0 && source[key].length <= 160)
+    || !string(source.sha256) || !/^[a-f0-9]{64}$/.test(source.sha256))) return false;
   if (!object(value.market) || !Array.isArray(value.market.quotes) || !string(value.market.refreshedAt) || !object(value.market.source)) return false;
   if (!nullable(value.market.source.provider) || !nullable(value.market.source.updatedAt)
     || ![value.market.source.available, value.market.source.total].every(item => typeof item === "number" && Number.isSafeInteger(item) && item >= 0)) return false;
@@ -219,5 +273,6 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
   const conclusion = value.output.conclusion;
   return nullable(conclusion.statement) && nullable(conclusion.boundary) && [null, "low", "medium", "high"].includes(conclusion.confidence as null | string) && typeof conclusion.settled === "boolean"
     && value.output.evidence.every(item => object(item) && string(item.id) && string(item.label) && nullable(item.source) && nullable(item.asOf) && typeof item.available === "boolean")
-    && value.output.artifacts.every(item => object(item) && string(item.id) && string(item.title) && string(item.sha256) && /^[a-f0-9]{64}$/i.test(item.sha256) && string(item.createdAt) && typeof item.version === "number" && Number.isSafeInteger(item.version) && item.version > 0);
+    && value.output.artifacts.every(item => object(item) && string(item.id) && string(item.title) && string(item.sha256) && /^[a-f0-9]{64}$/i.test(item.sha256) && string(item.createdAt) && typeof item.version === "number" && Number.isSafeInteger(item.version) && item.version > 0
+      && (item.runId === undefined || string(item.runId) && item.runId.length > 0 && item.runId.length <= 160));
 }

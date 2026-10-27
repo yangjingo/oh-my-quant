@@ -12,7 +12,8 @@
 | `src/app-runtime.ts`、`src/app-watchlist.ts` | 应用组装与动作；AppRuntime 仍使用界面回调，共享会话投影类型归 `src/types` |
 | `apps/desktop/` | Electron、PTY/xterm 与安装包 |
 | `src/app/research-workspace/` | 旧研究宿主与原生 Web UI |
-| `src/app/workbench/` | React 本机 Host，复用 Quant/Pi；尚无跨入口恢复 |
+| `src/app/services/` | 无终端回调的 Quant 执行、旧单股复核及元数据协调 |
+| `src/app/workbench/` | HTTP/SSE 与投影辅助；执行委托 services |
 | `src/app/paper-execution/` | 显式私有模拟盘宿主与独立账本 |
 | `site/` | 独立静态官网，不连接本地研究数据 |
 
@@ -22,7 +23,7 @@
 
 当前 Web 原型的运行与取消由独立[研究宿主](../../src/app/research-workspace/manager.ts)管理，未保存进度只在内存中：页面刷新可接回，服务重启则只从显式保存的对话和固定证据重建上下文，不重放完整 journal 或自动获取新行情。关闭浏览器只断开订阅，不停止任务。首次研究须有结构化发布结果才能保存，后续解释型对话不冒充新研究；复核另开会话取证并关联旧版本。这些现状边界不能由下方目标 Host 的恢复承诺代替。
 
-React 的初步 Host 与配置见 [Web 模块](../quant-harness/web-ui.md)：支持工具、追问、取消和存活 Host 重连；行情/成果、发现、跨入口和重启恢复仍待实现。
+React 的运行、checkpoint 与固定报告接口见[无界面服务](./services.md)，交互见 [Web 模块](../quant-harness/web-ui.md)。Host 发现、跨入口适配与工作流恢复待实现。
 
 ## 当前依赖契约
 
@@ -82,7 +83,7 @@ flowchart TB
 
 Desktop 已迁目录，关窗仍退出；Host 接入待 #47/#48，CLI 待 #76。
 
-先提取 AppRuntime 的无界面服务，再接入口；业务状态和执行不反向依赖 apps。UI 可基于已审阅契约先行，完整交付依赖真实 Host；持久化与取消语义在接口设计时确定。本阶段不拆领域 packages、不迁移用户数据。同步 bin、构建、安装与测试发现，保留 CLI/npm 契约、Electron appId、用户目录及历史读取，再撤旧入口。
+先提取 AppRuntime 无界面服务，再接入口；业务不反向依赖 apps。不拆领域 packages 或迁用户数据；同步 bin、构建、安装和测试，保留 CLI/npm、Electron appId 与历史读取，再撤旧入口。
 
 GUI 采用 React＋TypeScript＋Vite，服务采用 Bun HTTP/SSE；不假定 Bun API 可在 Electron Node 运行，不另建 IPC 业务传输。Electron renderer 禁用 Node，保留 sandbox、context isolation、CSP；preload 仅开放受校验的原生能力。
 
@@ -111,9 +112,9 @@ daemon 与休眠期间运行不在本阶段范围。Host 登记/锁、兼容判�
 
 测试在 `src/<module>/test/`（保留 `source/tests/`）、`apps/tui/test/` 与 `tests/app/`；默认/watch/模块测试及类型检查覆盖 TUI，`dev` 探针不自动执行。[依赖回归](../../tests/architecture/module-boundaries.test.ts)覆盖 `src`/`apps`，除启动桥接外禁止共享层导入入口；[入口回归](../../tests/architecture/development-entrypoints.test.ts)验证发现与构建，违规基线为空。
 
-Host 测试在 `src/app/workbench/test`；后续 CLI 测试归 `apps/cli/test`，共享契约测试归 `tests/contracts`。
+服务及 HTTP 集成测 `src/app/services/test`，投影测 `src/app/workbench/test`；后续 CLI 测试归 `apps/cli/test`，共享契约归 `tests/contracts`。
 
-`tests/e2e` 用真实 Host、临时工作区和假模型贯通 Web 提交 → Desktop 接回 → 关窗继续 → CLI 取消 → 拒绝晚到事件，另验保存/追问及恢复不重复副作用。发现规则、依赖围栏和 CI 随迁移同步。
+`tests/e2e` 用真实 Host、临时工作区和假模型测跨入口接回、关窗继续、精确取消、保存/追问及恢复不重放。随迁移同步发现规则、依赖围栏与 CI。
 
 ## 开发入口与 npm 命令
 
