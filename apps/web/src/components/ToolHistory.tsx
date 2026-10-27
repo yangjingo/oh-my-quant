@@ -1,5 +1,4 @@
 import type { ToolActivity, Turn } from "../client/contract";
-import { runLabels } from "../presentation";
 
 export const toolStateLabels: Record<ToolActivity["state"], string> = {
   preparing: "准备中", running: "执行中", completed: "已完成", failed: "未成功", cancelled: "已停止", "not-run": "未执行", unconfirmed: "待核对",
@@ -22,18 +21,18 @@ const explanations: Record<ToolActivity["state"], string> = {
 };
 export function ToolHistory({ turn }: { turn: Turn }) {
   const items = turn.activity ?? [];
-  return <details className="process tool-history" open={turn.state === "running" && items.length > 0}>
-    <summary><span>{items.length ? "执行记录" : "运行详情"}</span>{items.length > 0 && <small>{activitySummary(items)}</small>}</summary>
-    {!items.length ? <p>状态：{runLabels[turn.state]}。界面只显示实际执行状态。</p> : <>
+  if (!items.length) return null;
+  const records = <>
       <ol className="tool-records">{items.map(item => <li key={item.id}>
         <details className="tool-record" data-state={item.state}>
-          <summary><span className="tool-record-title">{item.title ?? "研究工具"}</span><span className="tool-record-state">{toolStateLabels[item.state]}{item.elapsedMs === undefined ? "" : ` · ${(item.elapsedMs / 1000).toFixed(2)} 秒`}</span></summary>
+          <summary><span className="tool-record-title">{item.title ?? "研究工具"}</span>{item.context && <span className="tool-record-preview">{item.context}</span>}<span className="tool-record-state">{toolStateLabels[item.state]}{item.elapsedMs === undefined ? "" : ` · ${(item.elapsedMs / 1000).toFixed(2)} 秒`}</span></summary>
           {item.context && <p className="tool-record-context">{item.context}</p>}
           <p>{explanations[item.state]}</p>
           <dl><dt>工具</dt><dd><code>{item.name}</code></dd><dt>调用标识</dt><dd><code>{item.id}</code></dd></dl>
         </details>
       </li>)}</ol>
       <p className="tool-history-note">仅展示执行记录与有限输入摘要；原始结果和研究证据入口尚未接通。</p>
-    </>}
-  </details>;
+    </>;
+  return turn.state === "running" ? <section className="process tool-history live-tools" aria-label="执行记录">{records}</section>
+    : <details className="process tool-history"><summary><span>执行记录</span><small>{activitySummary(items)}</small></summary>{records}</details>;
 }

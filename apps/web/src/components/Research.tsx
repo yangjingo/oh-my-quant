@@ -2,11 +2,17 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { MarketSnapshot, SessionSnapshot } from "../client/contract";
 import { IconButton } from "./UI";
 import { confidenceLabels } from "../presentation";
-import { RunStatus } from "./RunStatus";
+import { RunStatus, elapsedLabel } from "./RunStatus";
 import { ToolHistory } from "./ToolHistory";
 import { Thinking } from "./Thinking";
 
 const AnswerMarkdown = lazy(() => import("./Markdown").then(module => ({ default: module.ResearchMarkdown })));
+
+const messageDate = new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+export function displayMessageTime(value: string): string {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? messageDate.format(date) : "时间未知";
+}
 
 export function Transcript({ snapshot, positions, onEvidence, onReport, onSuggestion, mode = "demo" }: { snapshot: SessionSnapshot; positions: Map<string, number>; onEvidence(): void; onReport(): void; onSuggestion(text: string): void; mode?: string }) {
   const stream = useRef<HTMLDivElement>(null);
@@ -43,12 +49,12 @@ export function Transcript({ snapshot, positions, onEvidence, onReport, onSugges
     {!snapshot.turns.length && <div className="empty-state research-welcome"><span className="eyebrow">从一个明确的问题开始</span><h2>开始一份研究</h2><p>{mode === "host" ? "本机 Agent 已连接。可以先用给定数据验证工具；真实行情来源需要单独配置。" : "说明研究对象、时间区间，以及你想验证的判断。"}</p><div className="starter-questions">{suggestions.map(item => <button key={item.label} onClick={() => onSuggestion(item.text)}>{item.label}<span aria-hidden="true">↗</span></button>)}</div><p className="supporting">{mode === "host" ? "点击只会填入草稿。请核对并修改后再发送；当前连接暂未启用文件引用。" : "点击只会填入草稿。发送前可以修改问题或用 @ 添加引用。"}</p></div>}
     <div className="thread-inner">{snapshot.turns.map(turn => <article className={"turn turn-" + turn.role} key={turn.id}>
       {turn.role === "user" ? <div className="question"><span className="prompt">›</span><p>{turn.text}</p></div> : <>
-        <RunStatus turn={turn} />
+        {turn.state !== "settled" && <RunStatus turn={turn} />}
         <Thinking turn={turn} />
         <ToolHistory turn={turn} />
         <span className="assistant-label">WhyJ</span><div className="answer markdown-body">{turn.text ? <Suspense fallback={<p className="plain-answer">{turn.text}</p>}><AnswerMarkdown text={turn.text} /></Suspense> : <p className="waiting-message">{turn.state === "running" ? "Agent 正在处理，你可以继续写下一条草稿。" : "本轮未返回文字内容。"}</p>}</div>
       </>}
-      <div className="turn-meta"><small>{turn.at}</small><button onClick={() => void copy(turn.text)}>复制{turn.role === "user" ? "问题" : "回答"}</button></div>
+      <div className="turn-meta"><span><time dateTime={turn.at} title={turn.at}>{displayMessageTime(turn.at)}</time>{turn.role === "assistant" && turn.state === "settled" && elapsedLabel(turn, 0) && <span> · 用时 {elapsedLabel(turn, 0)}</span>}</span><button onClick={() => void copy(turn.text)}>复制{turn.role === "user" ? "问题" : "回答"}</button></div>
     </article>)}
     {snapshot.output.conclusion.statement && <section className="conclusion"><span className="eyebrow">{snapshot.state === "running" ? "上次已记录的结论 · 本轮尚未结束" : "已记录的研究结论"}</span><h2>{snapshot.output.conclusion.statement}</h2><p>{snapshot.output.conclusion.boundary}</p><small>{snapshot.output.conclusion.settled ? "结论已记录" : "尚未完成"} · 模型置信度{snapshot.output.conclusion.confidence ? "：" + confidenceLabels[snapshot.output.conclusion.confidence] : "未提供"} · 不代表独立核验</small></section>}
     {!!(snapshot.output.evidence.length || snapshot.output.artifacts.length) && <div className="result-links"><button onClick={onEvidence}>查看证据 <span>{snapshot.output.evidence.filter(e => e.available).length} / {snapshot.output.evidence.length}</span> ↗</button><button onClick={onReport}>研究报告 <span>{snapshot.output.artifacts.length} 个版本</span> ↗</button></div>}
