@@ -4,6 +4,8 @@
 
 本页说明已实现的模块边界。[架构](../agent-runtime/architecture.md)定义 Host、服务、runtime 与 storage 的职责；[UI/UX](./uiux.md)和 [DESIGN](../../DESIGN.md)维护交互与视觉原则。真实 HTTP/SSE Host、桌面加载与跨入口接续仍需要各自集成验收，不能以浏览器演示代替。
 
+后续按[共享 Host 契约](../agent-runtime/host.md)接入：#46/#75 提供服务和实例所有权，#50 完成本界面集成，#47 负责 Electron/tray，#78 验证真实跨入口运行。#105 的会话/草稿持久化应被 #77 复用，不能各建一份恢复真值；上述能力均须按实现修订验收。
+
 ## 代码按职责组织
 
 | 位置 | 责任 | 不承担的责任 |
