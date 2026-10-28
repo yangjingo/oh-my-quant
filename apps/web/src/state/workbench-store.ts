@@ -129,6 +129,12 @@ export function createWorkbenchStore(client: WorkbenchClient) {
       try {
         await client.submit({ workspaceId: snapshot.identity.workspaceId, sessionId: snapshot.identity.sessionId, text });
         if (view.selected === id) await select(snapshot.identity.sessionId);
+        // An accepted run must not become a rejected submission if only its list refresh fails.
+        const ticket = generation;
+        try {
+          const sessions = await client.workspaces();
+          if (ticket === generation) publish({ sessions });
+        } catch { /* Reconnection/load can refresh metadata without replaying this question. */ }
         return true;
       } catch (error) { if (view.selected === id) report(error); return false; }
     },

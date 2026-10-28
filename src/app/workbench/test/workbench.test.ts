@@ -15,10 +15,11 @@ let service: ReturnType<typeof createWorkbenchService> | undefined;
 let mode: "answer" | "tool" | "hold" | "empty" | "thinking" | "preparing" | "bad-tool", requests: Record<string, unknown>[], toolSent: boolean;
 let reached: (() => void) | undefined;
 let releasePreparation: (() => void) | undefined;
+let reply: string | undefined;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "whyj-workbench-")); previous = process.env.OHQUANT_DIR; proxy = process.env.NO_PROXY;
   process.env.OHQUANT_DIR = root; process.env.NO_PROXY = "127.0.0.1,localhost";
-  mode = "answer"; requests = []; toolSent = false; reached = undefined; releasePreparation = undefined;
+  mode = "answer"; requests = []; toolSent = false; reached = undefined; releasePreparation = undefined; reply = undefined;
   model = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
     const payload = await request.json() as Record<string, unknown>; requests.push(payload); reached?.();
     if (mode === "hold") return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(": waiting\n\n")); } }), { headers: { "Content-Type": "text/event-stream" } });
@@ -26,7 +27,7 @@ beforeEach(() => {
     if (call) toolSent = true;
     const args = JSON.stringify({ shares: mode === "bad-tool" ? KEY : 100, costPerShare: 10, observedClose: 12, observationDate: "2026-10-23", currency: "CNY", changes: [-0.1, 0, 0.1] });
     const delta = call ? { role: "assistant", tool_calls: [{ index: 0, id: "core-tool-101", type: "function", function: { name: "calculate_position_scenarios", arguments: args } }] }
-      : mode === "empty" ? { role: "assistant", content: "" } : { role: "assistant", content: `这是同一核心会话的回答，仅作假设计算。${KEY}` };
+      : mode === "empty" ? { role: "assistant", content: "" } : { role: "assistant", content: reply ?? `这是同一核心会话的回答，仅作假设计算。${KEY}` };
     const chunk = { id: "fixture", object: "chat.completion.chunk", created: 0, model: String(payload.model) };
     const encode = (delta: unknown, finish_reason: string | null = null) => new TextEncoder().encode("data: " + JSON.stringify({ ...chunk, choices: [{ index: 0, delta, finish_reason }] }) + "\n\n");
     if (mode === "preparing" && call) return new Response(new ReadableStream({ start(controller) {
@@ -185,6 +186,30 @@ test("SSE clients observe one shared run; cancelling the reader only releases it
   const viaHttp = await fetch(url + "/api/workbench/rpc", { method: "POST", headers: { "Content-Type": "application/json", "x-workbench-token": bootstrap.token }, body: JSON.stringify({ method: "session", args: [identity.sessionId] }) });
   expect((await viaHttp.json() as { result: SessionSnapshot }).result.identity.runId).toBe(run.runId);
   await client.cancel(run.runId); expect((await client.session(identity.sessionId)).state).toBe("cancelled");
+});
+test("public automatic and explicit titles redact configured credentials before truncation", async () => {
+  const long = KEY + "-long-credential-suffix-123456";
+  const settings = readSettings(); settings.providers!.custom!.apiKey = long; saveSettings(settings);
+  const { client, identity, submit } = await setup(); await submit(long + " title"); await terminal(client, identity.sessionId);
+  expect(JSON.stringify(await client.workspaces())).not.toContain(long.slice(0, 32));
+  expect((await client.workspaces())[0]!.name).toContain("[REDACTED]");
+  await client.renameSession(identity.sessionId, long + " renamed");
+  expect(JSON.stringify(await client.workspaces())).not.toContain(long);
+});
+test("supported data-source credential names are redacted in actual-core public answers", async () => {
+  const settings = readSettings(); const tokens = ["dummy-tushare-review-value", "dummy-financial-review-value"];
+  settings.env = { ...settings.env, WHYJ_QUANT_TUSHARE_TOKEN: tokens[0]!, WHYJ_QUANT_FINANCIAL_DATASETS_KEY: tokens[1]! }; saveSettings(settings);
+  reply = "Visible " + tokens.join(" / "); const { client, identity, submit } = await setup();
+  await submit("Report synthetic fixture text"); const snapshot = await terminal(client, identity.sessionId);
+  for (const token of tokens) expect(JSON.stringify(snapshot)).not.toContain(token);
+  expect(snapshot.turns[1]?.text).toContain("Visible");
+});
+test("unavailable explicit references are rejected before a provider call but literal text is allowed", async () => {
+  const { client, identity, submit } = await setup();
+  await expect(submit("Summarize @file:evidence.md")).rejects.toThrow("引用"); expect(requests).toHaveLength(0);
+  expect((await client.session(identity.sessionId)).turns).toHaveLength(0);
+  await submit("Email user@example.com; literal `@file:example.md` and \\@file:escaped.md");
+  await terminal(client, identity.sessionId); expect(requests.length).toBeGreaterThan(0);
 });
 test("a second Host cannot own the workspace, and normal close releases the lock", async () => {
   host = startWorkbenchServer({ port: 0, assetsRoot: join(root, "assets") });
