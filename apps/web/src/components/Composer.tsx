@@ -63,7 +63,12 @@ export function Composer(props: {
     if (!active) return;
     const result = replaceToken(props.text, active, choice.token, choice.kind === "directory");
     props.onText(result.text); setCaret(result.caret); setDismissed(choice.kind !== "directory");
-    requestAnimationFrame(() => { input.current?.focus(); input.current?.setSelectionRange(result.caret, result.caret); });
+    requestAnimationFrame(() => {
+      const element = input.current;
+      // Completion must not override a newer edit or an explicit selection made before this frame.
+      if (element?.value !== result.text || element.selectionStart !== element.selectionEnd) return;
+      element.focus(); element.setSelectionRange(result.caret, result.caret);
+    });
   };
   const send = async () => {
     if (props.running) { setFeedback("研究仍在进行，草稿已保留。停止请用右侧按钮或 Ctrl + G。"); return; }
