@@ -49,8 +49,8 @@ export async function captureHost({ browser, output, root }) {
     await next(); await state('正在调用工具'); await capture('host-07-executing');
     await next(); await state('正在生成回答'); await capture('host-08-answering');
     await next(); await page.getByRole('button', { name: '发送问题', exact: true }).waitFor();
-    const ended = await page.locator('.agent-status').last().innerText();
-    await page.waitForTimeout(1100); if (await page.locator('.agent-status').last().innerText() !== ended) throw new Error('Terminal timer advanced');
+    const ended = await page.locator('.turn-assistant').last().innerText();
+    await page.waitForTimeout(1100); if (await page.locator('.turn-assistant').last().innerText() !== ended) throw new Error('Terminal timer advanced');
     await capture('host-09-result');
     await submit('Follow up on those supplied scenarios');
     await input.fill('Retained draft'); await input.press('Enter'); await capture('host-10-follow-up-draft');
