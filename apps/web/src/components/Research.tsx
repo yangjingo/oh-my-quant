@@ -67,7 +67,7 @@ export function Overview({ snapshot, portfolio, demo, onClose }: { snapshot: Mar
   const watch = rows.filter(q => q.group === "watchlist");
   const market = rows.filter(q => q.group !== "watchlist");
   const group = (title: string, items: typeof rows) => <section className="quote-group"><h3>{title} <small>{items.length}</small></h3>{items.map(q => <div className="quote-row" key={q.code}><small>{q.code}</small><span>{q.name}</span><strong className={q.change === null ? "" : q.change > 0 ? "up" : q.change < 0 ? "down" : ""}>{q.change === null ? "—" : (q.change > 0 ? "+" : "") + q.change.toFixed(2) + "%"}</strong></div>)}</section>;
-  return <aside id="overview" className="overview" aria-label="行情概览"><div className="section-label"><strong>行情概览</strong><IconButton name="x" label="收起概览" onClick={onClose} /></div>
+  return <aside id="overview" className="overview" aria-label="行情概览" tabIndex={0}><div className="section-label"><strong>行情概览</strong><IconButton name="x" label="收起概览" onClick={onClose} /></div>
     <div className="refresh"><span>刷新：{snapshot?.refreshedAt || "尚未刷新"}</span><small>{demo ? "合成示例" : snapshot?.source.provider ?? "未连接"}</small></div>
     <p className="quote-note">刷新时间不等于交易日期；概览不替代研究证据。</p>
     {!rows.length ? <p className="empty-state">尚无行情数据</p> : <><details open><summary className="watch-heading">{portfolio || "观察组"}</summary>{group("关注标的", watch)}</details>{group("市场指数", market)}</>}

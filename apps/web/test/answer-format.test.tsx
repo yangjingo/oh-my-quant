@@ -22,3 +22,18 @@ test("legacy display escapes HTML without modifying the original answer text", (
   expect(html).not.toContain("<script>"); expect(html).toContain("&lt;script&gt;");
   expect(text).toContain("<script>unsafe()</script>");
 });
+
+test("the same synthetic observations retain object, date, units and missing-value meaning in both formats", async () => {
+  const { parseHTML } = await import("linkedom");
+  const rows = [
+    ["假设标的 A", "2026-10-23", "0.00 CNY", "—"],
+    ["假设标的 B", "2026-10-22", "80.00 USD", "窗口不同，不能直接比较"],
+  ];
+  const terminal = "对象    数据日期    结果    限制\n────────────────────────\n" + rows.map(row => row.join("    ")).join("\n");
+  const markdown = "| 对象 | 数据日期 | 结果 | 限制 |\n| --- | --- | --- | --- |\n" + rows.map(row => "| " + row.join(" | ") + " |").join("\n");
+  const legacy = parseHTML(renderToStaticMarkup(<ResearchMarkdown text={terminal} />)).document;
+  expect(legacy.querySelector("pre")?.textContent).toBe(terminal);
+  const web = parseHTML(renderToStaticMarkup(<ResearchMarkdown text={markdown} />)).document;
+  const actual = [...web.querySelectorAll("tbody tr")].map(row => [...row.querySelectorAll("td")].map(cell => cell.textContent));
+  expect(actual).toEqual(rows);
+});
