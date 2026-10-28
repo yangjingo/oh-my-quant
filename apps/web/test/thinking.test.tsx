@@ -4,7 +4,7 @@ import { Thinking, thinkingSummary } from "../src/components/Thinking";
 import type { Turn } from "../src/client/contract";
 
 const base: Turn = { id: "a", role: "assistant", state: "running", text: "", at: "2026-10-27", phase: "thinking" };
-test("live summaries follow the latest nonblank provider line and settle on the first line", () => {
+test("live previews follow provider text while finished summaries retain only status", () => {
   const text = "先检查来源\r\n\r\n再核对日期\n";
   expect(thinkingSummary(text, true)).toBe("再核对日期");
   expect(thinkingSummary(text, false)).toBe("先检查来源");
@@ -13,7 +13,8 @@ test("live summaries follow the latest nonblank provider line and settle on the 
   const html = renderToStaticMarkup(<Thinking turn={{ ...base, thinking: text }} />);
   expect(html).toContain('class="thinking-preview">再核对日期</span>');
   const settled = renderToStaticMarkup(<Thinking turn={{ ...base, state: "settled", thinking: text }} />);
-  expect(settled).toContain('class="thinking-preview">先检查来源</span>');
+  expect(settled).not.toContain('class="thinking-preview"');
+  expect(settled).toContain("先检查来源\r\n\r\n再核对日期");
 });
 test("thinking defaults collapsed, renders escaped text and distinguishes live and stopped output", () => {
   const html = renderToStaticMarkup(<Thinking turn={{ ...base, thinking: '<img src="https://test.invalid/leak">\n核对日期' }} />);

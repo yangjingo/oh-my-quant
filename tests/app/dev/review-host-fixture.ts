@@ -10,7 +10,8 @@ import { startWorkbenchServer } from "../../../src/app/workbench/server.ts";
 
 const root = mkdtempSync(join(tmpdir(), "whyj-review-host-"));
 process.env.OHQUANT_DIR = root; process.env.NO_PROXY = "127.0.0.1,localhost";
-let stage = "idle", advance: (() => void) | undefined, requests = 0, fail = false, sequence = 0, marketRound = 0;
+let stage = "idle", advance: (() => void) | undefined, requests = 0, fail = false, legacy = false, sequence = 0, marketRound = 0;
+const legacyAnswer = "以下为合成展示，不是投资结论。\n\n\n观察摘要\n────────────────────────\n假设 A    2026-10-23    0.00 CNY    —\n假设 B    2026-10-22    80.00 USD   跨窗口，不能直接比较\n\n\n复核边界\n────────────────────────\n原始数据尚未独立复核，不代表实际行情。";
 const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, async fetch(request) {
   const url = new URL(request.url);
   if (url.pathname === "/state") return Response.json({ stage, requests, canAdvance: !!advance });
@@ -19,7 +20,7 @@ const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, a
   const payload = await request.json() as { model: string; messages: { role: string; content: unknown }[] }; requests++;
   const index = payload.messages.findLastIndex(message => message.role === "user");
   const returning = payload.messages.slice(index + 1).some(message => message.role === "tool");
-  if (!returning) fail = JSON.stringify(payload.messages[index]?.content).includes("FAIL");
+  if (!returning) { fail = JSON.stringify(payload.messages[index]?.content).includes("FAIL"); legacy = JSON.stringify(payload.messages[index]?.content).includes("LEGACY"); }
   const callId = "review-call-" + (++sequence), encoder = new TextEncoder();
   let heartbeat: ReturnType<typeof setInterval>;
   const chunk = (delta: unknown, finish_reason: string | null = null) => encoder.encode("data: " + JSON.stringify({ id: "controlled-review", object: "chat.completion.chunk", created: 0, model: payload.model, choices: [{ index: 0, delta, finish_reason }] }) + "\n\n");
@@ -28,7 +29,7 @@ const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, a
     const end = (reason: string) => { clearInterval(heartbeat); controller.enqueue(chunk({}, reason)); controller.enqueue(encoder.encode("data: [DONE]\n\n")); controller.close(); };
     heartbeat = setInterval(() => { try { controller.enqueue(encoder.encode(": fixture keepalive\n\n")); } catch { clearInterval(heartbeat); } }, 5000);
     if (returning) {
-      stage = "answering"; send({ role: "assistant", content: fail ? "受控验收：工具失败已保留。" : "受控验收：计算工具已返回假设结果，非投资结论。\n\n| 对象 | 观察日期 | 观察值 | 币种 | 缺失字段 | 比较限制 |\n| --- | --- | --- | --- | --- | --- |\n| A | 2026-10-23 | 0.00 | CNY | — | 同一窗口 |\n| B | 2026-10-22 | 80.00 | USD | — | 跨窗口，不直接比较 |" });
+      stage = "answering"; send({ role: "assistant", content: fail ? "受控验收：工具失败已保留。" : legacy ? legacyAnswer : "受控验收：计算工具已返回假设结果，非投资结论。\n\n| 对象 | 观察日期 | 观察值 | 币种 | 缺失字段 | 比较限制 |\n| --- | --- | --- | --- | --- | --- |\n| A | 2026-10-23 | 0.00 | CNY | — | 同一窗口 |\n| B | 2026-10-22 | 80.00 | USD | — | 跨窗口，不直接比较 |" });
       advance = () => { stage = "idle"; end("stop"); }; return;
     }
     stage = "waiting";

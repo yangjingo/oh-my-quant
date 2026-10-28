@@ -7,7 +7,17 @@ test("existing terminal-formatted answers preserve rows instead of collapsing th
   const html = renderToStaticMarkup(<ResearchMarkdown text={text} />);
   // HTML paragraphs collapse the newline and alignment spaces seen in the reported answer.
   expect(html).toContain("<pre");
-  expect(html).toContain("search_symbols     tushare 无token     不可用\nfetch_snapshot");
+  expect(html).toContain("search_symbols     tushare 无token     不可用\n"); expect(html).toContain("fetch_snapshot");
+});
+
+test("legacy reading decorations retain exact text including CRLF, blank runs and escaped markup", async () => {
+  const { parseHTML } = await import("linkedom");
+  const text = "来源与日期\r\n\r\n\r\n行情摘要\r\n────────────────────────\r\nA    0.00 CNY    —\r\nB    80.00 USD    跨窗口\r\n\r\n<script>不可执行</script>";
+  const document = parseHTML(renderToStaticMarkup(<ResearchMarkdown text={text} />)).document;
+  expect(document.querySelector("pre")!.textContent).toBe(text);
+  expect(document.querySelector(".legacy-heading")!.textContent).toBe("行情摘要\r\n");
+  expect(document.querySelector(".legacy-gap")!.textContent).toBe("\r\n\r\n\r\n");
+  expect(document.querySelector("script")).toBeNull();
 });
 
 test("Markdown fenced examples keep their semantic rendering even when they contain terminal separators", () => {

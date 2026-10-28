@@ -24,11 +24,11 @@ export function Thinking({ turn }: { turn: Turn }) {
   if (!turn.thinking?.trim() && !active) return null;
   const status = active ? "正在输出" : turn.state === "running" ? "已输出" : turn.state === "cancelled" ? "已停止"
     : turn.state === "interrupted" ? "已中断" : turn.state === "failed" ? "已保留" : "已结束";
-  return <details className="thinking-process" onToggle={event => {
+  return <details className="thinking-process" data-active={active} onToggle={event => {
     setOpen(event.currentTarget.open);
     if (event.currentTarget.open && following.current && body.current) body.current.scrollTop = body.current.scrollHeight;
   }}>
-    <summary><span className="thinking-title">思考过程</span><small>{status}</small>{preview && <span className="thinking-preview" ref={summary}>{preview}</span>}</summary>
+    <summary><span className="thinking-title">思考过程</span><small>{status}</small>{active && preview && <span className="thinking-preview" ref={summary}>{preview}</span>}</summary>
     <div className="thinking-body" ref={body} tabIndex={0} role="region" aria-label="模型思考内容" onScroll={event => {
       const element = event.currentTarget;
       following.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 32;

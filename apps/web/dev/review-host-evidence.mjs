@@ -100,6 +100,16 @@ export async function captureHost({ browser, output, root }) {
     await submit('Reduced motion fixture');
     if (await page.locator('.agent-status-mark').last().evaluate(element => getComputedStyle(element).animationName) !== 'none') throw new Error('Reduced motion animates');
     await capture('host-16-reduced-motion'); await page.getByRole('button', { name: '停止生成', exact: true }).click(); await state('已停止');
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await submit('LEGACY synthetic reading exhibit'); await next(); await state('思考中'); await next(); await state('准备调用工具'); await next(); await state('正在调用工具'); await next(); await state('正在生成回答'); await next();
+    await page.getByRole('button', { name: '发送问题', exact: true }).waitFor();
+    const legacyAnswer = page.locator('.turn-assistant').last().locator('.legacy-answer');
+    await legacyAnswer.waitFor();
+    const expectedLegacy = '以下为合成展示，不是投资结论。\n\n\n观察摘要\n────────────────────────\n假设 A    2026-10-23    0.00 CNY    —\n假设 B    2026-10-22    80.00 USD   跨窗口，不能直接比较\n\n\n复核边界\n────────────────────────\n原始数据尚未独立复核，不代表实际行情。';
+    if (await legacyAnswer.textContent() !== expectedLegacy) throw new Error('Legacy decorations changed original text');
+    if (await page.locator('.turn-assistant').last().locator('.thinking-preview').count()) throw new Error('Settled thinking still exposes a long preview');
+    await legacyAnswer.scrollIntoViewIfNeeded(); await capture('host-reading-wide');
+    await page.setViewportSize({ width: 390, height: 480 }); await legacyAnswer.scrollIntoViewIfNeeded(); await capture('host-reading-narrow');
     if (errors.length) throw new Error(errors.join('\n'));
     return { result: 'passed', captures: results, data: 'controlled fake provider / actual core and calculator', errors };
   } finally {
