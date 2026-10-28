@@ -60,6 +60,7 @@ async (page) => {
     await page.getByRole('option', { name: /README.md/ }).click();
     check(await input.inputValue() === '@file:README.md ', 'Canonical file token');
     await input.fill('草稿 A');
+    await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 A');
     await page.locator('#projectSwitch').click();
     await page.getByRole('button', { name: /结构跟踪.*002048/ }).click();
     await page.getByRole('heading', { name: '开始一份研究' }).waitFor();
