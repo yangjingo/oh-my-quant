@@ -183,3 +183,4 @@ summary { cursor: pointer; min-height: 36px; display: list-item; align-content: 
 .agent-status-tool { flex-basis: 100%; padding-left: 24px; overflow-wrap: anywhere; color: var(--gold); font-size: 12px; }
 @keyframes agent-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+.overview { padding-bottom: 16px; scroll-padding-block: 16px; overscroll-behavior: contain; } .overview:focus-visible { outline: 1px solid var(--gold); outline-offset: -3px; }
