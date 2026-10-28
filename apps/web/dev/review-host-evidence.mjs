@@ -30,6 +30,12 @@ export async function captureHost({ browser, output, root }) {
     await page.locator('#overview').getByText(/相对前收涨跌/).first().waitFor();
     await page.locator('#overview').getByText(/15:00:03/).first().waitFor();
     await capture('host-market-01-dated-values');
+    await page.locator('#overview .auto-refresh').filter({ hasText: '约 5 秒' }).waitFor();
+    const initialMarketTime = await page.locator('#overview .refresh > span').first().textContent();
+    await page.waitForFunction(previous => { const stamp = document.querySelector('#overview .refresh > span'); return !!stamp && stamp.textContent !== previous; }, initialMarketTime);
+    await page.locator('#overview [role="status"]').filter({ hasText: '5/5 可用' }).waitFor();
+    if ((await (await fetch(fixture.control + '/state')).json()).requests !== 0) throw new Error('Automatic market update invoked a model');
+    await capture('host-market-auto-updated');
     await fetch(fixture.control + '/market', { method: 'POST' });
     await page.getByRole('button', { name: '刷新行情', exact: true }).click();
     await page.locator('#overview [role="status"]').filter({ hasText: '正在刷新' }).waitFor();

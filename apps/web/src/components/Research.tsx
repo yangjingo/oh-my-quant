@@ -7,6 +7,10 @@ import { ToolHistory } from "./ToolHistory";
 import { Thinking } from "./Thinking";
 
 const AnswerMarkdown = lazy(() => import("./Markdown").then(module => ({ default: module.ResearchMarkdown })));
+const marketTime = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+export function displayMarketTime(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value)) ? marketTime.format(new Date(value)) : value || "尚未刷新";
+}
 
 const messageDate = new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
 export function displayMessageTime(value: string): string {
@@ -73,11 +77,12 @@ export function Overview({ snapshot, portfolio, demo, error, onRefresh, onClose 
     {!demo && <p className="quote-meta">{q.basis === "snapshot" ? "指数快照" : "历史日线"} {q.value === null ? "—" : q.value.toFixed(2)} · {q.basis === "snapshot" ? "相对前收涨跌" : "相邻日线涨跌，非当日快照"}<br />数据日期 {q.asOfDate ?? "未提供"}{q.asOfTime ? " " + q.asOfTime : ""} · {q.provider ?? "暂无来源"}{q.freshness && freshness[q.freshness] ? " · " + freshness[q.freshness] : ""}</p>}
   </div>)}</section>;
   return <aside id="overview" className="overview" data-market-colors={snapshot?.colorScheme ?? "red-up"} aria-label="行情概览" tabIndex={0}><div className="section-label"><strong>行情概览</strong><IconButton name="x" label="收起概览" onClick={onClose} /></div>
-    <div className="refresh"><span>刷新：{snapshot?.refreshedAt || "尚未刷新"}</span><small>{demo ? "合成示例" : snapshot?.source.provider ?? "等待数据源返回"}</small>
+    <div className="refresh"><span>最近拉取：{displayMarketTime(snapshot?.refreshedAt ?? "")}</span><small>{demo ? "合成示例" : snapshot?.source.provider ?? "等待数据源返回"}</small>
+      {!demo && snapshot?.pollIntervalMs !== undefined && <small className="auto-refresh">{snapshot.pollIntervalMs > 0 ? `自动刷新 · 约 ${snapshot.pollIntervalMs / 1000} 秒` : "自动刷新已暂停"}</small>}
       {!demo && <span role="status">{error ?? states[snapshot?.status ?? "idle"]}{snapshot ? ` · ${snapshot.source.available}/${snapshot.source.total} 可用` : ""}</span>}
       {onRefresh && <div className="overview-actions"><button className="text-action" disabled={busy} onClick={() => onRefresh(false)}>刷新行情</button>{snapshot?.retryable && <button className="text-action" disabled={busy} onClick={() => onRefresh(true)}>重试失败项</button>}</div>}
     </div>
-    <p className="quote-note">{demo ? "刷新时间不等于交易日期；概览不替代研究证据。" : "指数快照按源时间展示，相对前收计算涨跌；可能延迟，非实时行情保证。历史日线回退单独标记。刷新时间不等于数据时间；概览不替代研究证据。"}</p>
+    <p className="quote-note">{demo ? "刷新时间不等于交易日期；概览不替代研究证据。" : "报价按源时间展示，可能延迟；历史日线回退单独标记。拉取时间不等于行情时间。"}</p>
     {!rows.length ? <p className="empty-state">{busy ? "正在获取行情…" : error ? "行情暂不可用，请重试" : "尚无行情数据"}</p> : <>{watch.length > 0 && <details open><summary className="watch-heading">{portfolio || "已保存观察组"}</summary>{group("关注标的", watch)}</details>}{group("市场指数", market)}</>}
   </aside>;
 }

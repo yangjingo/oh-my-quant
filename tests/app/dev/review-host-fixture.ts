@@ -44,7 +44,7 @@ const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, a
 const settings = structuredClone(DEFAULT_SETTINGS); settings.provider = "custom"; settings.model = "review-fixture"; settings.thinkingLevel = "off";
 settings.providers = { custom: { api: "openai-completions", baseUrl: provider.url.origin + "/v1", apiKey: "review-fixture-dummy-not-a-secret" } }; saveSettings(settings);
 const service = createWorkbenchService({ cwd: root, overview: {
-  intervalMs: 0, loadPortfolio: () => ({ symbols: [] }), quoteFetcher: async entries => {
+  loadPortfolio: () => ({ symbols: [] }), quoteFetcher: async entries => {
     const round = marketRound;
     if (round) await Bun.sleep(1500);
     return entries.map((entry, index) => ({ ...entry, price: round === 1 && index === 0 ? NaN : 100 + index, pct: index % 2 ? -1 : 1,

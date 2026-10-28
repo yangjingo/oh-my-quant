@@ -15,7 +15,7 @@ test("actual Host RPC and SSE publish workspace quotes without starting research
   const settings = structuredClone(DEFAULT_SETTINGS); settings.provider = "custom"; settings.model = "fixture";
   settings.providers = { custom: { api: "openai-completions", baseUrl: "http://127.0.0.1:9/v1", apiKey: "unused-test-value" } }; saveSettings(settings);
   const assets = join(root, "assets"); mkdirSync(assets); writeFileSync(join(assets, "index.html"), "<!doctype html><html></html>");
-  const service = createWorkbenchService({ cwd: root, overview: { intervalMs: 0, loadPortfolio: () => ({ symbols: [] }), quoteFetcher: async entries => {
+  const service = createWorkbenchService({ cwd: root, overview: { intervalMs: 20, loadPortfolio: () => ({ symbols: [] }), quoteFetcher: async entries => {
     await Bun.sleep(20); return entries.map(entry => ({ ...entry, price: 100, pct: 1,
       observation: { symbol: entry.code, source: "akshare", sourceLabel: "AKShare", asOfDate: "2026-10-23", fetchedAt: "2026-10-24T00:00:00Z", state: "available", fallback: false } }));
   } } });
@@ -31,6 +31,8 @@ test("actual Host RPC and SSE publish workspace quotes without starting research
     await rpc("market");
     let text = "";
     while (!text.includes('"status":"success"')) { const chunk = await reader.read(); if (chunk.done) throw new Error("Stream ended"); text += new TextDecoder().decode(chunk.value); }
+    while ((text.match(/"status":"success"/g) ?? []).length < 2) { const chunk = await reader.read(); if (chunk.done) throw new Error("Stream ended before automatic update"); text += new TextDecoder().decode(chunk.value); }
+    expect((text.match(/"status":"success"/g) ?? []).length).toBeGreaterThanOrEqual(2);
     expect(text).toContain('"type":"market"'); expect(text).toContain('"asOfDate":"2026-10-23"');
     const market = await rpc<{ quotes: unknown[] }>("market"); expect(market.quotes).toHaveLength(5);
     const identity = await rpc<{ sessionId: string }>("identity"); expect((await rpc<{ state: string }>("session", [identity.sessionId])).state).toBe("idle");

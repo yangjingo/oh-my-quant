@@ -5,6 +5,26 @@ import { join } from "node:path";
 import { createWorkbenchService } from "../service.ts";
 import { createMarketOverview, fetchMarketIndexQuotes } from "../market.ts";
 
+test("automatic updates repeat without client reads, stay single-flight and stop on close", async () => {
+  let calls = 0, active = 0, maximum = 0, publications = 0;
+  const overview = createMarketOverview(() => { publications++; }, { intervalMs: 15, loadPortfolio: () => ({ symbols: [] }), quoteFetcher: async entries => {
+    calls++; maximum = Math.max(maximum, ++active); await Bun.sleep(25); active--;
+    return entries.map(entry => ({ ...entry, price: 100 + calls, pct: calls,
+      observation: { symbol: entry.code, source: "akshare", sourceLabel: "Synthetic snapshot", asOfDate: "2026-10-28", fetchedAt: "2026-10-28T00:00:00Z", state: "available", fallback: false } }));
+  } });
+  try {
+    for (let i = 0; i < 5; i++) overview.read();
+    expect(calls).toBe(1);
+    for (let i = 0; i < 100 && calls < 3; i++) await Bun.sleep(5);
+    expect(calls).toBeGreaterThanOrEqual(3); expect(maximum).toBe(1);
+    expect(overview.snapshot().pollIntervalMs).toBe(15);
+    expect(Number.isFinite(Date.parse(overview.snapshot().refreshedAt))).toBe(true);
+  } finally { overview.close(); }
+  const stoppedCalls = calls, stoppedPublications = publications; await Bun.sleep(70);
+  expect(calls).toBe(stoppedCalls); expect(publications).toBe(stoppedPublications);
+  const defaults = createMarketOverview(() => {}); expect(defaults.snapshot().pollIntervalMs).toBe(5000); defaults.close();
+});
+
 test("index overview uses dated snapshot and previous close rather than historical daily change", async () => {
   const original = globalThis.fetch, fields = Array<string>(34).fill("");
   fields[0] = "SSE"; fields[1] = "100"; fields[2] = "100"; fields[3] = "110"; fields[30] = "2026-10-28"; fields[31] = "15:00:03";

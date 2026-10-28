@@ -82,6 +82,7 @@ export interface SourceStatus {
 }
 
 export interface MarketSnapshot {
+  readonly pollIntervalMs?: number;
   readonly colorScheme?: "red-up" | "green-up";
   readonly status?: "idle" | "fetching" | "success" | "partial" | "unavailable" | "timeout" | "error";
   readonly retryable?: boolean;
@@ -214,6 +215,7 @@ export function isMarketSnapshot(value: unknown): value is MarketSnapshot {
     && [value.source.available, value.source.total].every(v => typeof v === "number" && Number.isSafeInteger(v) && v >= 0)
     && (value.status === undefined || ["idle", "fetching", "success", "partial", "unavailable", "timeout", "error"].includes(String(value.status)))
     && (value.retryable === undefined || typeof value.retryable === "boolean")
+    && (value.pollIntervalMs === undefined || typeof value.pollIntervalMs === "number" && Number.isSafeInteger(value.pollIntervalMs) && value.pollIntervalMs >= 0 && value.pollIntervalMs <= 2147483647)
     && (value.colorScheme === undefined || value.colorScheme === "red-up" || value.colorScheme === "green-up")
     && value.quotes.every(q => object(q) && typeof q.code === "string" && typeof q.name === "string"
       && (q.basis === undefined || q.basis === "snapshot" || q.basis === "daily") && (q.asOfTime === undefined || typeof q.asOfTime === "string")
