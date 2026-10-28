@@ -64,3 +64,11 @@ test("failed target selection preserves the current conversation and draft", asy
   await store.select("empty"); expect(store.getSnapshot()).toMatchObject({ selected: before.selected, snapshot: before.snapshot, draft: "Keep current work", phase: "ready" });
   expect(store.getSnapshot().error).toContain("damaged target");
 });
+
+test("a late failed selection cannot replace a newer selected conversation or draft", async () => {
+  const base = createDemoClient(); let reject!: (error: Error) => void;
+  const store = createWorkbenchStore({ ...base, session: id => id === "empty" ? new Promise((_done, fail) => { reject = fail; }) : base.session(id) }, memory());
+  await store.load(); const pending = store.select("empty"); const next = await base.createSession();
+  await store.select(next.sessionId); store.setDraft("new selection draft"); reject(new Error("late damaged target")); await pending;
+  expect(store.getSnapshot()).toMatchObject({ selected: next.sessionId, draft: "new selection draft", error: null, phase: "ready" });
+});

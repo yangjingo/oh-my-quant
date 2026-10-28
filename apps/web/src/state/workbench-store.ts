@@ -165,7 +165,8 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
         }
         if (view.selected === id) await select(snapshot.identity.sessionId);
         // Submission is already accepted: a metadata refresh failure cannot turn it into a retry.
-        try { const sessions = await client.workspaces(); if (workspace === scope) publish({ sessions }); } catch { /* Reconnect refreshes metadata. */ }
+        const summaryTicket = generation;
+        try { const sessions = await client.workspaces(); if (workspace === scope && generation === summaryTicket) publish({ sessions }); } catch { /* Reconnect refreshes metadata. */ }
         return true;
       } catch (error) { if (view.selected === id) report(error); return false; }
     },
