@@ -24,6 +24,11 @@ export async function dispatchWorkbench(client: WorkbenchClient, payload: unknow
     case "workspaces": count(0); return client.workspaces();
     case "preferences": count(0); return client.preferences();
     case "market": count(0); return client.market();
+    case "refreshMarket": count(1); {
+      if (typeof args[0] !== "boolean") throw new WorkbenchError("INPUT_INVALID", "重试参数无效。");
+      if (!client.refreshMarket) throw new WorkbenchError("UNAVAILABLE", "此连接不支持行情刷新。");
+      return client.refreshMarket(args[0]);
+    }
     case "createSession": count(0); return client.createSession();
     case "session": count(1); return client.session(string(args[0]));
     case "transcript": count(1); return client.transcript(string(args[0]));

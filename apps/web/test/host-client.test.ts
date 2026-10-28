@@ -6,6 +6,16 @@ import { createWorkbenchStore } from "../src/state/workbench-store";
 import type { WorkbenchEvent } from "../src/client/contract";
 
 const bootstrap = () => Response.json({ version: 1, token: "a".repeat(64) });
+test("validated workspace market SSE is independent of research run snapshots", async () => {
+  const event: WorkbenchEvent = { type: "market", identity: { workspaceId: "w", sessionId: "s", runId: null },
+    snapshot: { refreshedAt: "2026-10-24 12:00", status: "success", quotes: [], source: { provider: "AKShare", updatedAt: null, available: 0, total: 0 } } };
+  const request = (async (url: RequestInfo | URL) => String(url).endsWith("bootstrap") ? bootstrap()
+    : new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode("data: " + JSON.stringify(event) + "\n\n")); } }), { headers: { "Content-Type": "text/event-stream" } })) as typeof fetch;
+  const client = createHostClient({ baseUrl: "http://workbench.test", fetch: request });
+  let release!: () => void;
+  const actual = await new Promise<WorkbenchEvent>(done => { release = client.subscribe(value => { if (value.type === "market") done(value); }); });
+  release(); expect(actual).toEqual(event);
+});
 test("ambiguous network submission is never automatically retried", async () => {
   let submits = 0;
   const request = (async (url: RequestInfo | URL) => {

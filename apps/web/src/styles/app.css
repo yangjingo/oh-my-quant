@@ -109,6 +109,8 @@ summary { cursor: pointer; min-height: 36px; display: list-item; align-content: 
 .quote-row { display: grid; grid-template-columns: 80px minmax(0,1fr) auto; gap: 8px; padding: 10px 0; align-items: center; font-size: 13px; }
 .quote-row small, .quote-row strong { font-family: Mono, monospace; font-size: 12px; }
 .quote-row strong { font-weight: 400; }.up { color: var(--red); }.down { color: var(--green); }
+.overview[data-market-colors="green-up"] .up { color: var(--green); }
+.overview[data-market-colors="green-up"] .down { color: var(--red); }
 .watch-heading { margin: 10px 16px 0; font-size: 14px; color: var(--cream); }
 .session-search, .settings-main input, .settings-main select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--outline); border-radius: 4px; padding: 10px 12px; min-width: 0; min-height: 44px; }
 .session-search { margin: 14px; width: calc(100% - 28px); font-size: 14px; }
@@ -199,3 +201,4 @@ summary { cursor: pointer; min-height: 36px; display: list-item; align-content: 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
 .markdown-body pre.legacy-answer { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; line-height: 1.8; background: transparent; border: 0; padding: 0; font-size: inherit; }
 .overview { padding-bottom: 16px; scroll-padding-block: 16px; overscroll-behavior: contain; } .overview:focus-visible { outline: 1px solid var(--gold); outline-offset: -3px; }
+.quote-meta { margin: -4px 0 8px; font-size: 12px; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; } .overview-actions { display: flex; flex-wrap: wrap; gap: 12px; }

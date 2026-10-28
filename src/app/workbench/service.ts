@@ -13,6 +13,8 @@ import { thinkingText } from "./thinking.ts";
 import { toolPresentation } from "./tool-presentation.ts";
 import { redactModelText } from "./redaction.ts";
 import { hasExplicitReference } from "./references.ts";
+import { createMarketOverview } from "./market.ts";
+import type { OverviewRefreshOptions } from "../../runtime/workspace/overview-refresh.ts";
 
 interface Running {
   id: string; controller: AbortController; promise: Promise<void>; finished: string[];
@@ -24,7 +26,6 @@ interface Session {
   cwd: string; coreSessionId: string | null; updatedAt: string; fileRevision: string | null; writes: Promise<void>; pending: number; timer?: ReturnType<typeof setTimeout>; problem?: string; recovery?: SessionSnapshot["recovery"];
   runId: string | null; turns?: Turn[]; agent?: QuantAgentSession; active?: Running;
 }
-const emptyMarket = () => ({ refreshedAt: "", quotes: [], source: { provider: null, updatedAt: null, available: 0, total: 0 } });
 const emptyOutput = () => ({ conclusion: { statement: null, confidence: null, boundary: null, settled: false }, evidence: [], artifacts: [] });
 const textOf = (message: unknown): string => {
   const content = (message as { content?: unknown } | null)?.content;
@@ -32,12 +33,15 @@ const textOf = (message: unknown): string => {
 };
 
 /** Owns live runs/observers; the existing Quant/Pi session still owns tools, context and its journal. */
-export function createWorkbenchService(options: { cwd?: string; workspaceId?: string; settings?: SettingsPort; dependencies?: () => QuantAgentDependencies; store?: ReturnType<typeof createWorkbenchSessionStore> } = {}) {
+export function createWorkbenchService(options: { cwd?: string; workspaceId?: string; settings?: SettingsPort; dependencies?: () => QuantAgentDependencies; store?: ReturnType<typeof createWorkbenchSessionStore>; overview?: OverviewRefreshOptions } = {}) {
   const cwd = options.cwd ?? process.cwd(), settings = options.settings ?? localSettings;
   const canonical = resolve(resolveOhquantDir());
   const workspaceId = options.workspaceId ?? createHash("sha256").update(process.platform === "win32" ? canonical.toLowerCase() : canonical).digest("hex").slice(0, 24);
   const sessions = new Map<string, Session>();
   const listeners = new Set<(event: WorkbenchEvent) => void>();
+  const market = createMarketOverview(value => {
+    for (const listener of listeners) { try { listener({ type: "market", identity: { workspaceId, sessionId: initial.id, runId: null }, snapshot: value }); } catch { listeners.delete(listener); } }
+  }, options.overview, () => settings.read().preferences.marketColorScheme);
   let closed = false;
   const storage = options.store ?? createWorkbenchSessionStore();
   const blank = (): Session => ({ id: randomUUID(), name: "新研究", state: "idle", revision: 0, runCount: 0, runId: null, turns: [], cwd,
@@ -73,7 +77,7 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
   };
   const summary = (session: Session): WorkspaceSummary => ({ workspaceId, sessionId: session.id, code: "", name: session.name, state: session.state, runCount: session.runCount });
   const snapshot = (session: Session): SessionSnapshot => structuredClone({ identity: { workspaceId, sessionId: session.id, runId: session.runId }, revision: session.revision,
-    state: session.state, turns: session.turns!, ...(session.recovery ? { recovery: session.recovery } : {}), market: emptyMarket(), output: emptyOutput() });
+    state: session.state, turns: session.turns!, ...(session.recovery ? { recovery: session.recovery } : {}), market: market.snapshot(), output: emptyOutput() });
   const flush = (session: Session) => {
     clearTimeout(session.timer); session.timer = undefined;
     const saved = snapshot(session), updatedAt = session.updatedAt;
@@ -232,7 +236,8 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
     async workspaces() { await ready; return [...sessions.values()].map(summary); },
     async session(id) { return read(id); },
     async transcript(id) { return (await read(id)).turns; },
-    async market() { return emptyMarket(); },
+    async market() { if (closed) throw new WorkbenchError("CLOSED", "研究服务已关闭。", 503); return market.read(); },
+    async refreshMarket(failedOnly) { if (closed) throw new WorkbenchError("CLOSED", "研究服务已关闭。", 503); return market.refresh(failedOnly); },
     async output(id) { return (await read(id)).output; },
     async createSession() {
       if (closed) throw new WorkbenchError("CLOSED", "研究服务已关闭。", 503);
@@ -247,7 +252,9 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
     async preferences() { return publicPreferences(settings.read()); },
     async updatePreferences(next: Preferences) {
       if ([...sessions.values()].some(session => !!session.active)) throw new WorkbenchError("RUN_ACTIVE", "请先等待或停止研究，再修改研究设置。", 409);
+      const source = settings.read().preferences.source;
       updateModel(settings, next);
+      if (settings.read().preferences.source !== source) market.invalidate();
     },
     async submit(request: SubmitRequest) {
       if (closed) throw new WorkbenchError("CLOSED", "研究服务已关闭。", 503);
@@ -294,6 +301,7 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
   };
   return { client, workspaceId, async close() {
     closed = true;
+    market.close();
     const pending = [...sessions.values()].flatMap(session => session.active ? [client.cancel(session.active.id)] : []);
     await Promise.allSettled(pending);
     await Promise.allSettled([...sessions.values()].map(async session => { clearTimeout(session.timer); await session.writes; }));

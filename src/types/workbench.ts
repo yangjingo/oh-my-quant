@@ -67,6 +67,9 @@ export interface MarketQuote {
   readonly name: string;
   readonly value: number | null;
   readonly change: number | null;
+  readonly asOfDate?: string | null;
+  readonly provider?: string;
+  readonly freshness?: "available" | "outside-window" | "unavailable" | "refreshing" | "stale";
 }
 
 export interface SourceStatus {
@@ -77,6 +80,9 @@ export interface SourceStatus {
 }
 
 export interface MarketSnapshot {
+  readonly colorScheme?: "red-up" | "green-up";
+  readonly status?: "idle" | "fetching" | "success" | "partial" | "unavailable" | "timeout" | "error";
+  readonly retryable?: boolean;
   readonly refreshedAt: string;
   readonly quotes: readonly MarketQuote[];
   readonly source: SourceStatus;
@@ -188,6 +194,7 @@ export interface WorkbenchClient {
   workspaces(): Promise<readonly WorkspaceSummary[]>;
   transcript(sessionId: string): Promise<readonly Turn[]>;
   market(): Promise<MarketSnapshot>;
+  refreshMarket?(failedOnly: boolean): Promise<MarketSnapshot>;
   output(sessionId: string): Promise<WorkspaceOutput>;
   submit(request: SubmitRequest): Promise<SubmitResult>;
   /** Explicit user intent. Releasing a subscription must never do this. */
@@ -195,6 +202,22 @@ export interface WorkbenchClient {
   /** Acknowledges uncertain prior effects only; never resumes or replays work. */
   acknowledgeInterruption?(runId: string): Promise<void>;
   subscribe(listener: (event: WorkbenchEvent) => void): Release;
+}
+
+export function isMarketSnapshot(value: unknown): value is MarketSnapshot {
+  const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+  const nullable = (v: unknown) => v === null || typeof v === "string";
+  return object(value) && typeof value.refreshedAt === "string" && Array.isArray(value.quotes) && object(value.source)
+    && nullable(value.source.provider) && nullable(value.source.updatedAt)
+    && [value.source.available, value.source.total].every(v => typeof v === "number" && Number.isSafeInteger(v) && v >= 0)
+    && (value.status === undefined || ["idle", "fetching", "success", "partial", "unavailable", "timeout", "error"].includes(String(value.status)))
+    && (value.retryable === undefined || typeof value.retryable === "boolean")
+    && (value.colorScheme === undefined || value.colorScheme === "red-up" || value.colorScheme === "green-up")
+    && value.quotes.every(q => object(q) && typeof q.code === "string" && typeof q.name === "string"
+      && [q.value, q.change].every(v => v === null || typeof v === "number" && Number.isFinite(v))
+      && (q.asOfDate === undefined || nullable(q.asOfDate)) && (q.provider === undefined || typeof q.provider === "string")
+      && (q.group === undefined || q.group === "market" || q.group === "watchlist")
+      && (q.freshness === undefined || ["available", "outside-window", "unavailable", "refreshing", "stale"].includes(String(q.freshness))));
 }
 
 /** Validate network snapshots before any view state is replaced. No IO or private runtime types. */
@@ -215,11 +238,7 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
         && (item.elapsedMs === undefined || typeof item.elapsedMs === "number" && Number.isFinite(item.elapsedMs) && item.elapsedMs >= 0)))))) return false;
   if (value.recovery !== undefined && (!object(value.recovery) || value.state !== "interrupted" || !string(value.recovery.runId) || value.recovery.runId !== value.identity.runId
     || !Number.isSafeInteger(value.recovery.unconfirmedTools) || Number(value.recovery.unconfirmedTools) < 0 || typeof value.recovery.acknowledgementRequired !== "boolean")) return false;
-  if (!object(value.market) || !Array.isArray(value.market.quotes) || !string(value.market.refreshedAt) || !object(value.market.source)) return false;
-  if (!nullable(value.market.source.provider) || !nullable(value.market.source.updatedAt)
-    || ![value.market.source.available, value.market.source.total].every(item => typeof item === "number" && Number.isSafeInteger(item) && item >= 0)) return false;
-  if (!value.market.quotes.every(quote => object(quote) && string(quote.code) && string(quote.name)
-    && [quote.value, quote.change].every(item => item === null || typeof item === "number" && Number.isFinite(item)))) return false;
+  if (!isMarketSnapshot(value.market)) return false;
   if (!object(value.output) || !object(value.output.conclusion) || !Array.isArray(value.output.evidence) || !Array.isArray(value.output.artifacts)) return false;
   const conclusion = value.output.conclusion;
   return nullable(conclusion.statement) && nullable(conclusion.boundary) && [null, "low", "medium", "high"].includes(conclusion.confidence as null | string) && typeof conclusion.settled === "boolean"

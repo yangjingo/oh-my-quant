@@ -10,10 +10,11 @@ import { startWorkbenchServer } from "../../../src/app/workbench/server.ts";
 
 const root = mkdtempSync(join(tmpdir(), "whyj-review-host-"));
 process.env.OHQUANT_DIR = root; process.env.NO_PROXY = "127.0.0.1,localhost";
-let stage = "idle", advance: (() => void) | undefined, requests = 0, fail = false, sequence = 0;
+let stage = "idle", advance: (() => void) | undefined, requests = 0, fail = false, sequence = 0, marketRound = 0;
 const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, async fetch(request) {
   const url = new URL(request.url);
   if (url.pathname === "/state") return Response.json({ stage, requests, canAdvance: !!advance });
+  if (url.pathname === "/market" && request.method === "POST") { marketRound++; return Response.json({ marketRound }); }
   if (url.pathname === "/advance" && request.method === "POST") { const next = advance; advance = undefined; next?.(); return Response.json({ stage, requests }); }
   const payload = await request.json() as { model: string; messages: { role: string; content: unknown }[] }; requests++;
   const index = payload.messages.findLastIndex(message => message.role === "user");
@@ -41,7 +42,14 @@ const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, a
 } });
 const settings = structuredClone(DEFAULT_SETTINGS); settings.provider = "custom"; settings.model = "review-fixture"; settings.thinkingLevel = "off";
 settings.providers = { custom: { api: "openai-completions", baseUrl: provider.url.origin + "/v1", apiKey: "review-fixture-dummy-not-a-secret" } }; saveSettings(settings);
-const service = createWorkbenchService({ cwd: root, dependencies: () => {
+const service = createWorkbenchService({ cwd: root, overview: {
+  intervalMs: 0, loadPortfolio: () => ({ symbols: [] }), quoteFetcher: async entries => {
+    const round = marketRound;
+    if (round) await Bun.sleep(1500);
+    return entries.map((entry, index) => ({ ...entry, price: round === 1 && index === 0 ? NaN : 100 + index, pct: index % 2 ? -1 : 1,
+      observation: { symbol: entry.code, source: "akshare", sourceLabel: "Synthetic review fixture", asOfDate: "2026-10-23", fetchedAt: "2026-10-24T00:00:00Z", state: "available", fallback: false } }));
+  },
+}, dependencies: () => {
   const deps = createDefaultSessionDependencies({ cwd: root });
   return { ...deps, tools: deps.tools.map(tool => tool.name !== "calculate_position_scenarios" ? tool : { ...tool, async execute(...args: Parameters<typeof tool.execute>) {
     stage = "executing"; const signal = args[2];

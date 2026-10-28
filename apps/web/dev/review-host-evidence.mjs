@@ -25,6 +25,20 @@ export async function captureHost({ browser, output, root }) {
     const next = async () => { if (!(await fetch(fixture.control + '/advance', { method: 'POST' })).ok) throw new Error('Fixture control failed'); };
     const state = async label => page.locator('.agent-status-label').last().filter({ hasText: new RegExp('^' + label + '$') }).waitFor();
     await page.goto(fixture.origin); const input = page.getByRole('combobox', { name: '研究问题', exact: true }); await input.waitFor();
+    await page.getByRole('button', { name: '刷新行情', exact: true }).waitFor();
+    await page.locator('#overview [role="status"]').filter({ hasText: '5/5 可用' }).waitFor();
+    await capture('host-market-01-dated-values');
+    await fetch(fixture.control + '/market', { method: 'POST' });
+    await page.getByRole('button', { name: '刷新行情', exact: true }).click();
+    await page.locator('#overview [role="status"]').filter({ hasText: '正在刷新' }).waitFor();
+    await page.locator('#overview').getByText(/刷新中 · 旧值/).first().waitFor();
+    await capture('host-market-02-retained-refresh');
+    await page.getByRole('button', { name: '重试失败项', exact: true }).waitFor();
+    await capture('host-market-03-partial-stale');
+    await fetch(fixture.control + '/market', { method: 'POST' });
+    await page.getByRole('button', { name: '重试失败项', exact: true }).click();
+    await page.locator('#overview [role="status"]').filter({ hasText: '5/5 可用' }).waitFor();
+    await capture('host-market-04-retry-restored');
     const submit = async text => {
       const before = (await (await fetch(fixture.control + '/state')).json()).requests;
       await input.fill(text); await input.press('Enter'); await state('等待模型响应');
