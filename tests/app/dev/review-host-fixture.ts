@@ -27,7 +27,7 @@ const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, a
     const end = (reason: string) => { clearInterval(heartbeat); controller.enqueue(chunk({}, reason)); controller.enqueue(encoder.encode("data: [DONE]\n\n")); controller.close(); };
     heartbeat = setInterval(() => { try { controller.enqueue(encoder.encode(": fixture keepalive\n\n")); } catch { clearInterval(heartbeat); } }, 5000);
     if (returning) {
-      stage = "answering"; send({ role: "assistant", content: fail ? "受控验收：工具失败已保留。" : "受控验收：计算工具已返回假设结果，非投资结论。" });
+      stage = "answering"; send({ role: "assistant", content: fail ? "受控验收：工具失败已保留。" : "受控验收：计算工具已返回假设结果，非投资结论。\n\n| 对象 | 观察日期 | 观察值 | 币种 | 缺失字段 | 比较限制 |\n| --- | --- | --- | --- | --- | --- |\n| A | 2026-10-23 | 0.00 | CNY | — | 同一窗口 |\n| B | 2026-10-22 | 80.00 | USD | — | 跨窗口，不直接比较 |" });
       advance = () => { stage = "idle"; end("stop"); }; return;
     }
     stage = "waiting";
