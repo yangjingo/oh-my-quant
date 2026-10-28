@@ -42,8 +42,10 @@ export function updateModel(port: SettingsPort, next: Preferences) {
 }
 
 export function secretValues(settings: OhQuantSettings): string[] {
-  return [...Object.values(settings.providers ?? {}).flatMap(provider => [provider.apiKey,
+  const slots = ["authToken", "apiKey", "tushareToken", "financialDatasetsKey", "llmquantApiKey"] as const;
+  return [...new Set([...Object.values(settings.providers ?? {}).flatMap(provider => [provider.apiKey,
     ...Object.entries(provider.headers ?? {}).filter(([key]) => /authorization|key|token/i.test(key)).map(([, value]) => value)]),
+    ...[process.env, settings.env].flatMap(env => slots.map(key => readWhyjEnvValue(env, key))),
     ...Object.entries({ ...process.env, ...settings.env }).filter(([key]) => /API_KEY|AUTH_TOKEN|API_TOKEN|SECRET|PASSWORD/.test(key)).map(([, value]) => value)]
-    .filter((value): value is string => typeof value === "string" && value.length > 3);
+    .filter((value): value is string => typeof value === "string" && value.length > 3))].sort((a, b) => b.length - a.length);
 }

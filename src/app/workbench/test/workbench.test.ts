@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
@@ -18,10 +18,13 @@ let mode: "answer" | "tool" | "hold" | "empty" | "thinking" | "preparing" | "bad
 let reached: (() => void) | undefined;
 let releaseThinking: (() => void) | undefined;
 let releasePreparation: (() => void) | undefined;
+let historySeed: Promise<void> | undefined;
+let reply: string | undefined;
+let streamCredential = KEY;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "whyj-workbench-")); previous = process.env.OHQUANT_DIR; proxy = process.env.NO_PROXY;
   process.env.OHQUANT_DIR = root; process.env.NO_PROXY = "127.0.0.1,localhost";
-  mode = "answer"; requests = []; toolSent = false; reached = undefined; releasePreparation = undefined; releaseThinking = undefined;
+  mode = "answer"; requests = []; toolSent = false; reached = undefined; releasePreparation = undefined; releaseThinking = undefined; reply = undefined; streamCredential = KEY;
   model = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
     const payload = await request.json() as Record<string, unknown>; requests.push(payload); reached?.();
     if (mode === "hold" || mode === "hold-thinking") return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(mode === "hold" ? ": waiting\n\n" : "data: " + JSON.stringify({id:"hold-thinking",object:"chat.completion.chunk",created:0,model:payload.model,choices:[{index:0,delta:{role:"assistant",reasoning_content:"PROVIDER_THINKING_FIXTURE"},finish_reason:null}]}) + "\n\n")); } }), { headers: { "Content-Type": "text/event-stream" } });
@@ -30,9 +33,9 @@ beforeEach(() => {
       controller.enqueue(frame({ role: "assistant", reasoning_content: "第一段：核对数据日期。" }));
       let stage = 0;
       releaseThinking = () => {
-        if (stage++ === 0) controller.enqueue(frame({ reasoning_content: "第二段：对照风险。" + KEY.slice(0, 10) }));
+        if (stage++ === 0) controller.enqueue(frame({ reasoning_content: "第二段：对照风险。" + streamCredential.slice(0, 10) }));
         else {
-          controller.enqueue(frame({ reasoning_content: KEY.slice(10) + " 已完成核对。" }));
+          controller.enqueue(frame({ reasoning_content: streamCredential.slice(10) + " 已完成核对。" }));
           controller.enqueue(frame({ content: "这是最终回答，假设结果。" })); controller.enqueue(frame({}, "stop"));
           controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n")); controller.close();
         }
@@ -42,7 +45,7 @@ beforeEach(() => {
     if (call) toolSent = true;
     const args = JSON.stringify({ shares: mode === "bad-tool" ? KEY : 100, costPerShare: 10, observedClose: 12, observationDate: "2026-10-23", currency: "CNY", changes: [-0.1, 0, 0.1] });
     const delta = call ? { role: "assistant", tool_calls: [{ index: 0, id: "core-tool-101", type: "function", function: { name: "calculate_position_scenarios", arguments: args } }] }
-      : mode === "empty" ? { role: "assistant", content: "" } : { role: "assistant", content: `这是同一核心会话的回答，仅作假设计算。${KEY}` };
+      : mode === "empty" ? { role: "assistant", content: "" } : { role: "assistant", content: reply ?? `这是同一核心会话的回答，仅作假设计算。${KEY}` };
     const chunk = { id: "fixture", object: "chat.completion.chunk", created: 0, model: String(payload.model) };
     const encode = (delta: unknown, finish_reason: string | null = null) => new TextEncoder().encode("data: " + JSON.stringify({ ...chunk, choices: [{ index: 0, delta, finish_reason }] }) + "\n\n");
     if (mode === "preparing" && call) return new Response(new ReadableStream({ start(controller) {
@@ -63,6 +66,7 @@ beforeEach(() => {
   mkdirSync(join(root, "assets")); writeFileSync(join(root, "assets", "index.html"), "<html><head></head><body>Workbench fixture</body></html>");
 });
 afterEach(async () => {
+  await historySeed?.catch(() => {}); historySeed = undefined;
   await host?.close(); await service?.close(); model.stop(true); host = undefined; service = undefined;
   if (previous === undefined) delete process.env.OHQUANT_DIR; else process.env.OHQUANT_DIR = previous;
   if (proxy === undefined) delete process.env.NO_PROXY; else process.env.NO_PROXY = proxy;
@@ -236,6 +240,31 @@ test("SSE clients observe one shared run; cancelling the reader only releases it
   expect((await viaHttp.json() as { result: SessionSnapshot }).result.identity.runId).toBe(run.runId);
   await client.cancel(run.runId); expect((await client.session(identity.sessionId)).state).toBe("cancelled");
 });
+test("public automatic and explicit titles redact configured credentials before truncation", async () => {
+  const long = KEY + "-long-credential-suffix-123456";
+  const settings = readSettings(); settings.providers!.custom!.apiKey = long; saveSettings(settings);
+  const { client, identity, submit } = await setup(); await submit(long + " title"); await terminal(client, identity.sessionId);
+  expect(JSON.stringify(await client.workspaces())).not.toContain(long.slice(0, 32));
+  expect((await client.workspaces())[0]!.name).toContain("[REDACTED]");
+  await client.renameSession(identity.sessionId, long + " renamed");
+  expect(JSON.stringify(await client.workspaces())).not.toContain(long);
+  expect(JSON.stringify(createWorkbenchSessionStore().load(identity.workspaceId, identity.sessionId).record)).not.toContain(long);
+});
+test("supported data-source credential names are redacted in actual-core public answers", async () => {
+  const settings = readSettings(); const tokens = ["dummy-tushare-review-value", "dummy-financial-review-value"];
+  settings.env = { ...settings.env, WHYJ_QUANT_TUSHARE_TOKEN: tokens[0]!, WHYJ_QUANT_FINANCIAL_DATASETS_KEY: tokens[1]! }; saveSettings(settings);
+  reply = "Visible " + tokens.join(" / "); const { client, identity, submit } = await setup();
+  await submit("Report synthetic fixture text"); const snapshot = await terminal(client, identity.sessionId);
+  for (const token of tokens) expect(JSON.stringify(snapshot)).not.toContain(token);
+  expect(snapshot.turns[1]?.text).toContain("Visible");
+});
+test("unavailable explicit references are rejected before a provider call but literal text is allowed", async () => {
+  const { client, identity, submit } = await setup();
+  await expect(submit("Summarize @file:evidence.md")).rejects.toThrow("引用"); expect(requests).toHaveLength(0);
+  expect((await client.session(identity.sessionId)).turns).toHaveLength(0);
+  await submit("Email user@example.com; literal `@file:example.md` and \\@file:escaped.md");
+  await terminal(client, identity.sessionId); expect(requests.length).toBeGreaterThan(0);
+});
 test("a second Host cannot own the workspace, and normal close releases the lock", async () => {
   host = startWorkbenchServer({ port: 0, assetsRoot: join(root, "assets") });
   expect(() => startWorkbenchServer({ port: 0, assetsRoot: join(root, "assets") })).toThrow("此工作区已有本地研究服务");
@@ -352,15 +381,22 @@ test("an unsaved tool intent never dispatches the tool", async () => {
 });
 
 
-test("large stored histories stay lazy in lists and startup SSE, then release their Agent after each turn", async () => {
-  const store = createWorkbenchSessionStore();
-  service = createWorkbenchService({ cwd: root }); const identity = await service.client.identity(); await service.close();
+describe("large-history fixture lifecycle", () => {
+  let store: ReturnType<typeof createWorkbenchSessionStore>;
+  let identity: Awaited<ReturnType<WorkbenchClient["identity"]>>;
+  beforeEach(async () => {
+    historySeed = (async () => {
+  store = createWorkbenchSessionStore();
+  service = createWorkbenchService({ cwd: root }); identity = await service.client.identity(); await service.close();
   const template = store.load(identity.workspaceId, identity.sessionId).record;
   for (let i = 0; i < 30; i++) {
     const id = randomUUID(); await store.save({ ...template, sessionId: id, name: "历史 " + i,
       snapshot: { ...template.snapshot, identity: { ...template.snapshot.identity, sessionId: id }, turns: [{ id: "history", role: "assistant", state: "settled", text: "payload".repeat(10000), at: template.updatedAt }] } }, null);
   }
-  let loads = 0, agents = 0, cleanups = 0;
+    })();
+    await historySeed;
+  }, 120_000);
+  test("large stored histories stay lazy in lists and startup SSE, then release their Agent after each turn", async () => {  let loads = 0, agents = 0, cleanups = 0;
   service = createWorkbenchService({ cwd: root, store: { ...store, load: (workspace, id) => { loads++; return store.load(workspace, id); } }, dependencies: () => {
     agents++; const deps = createDefaultSessionDependencies({ cwd: root }), cleanup = deps.env.cleanup.bind(deps.env);
     deps.env.cleanup = async () => { cleanups++; await cleanup(); }; return deps;
@@ -381,6 +417,8 @@ test("large stored histories stay lazy in lists and startup SSE, then release th
   expect(readdirSync(join(root, "sessions"), { recursive: true }).filter(name => String(name).endsWith(".jsonl"))).toHaveLength(1);
 });
 
+
+});
 
 test("missing original context fails explicitly without a provider call or a replacement journal", async () => {
   const { client, identity, submit } = await setup(); await submit("保存原始上下文"); await terminal(client, identity.sessionId);
@@ -405,7 +443,7 @@ test("thinking streams before the answer, redacts split secrets, and persists wi
   const first = await thinking(client, identity.sessionId, "第一段");
   expect(first.turns[1]?.text).toBe(""); expect(first.turns[1]?.phase).toBe("thinking");
   releaseThinking!(); const second = await thinking(client, identity.sessionId, "第二段");
-  expect(second.turns[1]?.thinking).not.toContain(KEY.slice(0, 10));
+  expect(second.turns[1]?.thinking).not.toContain(streamCredential.slice(0, 10));
   releaseThinking!(); const done = await terminal(client, identity.sessionId);
   expect(done.turns[1]?.thinking).toBe("第一段：核对数据日期。第二段：对照风险。[REDACTED] 已完成核对。");
   expect(done.turns[1]?.text).toBe("这是最终回答，假设结果。");
@@ -426,3 +464,22 @@ test("thinking across tool-separated assistant messages is aggregated once in or
   expect(done.state).toBe("settled"); expect(done.turns[1]?.thinking).toBe("先规划计算。\n\n再核对结果。");
   expect(done.turns[1]?.activity?.[0]?.state).toBe("completed");
 });
+
+for (const slot of ["WHYJ_QUANT_TUSHARE_TOKEN", "WHYJ_QUANT_FINANCIAL_DATASETS_KEY"]) {
+  test(`split thinking and checkpoints redact ${slot} with the shared collector`, async () => {
+    mode = "stream-thinking"; streamCredential = "dummy-stream-data-secret-" + slot;
+    const settings = readSettings(); settings.env = { ...settings.env, [slot]: streamCredential }; saveSettings(settings);
+    const { client, identity, submit } = await setup(); await submit("Synthetic streaming credential projection");
+    for (let i = 0; !releaseThinking && i < 100; i++) await Bun.sleep(5);
+    expect(typeof releaseThinking).toBe("function"); releaseThinking!();
+    let partial = await client.session(identity.sessionId);
+    for (let i = 0; !partial.turns.at(-1)?.thinking?.includes("第二段") && i < 100; i++) { await Bun.sleep(5); partial = await client.session(identity.sessionId); }
+    expect(partial.turns.at(-1)?.thinking).toContain("第二段");
+    expect(JSON.stringify(partial)).not.toContain(streamCredential.slice(0, 10));
+    releaseThinking!(); const ended = await terminal(client, identity.sessionId);
+    expect(JSON.stringify(ended)).not.toContain(streamCredential);
+    expect(ended.turns.at(-1)?.text).toContain("最终回答");
+    await service!.close();
+    expect(JSON.stringify(createWorkbenchSessionStore().load(identity.workspaceId, identity.sessionId).record)).not.toContain(streamCredential);
+  });
+}

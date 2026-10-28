@@ -6,10 +6,12 @@ async (page) => {
   const onConsole = message => { if (message.type() === 'error') errors.push(message.text()); };
   page.on('pageerror', onError); page.on('console', onConsole);
   const check = (condition, message) => { if (!condition) throw new Error(message); };
+  const captures = [];
   const capture = async name => {
     await page.evaluate(() => document.fonts.ready);
     check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), name + ': horizontal overflow');
     await page.screenshot({ path: `output/web-react/${name}.png`, scale: 'css' });
+    captures.push(name);
   };
   try {
     await page.setViewportSize({ width: 1440, height: 960 });
@@ -17,6 +19,26 @@ async (page) => {
     const input = page.getByRole('combobox', { name: '研究问题' });
     await page.getByRole('heading', { name: /示例结论/ }).waitFor();
     await capture('01-desktop');
+    const inspectOverviewEnd = async name => {
+      const overview = page.locator('#overview');
+      await overview.focus(); await overview.press('End');
+      await page.locator('#overview .quote-row').last().scrollIntoViewIfNeeded();
+      await page.waitForFunction(() => {
+        const panel = document.querySelector('#overview'), last = panel ? [...panel.querySelectorAll('.quote-row')].at(-1) : null;
+        if (!panel || !last) return false;
+        const outer = panel.getBoundingClientRect(), row = last.getBoundingClientRect();
+        return document.activeElement === panel && row.top >= outer.top && row.bottom <= outer.bottom - 8;
+      });
+      await capture(name);
+    };
+    await inspectOverviewEnd('01-overview-end-wide');
+    await page.setViewportSize({ width: 1440, height: 480 });
+    await inspectOverviewEnd('01-overview-end-low-height');
+    await page.setViewportSize({ width: 390, height: 480 });
+    await page.locator('#overview').waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: '切换研究概览', exact: true }).click();
+    await inspectOverviewEnd('01-overview-end-narrow-low-height');
+    await page.setViewportSize({ width: 1440, height: 960 });
     await input.focus();
     check(await input.evaluate(el => el.selectionStart === 0 && el.selectionEnd === 0), 'Empty caret must start at zero');
     check(await page.getByRole('button', { name: '发送问题', exact: true }).isDisabled(), 'Empty input cannot be submitted');
@@ -38,6 +60,7 @@ async (page) => {
     await page.getByRole('option', { name: /README.md/ }).click();
     check(await input.inputValue() === '@file:README.md ', 'Canonical file token');
     await input.fill('草稿 A');
+    await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 A');
     await page.locator('#projectSwitch').click();
     await page.getByRole('button', { name: /结构跟踪.*002048/ }).click();
     await page.getByRole('heading', { name: '开始一份研究' }).waitFor();
@@ -45,8 +68,10 @@ async (page) => {
     await input.fill('草稿 B');
     await capture('04-empty-session');
     await page.getByRole('button', { name: /回撤结构研究.*300308/ }).click();
+    try { await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 A'); } catch { throw new Error('Draft A restore failed: ' + JSON.stringify({ actual: await input.inputValue(), title: await page.locator('#sessionTitle').innerText() })); }
     check(await input.inputValue() === '草稿 A', 'Draft A must restore');
     await page.getByRole('button', { name: /结构跟踪.*002048/ }).click();
+    await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 B');
     check(await input.inputValue() === '草稿 B', 'Draft B must restore');
     await input.press('Enter');
     await page.getByRole('button', { name: '停止生成', exact: true }).waitFor();
@@ -86,6 +111,7 @@ async (page) => {
     await page.getByRole('combobox', { name: '数据源', exact: true }).selectOption('demo');
     await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('#overview').waitFor({ state: 'detached' });
     check(await page.locator('#overview').count() === 0, 'Narrow breakpoint closes retained overview');
     await page.waitForFunction(() => { const input = document.querySelector('#input'); return input.scrollHeight <= input.clientHeight + 1; });
     await capture('10-resized-mobile');
@@ -115,6 +141,6 @@ async (page) => {
     check(await page.locator('.operation-feedback:not(.error-feedback)').count() === 0, 'Rejected save must not claim success');
     await capture('14-rejected-preference');
     check(errors.length === 0, errors.join('\n'));
-    return { captures: 15, errors, viewports: ['1440x960', '390x844'], result: 'passed' };
+    return { captures: captures.length, errors, viewports: ['1440x960', '1440x480', '390x480', '390x844'], result: 'passed' };
   } finally { page.off('pageerror', onError); page.off('console', onConsole); }
 }

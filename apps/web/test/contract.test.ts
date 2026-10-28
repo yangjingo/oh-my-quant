@@ -8,6 +8,27 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
 const request = { workspaceId: "demo-workspace", sessionId: "empty", text: "研究回撤结构" };
 
 describe("client lifecycle and presentation isolation", () => {
+  test("accepted submissions refresh the authoritative auto-name and run count without reload", async () => {
+    const client = createDemoClient({ settleAfterMs: 60_000 });
+    let summaries = [...await client.workspaces()];
+    const store = createWorkbenchStore({ ...client, workspaces: async () => summaries, submit: async input => {
+      const run = await client.submit(input);
+      summaries = summaries.map(row => row.sessionId === input.sessionId ? { ...row, name: input.text, runCount: row.runCount + 1 } : row);
+      return run;
+    } });
+    const release = store.connect(); await tick(); await store.select("empty");
+    try {
+      expect(await store.submit("Compare supplied scenarios")).toBe(true);
+      expect(store.getSnapshot().sessions.find(row => row.sessionId === "empty")).toMatchObject({ name: "Compare supplied scenarios", runCount: 1 });
+    } finally { await store.cancel(); release(); }
+  });
+  test("a summary refresh failure does not reject an already accepted question", async () => {
+    const client = createDemoClient({ settleAfterMs: 60_000 });
+    const store = createWorkbenchStore({ ...client, workspaces: async () => { throw new Error("List unavailable"); } });
+    await store.select("empty");
+    try { expect(await store.submit("Accepted only once")).toBe(true); expect((await client.transcript("empty")).filter(turn => turn.role === "user")).toHaveLength(1); }
+    finally { await store.cancel(); }
+  });
   test("detaching never cancels shared work; cancellation is explicit", async () => {
     const client = createDemoClient({ settleAfterMs: 60_000 });
     const events: WorkbenchEvent[] = [];

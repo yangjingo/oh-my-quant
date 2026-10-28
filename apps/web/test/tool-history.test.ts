@@ -30,3 +30,19 @@ test("mixed execution history keeps preparation, failure and unexecuted calls di
   expect(html).toContain("不代表研究结论已完成独立核验");
   expect(html).toContain("data-state=\"failed\""); expect(html).not.toContain("<details class=\"tool-record\" open");
 });
+
+test("every tool state keeps its meaning in live and folded history presentations", () => {
+  const cases = [
+    ["preparing", "准备中"], ["running", "执行中"], ["completed", "已完成"],
+    ["failed", "未成功"], ["cancelled", "已停止"], ["not-run", "未执行"], ["unconfirmed", "待核对"],
+  ] as const;
+  for (const [state, label] of cases) for (const running of [true, false]) {
+    const turn = { id: "a", role: "assistant" as const, state: running ? "running" as const : "settled" as const, text: "", at: "2026-10-27",
+      activity: [{ id: "synthetic-call", name: "registered_tool", title: "受控工具", context: "假设输入", state }] };
+    const html = renderToStaticMarkup(createElement(ToolHistory, { turn }));
+    expect(html).toContain(`data-state="${state}"`); expect(html).toContain(label);
+    expect(html).toContain(running ? 'class="process tool-history live-tools"' : '<details class="process tool-history">');
+    if (state === "completed") expect(html).toContain("不代表研究结论已完成独立核验");
+    if (state === "unconfirmed") expect(html).toContain("不能将此记录视为已成功或已取消");
+  }
+});

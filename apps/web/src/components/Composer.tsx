@@ -63,7 +63,12 @@ export function Composer(props: {
     if (!active) return;
     const result = replaceToken(props.text, active, choice.token, choice.kind === "directory");
     props.onText(result.text); setCaret(result.caret); setDismissed(choice.kind !== "directory");
-    requestAnimationFrame(() => { input.current?.focus(); input.current?.setSelectionRange(result.caret, result.caret); });
+    requestAnimationFrame(() => {
+      const element = input.current;
+      // Completion must not override a newer edit or an explicit selection made before this frame.
+      if (element?.value !== result.text || element.selectionStart !== element.selectionEnd) return;
+      element.focus(); element.setSelectionRange(result.caret, result.caret);
+    });
   };
   const send = async () => {
     if (props.running) { setFeedback("研究仍在进行，草稿已保留。停止请用右侧按钮或 Ctrl + G。"); return; }
@@ -82,7 +87,7 @@ export function Composer(props: {
   return <form id="composer" className="composer" onSubmit={e => { e.preventDefault(); void send(); }}>
     <div className="input-box"><div className="input-tools"><span aria-hidden="true" className="prompt">›</span></div>
       <div className="editor-wrap"><textarea ref={input} id="input" aria-label="研究问题" value={props.text} rows={1}
-        placeholder={props.disabled ? "连接研究服务后开始提问" : "提出研究问题，@ 引用，/ 命令"} spellCheck={false} disabled={props.disabled}
+        placeholder={props.disabled ? "连接研究服务后开始提问" : props.client.mode === "demo" ? "提出研究问题，@ 示例引用，/ 界面操作" : "提出研究问题，/ 界面操作"} spellCheck={false} disabled={props.disabled}
         role="combobox" aria-autocomplete="list" aria-controls="suggestionList" aria-expanded={open} aria-activedescendant={open && choices[index] ? "choice-" + index : undefined}
         onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}
         onChange={e => { props.onText(e.target.value); setCaret(e.target.selectionStart); setDismissed(false); setFeedback(""); }}
@@ -99,7 +104,7 @@ export function Composer(props: {
           if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); }
         }} /></div>
       <div className="composer-actions"><button key={props.running ? "stop" : "send"} id="send" type={props.running ? "button" : "submit"} onClick={props.running ? event => { event.preventDefault(); props.onCancel(); requestAnimationFrame(() => input.current?.focus()); } : undefined} className="icon-button send-button" disabled={props.disabled || props.submitBlocked || pending || (!props.running && !props.text.trim())}
-        aria-label={props.running ? "停止生成" : "发送问题"} title={props.running ? "停止生成 · Ctrl + G" : "发送 · Enter"}><span aria-hidden="true">{props.running ? "■" : "↑"}</span></button></div>
+        aria-label={props.running ? "停止生成" : "发送问题"} title={props.running ? "停止生成 · Ctrl + G" : "发送 · Enter"}><span aria-hidden="true">{props.running ? "■" : "↵"}</span></button></div>
     </div>
     {open && <section id="cmdMenu" className="suggestion-panel" aria-label="输入候选">
       <div className="suggestion-header"><strong>{trigger === "/" ? "命令" : "文件 · 会话 · 证据"}</strong><small>{props.client.mode === "demo" ? "示例工作区" : "当前工作区"}</small></div>
@@ -109,6 +114,6 @@ export function Composer(props: {
       </div><div className="suggestion-footer">↑ ↓ 选择 · Enter / Tab 确认 · Esc 收起</div>
     </section>}
     {feedback && <div role="status" className="composer-feedback">{feedback}</div>}
-    <div className="composer-hint"><span>{props.running ? "可继续写草稿，运行结束后发送" : "Enter 发送 · Shift + Enter 换行"}</span><span>{props.running ? "Ctrl + G 停止" : "研究需要证据，结论需要复核"}</span></div>
+    <div className="composer-hint"><span>{props.running ? "可继续写草稿，运行结束后发送" : "Enter 发送 · Shift + Enter 换行"}</span><span>{props.running ? "Ctrl + G 停止" : ""}</span></div>
   </form>;
 }

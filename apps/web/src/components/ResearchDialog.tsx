@@ -45,7 +45,7 @@ export function ResearchDialog({ page, setPage, snapshot, title, demo, onClose }
           <dl className="evidence-facts"><dt>来源</dt><dd>{item.source ?? "未提供"}</dd><dt>数据日期</dt><dd>{item.asOf ?? "未提供"}</dd></dl>
           <details><summary>证据标识</summary><code>{item.id}</code></details>
         </article>)}
-        {!output.evidence.length && <div className="empty-state"><h3>还没有可查看的证据</h3><p>研究取得证据后会显示在这里。</p></div>}
+        {!output.evidence.length && <div className="empty-state"><h3>{demo ? "还没有可查看的证据" : "当前连接未开放证据读取"}</h3><p>{demo ? "示例目录为空。" : "这不表示研究没有取得证据。当前仅提供对话和摘要，无法在这里读取原始证据。"}</p></div>}
         <p className="notice">当前客户端提供来源摘要，尚未提供原始数据与计算明细。这里不会用摘要替代数值核验。</p>
       </>}
       {page === "report" && <>
@@ -55,7 +55,7 @@ export function ResearchDialog({ page, setPage, snapshot, title, demo, onClose }
           <p className="supporting">{artifact.createdAt}</p><details><summary>文件校验标识 SHA-256</summary><code>{artifact.sha256}</code><button className="text-action" onClick={() => void navigator.clipboard.writeText(artifact.sha256).then(() => setCopied("校验标识已复制。"), () => setCopied("复制未完成，请展开后手动选择标识。"))}>复制校验标识</button></details>
         </article>)}
         {artifacts.length > 1 && <><button className="text-action" aria-expanded={compare} onClick={() => setCompare(!compare)}>对照最近两个版本的标识</button>{compare && <div className="version-comparison"><div className="table-scroll" role="region" aria-label="版本标识对照" tabIndex={0}><table><thead><tr><th>字段</th>{artifacts.slice(0, 2).map(a => <th key={a.id}>v{a.version}</th>)}</tr></thead><tbody><tr><th>记录时间</th>{artifacts.slice(0, 2).map(a => <td key={a.id}>{a.createdAt}</td>)}</tr><tr><th>SHA-256</th>{artifacts.slice(0, 2).map(a => <td key={a.id}><code>{a.sha256}</code></td>)}</tr></tbody></table></div><p className="supporting">这是版本元数据对照。哈希不同不说明市场或结论发生了什么变化；当前尚未提供报告正文对比。</p></div>}</>}
-        {!artifacts.length && <div className="empty-state"><h3>还没有保存的报告版本</h3><p>版本目录由研究服务提供，结束一次对话不会自动生成不可变报告。</p></div>}
+        {!artifacts.length && <div className="empty-state"><h3>{demo ? "还没有保存的报告版本" : "当前连接未开放报告目录"}</h3><p>版本目录由研究服务提供，结束一次对话不会自动生成不可变报告。</p></div>}
         <p className="notice">原始报告读取和重新取证复核尚未接入。当前摘要不能用于恢复完整运行。</p>
       </>}
     </section>
