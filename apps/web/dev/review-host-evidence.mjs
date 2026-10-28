@@ -52,6 +52,16 @@ export async function captureHost({ browser, output, root }) {
     const ended = await page.locator('.agent-status').last().innerText();
     await page.waitForTimeout(1100); if (await page.locator('.agent-status').last().innerText() !== ended) throw new Error('Terminal timer advanced');
     await capture('host-09-result');
+    const table = page.locator('.turn-assistant').last().getByRole('region', { name: '数据表格', exact: true });
+    await table.waitFor();
+    const expectedRows = [['A', '2026-10-23', '0.00', 'CNY', '—', '同一窗口'], ['B', '2026-10-22', '80.00', 'USD', '—', '跨窗口，不直接比较']];
+    const actualRows = await table.locator('tbody tr').evaluateAll(rows => rows.map(row => [...row.querySelectorAll('td')].map(cell => cell.textContent)));
+    if (JSON.stringify(actualRows) !== JSON.stringify(expectedRows)) throw new Error('Research table changed associations, units, dates or missing values');
+    await page.setViewportSize({ width: 390, height: 480 });
+    await table.scrollIntoViewIfNeeded(); await table.focus(); await table.press('ArrowRight');
+    await page.waitForFunction(() => { const el = [...document.querySelectorAll('.table-scroll')].at(-1); return el && document.activeElement === el && el.scrollLeft > 0 && el.scrollWidth > el.clientWidth; });
+    await capture('host-table-narrow-keyboard-scroll');
+    await page.setViewportSize({ width: 1280, height: 720 });
     await submit('Follow up on those supplied scenarios');
     await input.fill('Retained draft'); await input.press('Enter'); await capture('host-10-follow-up-draft');
     await page.getByRole('button', { name: '停止生成', exact: true }).click(); await state('已停止');
