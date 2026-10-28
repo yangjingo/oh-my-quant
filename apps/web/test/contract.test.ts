@@ -57,6 +57,19 @@ describe("client lifecycle and presentation isolation", () => {
     await expect(client.submit(request)).rejects.toThrow("Host 未连接");
     await expect(client.references("sample", "")).rejects.toThrow("Host 未连接");
   });
+  test("preference failures reach the dialog caller rather than resolving as success", async () => {
+    const store = createWorkbenchStore(createDisconnectedClient());
+    await expect(store.preferences({ model: "not-saved", source: "none", portfolio: "" })).rejects.toThrow("Host 未连接");
+    expect(store.getSnapshot().preferences.model).not.toBe("not-saved");
+    expect(store.getSnapshot().error).toContain("Host 未连接");
+  });
+  test("a rejected session rename reports failure to its caller and preserves its name", async () => {
+    const client = createDemoClient();
+    const store = createWorkbenchStore({ ...client, renameSession: async () => { throw new Error("Rename rejected"); } });
+    await store.select("sample");
+    await expect(store.rename("new title")).rejects.toThrow("Rename rejected");
+    expect((await client.workspaces()).find(s => s.sessionId === "sample")?.name).toBe("回撤结构研究");
+  });
   test("reference categories include files, sessions and evidence with explicit identity", async () => {
     const refs = await createDemoClient().references("sample", "");
     expect(new Set(refs.map(r => r.kind))).toEqual(new Set(["file", "directory", "session", "evidence"]));
@@ -111,5 +124,20 @@ describe("client lifecycle and presentation isolation", () => {
     expect(store.getSnapshot().snapshot?.identity.runId).toBe("second");
     expect(store.getSnapshot().snapshot?.state).toBe("running");
     disconnect();
+  });
+  test("a terminal update without its run identity is diagnosed instead of silently accepted", async () => {
+    const client = createDemoClient();
+    let emit!: (event: WorkbenchEvent) => void;
+    const store = createWorkbenchStore({ ...client, subscribe(listener) { emit = listener; return () => {}; } });
+    const release = store.connect();
+    await tick();
+    const identity = { workspaceId: "demo-workspace", sessionId: "sample", runId: "active" };
+    emit({ type: "state", identity, state: "running" });
+    emit({ type: "state", identity: { ...identity, runId: null }, state: "settled" });
+    expect(store.getSnapshot().snapshot?.state).toBe("running");
+    expect(store.getSnapshot().error).toContain("缺少运行标识");
+    emit({ type: "state", identity, state: "settled" });
+    expect(store.getSnapshot().snapshot?.state).toBe("settled");
+    release();
   });
 });
