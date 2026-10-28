@@ -22,6 +22,7 @@ Development binds 127.0.0.1:4176. Normal output is `dist/`; demonstration output
 | --- | --- |
 | `src/main.tsx`, `mount.tsx` | Bootstrap, adapter selection and React mounting |
 | `src/components/` | Header, Sessions, conversation, Overview, Composer, modal/settings and footer |
+| `src/presentation.ts` | Localized state labels, send eligibility and honest snapshot-summary export |
 | `src/state/` | Async snapshot projection and session selection; never owns execution |
 | `src/client/` | Typed UI port and unavailable-Host adapter |
 | `src/features/composer/` | Pure token editing; references are resolved by the client |
@@ -34,5 +35,7 @@ Development binds 127.0.0.1:4176. Normal output is `dist/`; demonstration output
 The package foundation and detach/cancel contract originate in [PR #81](https://github.com/yangjingo/oh-my-quant/pull/81) at `a5ac07d` (Liears). This migration preserves result access while applying #84's terminal layout, and extends events with session/run identity. It does not close #50/#81 or implement #46/#75.
 
 ## Review evidence
+
+During a run, Enter keeps the next draft; the stop button or Ctrl+G cancels the selected run. Model responses support Markdown and GFM tables without raw HTML or automatic remote-image loading. Settings report rejected saves in place. Research results have a separate dialog for conclusions, evidence availability and report-version metadata; export downloads only the visible summary, not the stored report. Raw evidence inspection, report-body comparison and re-research remain Host integration work.
 
 Use `dev/capture.cjs` with Playwright CLI against `web:demo`. It checks desktop/mobile layout, menus, draft retention, switching while running, send/stop and settings; screenshots go to ignored `output/web-react/`. Default disconnected mode must be checked separately. Screenshots are attached to the PR, never committed. Native IME, screen readers and installed Electron acceptance remain target-environment checks.

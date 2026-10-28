@@ -13,6 +13,8 @@
  *    a separate, explicit command.
  * 2. A run is identified by workspace, session and run, not by a component
  *    instance. Switching sessions detaches; it does not end work.
+ *    Terminal state/turn events retain the runId of the run they finish;
+ *    null means no associated run, never "finish whichever run is active".
  */
 
 export type RunState = "idle" | "running" | "settled" | "failed" | "cancelled";
