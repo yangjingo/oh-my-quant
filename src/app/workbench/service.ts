@@ -9,8 +9,10 @@ import type { AgentPhase, Preferences, RunState, SessionSnapshot, SubmitRequest,
 import { WorkbenchError, modelError } from "./errors.ts";
 import { localSettings, publicPreferences, secretValues, updateModel, type SettingsPort } from "./model.ts";
 import { recoverSnapshot } from "./session-recovery.ts";
-import { redactModelText, thinkingText } from "./thinking.ts";
+import { thinkingText } from "./thinking.ts";
 import { toolPresentation } from "./tool-presentation.ts";
+import { redactModelText } from "./redaction.ts";
+import { hasExplicitReference } from "./references.ts";
 
 interface Running {
   id: string; controller: AbortController; promise: Promise<void>; finished: string[];
@@ -239,7 +241,7 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
     },
     async renameSession(id, title) {
       if (typeof title !== "string" || !title.trim() || title.length > 100) throw new WorkbenchError("NAME_INVALID", "请输入不超过 100 字的会话名称。");
-      await ready; const session = get(id); session.name = title.trim(); emit(session); await flush(session); unload(session);
+      await ready; const session = get(id); session.name = redactModelText(title.trim(), secretValues(settings.read())); emit(session); await flush(session); unload(session);
     },
     async references() { throw new WorkbenchError("UNAVAILABLE", "此本地连接暂未开放文件引用，请直接描述研究问题。"); },
     async preferences() { return publicPreferences(settings.read()); },
@@ -251,13 +253,14 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
       if (closed) throw new WorkbenchError("CLOSED", "研究服务已关闭。", 503);
       if (request.workspaceId !== workspaceId) throw new WorkbenchError("WORKSPACE_MISMATCH", "工作区不匹配，请重新连接。", 409);
       if (typeof request.text !== "string" || !request.text.trim() || request.text.length > 16000) throw new WorkbenchError("QUESTION_INVALID", "请输入不超过 16000 字的研究问题。");
+      if (hasExplicitReference(request.text)) throw new WorkbenchError("REFERENCE_UNAVAILABLE", "当前连接尚未开放引用读取，未调用模型，草稿已保留。请直接粘贴所需内容；字面示例可用反引号或反斜杠转义。");
       await ready; const session = get(request.sessionId);
       if (session.active) throw new WorkbenchError("RUN_ACTIVE", "当前会话仍在运行，请等待或显式停止。", 409);
       if (session.recovery?.acknowledgementRequired) throw new WorkbenchError("RECONCILE_REQUIRED", "上次工具结果待核对，请先确认后再提问。", 409);
       const id = randomUUID(), at = new Date().toISOString();
       const run: Running = { id, controller: new AbortController(), promise: Promise.resolve(), finished: [], activity: new Map(), secrets: secretValues(settings.read()), phase: "waiting", thinking: "", finishedThinking: [] };
       session.recovery = undefined; session.runId = id; session.state = "running"; session.active = run; session.runCount++;
-      if (!session.turns!.length && session.name === "新研究") session.name = request.text.trim().slice(0, 32);
+      if (!session.turns!.length && session.name === "新研究") session.name = redact(run, request.text.trim()).slice(0, 32);
       session.turns!.push({ id: id + "-user", role: "user", text: redact(run, request.text.trim()), state: "settled", at }, { id: id + "-assistant", role: "assistant", text: "", state: "running", at, activity: [], phase: "waiting" });
       emit(session);
       const accepted = flush(session);

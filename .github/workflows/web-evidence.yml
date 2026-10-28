@@ -1,0 +1,58 @@
+name: Web review evidence
+on:
+  pull_request:
+    paths: ['apps/web/**', '.github/workflows/web-evidence.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: current
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: current
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha || 'main' }}
+          path: before
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Install isolated browser runtime and locked Web dependencies
+        run: |
+          bun install --frozen-lockfile
+          bun install --cwd apps/web --frozen-lockfile
+          bun install --cwd ../before/apps/web --frozen-lockfile
+          npm install --prefix "$RUNNER_TEMP/whyj-review-browser" --no-save --ignore-scripts --no-audit --no-fund playwright@1.64.1
+          node "$RUNNER_TEMP/whyj-review-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Build explicit demo and disconnected production entry
+        run: |
+          bun run --cwd apps/web build:demo
+          bun run --cwd apps/web build
+          bun run --cwd ../before/apps/web build:demo
+      - name: Capture actual before and after browser states
+        env:
+          WHYJ_BROWSER_RUNTIME: ${{ runner.temp }}/whyj-review-browser
+          WHYJ_REVIEW_BASE_ROOT: ${{ github.workspace }}/before
+          REVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          REVIEW_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: node apps/web/dev/review-evidence.mjs
+      - name: Keep reviewer-accessible visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-review-${{ github.event.pull_request.number || 'manual' }}-${{ github.run_attempt }}
+          path: current/output/web-react
+          retention-days: 30
+          if-no-files-found: error
