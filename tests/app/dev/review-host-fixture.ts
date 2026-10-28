@@ -13,7 +13,7 @@ process.env.OHQUANT_DIR = root; process.env.NO_PROXY = "127.0.0.1,localhost";
 let stage = "idle", advance: (() => void) | undefined, requests = 0, fail = false, sequence = 0;
 const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, async fetch(request) {
   const url = new URL(request.url);
-  if (url.pathname === "/state") return Response.json({ stage, requests });
+  if (url.pathname === "/state") return Response.json({ stage, requests, canAdvance: !!advance });
   if (url.pathname === "/advance" && request.method === "POST") { const next = advance; advance = undefined; next?.(); return Response.json({ stage, requests }); }
   const payload = await request.json() as { model: string; messages: { role: string; content: unknown }[] }; requests++;
   const index = payload.messages.findLastIndex(message => message.role === "user");
@@ -37,7 +37,7 @@ const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, a
           send({ tool_calls: [{ index: 0, function: { arguments: args.slice(1) } }] }); end("tool_calls"); };
       };
     };
-  }, cancel() { clearInterval(heartbeat); stage = "idle"; advance = undefined; } }), { headers: { "Content-Type": "text/event-stream" } });
+  }, cancel() { clearInterval(heartbeat); if (callId === "review-call-" + sequence) { stage = "idle"; advance = undefined; } } }), { headers: { "Content-Type": "text/event-stream" } });
 } });
 const settings = structuredClone(DEFAULT_SETTINGS); settings.provider = "custom"; settings.model = "review-fixture"; settings.thinkingLevel = "off";
 settings.providers = { custom: { api: "openai-completions", baseUrl: provider.url.origin + "/v1", apiKey: "review-fixture-dummy-not-a-secret" } }; saveSettings(settings);
