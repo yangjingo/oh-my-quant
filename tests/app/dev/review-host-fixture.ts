@@ -47,7 +47,7 @@ const service = createWorkbenchService({ cwd: root, overview: {
     const round = marketRound;
     if (round) await Bun.sleep(1500);
     return entries.map((entry, index) => ({ ...entry, price: round === 1 && index === 0 ? NaN : 100 + index, pct: index % 2 ? -1 : 1,
-      observation: { symbol: entry.code, source: "akshare", sourceLabel: "Synthetic review fixture", asOfDate: "2026-10-23", fetchedAt: "2026-10-24T00:00:00Z", state: "available", fallback: false } }));
+      observation: { symbol: entry.code, source: "akshare", sourceLabel: "Synthetic review fixture", asOfDate: "2026-10-23", asOfTime: "15:00:03", basis: "snapshot", fetchedAt: "2026-10-24T00:00:00Z", state: "available", fallback: false } }));
   },
 }, dependencies: () => {
   const deps = createDefaultSessionDependencies({ cwd: root });

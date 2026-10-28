@@ -27,6 +27,9 @@ test("overview distinguishes refresh time, trading date, stale values and retry"
   expect(isMarketSnapshot({ ...market, status: "fake" })).toBe(false);
   expect(isMarketSnapshot({ ...market, colorScheme: "fake" })).toBe(false);
   expect(renderToStaticMarkup(<Overview snapshot={{ ...market, colorScheme: "green-up" }} portfolio="" demo={false} onClose={() => {}} />)).toContain('data-market-colors="green-up"');
+  const snapshotHtml = renderToStaticMarkup(<Overview snapshot={{ ...market, quotes: [{ ...market.quotes[0]!, basis: "snapshot", asOfTime: "15:00:03" }] }} portfolio="" demo={false} onClose={() => {}} />);
+  expect(snapshotHtml).toContain("相对前收涨跌"); expect(snapshotHtml).toContain("15:00:03");
+  expect(html).toContain("相邻日线涨跌，非当日快照");
   expect(isMarketSnapshot({ ...market, quotes: [{ ...market.quotes[0], value: Infinity }] })).toBe(false);
 });
 test("workspace market events update ended sessions and reject foreign workspaces and late RPC", async () => {

@@ -3,7 +3,18 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWorkbenchService } from "../service.ts";
-import { createMarketOverview } from "../market.ts";
+import { createMarketOverview, fetchMarketIndexQuotes } from "../market.ts";
+
+test("index overview uses dated snapshot and previous close rather than historical daily change", async () => {
+  const original = globalThis.fetch, fields = Array<string>(34).fill("");
+  fields[0] = "SSE"; fields[1] = "100"; fields[2] = "100"; fields[3] = "110"; fields[30] = "2026-10-28"; fields[31] = "15:00:03";
+  globalThis.fetch = (async () => new Response(`var hq_str_sh000001="${fields.join(",")}";`)) as unknown as typeof fetch;
+  try {
+    const rows = await fetchMarketIndexQuotes([{ code: "000001.SH", name: "上证指数" }], { sources: [], asOfDates: [] });
+    expect(rows[0]!.price).toBe(110); expect(rows[0]!.pct).toBeCloseTo(10, 10);
+    expect(rows[0]!.observation).toMatchObject({ asOfDate: "2026-10-28", asOfTime: "15:00:03", basis: "snapshot", sourceLabel: "新浪指数快照" });
+  } finally { globalThis.fetch = original; }
+});
 
 test("failed refresh keeps dated cache and retry requests only failed rows", async () => {
   let round = 0; const batches: string[][] = [];

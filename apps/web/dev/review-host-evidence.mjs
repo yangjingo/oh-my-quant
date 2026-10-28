@@ -27,6 +27,8 @@ export async function captureHost({ browser, output, root }) {
     await page.goto(fixture.origin); const input = page.getByRole('combobox', { name: '研究问题', exact: true }); await input.waitFor();
     await page.getByRole('button', { name: '刷新行情', exact: true }).waitFor();
     await page.locator('#overview [role="status"]').filter({ hasText: '5/5 可用' }).waitFor();
+    await page.locator('#overview').getByText(/相对前收涨跌/).first().waitFor();
+    await page.locator('#overview').getByText(/15:00:03/).first().waitFor();
     await capture('host-market-01-dated-values');
     await fetch(fixture.control + '/market', { method: 'POST' });
     await page.getByRole('button', { name: '刷新行情', exact: true }).click();

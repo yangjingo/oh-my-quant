@@ -70,14 +70,14 @@ export function Overview({ snapshot, portfolio, demo, error, onRefresh, onClose 
   const freshness = { available: "", "outside-window": "最近可用，超出请求窗口", unavailable: "无数据", refreshing: "刷新中 · 旧值", stale: "刷新失败 · 旧值" };
   const group = (title: string, items: typeof rows) => <section className="quote-group"><h3>{title} <small>{items.length}</small></h3>{items.map(q => <div className="quote-item" key={q.code}>
     <div className="quote-row"><small>{q.code}</small><span>{q.name}</span><strong className={q.change === null ? "" : q.change > 0 ? "up" : q.change < 0 ? "down" : ""}>{q.change === null ? "—" : (q.change > 0 ? "+" : "") + q.change.toFixed(2) + "%"}</strong></div>
-    {!demo && <p className="quote-meta">日线值 {q.value === null ? "—" : q.value.toFixed(2)} · 数据日期 {q.asOfDate ?? "未提供"}<br />{q.provider ?? "暂无来源"}{q.freshness && freshness[q.freshness] ? " · " + freshness[q.freshness] : ""}</p>}
+    {!demo && <p className="quote-meta">{q.basis === "snapshot" ? "指数快照" : "历史日线"} {q.value === null ? "—" : q.value.toFixed(2)} · {q.basis === "snapshot" ? "相对前收涨跌" : "相邻日线涨跌，非当日快照"}<br />数据日期 {q.asOfDate ?? "未提供"}{q.asOfTime ? " " + q.asOfTime : ""} · {q.provider ?? "暂无来源"}{q.freshness && freshness[q.freshness] ? " · " + freshness[q.freshness] : ""}</p>}
   </div>)}</section>;
   return <aside id="overview" className="overview" data-market-colors={snapshot?.colorScheme ?? "red-up"} aria-label="行情概览" tabIndex={0}><div className="section-label"><strong>行情概览</strong><IconButton name="x" label="收起概览" onClick={onClose} /></div>
     <div className="refresh"><span>刷新：{snapshot?.refreshedAt || "尚未刷新"}</span><small>{demo ? "合成示例" : snapshot?.source.provider ?? "等待数据源返回"}</small>
       {!demo && <span role="status">{error ?? states[snapshot?.status ?? "idle"]}{snapshot ? ` · ${snapshot.source.available}/${snapshot.source.total} 可用` : ""}</span>}
       {onRefresh && <div className="overview-actions"><button className="text-action" disabled={busy} onClick={() => onRefresh(false)}>刷新行情</button>{snapshot?.retryable && <button className="text-action" disabled={busy} onClick={() => onRefresh(true)}>重试失败项</button>}</div>}
     </div>
-    <p className="quote-note">{demo ? "刷新时间不等于交易日期；概览不替代研究证据。" : "日线概览，非实时行情；当日值可能尚未收盘。刷新时间不等于交易日期；概览不替代研究证据。"}</p>
+    <p className="quote-note">{demo ? "刷新时间不等于交易日期；概览不替代研究证据。" : "指数快照按源时间展示，相对前收计算涨跌；可能延迟，非实时行情保证。历史日线回退单独标记。刷新时间不等于数据时间；概览不替代研究证据。"}</p>
     {!rows.length ? <p className="empty-state">{busy ? "正在获取行情…" : error ? "行情暂不可用，请重试" : "尚无行情数据"}</p> : <>{watch.length > 0 && <details open><summary className="watch-heading">{portfolio || "已保存观察组"}</summary>{group("关注标的", watch)}</details>}{group("市场指数", market)}</>}
   </aside>;
 }

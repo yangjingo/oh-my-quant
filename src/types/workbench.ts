@@ -62,6 +62,8 @@ export interface ToolActivity {
 }
 
 export interface MarketQuote {
+  readonly basis?: "snapshot" | "daily";
+  readonly asOfTime?: string;
   readonly group?: "watchlist" | "market";
   readonly code: string;
   readonly name: string;
@@ -214,6 +216,7 @@ export function isMarketSnapshot(value: unknown): value is MarketSnapshot {
     && (value.retryable === undefined || typeof value.retryable === "boolean")
     && (value.colorScheme === undefined || value.colorScheme === "red-up" || value.colorScheme === "green-up")
     && value.quotes.every(q => object(q) && typeof q.code === "string" && typeof q.name === "string"
+      && (q.basis === undefined || q.basis === "snapshot" || q.basis === "daily") && (q.asOfTime === undefined || typeof q.asOfTime === "string")
       && [q.value, q.change].every(v => v === null || typeof v === "number" && Number.isFinite(v))
       && (q.asOfDate === undefined || nullable(q.asOfDate)) && (q.provider === undefined || typeof q.provider === "string")
       && (q.group === undefined || q.group === "market" || q.group === "watchlist")
