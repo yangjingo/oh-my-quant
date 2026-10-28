@@ -45,8 +45,10 @@ async (page) => {
     await input.fill('草稿 B');
     await capture('04-empty-session');
     await page.getByRole('button', { name: /回撤结构研究.*300308/ }).click();
+    await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 A');
     check(await input.inputValue() === '草稿 A', 'Draft A must restore');
     await page.getByRole('button', { name: /结构跟踪.*002048/ }).click();
+    await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 B');
     check(await input.inputValue() === '草稿 B', 'Draft B must restore');
     await input.press('Enter');
     await page.getByRole('button', { name: '停止生成', exact: true }).waitFor();
@@ -86,6 +88,7 @@ async (page) => {
     await page.getByRole('combobox', { name: '数据源', exact: true }).selectOption('demo');
     await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('#overview').waitFor({ state: 'detached' });
     check(await page.locator('#overview').count() === 0, 'Narrow breakpoint closes retained overview');
     await page.waitForFunction(() => { const input = document.querySelector('#input'); return input.scrollHeight <= input.clientHeight + 1; });
     await capture('10-resized-mobile');
