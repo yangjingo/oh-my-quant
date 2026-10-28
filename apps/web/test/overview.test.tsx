@@ -8,6 +8,19 @@ import { isMarketSnapshot, type MarketSnapshot, type WorkbenchEvent } from "../s
 const market: MarketSnapshot = { refreshedAt: "2026-10-24 12:00", status: "timeout", retryable: true,
   source: { provider: "AKShare", updatedAt: null, available: 0, total: 1 },
   quotes: [{ code: "000001.SH", name: "上证指数", value: 100, change: 1, asOfDate: "2026-10-23", provider: "AKShare", freshness: "stale" }] };
+test("accepted source changes replace the independent market view without forcing a provider refresh", async () => {
+  const base = createDemoClient(); let refreshes = 0;
+  const store = createWorkbenchStore({ ...base, refreshMarket: async () => { refreshes++; return base.market(); } });
+  const release = store.connect(); await Bun.sleep(15);
+  try {
+    expect(store.getSnapshot().market!.quotes.length).toBeGreaterThan(0);
+    await store.preferences({ ...store.getSnapshot().preferences!, source: "akshare" });
+    expect(store.getSnapshot().market!.quotes).toHaveLength(0);
+    expect(refreshes).toBe(0);
+    await store.preferences({ ...store.getSnapshot().preferences!, source: "demo" });
+    expect(store.getSnapshot().market!.quotes.length).toBeGreaterThan(0);
+  } finally { release(); }
+});
 test("overview distinguishes refresh time, trading date, stale values and retry", () => {
   const html = renderToStaticMarkup(<Overview snapshot={market} portfolio="" demo={false} onRefresh={() => {}} onClose={() => {}} />);
   for (const text of ["2026-10-24 12:00", "2026-10-23", "旧值", "刷新超时", "重试失败项", "非实时行情", "AKShare"]) expect(html).toContain(text);
