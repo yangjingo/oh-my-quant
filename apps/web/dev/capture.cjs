@@ -24,7 +24,7 @@ async (page) => {
       await overview.focus(); await overview.press('End');
       await page.locator('#overview .quote-row').last().scrollIntoViewIfNeeded();
       await page.waitForFunction(() => {
-        const panel = document.querySelector('#overview'), last = panel?.querySelector('.quote-group:last-child .quote-row:last-child');
+        const panel = document.querySelector('#overview'), last = panel ? [...panel.querySelectorAll('.quote-row')].at(-1) : null;
         if (!panel || !last) return false;
         const outer = panel.getBoundingClientRect(), row = last.getBoundingClientRect();
         return document.activeElement === panel && row.top >= outer.top && row.bottom <= outer.bottom - 8;
