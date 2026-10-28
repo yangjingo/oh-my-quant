@@ -45,7 +45,7 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
   };
   const select = async (id: string) => {
     const ticket = ++generation;
-    publish({ selected: id, snapshot: null, phase: "loading", error: null, draft: draft(id) });
+    publish({ phase: view.snapshot ? "ready" : "loading", error: null });
     try {
       // A subscription event during the read invalidates that response.
       let snapshot: SessionSnapshot;
@@ -55,10 +55,14 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
         snapshot = await client.session(id);
         if (ticket !== generation) return;
       } while (revision !== eventRevision);
-      publish({ snapshot, phase: "ready" });
+      publish({ selected: id, snapshot, draft: draft(id), phase: "ready" });
       persistence(() => storage?.setItem(selectionKey(workspace), id));
     } catch (error) {
-      if (ticket === generation) { report(error); publish({ phase: "error" }); }
+      if (ticket === generation) {
+        const target = view.sessions.find(session => session.sessionId === id)?.name ?? id;
+        report(new Error(`切换会话“${target}”失败：${error instanceof Error ? error.message : String(error)}`));
+        publish({ phase: view.snapshot ? "ready" : "error" });
+      }
     }
   };
   const load = async () => {
@@ -164,10 +168,15 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
           if (!client.followup || !snapshot.identity.runId) throw new Error("当前服务不能接收澄清回答，请重新连接。");
           await client.followup({ ...request, previousRunId: snapshot.identity.runId });
         } else await client.submit(request);
-        if (id && drafts.get(draftKey(scope, id)) === text) saveDraft(scope, id, "");
+        if (id && drafts.get(draftKey(scope, id)) === text) {
+          const key = draftKey(scope, id); drafts.set(key, "");
+          persistence(() => { if (storage?.getItem(key) === text) storage.removeItem(key); });
+          if (scope === workspace && view.selected === id) publish({ draft: "" });
+        }
         if (view.selected === id) await select(snapshot.identity.sessionId);
         // Submission is already accepted: a metadata refresh failure cannot turn it into a retry.
-        try { const sessions = await client.workspaces(); if (workspace === scope) publish({ sessions }); } catch { /* Reconnect refreshes metadata. */ }
+        const summaryTicket = generation;
+        try { const sessions = await client.workspaces(); if (workspace === scope && generation === summaryTicket) publish({ sessions }); } catch { /* Reconnect refreshes metadata. */ }
         return true;
       } catch (error) { if (view.selected === id) report(error); return false; }
     },

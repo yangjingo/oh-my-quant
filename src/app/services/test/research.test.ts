@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { appendFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
@@ -17,11 +17,13 @@ let service: ReturnType<typeof createWorkbenchService> | undefined;
 let mode: "answer" | "tool" | "hold" | "empty" | "thinking" | "preparing" | "bad-tool" | "hold-thinking" | "pure-failure", requests: Record<string, unknown>[], toolSent: boolean;
 let reached: (() => void) | undefined;
 let releasePreparation: (() => void) | undefined;
+let historySeed: Promise<void> | undefined;
+let reply: string | undefined;
 let scriptedCalls: Array<(payload: Record<string, unknown>) => Array<{ name: string; args: unknown }>>;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "whyj-workbench-")); previous = process.env.OHQUANT_DIR; proxy = process.env.NO_PROXY;
   process.env.OHQUANT_DIR = root; process.env.NO_PROXY = "127.0.0.1,localhost";
-  mode = "answer"; requests = []; toolSent = false; reached = undefined; releasePreparation = undefined; scriptedCalls = [];
+  mode = "answer"; requests = []; toolSent = false; reached = undefined; releasePreparation = undefined; scriptedCalls = []; reply = undefined;
   model = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
     const payload = await request.json() as Record<string, unknown>; requests.push(payload); reached?.();
     if (mode === "pure-failure" && toolSent) return Response.json({ error: { message: "Controlled model refusal after a pure calculation error", type: "invalid_request_error" } }, { status: 400 });
@@ -32,7 +34,7 @@ beforeEach(() => {
     const args = JSON.stringify({ shares: mode === "bad-tool" || mode === "pure-failure" ? KEY : 100, costPerShare: 10, observedClose: 12, observationDate: "2026-10-23", currency: "CNY", changes: [-0.1, 0, 0.1] });
     const delta = scripted ? { role: "assistant", tool_calls: scripted.map((item, index) => ({ index, id: `service-step-${requests.length}-${index}`, type: "function", function: { name: item.name, arguments: JSON.stringify(item.args) } })) }
       : call ? { role: "assistant", tool_calls: [{ index: 0, id: "core-tool-101", type: "function", function: { name: "calculate_position_scenarios", arguments: args } }] }
-      : mode === "empty" ? { role: "assistant", content: "" } : { role: "assistant", content: `这是同一核心会话的回答，仅作假设计算。${KEY}` };
+      : mode === "empty" ? { role: "assistant", content: "" } : { role: "assistant", content: reply ?? `这是同一核心会话的回答，仅作假设计算。${KEY}` };
     const chunk = { id: "fixture", object: "chat.completion.chunk", created: 0, model: String(payload.model) };
     const encode = (delta: unknown, finish_reason: string | null = null) => new TextEncoder().encode("data: " + JSON.stringify({ ...chunk, choices: [{ index: 0, delta, finish_reason }] }) + "\n\n");
     if (mode === "preparing" && call) return new Response(new ReadableStream({ start(controller) {
@@ -52,6 +54,7 @@ beforeEach(() => {
   mkdirSync(join(root, "assets")); writeFileSync(join(root, "assets", "index.html"), "<html><head></head><body>Workbench fixture</body></html>");
 });
 afterEach(async () => {
+  await historySeed?.catch(() => {}); historySeed = undefined;
   await host?.close(); await service?.close(); model.stop(true); host = undefined; service = undefined;
   if (previous === undefined) delete process.env.OHQUANT_DIR; else process.env.OHQUANT_DIR = previous;
   if (proxy === undefined) delete process.env.NO_PROXY; else process.env.NO_PROXY = proxy;
@@ -78,6 +81,31 @@ async function preparing(client: WorkbenchClient, id: string) {
   }
   throw new Error("Expected a preparing tool before dispatch");
 }
+test("public automatic and explicit titles redact configured credentials before truncation", async () => {
+  const long = KEY + "-long-credential-suffix-123456";
+  const settings = readSettings(); settings.providers!.custom!.apiKey = long; saveSettings(settings);
+  const { client, identity, submit } = await setup(); await submit(long + " title"); await terminal(client, identity.sessionId);
+  expect(JSON.stringify(await client.workspaces())).not.toContain(long.slice(0, 32));
+  expect((await client.workspaces())[0]!.name).toContain("[REDACTED]");
+  await client.renameSession({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, title: long + " renamed", expectedRevision: (await client.session(identity.sessionId)).revision! });
+  expect(JSON.stringify(await client.workspaces())).not.toContain(long);
+  expect(JSON.stringify(createWorkbenchSessionStore().load(identity.workspaceId, identity.sessionId).record)).not.toContain(long);
+});
+test("supported data-source credentials are redacted in actual-core public answers", async () => {
+  const settings = readSettings(); const tokens = ["dummy-tushare-review-value", "dummy-financial-review-value"];
+  settings.env = { ...settings.env, WHYJ_QUANT_TUSHARE_TOKEN: tokens[0]!, WHYJ_QUANT_FINANCIAL_DATASETS_KEY: tokens[1]! }; saveSettings(settings);
+  reply = "Visible " + tokens.join(" / "); const { client, identity, submit } = await setup();
+  await submit("Report synthetic fixture text"); const snapshot = await terminal(client, identity.sessionId);
+  for (const token of tokens) expect(JSON.stringify(snapshot)).not.toContain(token);
+  expect(snapshot.turns[1]?.text).toContain("Visible");
+});
+test("unavailable explicit references are rejected before a provider call but literal text is allowed", async () => {
+  const { client, identity, submit } = await setup();
+  await expect(submit("Summarize @file:evidence.md")).rejects.toThrow("引用"); expect(requests).toHaveLength(0);
+  expect((await client.session(identity.sessionId)).turns).toHaveLength(0);
+  await submit("Email user@example.com; literal `@file:example.md` and \\@file:escaped.md");
+  await terminal(client, identity.sessionId); expect(requests.length).toBeGreaterThan(0);
+});
 test("the default entry resolves built assets under the repository apps directory", () => {
   expect(WORKBENCH_ASSETS_ROOT).toBe(resolve(import.meta.dir, "../../../..", "apps/web/dist"));
 });
@@ -918,14 +946,22 @@ test("an unsaved tool intent never dispatches the tool", async () => {
 });
 
 
-test("large stored histories stay lazy in lists and startup SSE, then release their Agent after each turn", async () => {
-  const store = createWorkbenchSessionStore();
-  service = createWorkbenchService({ cwd: root }); const identity = await service.client.identity(); await service.close();
+describe("large-history fixture lifecycle", () => {
+  let store: ReturnType<typeof createWorkbenchSessionStore>;
+  let identity: Awaited<ReturnType<WorkbenchClient["identity"]>>;
+  beforeEach(async () => {
+    historySeed = (async () => {
+  store = createWorkbenchSessionStore();
+  service = createWorkbenchService({ cwd: root }); identity = await service.client.identity(); await service.close();
   const template = store.load(identity.workspaceId, identity.sessionId).record;
   for (let i = 0; i < 30; i++) {
     const id = randomUUID(); await store.save({ ...template, sessionId: id, name: "历史 " + i,
       snapshot: { ...template.snapshot, identity: { ...template.snapshot.identity, sessionId: id }, turns: [{ id: "history", role: "assistant", state: "settled", text: "payload".repeat(10000), at: template.updatedAt }] } }, null);
   }
+    })();
+    await historySeed;
+  }, 120_000);
+  test("large stored histories stay lazy in lists and startup SSE, then release their Agent after each turn", async () => {
   let loads = 0, agents = 0, cleanups = 0;
   service = createWorkbenchService({ cwd: root, store: { ...store, load: (workspace, id) => { loads++; return store.load(workspace, id); } }, dependencies: () => {
     agents++; const deps = createDefaultSessionDependencies({ cwd: root }), cleanup = deps.env.cleanup.bind(deps.env);
@@ -945,6 +981,7 @@ test("large stored histories stay lazy in lists and startup SSE, then release th
   for (let i = 0; i < 2; i++) { await service.client.submit(await requestFor(service.client, identity, "资源释放检查 " + i)); await terminal(service.client, identity.sessionId); }
   expect(agents).toBe(2); expect(cleanups).toBe(2);
   expect(readdirSync(join(root, "sessions"), { recursive: true }).filter(name => String(name).endsWith(".jsonl"))).toHaveLength(1);
+});
 });
 
 

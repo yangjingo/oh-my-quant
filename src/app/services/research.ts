@@ -9,6 +9,8 @@ import { WorkbenchError, modelError } from "../workbench/errors.ts";
 import { localSettings, publicPreferences, secretValues, updateModel, type SettingsPort } from "../workbench/model.ts";
 import { recoverSnapshot } from "../workbench/session-recovery.ts";
 import { toolPresentation } from "../workbench/tool-presentation.ts";
+import { redactModelText } from "../workbench/redaction.ts";
+import { hasExplicitReference } from "../workbench/references.ts";
 import { artifactRequest, deleteSessionRequest, nextRunRequest, preferencesRequest, renameSessionRequest, requestString, reviewRequest, runIdentity, runRevisionRequest, saveRequest, submitRequest } from "./requests.ts";
 import { researchWorkspaceId } from "./workspace.ts";
 import { forkResearchReport, reloadResearchReport, saveResearchReport } from "./artifacts.ts";
@@ -37,7 +39,7 @@ const textOf = (message: unknown): string => {
 /** Owns live runs/observers; the existing Quant/Pi session still owns tools, context and its journal. */
 export function createResearchService(options: { cwd?: string; workspaceId?: string; settings?: SettingsPort; dependencies?: () => QuantAgentDependencies; store?: ReturnType<typeof createWorkbenchSessionStore> } = {}) {
   const cwd = options.cwd ?? process.cwd(), settings = options.settings ?? localSettings;
-  const clean = (text: string) => secretValues(settings.read()).reduce((value, secret) => value.split(secret).join("[REDACTED]"), text);
+  const clean = (text: string) => redactModelText(text, secretValues(settings.read()));
   const workspaceId = options.workspaceId ?? researchWorkspaceId();
   const sessions = new Map<string, Session>();
   const operations = new Map<string, Promise<unknown>>();
@@ -123,12 +125,12 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
     session.timer ??= setTimeout(() => { void flush(session).catch(() => {}); }, 200);
     publish(session);
   };
-  const redact = (run: Running, text: string) => run.secrets.reduce((value, secret) => value.split(secret).join("[REDACTED]"), text);
+  const redact = (run: Running, text: string) => redactModelText(text, run.secrets);
   const assistant = (session: Session, run: Running, text?: string) => {
     const activity = [...run.activity.values()].map(({ started: _, ...item }) => ({ ...item, name: redact(run, item.name),
       ...(item.context ? { context: redact(run, item.context) } : {}) }));
     const old = session.turns!.find(turn => turn.id === run.id + "-assistant");
-    const visible = text === undefined ? old?.text ?? "" : redact(run, text);
+    const visible = text === undefined ? old?.text ?? "" : redactModelText(text, run.secrets, session.state === "running");
     if (old?.text === visible && old.state === session.state && old.phase === run.phase && JSON.stringify(old.activity) === JSON.stringify(activity)) return;
     session.turns = session.turns!.map(turn => turn.id === run.id + "-assistant" ? { ...turn, text: visible, activity, phase: run.phase, state: session.state,
       ...(session.state === "running" ? {} : { endedAt: new Date().toISOString() }) } : turn);
@@ -264,6 +266,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
       : operation === "followup" ? nextRunRequest(value, "followup")
       : { ...nextRunRequest(value, "continue"), text: "继续未完成的研究。先核对已有结果和证据日期，不自动重放已完成的工具或更新既有证据。" };
     if (request.workspaceId !== workspaceId) throw new WorkbenchError("WORKSPACE_MISMATCH", "工作区不匹配，请重新连接。", 409);
+    if (hasExplicitReference(request.text)) throw new WorkbenchError("REFERENCE_UNAVAILABLE", "当前连接尚未开放引用读取，未调用模型，草稿已保留。请直接粘贴所需内容；字面示例可用反引号或反斜杠转义。");
     await ready;
     assertOpen();
     const fingerprint = createHash("sha256").update(JSON.stringify({ operation, ...request })).digest("hex");
@@ -369,6 +372,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
     },
     async review(value) {
       assertOpen(); const input = reviewRequest(value);
+      if (hasExplicitReference(input.text)) throw new WorkbenchError("REFERENCE_UNAVAILABLE", "当前连接尚未开放引用读取，未调用模型，草稿已保留。请直接粘贴所需内容；字面示例可用反引号或反斜杠转义。");
       if (input.workspaceId !== workspaceId) throw new WorkbenchError("WORKSPACE_MISMATCH", "工作区不匹配。", 409);
       await ready; assertOpen();
       const fingerprint = createHash("sha256").update(JSON.stringify({ operation: "review", ...input })).digest("hex");

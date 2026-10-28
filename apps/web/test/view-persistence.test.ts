@@ -85,3 +85,27 @@ test("renaming refreshes the session revision before the next submission", async
   const store = createWorkbenchStore(client); await store.load(); await store.rename("新名称");
   expect(store.getSnapshot().snapshot?.revision).toBe(3); expect(await store.submit("重命名后继续" )).toBe(true);
 });
+
+test("a successful older tab submit preserves another tab's newer stored draft", async () => {
+  const base = createDemoClient(), storage = memory();
+  const client = { ...base, submit: async () => ({ sessionId: "sample", runId: "r" }) };
+  const a = createWorkbenchStore(client, storage), b = createWorkbenchStore(client, storage);
+  await a.load(); await b.load(); a.setDraft("A old"); b.setDraft("B newer");
+  await a.submit("A old"); const reload = createWorkbenchStore(client, storage); await reload.load();
+  expect(reload.getSnapshot().draft).toBe("B newer"); expect(b.getSnapshot().draft).toBe("B newer");
+});
+test("failed target selection preserves the current conversation and draft", async () => {
+  const base = createDemoClient();
+  const store = createWorkbenchStore({ ...base, session: async id => { if (id === "empty") throw new Error("damaged target"); return base.session(id); } }, memory());
+  await store.load(); store.setDraft("Keep current work"); const before = store.getSnapshot();
+  await store.select("empty"); expect(store.getSnapshot()).toMatchObject({ selected: before.selected, snapshot: before.snapshot, draft: "Keep current work", phase: "ready" });
+  expect(store.getSnapshot().error).toContain("damaged target");
+});
+
+test("a late failed selection cannot replace a newer selected conversation or draft", async () => {
+  const base = createDemoClient(); let reject!: (error: Error) => void;
+  const store = createWorkbenchStore({ ...base, session: id => id === "empty" ? new Promise((_done, fail) => { reject = fail; }) : base.session(id) }, memory());
+  await store.load(); const pending = store.select("empty"); const next = await base.createSession();
+  await store.select(next.sessionId); store.setDraft("new selection draft"); reject(new Error("late damaged target")); await pending;
+  expect(store.getSnapshot()).toMatchObject({ selected: next.sessionId, draft: "new selection draft", error: null, phase: "ready" });
+});
