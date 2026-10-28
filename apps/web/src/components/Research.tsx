@@ -55,7 +55,7 @@ export function Transcript({ snapshot, positions, onEvidence, onReport, onSugges
       {turn.role === "user" ? <div className="question"><span className="prompt">›</span><p>{turn.text}</p></div> : <>
         {turn.state !== "settled" && <RunStatus turn={turn} />}
         <Thinking turn={turn} />
-        <ToolHistory turn={turn} />
+        <ToolHistory turn={turn} onEvidence={onEvidence} />
         <span className="assistant-label">WhyJ</span><div className="answer markdown-body">{turn.text ? <Suspense fallback={<p className="plain-answer">{turn.text}</p>}><AnswerMarkdown text={turn.text} /></Suspense> : <p className="waiting-message">{turn.state === "running" ? "Agent 正在处理，你可以继续写下一条草稿。" : "本轮未返回文字内容。"}</p>}</div>
       </>}
       <div className="turn-meta"><span><time dateTime={turn.at} title={turn.at}>{displayMessageTime(turn.at)}</time>{turn.role === "assistant" && turn.state === "settled" && elapsedLabel(turn, 0) && <span> · 用时 {elapsedLabel(turn, 0)}</span>}</span><button onClick={() => void copy(turn.text)}>复制{turn.role === "user" ? "问题" : "回答"}</button></div>

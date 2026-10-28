@@ -98,3 +98,11 @@ test("optional thinking survives snapshot validation while malformed thinking is
   expect(isWorkbenchSnapshot({ ...old, turns })).toBe(true);
   expect(isWorkbenchSnapshot({ ...old, turns: turns.map(turn => ({ ...turn, thinking: { signature: "opaque" } })) })).toBe(false);
 });
+
+test("tool result contract accepts legacy records and rejects malformed or oversized output", async () => {
+  const old = { ...await createDemoClient().session("sample"), revision: 1 };
+  const result = { text: "price: 0 CNY", truncated: false, omittedBlocks: 0, capturedAt: "2026-10-28T01:00:00Z" };
+  const withResult = (value: unknown) => ({ ...old, turns: old.turns.map(turn => ({ ...turn, activity: [{ id: "call", name: "fetch_snapshot", state: "completed", result: value }] })) });
+  expect(isWorkbenchSnapshot(old)).toBe(true); expect(isWorkbenchSnapshot(withResult(result))).toBe(true);
+  for (const invalid of [{ ...result, text: "x".repeat(16_001) }, { ...result, capturedAt: "invalid" }, { ...result, omittedBlocks: -1 }, { ...result, truncated: "false" }]) expect(isWorkbenchSnapshot(withResult(invalid))).toBe(false);
+});

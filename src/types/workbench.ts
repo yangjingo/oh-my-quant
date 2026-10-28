@@ -53,6 +53,8 @@ export interface Turn {
 }
 
 export interface ToolActivity {
+  /** Redacted model-visible tool text, not independently verified evidence. */
+  readonly result?: { readonly text: string; readonly truncated: boolean; readonly omittedBlocks: number; readonly capturedAt: string };
   readonly id: string;
   readonly name: string;
   readonly title?: string;
@@ -238,6 +240,9 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
     && (turn.phase === undefined || ["waiting", "thinking", "preparing", "tool", "answering"].includes(String(turn.phase)))
     && (turn.endedAt === undefined || string(turn.endedAt) && Number.isFinite(Date.parse(turn.endedAt))) && (turn.activity === undefined || (Array.isArray(turn.activity)
       && turn.activity.every(item => object(item) && string(item.id) && string(item.name)
+        && (item.result === undefined || object(item.result) && string(item.result.text) && item.result.text.length <= 16_000
+          && typeof item.result.truncated === "boolean" && Number.isSafeInteger(item.result.omittedBlocks) && Number(item.result.omittedBlocks) >= 0
+          && string(item.result.capturedAt) && Number.isFinite(Date.parse(item.result.capturedAt)))
         && (item.title === undefined || string(item.title) && item.title.length <= 100) && (item.context === undefined || string(item.context) && item.context.length <= 160)
         && ["preparing", "running", "completed", "failed", "cancelled", "not-run", "unconfirmed"].includes(String(item.state))
         && (item.elapsedMs === undefined || typeof item.elapsedMs === "number" && Number.isFinite(item.elapsedMs) && item.elapsedMs >= 0)))))) return false;

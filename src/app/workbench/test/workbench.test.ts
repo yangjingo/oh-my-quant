@@ -187,6 +187,15 @@ test("one actual tool call moves from preparation through execution to a readabl
   releasePreparation!(); const done = await terminal(client, identity.sessionId); detach();
   expect(states).toContain("running"); expect(done.turns[1]?.activity).toHaveLength(1);
   expect(done.turns[1]?.activity?.[0]).toMatchObject({ id: "core-tool-101", title: "计算持仓情景", context: "100 股 · 3 个情景", state: "completed" });
+  const result = done.turns[1]?.activity?.[0]?.result;
+  expect(result?.text).toContain("100"); expect(result?.truncated).toBe(false);
+  expect(JSON.stringify(done)).not.toContain(KEY);
+  await service!.close(); service = createWorkbenchService({ cwd: root });
+  const restored = await service.client.session(identity.sessionId);
+  expect(restored.turns[1]?.activity?.[0]?.result).toEqual(result);
+  const other = await service.client.createSession();
+  expect((await service.client.session(other.sessionId)).turns).toHaveLength(0);
+
 });
 
 test("cancelled preparation never becomes executed history, and tool failure never becomes completed evidence", async () => {
@@ -196,6 +205,7 @@ test("cancelled preparation never becomes executed history, and tool failure nev
   mode = "bad-tool"; toolSent = false;
   await submit("无效参数仍保留失败记录"); const result = await terminal(client, identity.sessionId);
   expect(result.turns[3]?.activity?.[0]).toMatchObject({ title: "计算持仓情景", state: "failed" });
+  expect(result.turns[3]?.activity?.[0]?.result?.text).toBeTruthy();
   expect(JSON.stringify(result)).not.toContain(KEY);
 });
 test("model settings have storage revisions, reject stale saves and never project credentials", async () => {

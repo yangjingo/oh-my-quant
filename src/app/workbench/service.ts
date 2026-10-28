@@ -10,6 +10,7 @@ import { WorkbenchError, modelError } from "./errors.ts";
 import { localSettings, publicPreferences, secretValues, updateModel, type SettingsPort } from "./model.ts";
 import { recoverSnapshot } from "./session-recovery.ts";
 import { thinkingText } from "./thinking.ts";
+import { toolResult } from "./tool-result.ts";
 import { toolPresentation } from "./tool-presentation.ts";
 import { redactModelText } from "./redaction.ts";
 import { hasExplicitReference } from "./references.ts";
@@ -168,6 +169,7 @@ export function createWorkbenchService(options: { cwd?: string; workspaceId?: st
     if (event.type === "tool_execution_end") {
       const old = run.activity.get(event.toolCallId);
       run.activity.set(event.toolCallId, { id: event.toolCallId, name: event.toolName, ...toolPresentation(event.toolName), ...old,
+        result: toolResult(event.result, run.secrets),
         state: event.isError ? "failed" : "completed", started: old?.started ?? performance.now(), elapsedMs: Math.max(0, Math.round(performance.now() - (old?.started ?? performance.now()))) });
       run.phase = [...run.activity.values()].some(item => item.state === "running") ? "tool" : "waiting";
       assistant(session, run);

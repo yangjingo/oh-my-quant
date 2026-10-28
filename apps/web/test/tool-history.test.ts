@@ -46,3 +46,14 @@ test("every tool state keeps its meaning in live and folded history presentation
     if (state === "unconfirmed") expect(html).toContain("不能将此记录视为已成功或已取消");
   }
 });
+
+
+test("result details escape HTML, expose truncation and keep historical gaps honest", () => {
+  const turn = { id: "a", role: "assistant" as const, state: "settled" as const, text: "", at: "2026-10-28",
+    activity: [{ id: "call", name: "fetch_bars", state: "failed" as const, result: { text: "<script>evil()</script>\nprice: 0", capturedAt: "2026-10-28T01:00:00Z", truncated: true, omittedBlocks: 1 } }] };
+  const html = renderToStaticMarkup(createElement(ToolHistory, { turn, onEvidence() {} }));
+  expect(html).toContain("&lt;script&gt;"); expect(html).not.toContain("<script>");
+  expect(html).toContain("仅保留前段"); expect(html).toContain("1 个非文本块"); expect(html).toContain("查看本会话研究证据");
+  const old = renderToStaticMarkup(createElement(ToolHistory, { turn: { ...turn, activity: [{ id: "old", name: "fetch_bars", state: "completed" }] } }));
+  expect(old).toContain("未保存工具原始结果");
+});

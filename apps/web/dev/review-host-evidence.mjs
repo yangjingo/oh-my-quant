@@ -74,6 +74,23 @@ export async function captureHost({ browser, output, root }) {
     const ended = await page.locator('.turn-assistant').last().innerText();
     await page.waitForTimeout(1100); if (await page.locator('.turn-assistant').last().innerText() !== ended) throw new Error('Terminal timer advanced');
     await capture('host-09-result');
+    const modelCallsBeforeEvidence = (await (await fetch(fixture.control + '/state')).json()).requests;
+    await page.locator('.tool-history').last().locator('summary').first().click();
+    await page.locator('.tool-record').last().locator('summary').first().click();
+    await page.locator('.tool-record').last().getByText('查看工具返回内容', { exact: true }).click();
+    await page.locator('.tool-record .tool-result pre').last().filter({ hasText: '100' }).waitFor();
+    await capture('host-tool-result-expanded');
+    await page.getByRole('button', { name: '查看本会话研究证据', exact: true }).last().click();
+    await page.getByRole('tab', { name: /证据/ }).waitFor();
+    await page.locator('.research-content').getByText('查看工具返回内容', { exact: true }).click();
+    await page.locator('.research-content .tool-result pre').filter({ hasText: '100' }).waitFor();
+    await capture('host-evidence-tool-result');
+    await page.setViewportSize({ width: 390, height: 480 });
+    await capture('host-evidence-tool-result-narrow');
+    if ((await (await fetch(fixture.control + '/state')).json()).requests !== modelCallsBeforeEvidence) throw new Error('Inspecting evidence invoked model');
+    await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+    await page.setViewportSize({ width: 1280, height: 720 });
+
     const table = page.locator('.turn-assistant').last().getByRole('region', { name: '数据表格', exact: true });
     await table.waitFor();
     const expectedRows = [['A', '2026-10-23', '0.00', 'CNY', '—', '同一窗口'], ['B', '2026-10-22', '80.00', 'USD', '—', '跨窗口，不直接比较']];

@@ -1,5 +1,7 @@
 import type { ToolActivity, Turn } from "../client/contract";
 
+import { ToolResult } from "./ToolResult";
+
 export const toolStateLabels: Record<ToolActivity["state"], string> = {
   preparing: "准备中", running: "执行中", completed: "已完成", failed: "未成功", cancelled: "已停止", "not-run": "未执行", unconfirmed: "待核对",
 };
@@ -19,7 +21,7 @@ const explanations: Record<ToolActivity["state"], string> = {
   cancelled: "本次执行已停止。继续研究前请核对已返回的内容。",
   "not-run": "准备过程已结束，此工具未开始执行。",
 };
-export function ToolHistory({ turn }: { turn: Turn }) {
+export function ToolHistory({ turn, onEvidence }: { turn: Turn; onEvidence?(): void }) {
   const items = turn.activity ?? [];
   if (!items.length) return null;
   const records = <>
@@ -29,9 +31,11 @@ export function ToolHistory({ turn }: { turn: Turn }) {
           {item.context && <p className="tool-record-context">{item.context}</p>}
           <p>{explanations[item.state]}</p>
           <dl><dt>工具</dt><dd><code>{item.name}</code></dd><dt>调用标识</dt><dd><code>{item.id}</code></dd></dl>
+          <ToolResult item={item} />
         </details>
       </li>)}</ol>
-      <p className="tool-history-note">仅展示执行记录与有限输入摘要；原始结果和研究证据入口尚未接通。</p>
+      <p className="tool-history-note">工具结果按调用保留，失败记录不作为成功证据。</p>
+      {onEvidence && <button className="text-action" onClick={onEvidence}>查看本会话研究证据</button>}
     </>;
   return turn.state === "running" ? <section className="process tool-history live-tools" aria-label="执行记录">{records}</section>
     : <details className="process tool-history"><summary><span>执行记录</span><small>{activitySummary(items)}</small></summary>{records}</details>;
