@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { DEFAULT_SETTINGS } from "../../../types/config.ts";
-import { createWorkbenchSessionStore, readSettings, saveSettings } from "../../../storage/index.ts";
+import { createWorkbenchSessionStore, readSettings, saveSettings, resolveWorkbenchSessionsDir } from "../../../storage/index.ts";
 import { createDefaultSessionDependencies } from "../../../runtime/session-dependencies.ts";
 import { createWorkbenchService } from "../service.ts";
 import { startWorkbenchServer, WORKBENCH_ASSETS_ROOT } from "../server.ts";
@@ -493,3 +493,29 @@ for (const slot of ["WHYJ_QUANT_TUSHARE_TOKEN", "WHYJ_QUANT_FINANCIAL_DATASETS_K
     expect(JSON.stringify(createWorkbenchSessionStore().load(identity.workspaceId, identity.sessionId).record)).not.toContain(streamCredential);
   });
 }
+
+
+test("authorization credentials never enter actual public snapshots or persisted checkpoints", async () => {
+  mode = "tool";
+  const basic = Buffer.from(KEY).toString("base64"), digest = "synthetic-private-digest";
+  const raw = `Authorization: Basic ${basic}\r\nProxy-Authorization: Digest username=synthetic, response=${digest}\r\nAuthorization: Bearer ${KEY}\r\nprice: 12.00\r\nvolume: 9007199254740993\r\nzero: 0`;
+  service = createWorkbenchService({ cwd: root, dependencies: () => {
+    const deps = createDefaultSessionDependencies({ cwd: root });
+    return { ...deps, tools: deps.tools.map(tool => tool.name !== "calculate_position_scenarios" ? tool : { ...tool, async execute(...args) {
+      const value = await tool.execute(...args);
+      return { ...value, content: [...value.content, { type: "text" as const, text: raw }] };
+    } }) };
+  } });
+  const { client } = service, identity = await client.identity();
+  const publicFrames: string[] = [];
+  const detach = client.subscribe(event => publicFrames.push(JSON.stringify(event)));
+  await client.submit({ ...identity, text: "Only calculate supplied hypothetical values" });
+  const finished = await terminal(client, identity.sessionId); detach();
+  expect(finished.turns[1]?.activity?.[0]?.result?.text).toContain("Authorization: [REDACTED]");
+  expect(finished.turns[1]?.activity?.[0]?.result?.text).toContain("volume: 9007199254740993");
+  await service.close(); service = undefined;
+  const checkpoint = readFileSync(join(resolveWorkbenchSessionsDir(), identity.sessionId + ".json"), "utf8");
+  for (const value of [checkpoint, JSON.stringify(finished), ...publicFrames]) for (const hidden of [KEY, basic, digest]) expect(value).not.toContain(hidden);
+  service = createWorkbenchService({ cwd: root });
+  expect((await service.client.session(identity.sessionId)).turns[1]?.activity?.[0]?.result).toEqual(finished.turns[1]?.activity?.[0]?.result);
+});
