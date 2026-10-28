@@ -48,3 +48,19 @@ test("interrupted recovery requires explicit acknowledgement and cannot be reviv
   await store.acknowledgeInterruption(); expect(ack).toBe(1); expect(submit).toBe(0);
   expect(store.getSnapshot().draft).toBe("新问题"); expect(await store.submit("新问题")).toBe(true); detach();
 });
+
+test("a successful older tab submit preserves another tab's newer stored draft", async () => {
+  const base = createDemoClient(), storage = memory();
+  const client = { ...base, submit: async () => ({ sessionId: "sample", runId: "r" }) };
+  const a = createWorkbenchStore(client, storage), b = createWorkbenchStore(client, storage);
+  await a.load(); await b.load(); a.setDraft("A old"); b.setDraft("B newer");
+  await a.submit("A old"); const reload = createWorkbenchStore(client, storage); await reload.load();
+  expect(reload.getSnapshot().draft).toBe("B newer"); expect(b.getSnapshot().draft).toBe("B newer");
+});
+test("failed target selection preserves the current conversation and draft", async () => {
+  const base = createDemoClient();
+  const store = createWorkbenchStore({ ...base, session: async id => { if (id === "empty") throw new Error("damaged target"); return base.session(id); } }, memory());
+  await store.load(); store.setDraft("Keep current work"); const before = store.getSnapshot();
+  await store.select("empty"); expect(store.getSnapshot()).toMatchObject({ selected: before.selected, snapshot: before.snapshot, draft: "Keep current work", phase: "ready" });
+  expect(store.getSnapshot().error).toContain("damaged target");
+});

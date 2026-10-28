@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
@@ -17,6 +17,7 @@ let service: ReturnType<typeof createWorkbenchService> | undefined;
 let mode: "answer" | "tool" | "hold" | "empty" | "thinking" | "preparing" | "bad-tool" | "hold-thinking", requests: Record<string, unknown>[], toolSent: boolean;
 let reached: (() => void) | undefined;
 let releasePreparation: (() => void) | undefined;
+let historySeed: Promise<void> | undefined;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "whyj-workbench-")); previous = process.env.OHQUANT_DIR; proxy = process.env.NO_PROXY;
   process.env.OHQUANT_DIR = root; process.env.NO_PROXY = "127.0.0.1,localhost";
@@ -48,6 +49,7 @@ beforeEach(() => {
   mkdirSync(join(root, "assets")); writeFileSync(join(root, "assets", "index.html"), "<html><head></head><body>Workbench fixture</body></html>");
 });
 afterEach(async () => {
+  await historySeed; historySeed = undefined;
   await host?.close(); await service?.close(); model.stop(true); host = undefined; service = undefined;
   if (previous === undefined) delete process.env.OHQUANT_DIR; else process.env.OHQUANT_DIR = previous;
   if (proxy === undefined) delete process.env.NO_PROXY; else process.env.NO_PROXY = proxy;
@@ -304,15 +306,22 @@ test("an unsaved tool intent never dispatches the tool", async () => {
 });
 
 
-test("large stored histories stay lazy in lists and startup SSE, then release their Agent after each turn", async () => {
-  const store = createWorkbenchSessionStore();
-  service = createWorkbenchService({ cwd: root }); const identity = await service.client.identity(); await service.close();
+describe("large-history fixture lifecycle", () => {
+  let store: ReturnType<typeof createWorkbenchSessionStore>;
+  let identity: Awaited<ReturnType<WorkbenchClient["identity"]>>;
+  beforeEach(async () => {
+    historySeed = (async () => {
+  store = createWorkbenchSessionStore();
+  service = createWorkbenchService({ cwd: root }); identity = await service.client.identity(); await service.close();
   const template = store.load(identity.workspaceId, identity.sessionId).record;
   for (let i = 0; i < 30; i++) {
     const id = randomUUID(); await store.save({ ...template, sessionId: id, name: "历史 " + i,
       snapshot: { ...template.snapshot, identity: { ...template.snapshot.identity, sessionId: id }, turns: [{ id: "history", role: "assistant", state: "settled", text: "payload".repeat(10000), at: template.updatedAt }] } }, null);
   }
-  let loads = 0, agents = 0, cleanups = 0;
+    })();
+    await historySeed;
+  }, 120_000);
+  test("large stored histories stay lazy in lists and startup SSE, then release their Agent after each turn", async () => {  let loads = 0, agents = 0, cleanups = 0;
   service = createWorkbenchService({ cwd: root, store: { ...store, load: (workspace, id) => { loads++; return store.load(workspace, id); } }, dependencies: () => {
     agents++; const deps = createDefaultSessionDependencies({ cwd: root }), cleanup = deps.env.cleanup.bind(deps.env);
     deps.env.cleanup = async () => { cleanups++; await cleanup(); }; return deps;
@@ -333,6 +342,8 @@ test("large stored histories stay lazy in lists and startup SSE, then release th
   expect(readdirSync(join(root, "sessions"), { recursive: true }).filter(name => String(name).endsWith(".jsonl"))).toHaveLength(1);
 });
 
+
+});
 
 test("missing original context fails explicitly without a provider call or a replacement journal", async () => {
   const { client, identity, submit } = await setup(); await submit("保存原始上下文"); await terminal(client, identity.sessionId);
