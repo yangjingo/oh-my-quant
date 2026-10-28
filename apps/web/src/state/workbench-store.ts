@@ -108,7 +108,7 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
           const oldRun = snapshot.identity.runId, newRun = next.identity.runId;
           const key = (run: string) => JSON.stringify([event.identity.workspaceId, event.identity.sessionId, run]);
           if (newRun && retiredRuns.has(key(newRun))) return;
-          if (oldRun === newRun && oldRun && ["cancelled", "failed", "settled", "needs_input", "interrupted"].includes(snapshot.state) && !(snapshot.state === "interrupted" && next.state === "interrupted")) return;
+          if (oldRun === newRun && oldRun && ["cancelled", "failed", "settled", "needs_input", "interrupted"].includes(snapshot.state) && next.state !== snapshot.state) return;
           if (oldRun && oldRun !== newRun) retiredRuns.add(key(oldRun));
           publish({ snapshot: next, sessions: view.sessions.map(session => session.sessionId === view.selected ? { ...session, state: next.state } : session) });
           return;

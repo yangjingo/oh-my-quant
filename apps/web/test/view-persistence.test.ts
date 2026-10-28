@@ -86,6 +86,22 @@ test("renaming refreshes the session revision before the next submission", async
   expect(store.getSnapshot().snapshot?.revision).toBe(3); expect(await store.submit("重命名后继续" )).toBe(true);
 });
 
+test("a newer terminal snapshot updates revision without reviving the run, so the next submission is current", async () => {
+  const base = createDemoClient(); let emit!: (event: WorkbenchEvent) => void;
+  const initial = await base.session("sample");
+  const terminal: SessionSnapshot = { ...initial, identity: { ...initial.identity, runId: "finished" }, state: "settled", revision: 8 };
+  const client: WorkbenchClient = { ...base, session: async () => terminal,
+    submit: async input => { expect(input.expectedRevision).toBe(9); return { sessionId: "sample", runId: "next" }; },
+    subscribe(listener) { emit = listener; return () => {}; },
+  };
+  const store = createWorkbenchStore(client); const detach = store.connect(); await store.load();
+  emit({ type: "snapshot", identity: terminal.identity, snapshot: { ...terminal, revision: 9 } });
+  expect(store.getSnapshot().snapshot?.revision).toBe(9);
+  emit({ type: "snapshot", identity: terminal.identity, snapshot: { ...terminal, revision: 10, state: "running" } });
+  expect(store.getSnapshot().snapshot?.state).toBe("settled"); expect(store.getSnapshot().snapshot?.revision).toBe(9);
+  expect(await store.submit("follow up")).toBe(true); detach();
+});
+
 test("a successful older tab submit preserves another tab's newer stored draft", async () => {
   const base = createDemoClient(), storage = memory();
   const client = { ...base, submit: async () => ({ sessionId: "sample", runId: "r" }) };
