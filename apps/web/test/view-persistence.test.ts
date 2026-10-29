@@ -91,7 +91,7 @@ test("a newer terminal snapshot updates revision without reviving the run, so th
   const initial = await base.session("sample");
   const terminal: SessionSnapshot = { ...initial, identity: { ...initial.identity, runId: "finished" }, state: "settled", revision: 8 };
   const client: WorkbenchClient = { ...base, session: async () => terminal,
-    submit: async input => { expect(input.expectedRevision).toBe(9); return { sessionId: "sample", runId: "next" }; },
+    followup: async input => { expect(input.expectedRevision).toBe(9); expect(input.previousRunId).toBe("finished"); return { sessionId: "sample", runId: "next" }; },
     subscribe(listener) { emit = listener; return () => {}; },
   };
   const store = createWorkbenchStore(client); const detach = store.connect(); await store.load();
