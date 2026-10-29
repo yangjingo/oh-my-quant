@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { JsonlSessionRepo } from "../../agent/src/session-runtime/index.ts";
@@ -96,23 +96,31 @@ for (const mode of ["append", "fork"] as const) {
   }
 }
 
-for (const point of ["retry", "denied"] as const) {
+for (const point of ["retry", "denied", "reader-release", "cancel"] as const) {
   it.skipIf(process.platform !== "win32")(`handles Windows rename ${point} without unlinking the committed session`, async () => {
     const session = await repo.create({ cwd: root });
     await session.appendMessage({ role: "user", content: "Original", timestamp: 1 });
     const meta = await session.getMetadata();
     const original = readFileSync(meta.path, "utf8");
-    const writer = Bun.spawn([process.execPath, "--preload", preload, writerPath, root, meta.path, "append"], {
+    const writer = Bun.spawn([process.execPath, "--preload", preload, writerPath, root, meta.path, point === "cancel" ? "cancel" : "append"], {
       env: { ...process.env, SESSION_CRASH_ROOT: root, SESSION_CRASH_POINT: point }, stdout: "pipe", stderr: "pipe",
     });
     try {
       const code = await writer.exited;
       const error = await new Response(writer.stderr).text();
-      const checkpoint = JSON.parse(readFileSync(join(root, "checkpoint"), "utf8")) as { attempts: number; previous: string };
+      const checkpoint = JSON.parse(readFileSync(join(root, "checkpoint"), "utf8")) as { attempts: number; previous: string; released: boolean };
       expect(checkpoint.previous).toBe(original);
-      expect(checkpoint.attempts).toBeGreaterThanOrEqual(4);
-      expect(code).toBe(point === "retry" ? 0 : 1);
-      if (point === "retry") {
+      expect(checkpoint.attempts).toBeGreaterThanOrEqual(point === "cancel" ? 1 : point === "reader-release" ? 2 : 4);
+      expect(code).toBe(point === "denied" ? 1 : 0);
+      expect(readdirSync(root, { recursive: true }).some(name => String(name).endsWith(".tmp") || String(name).endsWith(".lock"))).toBe(false);
+      if (point === "cancel") {
+        expect(error).toBe("");
+        expect(JSON.parse(await new Response(writer.stdout).text()).status).toBe("cancelled");
+        expect(readFileSync(meta.path, "utf8")).toBe(original);
+        await session.appendMessage({ role: "user", content: "After cancellation", timestamp: 3 });
+        expect(await (await repo.open(meta)).getEntries()).toHaveLength(2);
+      } else if (point !== "denied") {
+        if (point === "reader-release") expect(checkpoint.released).toBe(true);
         expect(error).toBe("");
         expect(await (await repo.open(meta)).getEntries()).toHaveLength(2);
       } else {

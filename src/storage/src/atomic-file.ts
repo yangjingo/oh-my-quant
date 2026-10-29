@@ -5,7 +5,7 @@ import { basename, dirname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { lock, lockSync } from "proper-lockfile";
 
-// All callers use the same lease. No network or asynchronous work under this lock.
+// All callers use the same lease. Only local commit IO belongs under this lock.
 const LOCK_OPTIONS = { realpath: false, stale: 10_000, update: 2_000 };
 export type AsyncFileLock = (path: string, options: typeof LOCK_OPTIONS) => Promise<() => Promise<void>>;
 

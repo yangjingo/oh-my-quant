@@ -68,7 +68,11 @@ function parseSinaIndexQuotes(text: string): AkshareIndexQuote[] {
     const amount = numberOrNull(values[9]);
     const change = prevClose == null ? null : price - prevClose;
     const changePct = prevClose == null ? null : ((price - prevClose) / prevClose) * 100;
+    const date = values[30] ?? "", time = values[31] ?? "", stamp = date + "T" + time;
+    const dated = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(stamp) && Number.isFinite(Date.parse(stamp + "Z"))
+      && new Date(stamp + "Z").toISOString().slice(0, 19) === stamp;
     rows.push({
+      ...(dated ? { asOfDate: date, asOfTime: time, provider: "新浪指数快照" } : {}),
       code,
       name,
       price,

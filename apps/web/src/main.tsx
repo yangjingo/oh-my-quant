@@ -14,6 +14,9 @@ if (import.meta.env.MODE === "demo") {
   let storage: Storage | undefined;
   try { storage = window.localStorage; } catch { /* Browser storage is optional. */ }
   mountWorkbench(container, createDemoClient({ storage }));
+} else if (document.querySelector('meta[name="whyj-workbench-host"]')?.getAttribute("content") === "1") {
+  const { createHostClient } = await import("./client/host");
+  mountWorkbench(container, createHostClient());
 } else {
   mountWorkbench(container, createDisconnectedClient());
 }

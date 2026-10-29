@@ -9,6 +9,8 @@
 | 入口 | 阅读目的 |
 |---|---|
 | [模块架构](./architecture.md) | 先看多入口架构图、Host、共享服务与依赖边界 |
+| [无界面服务](./services.md) | 运行身份、固定报告与独立复核 |
+| [工作区 Host](./host.md) | 实例发现、所有权与退出 |
 | 本页 | 会话生命周期 |
 | [存储策略](./storage.md) | 路径、提交与归档 |
 | [扩展宿主](./extensions.md) | 理解受信任扩展的资源声明、启停与修订 |
@@ -83,6 +85,8 @@ Pi 1.x 使用 TranscriptContext；手写摘要请求先经 `normalizeContext()`�
 JSONL v3 用 id、parent、timestamp 和 type 形成分支树。当前上下文只沿 leaf 祖先链读取，恢复最近的模型、thinking、活动工具及摘要；全文分支证据与经过压缩的模型上下文是两个视图。Session 读口返回副本，写操作从已提交 leaf 串行计算。
 
 默认 `SessionFilePort` / `LocalSessionFile` 用精确字节版本、进程锁、唯一临时文件及 fsync/rename 整体替换；外部编辑、追加或删除使旧 writer 冲突，内存只在提交成功后发布。完整 fork 一次提交；分支 fork 保留目标与标签所需祖先，不带入其它分支上下文。leaf 移动与摘要在同一批次提交，取消传播到锁等待，文件观察者异常不改变已确认提交。
+
+本地 `listDir` 确认父目录可读取后跳过已消失的子项；父目录、权限及其它错误仍失败，取消不返回成功。列表非事务快照，打开会话仍须核对。
 
 失败重试保留原 entry 身份；提交结果不确定时先重新打开核实，不能改 ID 盲目重发。重复/歧义 ID、缺父节点、环、缺 leaf 或截断 JSON 拒绝恢复，Resume 隐藏坏记录但保留原文件。整文件复制成本随历史增长；[存储测量脚本](../../src/storage/dev/measure-session-storage.ts)用于观察这一代价，不承诺所有文件系统的断电安全。
 

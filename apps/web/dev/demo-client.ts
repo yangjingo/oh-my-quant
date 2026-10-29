@@ -61,7 +61,7 @@ export function createDemoClient(options: { settleAfterMs?: number; storage?: Pi
       state: sample ? "settled" : "idle",
       turns: sample ? [
         { id: "sample-user", role: "user", text: "中际旭创最近的回撤，是市场波动，还是自身结构变弱？", state: "settled", at: "14:32 · 示例" },
-        { id: "sample-answer", role: "assistant", text: "在这组演示数据中，标的从阶段高点回落 7.2%，但区间表现仍高于沪深300。当前更适合把它视为上涨后的回撤观察；仅凭价格变化，还不足以判断基本面是否转弱。\n\n相对基准仍有超额表现，回撤阶段没有持续放量。需要继续观察这一关系是否保持。", state: "settled", at: "14:32 · 示例" },
+        { id: "sample-answer", role: "assistant", text: "在这组演示数据中，标的从阶段高点回落 **7.2%**，但区间表现仍高于沪深300。当前更适合把它视为上涨后的回撤观察；仅凭价格变化，还不足以判断基本面是否转弱。\n\n### 判断依据与缺口\n\n| 观察项 | 合成示例中的表现 | 下一步核对 |\n| --- | --- | --- |\n| 价格结构 | 阶段高点回落 7.2% | 核对原始日线与区间 |\n| 相对强弱 | 区间表现高于沪深300 | 观察这一关系是否保持 |\n| 公告信息 | 尚缺核验记录 | 补齐公告来源与日期 |\n\n相对基准仍有超额表现，回撤阶段没有持续放量。需要继续观察这一关系是否保持。\n\n> 表格用于演示研究内容的阅读方式，全部为合成示例，不代表最新行情或已完成核验。", state: "settled", at: "14:32 · 示例" },
       ] : [],
       market: sample ? sampleMarket : emptyMarket, output: sample ? SAMPLE_OUTPUT : EMPTY_OUTPUT,
     });
@@ -93,7 +93,7 @@ export function createDemoClient(options: { settleAfterMs?: number; storage?: Pi
     async market() { return read("sample").market; },
     async output(id) { return read(sessions.has(id) ? id : "sample").output; },
     async createSession() { const id = "new-" + ++serial; seed(id, "", "新研究"); return summaries.get(id)!; },
-    async renameSession(id, title) {
+    async renameSession({ sessionId: id, title }) {
       requireSession(id);
       if (!title.trim()) throw new Error("请输入会话名称");
       summaries.set(id, { ...summaries.get(id)!, name: title.trim().slice(0, 100) });
@@ -139,8 +139,10 @@ export function createDemoClient(options: { settleAfterMs?: number; storage?: Pi
       }, options.settleAfterMs ?? 1800));
       return { sessionId: request.sessionId, runId };
     },
-    async cancel(runId) {
-      const entry = [...sessions].find(([, s]) => s.identity.runId === runId);
+    async cancel(target) {
+      const { runId } = target;
+      const entry = [...sessions].find(([, s]) => s.identity.runId === runId
+        && s.identity.workspaceId === target.workspaceId && s.identity.sessionId === target.sessionId);
       if (!entry) throw new Error("运行不存在");
       const [id, current] = entry;
       if (current.state !== "running") return;
