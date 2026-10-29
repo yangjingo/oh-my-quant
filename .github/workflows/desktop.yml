@@ -91,6 +91,10 @@ jobs:
           node apps/desktop/scripts/test-online-install.mjs
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           Get-ChildItem release/*.exe | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)" } | Set-Content release/SHA256SUMS.txt
+          $signatures = @(Get-ChildItem release/*.exe | ForEach-Object {
+            [pscustomobject]@{ name = $_.Name; sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); status = (Get-AuthenticodeSignature -LiteralPath $_.FullName).Status.ToString() }
+          })
+          $signatures | ConvertTo-Json | Set-Content output/desktop-size/signatures.json -Encoding utf8
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -118,7 +122,7 @@ jobs:
         if: always()
         with:
           name: desktop-size-evidence
-          path: output/desktop-size/package-size.json
+          path: output/desktop-size/*.json
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
