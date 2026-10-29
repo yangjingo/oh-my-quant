@@ -5,10 +5,22 @@ import { basename, join, resolve } from "node:path";
 const [root, mode] = process.argv.slice(2) as [string, string];
 const original = { ...fs }, controller = new AbortController();
 const transient = join(root, "transient.lock");
+let parentRemoved = false, lists = 0;
 mock.module("node:fs/promises", () => ({
   ...original,
+  async readdir(path: Parameters<typeof fs.readdir>[0], ...rest: unknown[]) {
+    if (mode === "parent-denied" && ++lists > 1) throw Object.assign(new Error("Injected parent access failure"), { code: "EACCES" });
+    return (original.readdir as (...args: unknown[]) => unknown)(path, ...rest);
+  },
   async lstat(path: Parameters<typeof fs.lstat>[0], ...rest: unknown[]) {
+    if (mode === "parent-vanished" && !parentRemoved) {
+      parentRemoved = true;
+      await original.unlink(join(root, "surviving.jsonl"));
+      await original.rmdir(transient);
+      await original.rmdir(root);
+    }
     if (resolve(String(path)) === resolve(transient)) {
+      if (mode === "parent-denied") throw Object.assign(new Error("Injected vanished child"), { code: "ENOENT" });
       if (mode === "vanished" || mode === "cancel-during-stat") {
         // Remove only this fixture's empty directory after enumeration found it.
         await original.rmdir(transient);

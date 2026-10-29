@@ -1,13 +1,39 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { MarketSnapshot, SessionSnapshot } from "../client/contract";
 import { IconButton } from "./UI";
+import { confidenceLabels } from "../presentation";
+import { RunStatus, elapsedLabel } from "./RunStatus";
+import { ToolHistory } from "./ToolHistory";
+import { Thinking } from "./Thinking";
 
-export function Transcript({ snapshot, positions, onEvidence, onReport }: { snapshot: SessionSnapshot; positions: Map<string, number>; onEvidence(): void; onReport(): void }) {
+const AnswerMarkdown = lazy(() => import("./Markdown").then(module => ({ default: module.ResearchMarkdown })));
+const marketTime = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+export function displayMarketTime(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value)) ? marketTime.format(new Date(value)) : value || "尚未刷新";
+}
+
+const messageDate = new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+export function displayMessageTime(value: string): string {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? messageDate.format(date) : "时间未知";
+}
+
+export function Transcript({ snapshot, positions, onEvidence, onReport, onSuggestion, mode = "demo" }: { snapshot: SessionSnapshot; positions: Map<string, number>; onEvidence(): void; onReport(): void; onSuggestion(text: string): void; mode?: string }) {
   const stream = useRef<HTMLDivElement>(null);
   const [away, setAway] = useState(false);
   const [copyStatus, setCopyStatus] = useState("");
+  useEffect(() => {
+    if (!copyStatus) return;
+    const timer = setTimeout(() => setCopyStatus(""), 4000);
+    return () => clearTimeout(timer);
+  }, [copyStatus]);
   const following = useRef(true);
   const id = snapshot.identity.sessionId;
+  const suggestions = mode === "host" ? [
+    { label: "用假设数据计算三种仓位情景", text: "请调用 calculate_position_scenarios：假设100股、成本每股10元、给定2026-10-23收盘12元、币种CNY，计算下跌10%、不变、上涨10%的盈亏。仅使用这些假设输入，不取实时行情，不作投资建议。" },
+    { label: "判断一次回撤，需要先收集哪些证据？", text: "我应该收集哪些证据，才能判断回撤结构？请区分必要数据、计算方法和还不能下的结论。" },
+    { label: "梳理一个可以验证的研究问题", text: "帮我把一个投资疑问整理成研究问题。请先询问研究对象、时间范围和我已有的材料，不预设结论。" },
+  ] : ["比较 002048.SZ 与沪深300今年的区间表现", "我应该收集哪些证据，才能判断回撤结构？", "帮我检查已有研究中哪些结论还缺少依据"].map(text => ({ label: text, text }));
   useEffect(() => {
     const el = stream.current;
     if (!el) return;
@@ -17,33 +43,46 @@ export function Transcript({ snapshot, positions, onEvidence, onReport }: { snap
   }, [id, positions]);
   useEffect(() => { if (following.current && stream.current) stream.current.scrollTop = stream.current.scrollHeight; }, [snapshot.turns]);
   const copy = async (text: string) => {
+    setCopyStatus("");
     try { await navigator.clipboard.writeText(text); setCopyStatus("已复制"); }
     catch { setCopyStatus("无法复制，请手动选择文本"); }
   };
   return <><div id="stream" ref={stream} className="stream" role="region" aria-label="研究会话" onScroll={e => {
     const el = e.currentTarget; positions.set(id, el.scrollTop); following.current = el.scrollHeight - el.scrollTop - el.clientHeight <= 60; setAway(!following.current);
   }}>
-    {!snapshot.turns.length && <div className="empty-state"><h2>开始一份研究</h2><p>提出问题，或用 @ 引用文件、会话与证据。</p></div>}
+    {!snapshot.turns.length && <div className="empty-state research-welcome"><span className="eyebrow">从一个明确的问题开始</span><h2>开始一份研究</h2><p>{mode === "host" ? "本机 Agent 已连接。可以先用给定数据验证工具；真实行情来源需要单独配置。" : "说明研究对象、时间区间，以及你想验证的判断。"}</p><div className="starter-questions">{suggestions.map(item => <button key={item.label} onClick={() => onSuggestion(item.text)}>{item.label}<span aria-hidden="true">↗</span></button>)}</div><p className="supporting">{mode === "host" ? "点击只会填入草稿。请核对并修改后再发送；当前连接暂未启用文件引用。" : "点击只会填入草稿。发送前可以修改问题或用 @ 添加引用。"}</p></div>}
     <div className="thread-inner">{snapshot.turns.map(turn => <article className={"turn turn-" + turn.role} key={turn.id}>
       {turn.role === "user" ? <div className="question"><span className="prompt">›</span><p>{turn.text}</p></div> : <>
-        <details className="process"><summary>{turn.state === "running" ? "Thinking…" : turn.state === "cancelled" ? "已停止" : "过程与状态"}</summary><p>状态：{turn.state}。执行细节由客户端提供；此处不展示隐藏推理。</p></details>
-        <span className="assistant-label">WhyJ</span><div className="answer">{turn.text || "等待运行结果…"}</div>
+        {turn.state !== "settled" && <RunStatus turn={turn} />}
+        <Thinking turn={turn} />
+        <ToolHistory turn={turn} onEvidence={onEvidence} />
+        <span className="assistant-label">WhyJ</span><div className="answer markdown-body">{turn.text ? <Suspense fallback={<p className="plain-answer">{turn.text}</p>}><AnswerMarkdown text={turn.text} /></Suspense> : <p className="waiting-message">{turn.state === "running" ? "Agent 正在处理，你可以继续写下一条草稿。" : "本轮未返回文字内容。"}</p>}</div>
       </>}
-      <div className="turn-meta"><small>{turn.at}</small><button onClick={() => void copy(turn.text)}>复制{turn.role === "user" ? "问题" : "回答"}</button></div>
+      <div className="turn-meta"><span><time dateTime={turn.at} title={turn.at}>{displayMessageTime(turn.at)}</time>{turn.role === "assistant" && turn.state === "settled" && elapsedLabel(turn, 0) && <span> · 用时 {elapsedLabel(turn, 0)}</span>}</span><button onClick={() => void copy(turn.text)}>复制{turn.role === "user" ? "问题" : "回答"}</button></div>
     </article>)}
-    {snapshot.output.conclusion.statement && <section className="conclusion"><h2>{snapshot.output.conclusion.statement}</h2><p>{snapshot.output.conclusion.boundary}</p><small>{snapshot.output.conclusion.settled ? "已完成" : "尚未完成"} · 置信度 {snapshot.output.conclusion.confidence ?? "未记录"}</small></section>}
-    {!!(snapshot.output.evidence.length || snapshot.output.artifacts.length) && <div className="result-links"><button onClick={onEvidence}>证据 {snapshot.output.evidence.filter(e => e.available).length} / {snapshot.output.evidence.length} ↗</button><button onClick={onReport}>研究报告 ↗</button></div>}
-    </div><span className="sr-only" role="status">{copyStatus}</span>
-  </div>{away && <button className="jump-latest" onClick={() => { setAway(false); stream.current?.scrollTo({ top: stream.current.scrollHeight }); }}>回到最新 ↓</button>}</>;
+    {snapshot.output.conclusion.statement && <section className="conclusion"><span className="eyebrow">{snapshot.state === "running" ? "上次已记录的结论 · 本轮尚未结束" : "已记录的研究结论"}</span><h2>{snapshot.output.conclusion.statement}</h2><p>{snapshot.output.conclusion.boundary}</p><small>{snapshot.output.conclusion.settled ? "结论已记录" : "尚未完成"} · 模型置信度{snapshot.output.conclusion.confidence ? "：" + confidenceLabels[snapshot.output.conclusion.confidence] : "未提供"} · 不代表独立核验</small></section>}
+    {!!(snapshot.output.evidence.length || snapshot.output.artifacts.length) && <div className="result-links"><button onClick={onEvidence}>查看证据 <span>{snapshot.output.evidence.filter(e => e.available).length} / {snapshot.output.evidence.length}</span> ↗</button><button onClick={onReport}>研究报告 <span>{snapshot.output.artifacts.length} 个版本</span> ↗</button></div>}
+    </div>
+  </div>{copyStatus && <span className="copy-feedback" role="status">{copyStatus}</span>}{away && <button className="jump-latest" onClick={() => { setAway(false); stream.current?.scrollTo({ top: stream.current.scrollHeight }); }}>回到最新 ↓</button>}</>;
 }
 
-export function Overview({ snapshot, portfolio, demo, onClose }: { snapshot: MarketSnapshot | null; portfolio: string; demo: boolean; onClose(): void }) {
+export function Overview({ snapshot, portfolio, demo, error, onRefresh, onClose }: { snapshot: MarketSnapshot | null; portfolio: string; demo: boolean; error?: string | null; onRefresh?(failedOnly: boolean): void; onClose(): void }) {
   const rows = snapshot?.quotes ?? [];
-  const watch = rows.filter(q => q.group === "watchlist");
-  const market = rows.filter(q => q.group !== "watchlist");
-  const group = (title: string, items: typeof rows) => <section className="quote-group"><h3>{title} <small>{items.length}</small></h3>{items.map(q => <div className="quote-row" key={q.code}><small>{q.code}</small><span>{q.name}</span><strong className={q.change === null ? "" : q.change > 0 ? "up" : q.change < 0 ? "down" : ""}>{q.change === null ? "—" : (q.change > 0 ? "+" : "") + q.change.toFixed(2) + "%"}</strong></div>)}</section>;
-  return <aside id="overview" className="overview"><div className="section-label"><strong>◫ Overview</strong><IconButton name="x" label="收起概览" onClick={onClose} /></div>
-    <div className="refresh" title="刷新事件，不代表各标的交易日期"><span>Refresh: {snapshot?.refreshedAt || "—"}</span><small>{demo ? "示例" : snapshot?.source.provider ?? "未刷新"}</small></div>
-    {!rows.length ? <p className="empty-state">尚无行情数据</p> : <><details open><summary className="watch-heading">{portfolio || "观察组"}</summary>{group("Watchlist", watch)}</details>{group("Market", market)}</>}
+  const watch = rows.filter(q => q.group === "watchlist"), market = rows.filter(q => q.group !== "watchlist");
+  const busy = snapshot?.status === "fetching";
+  const states = { idle: "尚未刷新", fetching: "正在刷新", success: "刷新完成", partial: "部分可用，请核对日期", unavailable: "暂无可用数据，请重试或检查数据源", timeout: "刷新超时，已有数据保留", error: "刷新失败，已有数据保留" };
+  const freshness = { available: "", "outside-window": "最近可用，超出请求窗口", unavailable: "无数据", refreshing: "刷新中 · 旧值", stale: "刷新失败 · 旧值" };
+  const group = (title: string, items: typeof rows) => <section className="quote-group"><h3>{title} <small>{items.length}</small></h3>{items.map(q => <div className="quote-item" key={q.code}>
+    <div className="quote-row"><small>{q.code}</small><span>{q.name}</span><strong className={q.change === null ? "" : q.change > 0 ? "up" : q.change < 0 ? "down" : ""}>{q.change === null ? "—" : (q.change > 0 ? "+" : "") + q.change.toFixed(2) + "%"}</strong></div>
+    {!demo && <p className="quote-meta">{q.basis === "snapshot" ? "指数快照" : "历史日线"} {q.value === null ? "—" : q.value.toFixed(2)} · {q.basis === "snapshot" ? "相对前收涨跌" : "相邻日线涨跌，非当日快照"}<br />数据日期 {q.asOfDate ?? "未提供"}{q.asOfTime ? " " + q.asOfTime : ""} · {q.provider ?? "暂无来源"}{q.freshness && freshness[q.freshness] ? " · " + freshness[q.freshness] : ""}</p>}
+  </div>)}</section>;
+  return <aside id="overview" className="overview" data-market-colors={snapshot?.colorScheme ?? "red-up"} aria-label="行情概览" tabIndex={0}><div className="section-label"><strong>行情概览</strong><IconButton name="x" label="收起概览" onClick={onClose} /></div>
+    <div className="refresh"><span>最近拉取：{displayMarketTime(snapshot?.refreshedAt ?? "")}</span><small>{demo ? "合成示例" : snapshot?.source.provider ?? "等待数据源返回"}</small>
+      {!demo && snapshot?.pollIntervalMs !== undefined && <small className="auto-refresh">{snapshot.pollIntervalMs > 0 ? `自动刷新 · 约 ${snapshot.pollIntervalMs / 1000} 秒` : "自动刷新已暂停"}</small>}
+      {!demo && <span role="status">{error ?? states[snapshot?.status ?? "idle"]}{snapshot ? ` · ${snapshot.source.available}/${snapshot.source.total} 可用` : ""}</span>}
+      {onRefresh && <div className="overview-actions"><button className="text-action" disabled={busy} onClick={() => onRefresh(false)}>刷新行情</button>{snapshot?.retryable && <button className="text-action" disabled={busy} onClick={() => onRefresh(true)}>重试失败项</button>}</div>}
+    </div>
+    <p className="quote-note">{demo ? "刷新时间不等于交易日期；概览不替代研究证据。" : "报价按源时间展示，可能延迟；历史日线回退单独标记。拉取时间不等于行情时间。"}</p>
+    {!rows.length ? <p className="empty-state">{busy ? "正在获取行情…" : error ? "行情暂不可用，请重试" : "尚无行情数据"}</p> : <>{watch.length > 0 && <details open><summary className="watch-heading">{portfolio || "已保存观察组"}</summary>{group("关注标的", watch)}</details>}{group("市场指数", market)}</>}
   </aside>;
 }

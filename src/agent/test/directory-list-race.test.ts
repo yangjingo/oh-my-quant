@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 
-for (const mode of ["vanished", "denied", "io-error", "missing-parent", "cancel-before-list", "cancel-during-stat", "normal"]) {
+for (const mode of ["vanished", "denied", "io-error", "missing-parent", "parent-vanished", "parent-denied", "cancel-before-list", "cancel-during-stat", "normal"]) {
   test(`directory listing preserves its result boundary: ${mode}`, async () => {
     const root = mkdtempSync(join(tmpdir(), "whyj-directory-list-"));
     const fixture = join(import.meta.dir, "fixtures", "directory-list-race.ts");
@@ -19,8 +19,8 @@ for (const mode of ["vanished", "denied", "io-error", "missing-parent", "cancel-
       else if (mode === "normal") expect(result).toEqual({ ok: true, names: ["surviving.jsonl", "transient.lock"] });
       else {
         expect(result.ok).toBe(false);
-        expect(result.code).toBe(mode.startsWith("cancel") ? "aborted" : mode === "missing-parent" ? "not_found" : mode === "denied" ? "permission_denied" : "unknown");
-        expect(result.path).toBe(mode.startsWith("cancel") ? root : join(root, mode === "missing-parent" ? "missing" : "transient.lock"));
+        expect(result.code).toBe(mode.startsWith("cancel") ? "aborted" : ["missing-parent", "parent-vanished"].includes(mode) ? "not_found" : ["denied", "parent-denied"].includes(mode) ? "permission_denied" : "unknown");
+        expect(result.path).toBe(mode.startsWith("cancel") || ["parent-vanished", "parent-denied"].includes(mode) ? root : join(root, mode === "missing-parent" ? "missing" : "transient.lock"));
       }
     } finally {
       if (child && child.exitCode === null) child.kill(9);

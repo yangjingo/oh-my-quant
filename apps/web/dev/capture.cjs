@@ -6,10 +6,12 @@ async (page) => {
   const onConsole = message => { if (message.type() === 'error') errors.push(message.text()); };
   page.on('pageerror', onError); page.on('console', onConsole);
   const check = (condition, message) => { if (!condition) throw new Error(message); };
+  const captures = [];
   const capture = async name => {
     await page.evaluate(() => document.fonts.ready);
     check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), name + ': horizontal overflow');
     await page.screenshot({ path: `output/web-react/${name}.png`, scale: 'css' });
+    captures.push(name);
   };
   try {
     await page.setViewportSize({ width: 1440, height: 960 });
@@ -17,8 +19,30 @@ async (page) => {
     const input = page.getByRole('combobox', { name: '研究问题' });
     await page.getByRole('heading', { name: /示例结论/ }).waitFor();
     await capture('01-desktop');
+    const inspectOverviewEnd = async name => {
+      const overview = page.locator('#overview');
+      await overview.focus(); await overview.press('End');
+      await page.locator('#overview .quote-row').last().scrollIntoViewIfNeeded();
+      await page.waitForFunction(() => {
+        const panel = document.querySelector('#overview'), last = panel ? [...panel.querySelectorAll('.quote-row')].at(-1) : null;
+        if (!panel || !last) return false;
+        const outer = panel.getBoundingClientRect(), row = last.getBoundingClientRect();
+        return document.activeElement === panel && row.top >= outer.top && row.bottom <= outer.bottom - 8;
+      });
+      await capture(name);
+    };
+    await inspectOverviewEnd('01-overview-end-wide');
+    await page.setViewportSize({ width: 1440, height: 480 });
+    await inspectOverviewEnd('01-overview-end-low-height');
+    await page.setViewportSize({ width: 390, height: 480 });
+    await page.locator('#overview').waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: '切换研究概览', exact: true }).click();
+    await inspectOverviewEnd('01-overview-end-narrow-low-height');
+    await page.setViewportSize({ width: 1440, height: 960 });
     await input.focus();
     check(await input.evaluate(el => el.selectionStart === 0 && el.selectionEnd === 0), 'Empty caret must start at zero');
+    check(await page.getByRole('button', { name: '发送问题', exact: true }).isDisabled(), 'Empty input cannot be submitted');
+    await input.fill('检查输入强调色');
     const colors = await page.evaluate(() => [getComputedStyle(document.querySelector('#composer .prompt')).color, getComputedStyle(document.querySelector('#send span')).color]);
     check(colors[0] === colors[1], 'Prompt and send accent must match');
     await input.fill('/');
@@ -36,6 +60,7 @@ async (page) => {
     await page.getByRole('option', { name: /README.md/ }).click();
     check(await input.inputValue() === '@file:README.md ', 'Canonical file token');
     await input.fill('草稿 A');
+    await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 A');
     await page.locator('#projectSwitch').click();
     await page.getByRole('button', { name: /结构跟踪.*002048/ }).click();
     await page.getByRole('heading', { name: '开始一份研究' }).waitFor();
@@ -43,16 +68,23 @@ async (page) => {
     await input.fill('草稿 B');
     await capture('04-empty-session');
     await page.getByRole('button', { name: /回撤结构研究.*300308/ }).click();
+    try { await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 A'); } catch { throw new Error('Draft A restore failed: ' + JSON.stringify({ actual: await input.inputValue(), title: await page.locator('#sessionTitle').innerText() })); }
     check(await input.inputValue() === '草稿 A', 'Draft A must restore');
     await page.getByRole('button', { name: /结构跟踪.*002048/ }).click();
+    await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 B');
     check(await input.inputValue() === '草稿 B', 'Draft B must restore');
     await input.press('Enter');
     await page.getByRole('button', { name: '停止生成', exact: true }).waitFor();
+    await input.fill('Keep this next question as a draft'); await input.press('Enter');
+    check(await page.getByRole('button', { name: '停止生成', exact: true }).isVisible(), 'Enter must not cancel a running task');
+    check(await input.inputValue() === 'Keep this next question as a draft', 'Running Enter preserves draft');
     await capture('05-thinking');
     await page.getByRole('button', { name: /回撤结构研究.*300308/ }).click();
     await page.getByRole('button', { name: /结构跟踪.*002048/ }).click();
     await page.getByRole('button', { name: '停止生成', exact: true }).click();
     await page.getByText('已停止示例运行。', { exact: true }).waitFor();
+    check(await input.inputValue() === 'Keep this next question as a draft', 'Explicit stop preserves draft');
+    check(await page.locator('.turn-user').count() === 1, 'Stopping must not submit the next draft when the button changes mode');
     await capture('06-cancelled');
     await input.fill('/unsupported'); await input.press('Enter');
     check(await input.inputValue() === '/unsupported', 'Unsupported command must preserve draft');
@@ -60,12 +92,16 @@ async (page) => {
     await input.fill('');
     await page.getByRole('button', { name: /回撤结构研究.*300308/ }).click();
     await page.getByRole('button', { name: '收起会话', exact: true }).click();
-    await page.getByRole('button', { name: '研究报告 ↗', exact: true }).click();
-    await page.getByRole('heading', { name: '研究报告', exact: true }).waitFor();
+    await page.getByRole('button', { name: /研究报告.*个版本/ }).click();
+    await page.getByRole('heading', { name: '研究成果', exact: true }).waitFor();
+    await page.getByRole('button', { name: '对照最近两个版本的标识' }).click();
+    await page.getByRole('region', { name: '版本标识对照' }).waitFor();
     await capture('07-report');
-    await page.getByRole('button', { name: '证据', exact: true }).click();
-    await page.getByText('ev-news', { exact: true }).waitFor();
+    await page.getByRole('tab', { name: /证据/ }).click();
+    await page.getByRole('heading', { name: '公告核验（示例缺失）', exact: true }).waitFor();
     await capture('08-evidence');
+    await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+    await page.getByRole('button', { name: '本地合成 · 示例', exact: true }).click();
     await page.getByRole('button', { name: '数据源', exact: true }).click();
     await page.getByRole('combobox', { name: '数据源', exact: true }).selectOption('akshare');
     await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
@@ -75,6 +111,10 @@ async (page) => {
     await page.getByRole('combobox', { name: '数据源', exact: true }).selectOption('demo');
     await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('#overview').waitFor({ state: 'detached' });
+    check(await page.locator('#overview').count() === 0, 'Narrow breakpoint closes retained overview');
+    await page.waitForFunction(() => { const input = document.querySelector('#input'); return input.scrollHeight <= input.clientHeight + 1; });
+    await capture('10-resized-mobile');
     await page.reload();
     await input.waitFor();
     await capture('10-mobile');
@@ -92,7 +132,15 @@ async (page) => {
     check(await input.isDisabled(), 'Default entry must refuse absent Host');
     check(await page.getByText('中际旭创', { exact: true }).count() === 0, 'Default entry must contain no sample data');
     await capture('13-disconnected');
+    await page.getByRole('button', { name: '模型未连接', exact: true }).click();
+    await page.getByRole('textbox', { name: '模型 ID', exact: true }).fill('not-saved-model');
+    await page.getByRole('button', { name: '保存偏好', exact: true }).click();
+    await page.locator('.error-feedback').waitFor();
+    check(await page.locator('.error-feedback').innerText() !== '', 'Failure is visible inside the dialog');
+    check(await page.getByRole('textbox', { name: '模型 ID', exact: true }).inputValue() === 'not-saved-model', 'Rejected save retains input');
+    check(await page.locator('.operation-feedback:not(.error-feedback)').count() === 0, 'Rejected save must not claim success');
+    await capture('14-rejected-preference');
     check(errors.length === 0, errors.join('\n'));
-    return { captures: 13, errors, viewports: ['1440x960', '390x844'], result: 'passed' };
+    return { captures: captures.length, errors, viewports: ['1440x960', '1440x480', '390x480', '390x844'], result: 'passed' };
   } finally { page.off('pageerror', onError); page.off('console', onConsole); }
 }

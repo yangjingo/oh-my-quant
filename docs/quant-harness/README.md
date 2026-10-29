@@ -16,7 +16,7 @@ Quant Harness 将这些要求装配到通用运行时上。它维护研究范围
 | 外部引擎的回测结果如何被接纳？ | [Alpha 回测](./alpha-backtest.md) |
 | 真实收益与交易权限如何隔离？ | [账户业绩](./performance.md) · [执行](./execution.md) |
 | 研究怎样固定并支持长期回看？ | [报告与制品](./artifacts-design.md) · [年度报告](./annual-reports.md) |
-| 入口怎样表达状态和允许用户恢复？ | [UI/UX](./uiux.md) |
+| 入口怎样表达状态和允许用户恢复？ | [UI/UX](./uiux.md) · [会话连续性](./workbench-sessions.md) |
 
 配置归[Agent Runtime](../agent-runtime/configuration.md)，交付流程归[CI 与发布](../ci-release.md)。这里解释结构和边界，具体调用方式由应用帮助及接口定义维护。
 
