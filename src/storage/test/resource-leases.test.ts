@@ -211,15 +211,16 @@ test.skipIf(process.platform !== "win32")("a readable resource directory does no
   let restored = false;
   try {
     const deny = run('$ErrorActionPreference="Stop"; $acl=Get-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY; $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User; $r=[System.Security.AccessControl.FileSystemRights]::CreateFiles -bor [System.Security.AccessControl.FileSystemRights]::CreateDirectories; $rule=[System.Security.AccessControl.FileSystemAccessRule]::new($sid,$r,[System.Security.AccessControl.InheritanceFlags]::None,[System.Security.AccessControl.PropagationFlags]::None,[System.Security.AccessControl.AccessControlType]::Deny); $acl.AddAccessRule($rule); Set-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY -AclObject $acl');
-    if (deny.exitCode !== 0) throw new Error("Could not restrict isolated fixture ACL");
+    if (deny.exitCode !== 0) throw new Error(`Could not restrict isolated fixture ACL: ${deny.stderr.toString().trim()}`);
     expect(readFileSync(join(resource, "SKILL.md"), "utf8")).toBe("readable fixture");
+    expect(() => writeFileSync(join(resource, "must-not-write"), "fixture")).toThrow();
     await (await acquireResourceLeases([resource], "read"))();
     expect(existsSync(join(resource, ".whyj-resource-leases"))).toBe(false);
   } finally {
-    const restore = run('$ErrorActionPreference="Stop"; $acl=Get-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY; $acl.SetSecurityDescriptorSddlForm($env:WHYJ_ACL_TEST_SDDL); Set-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY -AclObject $acl; if ((Get-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY).Sddl -ne $env:WHYJ_ACL_TEST_SDDL) { exit 3 }', { WHYJ_ACL_TEST_SDDL: original });
+    const restore = run('$ErrorActionPreference="Stop"; $acl=Get-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY; $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User; $r=[System.Security.AccessControl.FileSystemRights]::CreateFiles -bor [System.Security.AccessControl.FileSystemRights]::CreateDirectories; $rule=[System.Security.AccessControl.FileSystemAccessRule]::new($sid,$r,[System.Security.AccessControl.InheritanceFlags]::None,[System.Security.AccessControl.PropagationFlags]::None,[System.Security.AccessControl.AccessControlType]::Deny); $acl.RemoveAccessRuleSpecific($rule); Set-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY -AclObject $acl; if ((Get-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY).Sddl -ne $env:WHYJ_ACL_TEST_SDDL) { throw "Restored ACL differs from the saved descriptor" }', { WHYJ_ACL_TEST_SDDL: original });
     restored = restore.exitCode === 0;
     if (restored) cleanup(root);
-    if (!restored) throw new Error(`Could not restore isolated fixture ACL: ${root}`);
+    if (!restored) throw new Error(`Could not restore isolated fixture ACL: ${root}: ${restore.stderr.toString().trim()}`);
   }
 }, 15000);
 
