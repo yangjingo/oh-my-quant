@@ -295,6 +295,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
     if (session.active) throw new WorkbenchError("RUN_ACTIVE", "当前会话仍在运行，请等待或显式停止。", 409);
     if (session.recovery?.acknowledgementRequired) throw new WorkbenchError("RECONCILE_REQUIRED", "上次工具结果待核对，请先确认后再提问。", 409);
     if (session.revision !== request.expectedRevision) throw new WorkbenchError("REVISION_CONFLICT", "会话已被其他客户端更新，请重新读取后再提交。", 409);
+    if (operation === "submit" && session.state === "needs_input") throw new WorkbenchError("CLARIFICATION_PENDING", "请通过追问回答当前澄清问题，或新建会话开始其他研究。", 409);
     if (operation !== "submit") {
       if (session.runId !== request.previousRunId) throw new WorkbenchError("RUN_CONFLICT", "先前运行已变化，请读取最新会话后再操作。", 409);
       if (operation === "followup" && !["settled", "needs_input"].includes(session.state)) throw new WorkbenchError("FOLLOWUP_UNAVAILABLE", "请先完成当前研究、回答澄清问题，或明确继续未完成的运行。", 409);

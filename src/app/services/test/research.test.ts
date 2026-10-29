@@ -128,13 +128,16 @@ test("the default entry resolves built assets under the repository apps director
 
 test("explicit clarification survives restart without replay and an HTTP answer creates a new run", async () => {
   scriptedCalls = [() => [{ name: "ask_user", args: { question: `请补充研究范围？${KEY}` } }]];
-  const { client, identity, submit } = await setup();
-  const asked = await submit("请先澄清范围");
+  const { client, identity } = await setup();
+  const original = await requestFor(client, identity, "请先澄清范围");
+  const asked = await client.submit(original);
   const waiting = await terminal(client, identity.sessionId);
   expect(waiting.state).toBe("needs_input");
   expect(waiting.turns[1]).toMatchObject({ state: "needs_input", text: "请补充研究范围？[REDACTED]" });
   expect(waiting.turns[1]?.endedAt).toBeTruthy();
   expect(waiting.turns[1]?.activity?.[0]).toMatchObject({ name: "ask_user", state: "completed", title: "澄清研究问题" });
+  expect(requests).toHaveLength(1);
+  expect(await client.submit(original)).toEqual(asked);
   expect(requests).toHaveLength(1);
   const next = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, requestId: randomUUID(), expectedRevision: waiting.revision!, previousRunId: asked.runId };
   await expect(client.continue!(next)).rejects.toMatchObject({ code: "CONTINUE_UNAVAILABLE" });
@@ -146,6 +149,13 @@ test("explicit clarification survives restart without replay and an HTTP answer 
   const remote = (method: string, input: unknown) => fetch(host!.server.url + "api/workbench/rpc", { method: "POST",
     headers: { "Content-Type": "application/json", "x-workbench-token": token }, body: JSON.stringify({ method, args: [input] }) });
   expect((await (await remote("session", identity.sessionId)).json() as { result: SessionSnapshot }).result).toEqual(waiting);
+  const unscoped = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, requestId: randomUUID(), expectedRevision: waiting.revision!, text: "未经关联的提交" };
+  await expect(service.client.submit(unscoped)).rejects.toMatchObject({ code: "CLARIFICATION_PENDING" });
+  const rejectedSubmit = await remote("submit", unscoped);
+  expect(rejectedSubmit.status).toBe(409);
+  expect((await rejectedSubmit.json() as { error: { code: string } }).error.code).toBe("CLARIFICATION_PENDING");
+  expect(await service.client.session(identity.sessionId)).toEqual(waiting);
+  expect(requests).toHaveLength(1);
   expect((await remote("followup", { ...next, expectedRevision: 0, text: "过期回答" })).status).toBe(409);
   const input = { ...next, text: "只讨论固定样本，不获取新数据。" };
   const response = await remote("followup", input); expect(response.status).toBe(200);
