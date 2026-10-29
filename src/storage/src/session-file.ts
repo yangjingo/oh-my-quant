@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, unlinkSync } from "node:fs";
 import { basename } from "node:path";
 import type { SessionFilePort, SessionFileSnapshot } from "../../types/session-file.ts";
-import { atomicWriteText, withFileLockAsync } from "./atomic-file.ts";
+import { atomicWriteTextAsync, withFileLockAsync } from "./atomic-file.ts";
 import { emitFileEvent } from "./fs-events.ts";
 
 function readSnapshot(path: string): SessionFileSnapshot | null {
@@ -29,14 +29,14 @@ export class LocalSessionFile implements SessionFilePort {
   }
 
   async commit(path: string, expectedRevision: string | null, text: string, signal?: AbortSignal): Promise<string> {
-    const revision = await withFileLockAsync(path, () => {
+    const revision = await withFileLockAsync(path, async () => {
       const current = readSnapshot(path);
       // A retry of the exact transaction after a lost acknowledgement is idempotent.
       if (current?.text === text && expectedRevision !== null) return current.revision;
       if ((current?.revision ?? null) !== expectedRevision) throw conflict(path);
       if (current && !text.startsWith(current.text)) throw new Error("Session history is append-only");
       signal?.throwIfAborted();
-      atomicWriteText(path, text);
+      await atomicWriteTextAsync(path, text, signal);
       return createHash("sha256").update(text).digest("hex");
     }, signal);
     emitFileEvent({ operation: "WRITE", path, bytes: Buffer.byteLength(text), detail: "session commit" });
