@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, readSync } from "node:fs";
+import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, readSync, unlinkSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { atomicWriteTextAsync, withFileLockAsync } from "./atomic-file.ts";
 import { resolveWorkbenchSessionsDir } from "./dirs.ts";
@@ -19,10 +19,11 @@ function envelope(text: string, workspaceId: string, sessionId: string): Envelop
   if (!value || value.version !== 1 || value.workspaceId !== workspaceId || value.sessionId !== sessionId || !idPattern.test(sessionId)
     || typeof value.name !== "string" || value.name.length > 100 || typeof value.cwd !== "string" || !isAbsolute(value.cwd)
     || !(value.coreSessionId === null || typeof value.coreSessionId === "string" && value.coreSessionId.length > 0 && value.coreSessionId.length <= 160)
+    || !(value.coreLeafId === undefined || value.coreLeafId === null || typeof value.coreLeafId === "string" && value.coreLeafId.length > 0 && value.coreLeafId.length <= 160)
     || !Number.isSafeInteger(value.runCount) || value.runCount < 0 || !Number.isSafeInteger(value.revision) || value.revision < 0
     || !(value.runId === null || typeof value.runId === "string" && idPattern.test(value.runId))
-    || !["idle", "running", "settled", "failed", "cancelled", "interrupted"].includes(value.state)
-    || (["running", "interrupted"].includes(value.state) && value.runId === null)
+    || !["idle", "running", "needs_input", "settled", "failed", "cancelled", "interrupted"].includes(value.state)
+    || (["running", "needs_input", "interrupted"].includes(value.state) && value.runId === null)
     || typeof value.updatedAt !== "string" || !Number.isFinite(Date.parse(value.updatedAt)) || !/^[a-f0-9]{64}$/.test(value.digest)) throw formatError();
   return value;
 }
@@ -49,6 +50,15 @@ export function createWorkbenchSessionStore(root = resolveWorkbenchSessionsDir()
   };
   return {
     load,
+    async delete(workspaceId: string, id: string, expectedRevision: string) {
+      const file = path(id);
+      return withFileLockAsync(file, async () => {
+        const current = load(workspaceId, id); // Validate bytes and identity even when the caller knows their hash.
+        if (current.revision !== expectedRevision) throw conflict();
+        unlinkSync(file);
+        emitFileEvent({ operation: "DELETE", path: file, detail: "workbench checkpoint" });
+      });
+    },
     list(workspaceId: string): WorkbenchSessionListing[] {
       if (!existsSync(root)) return [];
       return readdirSync(root).filter(name => idPattern.test(name.slice(0, -5)) && name.endsWith(".json")).map(name => {

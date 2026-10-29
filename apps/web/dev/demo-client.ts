@@ -93,7 +93,7 @@ export function createDemoClient(options: { settleAfterMs?: number; storage?: Pi
     async market() { return read("sample").market; },
     async output(id) { return read(sessions.has(id) ? id : "sample").output; },
     async createSession() { const id = "new-" + ++serial; seed(id, "", "新研究"); return summaries.get(id)!; },
-    async renameSession(id, title) {
+    async renameSession({ sessionId: id, title }) {
       requireSession(id);
       if (!title.trim()) throw new Error("请输入会话名称");
       summaries.set(id, { ...summaries.get(id)!, name: title.trim().slice(0, 100) });
@@ -139,8 +139,10 @@ export function createDemoClient(options: { settleAfterMs?: number; storage?: Pi
       }, options.settleAfterMs ?? 1800));
       return { sessionId: request.sessionId, runId };
     },
-    async cancel(runId) {
-      const entry = [...sessions].find(([, s]) => s.identity.runId === runId);
+    async cancel(target) {
+      const { runId } = target;
+      const entry = [...sessions].find(([, s]) => s.identity.runId === runId
+        && s.identity.workspaceId === target.workspaceId && s.identity.sessionId === target.sessionId);
       if (!entry) throw new Error("运行不存在");
       const [id, current] = entry;
       if (current.state !== "running") return;

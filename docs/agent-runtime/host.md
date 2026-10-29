@@ -1,18 +1,18 @@
 # 共享 Host：身份、所有权与退出契约
 
-本页是 #51 的目标契约，初稿基于 main `5ae8012`，并对照 main `3b15066` 更新；目标能力不等于已交付能力。当前目录与依赖规则见[模块架构](./architecture.md)，持久化提交点见[存储](./storage.md)。实现必须逐项提供运行证据，不能以本文替代验收。
+本页是 #51 的目标契约，初稿基于 main `5ae8012`，并对照 main `3b15066` 更新；#46 提取的无界面服务见[服务说明](./services.md)，目标 Host 能力不等于已交付能力。当前目录与依赖规则见[模块架构](./architecture.md)，持久化提交点见[存储](./storage.md)。实现必须逐项提供运行证据，不能以本文替代验收。
 
 ## 从现有代码提取，不增加第二份业务真值
 
 [AppRuntime](../../src/app-runtime.ts)同时维护研究操作和 `onMessages`、`onPanel`、`onComposerStatus` 等界面回调。共享投影类型虽已移出 TUI，构造 AppRuntime 仍不等于获得无界面服务。
 
-[旧研究管理器](../../src/app/research-workspace/manager.ts)已有 `start/get/current/list/subscribe/cancel/continue/followup/save/delete`：订阅释放不取消，保存经 workspace store 提交，复核通过 `parentId` 关联固定研究。它管理单股研究，不能直接冒充通用 Quant 会话。`continue` 当前复用原 run；目标契约须为新执行分配新 runId，并保留原运行关系，避免迟到事件污染新执行。旧保存格式保持兼容读取。
+[旧研究管理器](../../src/app/research-workspace/manager.ts)已有 `start/get/current/list/subscribe/cancel/continue/followup/save/delete`：订阅释放不取消，保存经 workspace store 提交，复核通过 `parentId` 关联固定研究。它管理单股研究，不能直接冒充通用 Quant 会话。`continue` 为新执行分配新 runId 并保留原会话和历史，避免迟到事件污染新执行。旧保存格式保持兼容读取。
 
-[React 客户端端口](../../apps/web/src/client/contract.ts)已有 workspace/session/run 身份与显式取消。界面改进 PR #98 和真实 Quant Agent 接入 PR #102 已合入 main：后者提供初步本机 HTTP/SSE 服务与工作区锁，但尚不提供本契约要求的发现、跨入口复用或重启后的执行恢复。#46 应复用现有 Quant/Pi 核心、旧研究保存规则及已有适配器，移出业务操作中的界面回调。TUI、HTTP 和 React 只做适配；一个运行只能由一个服务实例持有 Agent。
+[React 客户端端口](../../apps/web/src/client/contract.ts)已有 workspace/session/run 身份与显式取消。界面改进 PR #98 和真实 Quant Agent 接入 PR #102 已合入 main：后者提供初步本机 HTTP/SSE 服务与工作区锁，但尚不提供本契约要求的发现、跨入口复用或重启后的执行恢复。#46 已提取无界面研究服务，复用现有 Quant/Pi 核心、旧研究保存规则及已有适配器；终端尚未接入该服务。TUI、HTTP 和 React 只做适配；一个运行只能由一个服务实例持有 Agent。
 
 ## 服务操作与身份
 
-以下为 #46 要交付的应用接口语义，方法名可映射现有端口；直调和 HTTP 必须调用同一实现与参数校验。跨入口 DTO 归 `src/types`，不导出 Agent、文件路径、凭证或界面回调。
+以下为 #46 的应用接口语义，直调和 HTTP 使用同一实现与参数校验；具体能力与边界见[无界面服务](./services.md)。跨入口 DTO 归 `src/types`；目标是不导出 Agent、文件路径、凭证或界面回调。当前工具返回的文本可能包含本地报告路径，修复与验证由 [#142](https://github.com/yangjingo/oh-my-quant/issues/142) 跟进。
 
 | 操作 | 输入与结果约束 |
 | --- | --- |
@@ -27,9 +27,9 @@
 
 workspaceId 绑定 storage resolver 选择的同一本地数据根：规范化绝对真实路径，按文件系统规则消除路径别名后生成不透明标识。默认根与 `OHQUANT_DIR` 的优先级保持不变；不根据当前窗口建立新工作区，不自动合并旧历史或凭证。跨机器同步和移动数据根后的身份迁移不在本轮范围。
 
-sessionId 标识对话；runId 标识一次执行；artifactId/version/hash 标识固定成果，三者不能互换。新建会话不启动 Agent。修改请求必须匹配 workspaceId、sessionId 和修订；不匹配分别返回可区分的 `workspace_mismatch`、`not_found`、`revision_conflict` 或 `run_conflict`。同一 requestId 的相同输入返回同一接受结果，输入不同则冲突；#46 提供存活期间去重，跨崩溃的提交记录由 #77 接管，未交付前重连不得自动重试提交。
+sessionId 标识对话；runId 标识一次执行；artifactId/version/hash 标识固定成果，三者不能互换。新建会话不启动 Agent。修改请求必须匹配 workspaceId、sessionId 和修订；不匹配分别返回可区分的 `WORKSPACE_MISMATCH`、`SESSION_NOT_FOUND`、`REVISION_CONFLICT` 或 `RUN_CONFLICT`。同一 requestId 的相同输入返回同一接受结果，输入不同则冲突；#46 提供存活期间去重，跨崩溃的提交记录由 #77 接管，未交付前重连不得自动重试提交。
 
-状态至少区分 idle、running、needs_input、settled、cancelled、failed、interrupted。取消提交终态后拒绝该 run 的后续写入；继续创建新 run，不能把 cancelled 改回 running。Host 每次启动生成 instanceId，快照带 instanceId 和单调 revision；客户端只在同一实例内比较 revision。实例改变时重新读取，不把旧实例迟到的高 revision 当新状态。
+状态至少区分 idle、running、needs_input、settled、cancelled、failed、interrupted。取消提交终态后拒绝该 run 的后续写入；继续创建新 run，不能把 cancelled 改回 running。目标 Host 每次启动生成 instanceId，快照带 instanceId 和单调 revision；客户端只在同一实例内比较 revision。当前 #46 服务尚未提供实例标识，由 #75 实现。实例改变时重新读取，不把旧实例迟到的高 revision 当新状态。
 
 ## 工作区发现与启动
 

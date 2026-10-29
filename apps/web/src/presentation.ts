@@ -1,7 +1,7 @@
 import type { RunState, SessionSnapshot } from "./client/contract";
 
 export const runLabels: Record<RunState, string> = {
-  idle: "尚未开始", running: "研究进行中", settled: "本轮已结束", failed: "本轮失败", cancelled: "已停止", interrupted: "意外中断",
+  idle: "尚未开始", running: "研究进行中", needs_input: "等待补充信息", settled: "本轮已结束", failed: "本轮失败", cancelled: "已停止", interrupted: "意外中断",
 };
 
 export const confidenceLabels = { low: "低", medium: "中", high: "高" } as const;

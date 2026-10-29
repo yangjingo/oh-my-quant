@@ -23,8 +23,26 @@ test("ambiguous network submission is never automatically retried", async () => 
     submits++; throw new Error("lost response after acceptance");
   }) as typeof fetch;
   const client = createHostClient({ baseUrl: "http://workbench.test", fetch: request });
-  await expect(client.submit({ workspaceId: "w", sessionId: "s", text: "Only once" })).rejects.toThrow("不会自动重复提交");
+  await expect(client.submit({ workspaceId: "w", sessionId: "s", requestId: "once", expectedRevision: 0, text: "Only once" })).rejects.toThrow("不会自动重复提交");
   expect(submits).toBe(1);
+});
+
+test("ambiguous continuation, report and deletion requests are not retried by the adapter", async () => {
+  const calls: string[] = [];
+  const request = (async (url: RequestInfo | URL, init?: RequestInit) => {
+    if (String(url).endsWith("bootstrap")) return bootstrap();
+    calls.push((JSON.parse(String(init?.body)) as { method: string }).method);
+    throw new Error("accepted response was lost");
+  }) as typeof fetch;
+  const client = createHostClient({ baseUrl: "http://workbench.test", fetch: request });
+  const next = { workspaceId: "w", sessionId: "s", requestId: "r", expectedRevision: 1, previousRunId: "old" };
+  const report = { workspaceId: "w", sessionId: "s", artifactId: "fixed", sha256: "a".repeat(64) };
+  for (const operation of [() => client.continue!(next), () => client.followup!({ ...next, text: "follow-up" }),
+    () => client.save!({ workspaceId: "w", sessionId: "s", runId: "run", expectedRevision: 1, expectedArtifactRevision: null }),
+    () => client.review!({ ...report, requestId: "review", expectedRevision: 1, text: "review" }),
+    () => client.deleteSession!({ workspaceId: "w", sessionId: "s", expectedRevision: 1 })])
+    await expect(operation()).rejects.toThrow("不会自动重复提交");
+  expect(calls).toEqual(["continue", "followup", "save", "review", "deleteSession"]);
 });
 test("an HTML success response is not accepted as a successful model save", async () => {
   const request = (async (url: RequestInfo | URL) => String(url).endsWith("bootstrap") ? bootstrap() : new Response("<html>fallback</html>")) as typeof fetch;

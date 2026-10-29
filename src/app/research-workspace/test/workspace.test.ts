@@ -483,8 +483,16 @@ test("an old turn cannot cancel a live follow-up; the current turn can cancel an
   expect(f.manager.get(next.id).status).toBe("running");
   expect((await f.post(`api/runs/${next.id}/cancel`)).status).toBe(200);
   expect((await f.wait(next.id)).status).toBe("cancelled");
-  expect((await f.post(`api/runs/${next.id}/continue`)).status).toBe(200);
-  expect((await f.wait(next.id)).status).toBe("complete");
+  const continued = await f.post(`api/runs/${next.id}/continue`);
+  expect(continued.status).toBe(200);
+  const resumed = await continued.json() as WorkspaceRun;
+  expect(resumed.id).not.toBe(next.id);
+  expect(resumed.conversationId).toBe(first.id);
+  expect(resumed.history?.map(turn => ({ id: turn.id, status: turn.status }))).toEqual([
+    { id: first.id, status: "complete" }, { id: next.id, status: "cancelled" },
+  ]);
+  expect((await f.wait(resumed.id)).status).toBe("complete");
+  expect(f.manager.get(next.id).status).toBe("cancelled");
   expect(f.manager.get(first.id).status).toBe("complete");
   expect(f.reads()).toBe(2);
 }, 10000);
@@ -520,17 +528,27 @@ test("unknown citations never become a saved completed report", async () => {
   expect(run.answer).toBeNull();
   expect((await f.post(`api/runs/${r.id}/save`)).status).toBe(400);
 }, 10000);
-test("cancel aborts tool fetch; explicit continue reuses session and completes", async () => {
+test("cancel aborts tool fetch; explicit continue creates a new run in the same session", async () => {
   const f = await fixture("slow");
   const r = (await (
     await f.post("api/runs", { question: "test", scope })
   ).json()) as WorkspaceRun;
   for (let i = 0; i < 50 && f.reads() === 0; i++) await Bun.sleep(20);
   expect((await f.post(`api/runs/${r.id}/cancel`)).status).toBe(200);
-  expect((await f.wait(r.id)).status).toBe("cancelled");
+  const stopped = await f.wait(r.id);
+  expect(stopped.status).toBe("cancelled");
   f.reset();
-  expect((await f.post(`api/runs/${r.id}/continue`)).status).toBe(200);
-  expect((await f.wait(r.id)).status).toBe("complete");
+  const response = await f.post(`api/runs/${r.id}/continue`);
+  expect(response.status).toBe(200);
+  const next = await response.json() as WorkspaceRun;
+  expect(next.id).not.toBe(r.id); expect(next.conversationId).toBe(r.conversationId);
+  expect(next.history?.[0]).toMatchObject({ id: r.id, status: "cancelled" });
+  expect(f.manager.current()).toBe(next.id);
+  expect((await f.post(`api/runs/${r.id}/cancel`)).status).toBe(400);
+  expect((await f.post(`api/runs/${r.id}/continue`)).status).toBe(400);
+  expect((await f.wait(next.id)).status).toBe("complete");
+  expect(f.manager.get(r.id)).toEqual(stopped);
+  expect(f.compositions()).toBe(1);
 }, 10000);
 test("local API rejects cross-origin, missing token, and malformed scope", async () => {
   const f = await fixture();
@@ -578,11 +596,13 @@ test("partial evidence survives cancellation and a second run cannot race the ac
   expect(stopped.evidence).toHaveLength(1);
   const hash = stopped.evidence[0]!.contentHash;
   f.reset();
-  await f.post(`api/runs/${r.id}/continue`);
-  const completed = await f.wait(r.id);
+  const resumed = await (await f.post(`api/runs/${r.id}/continue`)).json() as WorkspaceRun;
+  const completed = await f.wait(resumed.id);
   expect(completed.status).toBe("complete");
   expect(completed.evidence[0]!.contentHash).toBe(hash);
   expect(f.reads()).toBe(3);
+  expect(resumed.id).not.toBe(r.id);
+  expect(f.manager.get(r.id)).toEqual(stopped);
 }, 10000);
 
 test("timeout leaves an explicit incomplete task; source failures cannot masquerade as analysis", async () => {
@@ -1226,4 +1246,41 @@ test("AC4: corrupt metadata halts study deletion with HTTP 500 without modifying
   // 5. CRITICAL: Corrupt bytes on disk must be 100% PRESERVED (not replaced or wiped)
   const currentBytes = readFileSync(metaPath, "utf8");
   expect(currentBytes).toBe(corruptBytes);
+});
+
+test("direct service deletion returns the same current metadata as HTTP and rejects stale client writes", async () => {
+  const f = await fixture();
+  const run = (await (await f.post("api/runs", { question: "Direct and HTTP clients", scope })).json()) as WorkspaceRun;
+  await f.wait(run.id);
+  await f.post(`api/runs/${run.id}/save`);
+  const initial = f.service.metadata();
+  initial.studies[run.id] = { customTitle: "Shared study" };
+  f.service.updateMetadata(initial);
+  const stale = f.service.metadata();
+  const other = structuredClone(stale);
+  other.projects.push({ id: "OTHER.PROJ", symbol: "OTHER.PROJ", name: "Other client's project" });
+  expect((await f.post("api/workspace/meta", other)).status).toBe(200);
+
+  const deleted = f.service.deleteStudy(run.id);
+  const remote = await (await fetch(new URL("api/workspace/meta", f.url))).json() as WorkspaceMetadata;
+  expect(deleted.meta).toEqual(remote);
+  expect(deleted.revision).toBe(deleted.meta.revision);
+  expect(deleted.meta.projects.some(project => project.id === "OTHER.PROJ")).toBe(true);
+  expect(deleted.meta.studies[run.id]).toBeUndefined();
+  expect(f.store.list()).toEqual([]);
+  expect(() => f.service.updateMetadata(stale)).toThrow();
+  expect((await f.post("api/workspace/meta", stale)).status).toBe(409);
+  expect(f.service.metadata()).toEqual(deleted.meta);
+});
+
+test("direct service refuses to delete a saved study when metadata is corrupt", async () => {
+  const f = await fixture();
+  const run = (await (await f.post("api/runs", { question: "Preserve corrupt metadata", scope })).json()) as WorkspaceRun;
+  await f.wait(run.id);
+  const saved = f.manager.save(run.id);
+  const bytes = '{"projects": [';
+  writeFileSync(f.metaPath, bytes);
+  expect(() => f.service.deleteStudy(run.id)).toThrow();
+  expect(readFileSync(f.metaPath, "utf8")).toBe(bytes);
+  expect(f.store.load(run.id)).toEqual(saved);
 });

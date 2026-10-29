@@ -106,7 +106,7 @@ export function artifactPath(ref: string): string {
   return selected ? join(revisionDir(id, selected), `${id}.html`) : join(resolveArtifactsDir(), `${id}.html`);
 }
 
-export function saveArtifact(id: string, html: string, input: Partial<ArtifactSaveMeta> = {}): ArtifactMeta {
+export function saveArtifact(id: string, html: string, input: Partial<ArtifactSaveMeta> = {}, expectedRevision?: string | null): ArtifactMeta {
   if (parseRef(id).revision) throw new Error("Save a new report version using its report id.");
   ensureDirs();
   const dir = resolveArtifactsDir();
@@ -114,6 +114,8 @@ export function saveArtifact(id: string, html: string, input: Partial<ArtifactSa
   return withFileLock(headPath(id), () => {
     const previous = loadArtifactSnapshot(id);
     if (!previous && existsSync(headPath(id))) throw new Error("Report head is damaged. Repair it before saving another version.");
+    if (expectedRevision !== undefined && (previous ? previous.meta.revision : null) !== expectedRevision)
+      throw Object.assign(new Error("Report changed; reload its current revision before saving."), { code: "ESTORAGECONFLICT" });
     if (previous && !previous.meta.revision) {
       previous.meta.bytes = Buffer.byteLength(previous.html);
       previous.meta.revision = fingerprint(previous.meta, previous.html);

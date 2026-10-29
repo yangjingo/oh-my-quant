@@ -91,9 +91,13 @@ export function createHostClient(options: { baseUrl?: string; fetch?: typeof fet
     refreshMarket: async failedOnly => { const value = await rpc("refreshMarket", [failedOnly]); if (!isMarketSnapshot(value)) throw new Error("行情响应无效。"); return value; },
     session: async id => { const value: unknown = await rpc("session", [id]); if (!isWorkbenchSnapshot(value)) throw new Error("研究服务会话无效。"); return value; },
     transcript: id => rpc("transcript", [id]), output: id => rpc("output", [id]), createSession: () => rpc("createSession"),
-    renameSession: (id, title) => rpc("renameSession", [id, title]), references: (id, query) => rpc("references", [id, query]),
+    renameSession: value => rpc("renameSession", [value]), references: (id, query) => rpc("references", [id, query]),
     updatePreferences: (next: Preferences) => rpc("updatePreferences", [{ revision: next.revision, model: next.model, source: next.source, portfolio: next.portfolio, ...(next.researchSource === undefined ? {} : { researchSource: next.researchSource }), ...(next.thinkingLevel === undefined ? {} : { thinkingLevel: next.thinkingLevel }) }]),
     submit: value => rpc("submit", [value]), cancel: id => rpc("cancel", [id]),
+    continue: value => rpc("continue", [value]), followup: value => rpc("followup", [value]),
+    save: value => rpc("save", [value]), reload: value => rpc("reload", [value]),
+    review: value => rpc("review", [value]),
+    deleteSession: value => rpc("deleteSession", [value]),
     acknowledgeInterruption: id => rpc("acknowledgeInterruption", [id]),
     subscribe(listener) {
       listeners.add(listener);
