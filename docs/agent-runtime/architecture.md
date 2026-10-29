@@ -1,6 +1,6 @@
 # WhyJ Quant 模块架构
 
-更新：2026-10-26。产品见[PRD](../prd.md)，交互见[UI/UX](../quant-harness/uiux.md)，进展见 Issues/PR。
+更新：2026-10-26。产品见[PRD](../prd.md)，交互见[UI/UX](../quant-harness/uiux.md)。
 
 ## 当前顶层布局
 
@@ -8,10 +8,13 @@
 |---|---|
 | `src/index.ts`、`src/cli/` | 现有启动与业务命令、JSON 单次调用；CLI 入口迁移仍待 #76 |
 | `apps/tui/` | 终端布局、输入与面板；包含源码、测试和探针，不持有会话真值 |
-| `apps/web/` | 共享 React 界面及客户端端口；Host 待接入 |
+| `apps/web/` | 共享 React 界面和 HTTP/SSE 客户端 |
 | `src/app-runtime.ts`、`src/app-watchlist.ts` | 应用组装与动作；AppRuntime 仍使用界面回调，共享会话投影类型归 `src/types` |
-| `apps/desktop/` | Electron main/preload、PTY/xterm 与安装包 |
-| `src/app/research-workspace/` | HTTP/SSE、研究管理器与原生 Web UI；不是目标 Host |
+| `apps/desktop/` | Electron、PTY/xterm 与安装包 |
+| `src/app/research-workspace/` | 旧研究宿主与原生 Web UI |
+| `src/app/services/` | 无终端回调的 Quant 执行、旧单股复核及元数据协调 |
+| `src/app/bootstrap.ts`、`src/app/host/` | 工作区实例发现、认证复用、Bun 子进程与客户端生命周期 |
+| `src/app/workbench/` | HTTP/SSE 与投影辅助；执行委托 services |
 | `src/app/paper-execution/` | 显式私有模拟盘宿主与独立账本 |
 | `site/` | 独立静态官网，不连接本地研究数据 |
 
@@ -19,9 +22,9 @@
 
 <a id="current-web"></a>
 
-当前 Web 原型的运行与取消由独立[研究宿主](../../src/app/research-workspace/manager.ts)管理，未保存进度只在内存中：页面刷新可接回，服务重启则只从显式保存的对话和固定证据重建上下文，不重放完整 journal 或自动获取新行情。关闭浏览器只断开订阅，不停止任务。首次研究须有结构化发布结果才能保存，后续解释型对话不冒充新研究；复核另开会话取证并关联旧版本。这些现状边界不能由下方目标 Host 的恢复承诺代替。
+旧单股研究工作区的运行与取消由独立[研究宿主](../../src/app/research-workspace/manager.ts)管理，未保存进度只在内存中：页面刷新可接回，服务重启则只从显式保存的对话和固定证据重建上下文，不重放完整 journal 或自动获取新行情。关闭浏览器只断开订阅，不停止任务。首次研究须有结构化发布结果才能保存，后续解释型对话不冒充新研究；复核另开会话取证并关联旧版本。这些现状边界不能由下方目标 Host 的恢复承诺代替。
 
-React 入口边界见 [Web 模块](../quant-harness/web-ui.md)；Host 尚未接入。
+React 的运行与固定报告见[无界面服务](./services.md)，行情与会话交互见 [Web 模块](../quant-harness/web-ui.md)，发现与停止见 [Host](./host.md)。CLI/TUI、Electron 接入及完整恢复仍待实现。
 
 ## 当前依赖契约
 
@@ -81,42 +84,29 @@ flowchart TB
 
 Desktop 已迁目录，关窗仍退出；Host 接入待 #47/#48，CLI 待 #76。
 
-先提取 AppRuntime 的无界面服务，再接入口；业务状态和执行不反向依赖 apps。UI 可基于已审阅契约先行，完整交付依赖真实 Host；持久化与取消语义在接口设计时确定。本阶段不拆领域 packages、不迁移用户数据。同步 bin、构建、安装与测试发现，保留 CLI/npm 契约、Electron appId、用户目录及历史读取，再撤旧入口。
+先提取 AppRuntime 无界面服务，再接入口；业务不反向依赖 apps。不拆领域 packages 或迁用户数据；同步 bin、构建、安装和测试，保留 CLI/npm、Electron appId 与历史读取，再撤旧入口。
 
 GUI 采用 React＋TypeScript＋Vite，服务采用 Bun HTTP/SSE；不假定 Bun API 可在 Electron Node 运行，不另建 IPC 业务传输。Electron renderer 禁用 Node，保留 sandbox、context isolation、CSP；preload 仅开放受校验的原生能力。
 
 ## 目标服务与 Host 契约
 
-入口持有参数、焦点、窗口与订阅；应用服务管理提交、取消、追问、保存、复核和身份/状态，不依赖 UI 或传输。Host 管实例生命周期，journal/storage 管已提交事件与不可变成果。
+入口持有参数、焦点、窗口与订阅；应用服务拥有研究操作与身份/状态；Host 管执行所有权与连接；journal/storage 管已提交事件及不可变成果。[共享 Host 契约](./host.md)集中定义接口、实例兼容、锁/就绪、认证、关窗/退出和恢复边界，仍待对应 Issue 实现。
 
-跨入口接续要求同机、同一 workspace/session/run 和 Host，不承诺跨设备同步。单次 CLI 可直调服务，需要共享运行时才连接 Host；帮助/版本查询不启动 Host。
+规划顺序为 #51 → #46 → #75 → #76 → #50 → #47 → #105/#77 → #78 → #48/#56。#98/#102 和提前合入的 #105 应复用；#105 的对话连续性不等于 #77 的工作流恢复。具体前置条件与验收见[顺序表](./host.md#顺序复用与完成条件)。#78 可先补测试发现，跨入口验收在真实能力到位后执行。
 
-bootstrap：选择工作区 → 发现兼容 Host → 连接或持锁启动 → 等待就绪 → 打开界面。并发启动、失效登记、版本冲突须可诊断，不能产生第二个写入者。保留默认数据根，共用工作区须显式选择，不自动合并凭证/历史；已有文件锁不证明 Host 唯一所有权。
-
-HTTP 仅绑定 loopback，校验 Host/Origin、token 和参数；renderer 不访问文件或凭证。生产加载静态构建产物，不依赖 Vite。先测 SSE 全量快照增长；若改序号增量，必须支持缺口检测和快照重同步。
-
-| 操作 | 目标语义 |
-|---|---|
-| 关窗/断开 TUI 或 Web | 释放订阅，运行继续；桌面可从托盘返回 |
-| 取消 | 定位具体 run，迟到事件不覆盖终态 |
-| 完整退出/停止后端 | 按所有权停止或标记中断并清理，不误杀其他客户端使用的服务 |
-| Host 崩溃/重启 | 可找到中断状态，按持久化证据决定是否恢复 |
-
-daemon 与休眠期间运行不在本阶段范围。Host 登记/锁、兼容判据、凭证传递与多客户端退出交互仍须设计收敛，以上不是已交付接口。
-
-报告不等于可恢复进度。优先复用 session journal 记录消息、run 状态和关键事件；恢复核对副作用，未知结果先确认，不直接重放。完成后释放 Agent、订阅及临时缓存，历史按需加载；先测长期资源增长，再调整数量上限。
+当前 Host 实现所有权锁、登记、版本握手与显式停止；CLI/TUI 与 Electron 尚未接入。目标单次 CLI 可直调无界面服务，共享运行通过 Host 维持唯一所有者。关窗、退订和取消分别处理；不承诺 daemon、全机退出或休眠期间运行。
 
 ## 测试布局
 
 测试在 `src/<module>/test/`（保留 `source/tests/`）、`apps/tui/test/` 与 `tests/app/`；默认/watch/模块测试及类型检查覆盖 TUI，`dev` 探针不自动执行。[依赖回归](../../tests/architecture/module-boundaries.test.ts)覆盖 `src`/`apps`，除启动桥接外禁止共享层导入入口；[入口回归](../../tests/architecture/development-entrypoints.test.ts)验证发现与构建，违规基线为空。
 
-后续目标：服务测试在 `src/app/services/test`，CLI 启动测试在 `apps/cli/test`。`tests/contracts` 复用直调服务与 Host API 的身份、状态和错误断言，验证单次命令不加载 TUI。
+服务及 HTTP 集成测 `src/app/services/test`，投影测 `src/app/workbench/test`；后续 CLI 测试归 `apps/cli/test`，共享契约归 `tests/contracts`。
 
-`tests/e2e` 用真实 Host、临时工作区和假模型贯通 Web 提交 → Desktop 接回 → 关窗继续 → CLI 取消 → 拒绝晚到事件，另验保存/追问及恢复不重复副作用。发现规则、依赖围栏和 CI 随迁移同步。
+`tests/e2e` 用真实 Host、临时工作区和假模型测跨入口接回、关窗继续、精确取消、保存/追问及恢复不重放。随迁移同步发现规则、依赖围栏与 CI。
 
 ## 开发入口与 npm 命令
 
-`dev` 保持 CLI/TUI，`workspace:dev` 运行旧研究宿主；`web:dev` / `web:demo` 运行共享 React 界面及显式演示。目标新增 `dev:web`（Host＋Vite）、`dev:desktop`（再加 Electron），均须有就绪、日志和退出清理。
+`dev` 保持 CLI/TUI，`workspace:dev` 为旧前台宿主；`web:dev` / `web:demo` 为未连接界面/演示；`web:start` 构建并发现 Host，`web:host` 使用已有产物，`host:stop` 停止独立后端。Vite/Electron 联调待接入。
 
 工具保留各模块 `dev/`：构建归 cli，测量/评测归 runtime，绘制/报告归 tui/artifact，IO 基准归 storage。根 `scripts/` 已退役；探针不进入默认 Agent 能力。子进程回归固定 cwd、隔离配置并使用假服务。
 
