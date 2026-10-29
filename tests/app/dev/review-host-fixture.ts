@@ -1,15 +1,22 @@
 // Explicit CI fixture: actual Host/Pi/core/calculator, isolated storage, local dummy provider.
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { DEFAULT_SETTINGS } from "../../../src/types/config.ts";
-import { saveSettings } from "../../../src/storage/index.ts";
+import { resolveSettingsPath, saveSettings } from "../../../src/storage/index.ts";
 import { createDefaultSessionDependencies } from "../../../src/runtime/session-dependencies.ts";
 import { createWorkbenchService } from "../../../src/app/workbench/service.ts";
 import { startWorkbenchServer } from "../../../src/app/workbench/server.ts";
 
-const root = mkdtempSync(join(tmpdir(), "whyj-review-host-"));
+const requestedRoot = process.env.WHYJ_REVIEW_HOST_ROOT;
+const root = requestedRoot ? resolve(requestedRoot) : mkdtempSync(join(tmpdir(), "whyj-review-host-"));
+if (requestedRoot) {
+  if (!root.startsWith(resolve(tmpdir()) + sep)) throw new Error("Fixture root must be within the system temporary directory");
+  mkdirSync(root, { recursive: true });
+}
 process.env.OHQUANT_DIR = root; process.env.NO_PROXY = "127.0.0.1,localhost";
+const keepSettings = process.env.WHYJ_REVIEW_KEEP_SETTINGS === "1";
+if (requestedRoot && existsSync(resolveSettingsPath()) && !keepSettings) throw new Error("Fixture refuses to overwrite existing settings");
 let stage = "idle", advance: (() => void) | undefined, requests = 0, fail = false, legacy = false, sequence = 0, marketRound = 0;
 const legacyAnswer = "以下为合成展示，不是投资结论。\n\n\n观察摘要\n────────────────────────\n假设 A    2026-10-23    0.00 CNY    —\n假设 B    2026-10-22    80.00 USD   跨窗口，不能直接比较\n\n\n复核边界\n────────────────────────\n原始数据尚未独立复核，不代表实际行情。";
 const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, async fetch(request) {
@@ -46,7 +53,7 @@ const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, a
   }, cancel() { clearInterval(heartbeat); if (callId === "review-call-" + sequence) { stage = "idle"; advance = undefined; } } }), { headers: { "Content-Type": "text/event-stream" } });
 } });
 const settings = structuredClone(DEFAULT_SETTINGS); settings.provider = "custom"; settings.model = "review-fixture"; settings.thinkingLevel = "off";
-settings.providers = { custom: { api: "openai-completions", baseUrl: provider.url.origin + "/v1", apiKey: "review-fixture-dummy-not-a-secret" } }; saveSettings(settings);
+settings.providers = { custom: { api: "openai-completions", baseUrl: provider.url.origin + "/v1", apiKey: "review-fixture-dummy-not-a-secret" } }; if (!keepSettings) saveSettings(settings);
 const service = createWorkbenchService({ cwd: root, overview: {
   loadPortfolio: () => ({ symbols: [] }), quoteFetcher: async entries => {
     const round = marketRound;
@@ -69,11 +76,11 @@ const service = createWorkbenchService({ cwd: root, overview: {
     return tool.execute(...args);
   } }) };
 } });
-const host = startWorkbenchServer({ port: 0, service });
+const host = startWorkbenchServer({ port: 0, service, ...(process.env.WHYJ_REVIEW_WEB_ROOT ? { assetsRoot: resolve(process.env.WHYJ_REVIEW_WEB_ROOT) } : {}) });
 console.log(JSON.stringify({ origin: host.server.url.origin, control: provider.url.origin, fixture: "isolated controlled provider, not live model acceptance" }));
 const stop = () => { void host.close().finally(() => {
   provider.stop(true);
   if (!resolve(root).startsWith(resolve(tmpdir()) + sep)) throw new Error("Unexpected fixture directory");
-  rmSync(root, { recursive: true, force: true }); process.exit(0);
+  if (!requestedRoot) rmSync(root, { recursive: true, force: true }); process.exit(0);
 }); };
 process.once("SIGINT", stop); process.once("SIGTERM", stop);

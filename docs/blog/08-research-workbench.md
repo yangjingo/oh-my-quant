@@ -14,7 +14,7 @@ Agent Engineering / oh-my-quant · 初稿 2026-10-13 · 修订 2026-10-22 · 产
 
 ## 复用终端解决了启动，却没有形成对象协议
 
-当前[桌面构建](../../apps/desktop/scripts/build.ts)打包同一 CLI，[主进程](../../apps/desktop/src/main.ts)通过 node-pty 启动它，[Bridge](../../apps/desktop/src/bridge.ts)交换终端输入、尺寸与输出。这样能保留原有研究行为，也减少用户安装开发环境的负担。当前关窗仍退出 CLI，不能把未来的托盘保活写成已有能力。
+当前[桌面构建](../../apps/desktop/scripts/build.ts)同时包含 CLI 和共享工作台；[主进程](../../apps/desktop/src/main.ts)连接独立 Host，并通过托盘保留入口。关闭窗口不停止研究；显式停止后端会影响共享该 Host 的其他入口。
 
 字符流没有稳定表达“报告版本”“配置保存代次”和“请求身份”。若从屏幕文字推断这些对象，独立设置页、来源链接和报告比较就会形成另一份业务状态。现有 `src/app/research-workspace/` 已验证本地 HTTP/SSE 研究入口，但仍有自己的生命周期和资源限制，不等于已完成统一 Host。
 

@@ -29,6 +29,8 @@ workspaceId 绑定 storage resolver 选择的同一本地数据根：规范化�
 
 sessionId 标识对话；runId 标识一次执行；artifactId/version/hash 标识固定成果，三者不能互换。新建会话不启动 Agent。修改请求必须匹配 workspaceId、sessionId 和修订；不匹配分别返回可区分的 `WORKSPACE_MISMATCH`、`SESSION_NOT_FOUND`、`REVISION_CONFLICT` 或 `RUN_CONFLICT`。同一 requestId 的相同输入返回同一接受结果，输入不同则冲突；#46 提供存活期间去重，跨崩溃的提交记录由 #77 接管，未交付前重连不得自动重试提交。
 
+Bun HTTP/SSE 运行于独立 Bun 进程。Node/Electron 调用 bootstrap 时必须显式提供 Bun 可执行文件或编译的 Bun Host；不能把 Bun server 导入 Electron Node 并假定兼容。Desktop 构建 Host 与静态资源，安装包和目标机器验收由 #48 完成。
+
 状态至少区分 idle、running、needs_input、settled、cancelled、failed、interrupted。取消提交终态后拒绝该 run 的后续写入；继续创建新 run，不能把 cancelled 改回 running。Host 每次启动生成 instanceId，SSE 信封携带实例标识和会话修订；服务快照本身不携带 instanceId。客户端只应在同一实例内比较 revision，实例改变时重新读取；入口侧完整拦截旧实例迟到事件仍须在 #50/#76 验证。
 
 ## 工作区发现与启动
@@ -78,6 +80,10 @@ Web SSE 断连只释放观察；客户端登记以 90 秒租约维持存在，�
 
 ## 顺序、复用与完成条件
 
+旧单股 `workspace:dev` 前台入口也取得同一执行锁；它不冒充兼容的通用 Host。Desktop 关窗隐藏到托盘，身份持续续期；重新打开连接同一 Host。普通退出等待在途连接收尾并解除身份，只对本入口启动的 Host 请求空闲停止；有活动研究或其他观察者时保留服务。托盘中的显式停止需要确认并停止全部入口的活动研究。服务不可用时显示恢复界面，手动重连不重放请求。CLI 迁移仍由 #76 负责。
+
+Desktop 用稳定的 `app://desktop` 来源加载工作台；主进程仅将资源和工作台接口转发到当前认证的 loopback Host，不开放后端控制接口。Host 端口改变时，按工作区与会话隔离的视图草稿仍可读取；模型凭据和 Host 停止能力不交给 renderer。常见连接错误使用可操作的提示，未知异常不将本机路径或原始异常正文传给界面。
+
 原规划按下列顺序逐项实施；#51、#46 和 #105 已合入，其他事项各自保留独立 Issue/PR。后续分支基于当时最新 main；确需未合入依赖时显式记录临时堆叠关系，最终目标仍为 main。目录迁移与会话连续性中已交付的部分不重做。
 
 | 顺序 | 负责事项 | 进入下一阶段的证据 |
@@ -96,6 +102,6 @@ Web SSE 断连只释放观察；客户端登记以 90 秒租约维持存在，�
 
 历史架构审阅见 [Liears 对 #79 的评审](https://github.com/yangjingo/oh-my-quant/pull/79#pullrequestreview-5610180434)：认可的论证与发布证据不能代替新协议的实现审阅。本文新增的兼容判据、锁与凭证交付、退出条件须在 #51 PR 审阅；#105 的 checkpoint schema 已随其实现审阅，恢复动作/副作用分类和资源预算仍在 #77 审阅。不把“历史有人看过”记为本次批准。
 
-React 界面将会话修订及报告摘要随相应操作发送给 Host；版本冲突由服务拒绝，不由界面自动重发。查看固定研究只读，复核创建独立会话；切换界面不停止运行。Electron 使用同一 Host 的实际接入和跨入口验收由 #47 完成。
+React 界面将会话修订及报告摘要随相应操作发送给 Host；版本冲突由服务拒绝，不由界面自动重发。查看固定研究只读，复核创建独立会话；切换界面不停止运行。Electron 使用同一 Host，跨入口验收见 #47。
 
-并发进程锁、就绪失败、失效登记、鉴权、客户端 detach 和退出由 `src/app/host/test/` 验证；既有服务测试保留真实 Host kill/restart、精确取消与 SSE 接回。测试使用隔离工作区和确定性模型，不能证明真实行情完整性、模型质量、安装包接入或目标机器验收。完整恢复资格、未知工具副作用对账和长期资源预算仍由 #77 负责。
+并发进程锁、就绪失败、失效登记、鉴权、客户端 detach 和退出由 `src/app/host/test/` 验证；桌面共享入口以隔离 Host 和受控模型验证跨入口运行；既有服务测试保留真实 Host kill/restart、精确取消与 SSE 接回。测试使用隔离工作区和确定性模型，不能证明真实行情完整性、模型质量、安装包接入或目标机器验收。完整恢复资格、未知工具副作用对账和长期资源预算仍由 #77 负责。

@@ -2,7 +2,9 @@
 
 `apps/web` 是供浏览器与 Desktop renderer 复用的 React + TypeScript + Vite 模块。它承接 #84 的终端式布局，并复用 [PR #81](https://github.com/yangjingo/oh-my-quant/pull/81) 的包基础与订阅/取消契约。原来的 `prototypes/web-terminal` 已撤除，不再维护第二套 HTML 字符串渲染器。
 
-本页说明已实现的模块边界。[架构](../agent-runtime/architecture.md)定义 Host、服务、runtime 与 storage 的职责；[UI/UX](./uiux.md)和 [DESIGN](../../DESIGN.md)维护交互与视觉原则。初步本机 HTTP/SSE Host 已连接真实 Agent；桌面加载与跨入口接续仍需分别集成验收，不能以浏览器演示代替。
+本页说明已实现的模块边界。[架构](../agent-runtime/architecture.md)定义 Host、服务、runtime 与 storage 的职责；[UI/UX](./uiux.md)和 [DESIGN](../../DESIGN.md)维护交互与视觉原则。Electron 和浏览器加载 Host 提供的同一构建，入口关闭与显式停止的差异见 [Host 生命周期](../agent-runtime/host.md)。
+
+Desktop 的稳定应用来源将受限请求转发给当前 Host，避免后端重启换端口时丢失本窗口的本地草稿；浏览器仍使用其访问的 Host 来源，两者不会自动同步草稿。
 
 按[共享 Host 契约](../agent-runtime/host.md)推进：#46 提供无界面服务，#75 负责实例所有权，#50 完成本界面集成，#47 负责 Electron/tray，#78 验证真实跨入口运行。已合入的 #105 提供会话/草稿连续性，#77 应复用它而不是另建恢复真值；各项能力仍须按实现修订验收。
 
@@ -27,7 +29,7 @@
 
 独立 Vite/preview 入口使用未连接适配器并禁用提交；`web:start` 构建后由本机 Host 提供静态页面，入口标记选择真实客户端。只有显式 `demo` 模式加载 `dev/demo-client.ts`；生产构建检查拒绝示例运行和会话标记。演示模式明确标注合成行情、证据及报告；其偏好可存入独立浏览器键，模拟会话只在内存中。
 
-`web:start` / `web:host` 经[共享 Host bootstrap](../agent-runtime/host.md)认证复用同一工作区实例，默认打印系统分配的 loopback 地址后返回。关页或启动终端退出只断开入口；`host:stop` 才显式停止后端。不同协议、损坏登记或活进程就绪失败不会触发替代写入者。Vite 独立界面保持未连接，正式 Desktop/TUI 接入仍由对应入口迁移负责。
+`web:start` / `web:host` 经[共享 Host bootstrap](../agent-runtime/host.md)认证复用同一工作区实例，默认打印系统分配的 loopback 地址后返回。关页或启动终端退出只断开入口；`host:stop` 显式停止后端。不同协议、损坏登记或活进程就绪失败不会触发替代写入者。Vite 独立界面保持未连接；Desktop 使用构建产物，TUI 接入另行迁移。
 
 ## 初步本机 Agent 连接（#101）
 

@@ -42,10 +42,14 @@ jobs:
         run: |
           bun install --frozen-lockfile
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          bun install --cwd apps/web --frozen-lockfile
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           Set-Location apps/desktop
           bun install --frozen-lockfile
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           node node_modules/electron/install.js
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node node_modules/playwright/cli.js install chromium
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Check desktop
         run: |
@@ -61,6 +65,14 @@ jobs:
         run: |
           ./apps/desktop/scripts/prepare-runtime.ps1
           bun run desktop:build
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          bun run --cwd apps/desktop test:shared-host
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          bun run --cwd apps/desktop test:crash-recovery
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          bun run --cwd apps/desktop test:host-conflicts
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          bun run --cwd apps/desktop test:tray-events
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           bun run --cwd apps/desktop dist:win
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
@@ -86,7 +98,12 @@ jobs:
         if: always()
         with:
           name: desktop-evidence
-          path: output/playwright/desktop
+          path: |
+            output/playwright/desktop
+            output/playwright/desktop-shared
+            output/playwright/desktop-crash
+            output/playwright/desktop-conflict
+            output/playwright/desktop-tray
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()

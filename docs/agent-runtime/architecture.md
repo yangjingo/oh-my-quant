@@ -10,7 +10,7 @@
 | `apps/tui/` | 终端布局、输入与面板；包含源码、测试和探针，不持有会话真值 |
 | `apps/web/` | 共享 React 界面和 HTTP/SSE 客户端 |
 | `src/app-runtime.ts`、`src/app-watchlist.ts` | 应用组装与动作；AppRuntime 仍使用界面回调，共享会话投影类型归 `src/types` |
-| `apps/desktop/` | Electron、PTY/xterm 与安装包 |
+| `apps/desktop/` | Electron、托盘、Host 适配与安装包 |
 | `src/app/research-workspace/` | 旧研究宿主与原生 Web UI |
 | `src/app/services/` | 无终端回调的 Quant 执行、旧单股复核及元数据协调 |
 | `src/app/bootstrap.ts`、`src/app/host/` | 工作区实例发现、认证复用、Bun 子进程与客户端生命周期 |
@@ -24,7 +24,7 @@
 
 旧单股研究工作区的运行与取消由独立[研究宿主](../../src/app/research-workspace/manager.ts)管理，未保存进度只在内存中：页面刷新可接回，服务重启则只从显式保存的对话和固定证据重建上下文，不重放完整 journal 或自动获取新行情。关闭浏览器只断开订阅，不停止任务。首次研究须有结构化发布结果才能保存，后续解释型对话不冒充新研究；复核另开会话取证并关联旧版本。这些现状边界不能由下方目标 Host 的恢复承诺代替。
 
-React 的运行与固定报告见[无界面服务](./services.md)，行情与会话交互见 [Web 模块](../quant-harness/web-ui.md)，发现与停止见 [Host](./host.md)。CLI/TUI、Electron 接入及完整恢复仍待实现。
+React 的运行与固定报告见[无界面服务](./services.md)，行情与会话交互见 [Web 模块](../quant-harness/web-ui.md)，发现与停止见 [Host](./host.md)。CLI/TUI 接入及完整恢复仍待实现。
 
 ## 当前依赖契约
 
@@ -82,7 +82,7 @@ flowchart TB
 
 `whyj` 由 `apps/cli` 启动 `apps/tui`；`whyj -c "…"` 执行单次命令，不加载 TUI；`whyj web` 连接或启动 Host 后打开 Web；桌面图标由 Electron 加载同一 Web UI。TUI 保留自绘实现，不意味着改用 Ink，也不新增命令或独立发行包。
 
-Desktop 已迁目录，关窗仍退出；Host 接入待 #47/#48，CLI 待 #76。
+Desktop 接入共享 Host 并可关窗到托盘；安装包验收待 #48，CLI 接入待 #76。
 
 先提取 AppRuntime 无界面服务，再接入口；业务不反向依赖 apps。不拆领域 packages 或迁用户数据；同步 bin、构建、安装和测试，保留 CLI/npm、Electron appId 与历史读取，再撤旧入口。
 

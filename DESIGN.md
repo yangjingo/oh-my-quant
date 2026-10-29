@@ -170,7 +170,7 @@ Use the same SVG in website and Desktop chrome. Terminal headers use the fixed-c
 
 ## 6. Implementation and Verification
 
-The warm palette is implemented across the [shared theme](./src/types/theme-colors.ts), [website tokens](./site/public/styles.css), [Desktop chrome](./apps/desktop/src/style.css), active report renderers, and SVG masters. The PNG icons and Windows ICO are exported from the same JQ geometry and colors.
+The warm palette is implemented across the [shared theme](./src/types/theme-colors.ts), [website tokens](./site/public/styles.css), [workbench styles](./apps/web/src/styles/app.css), active report renderers, and SVG masters. The PNG icons and Windows ICO are exported from the same JQ geometry and colors.
 
 | Area | Implemented roles |
 |---|---|
