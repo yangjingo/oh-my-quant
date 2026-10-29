@@ -60,6 +60,46 @@ it("bounds metadata and archive timeouts with actionable errors", async () => {
   } finally { spy.mockRestore(); }
 });
 
+it("reports partial archive progress on timeout without exposing the redirect URL", async () => {
+  const timeout = spyOn(AbortSignal, "timeout").mockImplementation(() => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), 30);
+    return controller.signal;
+  });
+  let cancelled = false, calls = 0;
+  try {
+    const github = skillGithub(async () => {
+      if (++calls === 1) return new Response(null, { status: 302, headers: { location: "https://codeload.github.com/owner/repo/tar.gz/revision?token=private-fixture" } });
+      return new Response(new ReadableStream({
+        start(controller) { controller.enqueue(new Uint8Array([1, 2, 3, 4, 5])); },
+        cancel() { cancelled = true; },
+      }));
+    });
+    let message = "";
+    try { await github.archive("owner/repo", FIRST); } catch (error) { message = (error as Error).message; }
+    expect(message).toContain("timed out after 180000 ms");
+    expect(message).toContain("receiving archive");
+    expect(message).toContain("received 5 bytes");
+    expect(message).not.toContain("private-fixture");
+    expect(message).not.toContain("codeload.github.com");
+    expect(cancelled).toBe(true);
+  } finally { timeout.mockRestore(); }
+});
+
+it("identifies a timeout before archive response headers", async () => {
+  const timeout = spyOn(AbortSignal, "timeout").mockImplementation(() => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), 10);
+    return controller.signal;
+  });
+  try {
+    const github = skillGithub((_url, init) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => reject(new Error("network detail")), { once: true });
+    }));
+    await expect(github.archive("owner/repo", FIRST)).rejects.toThrow("requesting archive; received 0 bytes");
+  } finally { timeout.mockRestore(); }
+});
+
 it("bounds downloaded bytes and cancels the stream", async () => {
   let cancelled = false;
   const github = skillGithub(async () => new Response(new ReadableStream({
