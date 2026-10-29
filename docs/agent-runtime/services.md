@@ -6,7 +6,7 @@
 
 ## 身份与提交
 
-工作区由 storage resolver 选择的 `.ohquant` 根确定。服务先解析真实路径，消除链接或 junction 别名；Windows 仅在大小写变体确实指向同一文件系统对象时折叠大小写。当前入口的 `cwd` 不另造工作区。路径不进入公开状态；移动数据根、迁移旧别名下的历史和跨机器同步不在本接口范围内。
+工作区由 storage resolver 选择的 `.ohquant` 根确定。服务先解析真实路径，消除链接或 junction 别名；Windows 仅在大小写变体确实指向同一文件系统对象时折叠大小写。当前入口的 `cwd` 不另造工作区。工作区身份不直接暴露根路径；移动数据根、迁移旧别名下的历史和跨机器同步不在本接口范围内。
 
 `submit` 要求 workspaceId、sessionId、requestId、expectedRevision 和 text。接受提交前校验身份、修订、活动运行与恢复限制，先持久化接受状态再执行 Agent。同一存活服务内，相同 requestId 与相同操作/输入返回原接受结果，改变任一字段则冲突。回执只在内存中；服务重启后不得自动重试未知结果的提交。
 
@@ -24,7 +24,9 @@
 
 `save` 要求完整 run 身份、expectedRevision 和 expectedArtifactRevision（首次保存为 null）。仅保存已完成且拥有固定 journal 位置的运行。终态在现有私有 checkpoint 中记录可选 coreLeafId；旧 checkpoint 仍能读取，但缺少此位置时不会猜测最新 journal 内容并保存为旧成果。
 
-保存使用已有 artifact generator 和不可变 report store。每个工作台会话拥有自己的报告版本链，结果包含 artifactId、递增版本、内容哈希、创建时间和来源 runId。报告头的预期哈希在存储写锁内校验；旧版本仍按固定哈希读取。本保存接口不通过普通 RPC 状态返回完整 HTML、原始轨迹或源文件路径；其他工具返回的文本仍可能包含本地路径，[#142](https://github.com/yangjingo/oh-my-quant/issues/142) 跟进该投影边界。
+保存使用已有 artifact generator 和不可变 report store。每个工作台会话拥有自己的报告版本链，结果包含 artifactId、递增版本、内容哈希、创建时间和来源 runId。报告头的预期哈希在存储写锁内校验；旧版本仍按固定哈希读取。本保存接口不通过普通 RPC 状态返回完整 HTML、原始轨迹或源文件路径。
+
+工具返回的独立 `HTML:` 行若包含绝对本地 `.html` / `.htm` 路径，公开工具结果、回答与思考会隐藏该完整路径及 JSON 转义形式；流式前缀先暂存，后续运行从原 journal 分支重新识别这些值。URL、财务数字和日期不因此重写。该规则不识别任意格式、变形或不带该标记的路径；旧检查点读取时也会隐藏能从工具文本识别出的路径，原文件不自动迁移；用户输入也不是任意敏感信息过滤器。私有 journal 和原报告不修改。
 
 保存期间，该会话拒绝新的提交、重命名、删除或第二次保存；只有 checkpoint 提交后，读取与订阅才显示新成果。对话 checkpoint 与 report head 分别原子提交，并非跨文件事务：如果报告已提交而 checkpoint 随后失败，服务返回失败并保留已生成的不可变报告，不删除它伪装回滚，也不自动重试。需核对磁盘记录再处理，不能把未知结果当作成功保存。
 

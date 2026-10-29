@@ -51,7 +51,7 @@
 
 本阶段文件引用仍未开放；只有显式保存成功才返回报告版本，普通回答完成不会自动变成核验归档。工具文本取证记录见下文。会话投影保存在独立的私有检查点中，Host 重启后恢复列表；新问题按需打开原 Quant journal，不自动重放原任务。浏览器按工作区/会话保存选择与未发送草稿，存储不可用时明确提示。意外中断的工具结果标为待核对，显式确认只解除提问限制。格式与失败边界见[会话连续性](./workbench-sessions.md)。#75 的发现/生命周期与 #77 的完整执行恢复仍是后续工作。启动和私有配置目录选择见 [README](../../apps/web/README.md)。
 
-执行记录按同一调用标识合并“准备中 → 执行中 → 返回结果”，准备参数不等于已执行；准备阶段被取消时记为“未执行”。可读动作标题来自现有工具注册表的展示元数据，原有终端标签不变。Host 对调用输入只提供经过校验、限长的摘要，不转发完整参数、查询或文件路径；实际工具返回的文本经脱敏和限长后保存在会话检查点，执行详情与证据页可查看，详见下文。每轮默认汇总状态与数量，运行时展开执行记录；单条记录按需展开工具身份与调用标识。失败、停止、未执行分别呈现，工具返回不代表结论已独立核验。设计借鉴 [DSH 的同一调用三阶段](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/.agents/notes/implemented/architecture/2026-09-22-tool-call-three-phases.md)和 [Codex 的执行条目生命周期](https://openai.com/index/unlocking-the-codex-harness/)，继续复用现有 Agent 及事件流。
+执行记录按同一调用标识合并“准备中 → 执行中 → 返回结果”，准备参数不等于已执行；准备阶段被取消时记为“未执行”。可读动作标题来自现有工具注册表的展示元数据，原有终端标签不变。Host 对调用输入只提供经过校验、限长的摘要，不转发完整参数、查询或文件路径；实际工具返回的文本经脱敏和限长后保存在会话检查点，执行详情与证据页可查看；已识别的本地 HTML 报告路径及其流式回显不进入新公开投影，识别范围与旧检查点限制见[服务边界](../agent-runtime/services.md)。每轮默认汇总状态与数量，运行时展开执行记录；单条记录按需展开工具身份与调用标识。失败、停止、未执行分别呈现，工具返回不代表结论已独立核验。设计借鉴 [DSH 的同一调用三阶段](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/.agents/notes/implemented/architecture/2026-09-22-tool-call-three-phases.md)和 [Codex 的执行条目生命周期](https://openai.com/index/unlocking-the-codex-harness/)，继续复用现有 Agent 及事件流。
 
 ## 会话状态与运行生命周期
 

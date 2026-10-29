@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { toolResult } from "../tool-result.ts";
+import { reportPathSecrets, toolResult } from "../tool-result.ts";
 
 test("tool text is bounded after configured and structured credential redaction", () => {
   const raw = { content: [{ type: "text", text: JSON.stringify({ price: 0, currency: "CNY", api_key: "unknown-key", nested: { token: "unknown-token" }, note: "known-key" }) }] };
@@ -55,4 +55,21 @@ test("authorization inside JSON prose cannot consume adjacent exact financial fi
   const text = '{"message":"Authorization: Basic synthetic-base64\\r\\nprice: 0", "volume":9007199254740993,"price":12.00,"zero":0}';
   const value = toolResult({ content: [{ type: "text", text }] }, []);
   expect(value.text).toBe(text.replace("Basic synthetic-base64", "[REDACTED]"));
+});
+
+
+test("only labelled absolute HTML report paths are protected without rewriting financial text or URLs", () => {
+  const paths = [String.raw`C:\Users\A Person\reports\annual.html`, "/home/a person/reports/年度.html", "C:/reports/annual.htm", String.raw`\\server\share\annual.html`];
+  const tail = "Price: 12.00 CNY\nDate: 2026-10-29\nURL: https://example.com/reports/annual.html\nRatio: 1/2";
+  for (const path of paths) {
+    const result = { content: [{ type: "text", text: `Annual research saved: id-1\nHTML: ${path}\n${tail}` }] };
+    expect(reportPathSecrets(result)).toContain(path);
+    expect(toolResult(result, []).text).toBe(`Annual research saved: id-1\nHTML: [REDACTED]\n${tail}`);
+    const escaped = JSON.stringify(path).slice(1, -1);
+    expect(toolResult({ content: [{ type: "text", text: `Echo: ${escaped}` }] }, reportPathSecrets(result)).text).toBe("Echo: [REDACTED]");
+  }
+  for (const path of ["https://example.com/annual.html", "//example.com/annual.html", "relative/report.html", "/home/a/report.txt"]) {
+    const result = { content: [{ type: "text", text: `HTML: ${path}` }] };
+    expect(reportPathSecrets(result)).toEqual([]); expect(toolResult(result, []).text).toBe(`HTML: ${path}`);
+  }
 });

@@ -14,11 +14,12 @@ const KEY = "fixture-workbench-secret-101";
 let root: string, previous: string | undefined, proxy: string | undefined;
 let model: ReturnType<typeof Bun.serve>, host: ReturnType<typeof startWorkbenchServer> | undefined;
 let service: ReturnType<typeof createWorkbenchService> | undefined;
-let mode: "answer" | "tool" | "hold" | "empty" | "thinking" | "preparing" | "bad-tool" | "hold-thinking" | "pure-failure" | "stream-thinking" | "tool-thinking", requests: Record<string, unknown>[], toolSent: boolean;
+let mode: "answer" | "tool" | "hold" | "empty" | "thinking" | "preparing" | "bad-tool" | "hold-thinking" | "pure-failure" | "stream-thinking" | "tool-thinking" | "stream-report", requests: Record<string, unknown>[], toolSent: boolean;
 let reached: (() => void) | undefined;
 let releasePreparation: (() => void) | undefined;
 let releaseThinking: (() => void) | undefined;
 let streamCredential = KEY;
+let syntheticReportPath = "";
 let historySeed: Promise<void> | undefined;
 let reply: string | undefined;
 let scriptedCalls: Array<(payload: Record<string, unknown>) => Array<{ name: string; args: unknown }>>;
@@ -30,6 +31,14 @@ beforeEach(() => {
     const payload = await request.json() as Record<string, unknown>; requests.push(payload); reached?.();
     if (mode === "pure-failure" && toolSent) return Response.json({ error: { message: "Controlled model refusal after a pure calculation error", type: "invalid_request_error" } }, { status: 400 });
     if (mode === "hold" || mode === "hold-thinking") return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(mode === "hold" ? ": waiting\n\n" : "data: " + JSON.stringify({id:"hold-thinking",object:"chat.completion.chunk",created:0,model:payload.model,choices:[{index:0,delta:{role:"assistant",reasoning_content:"PROVIDER_THINKING_FIXTURE"},finish_reason:null}]}) + "\n\n")); } }), { headers: { "Content-Type": "text/event-stream" } });
+    if (mode === "stream-report" && toolSent) return new Response(new ReadableStream({ start(controller) {
+      const frame = (delta: unknown, finish_reason: string | null = null) => new TextEncoder().encode("data: " + JSON.stringify({ id: "stream-report", object: "chat.completion.chunk", created: 0, model: payload.model, choices: [{ index: 0, delta, finish_reason }] }) + "\n\n");
+      controller.enqueue(frame({ role: "assistant", content: "Report: " + syntheticReportPath.slice(0, 12) }));
+      releaseThinking = () => {
+        controller.enqueue(frame({ content: syntheticReportPath.slice(12) + " · 12.00 CNY · 2026-10-29 · https://example.com/a" }));
+        controller.enqueue(frame({}, "stop")); controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n")); controller.close();
+      };
+    } }), { headers: { "Content-Type": "text/event-stream" } });
     if (mode === "stream-thinking") return new Response(new ReadableStream({ start(controller) {
       const frame = (delta: unknown, finish_reason: string | null = null) => new TextEncoder().encode("data: " + JSON.stringify({ id: "stream-thinking", object: "chat.completion.chunk", created: 0, model: payload.model, choices: [{ index: 0, delta, finish_reason }] }) + "\n\n");
       controller.enqueue(frame({ role: "assistant", reasoning_content: "第一段：核对数据日期。" }));
@@ -1149,3 +1158,79 @@ test("Web model requests consistently select Markdown instead of terminal-only f
   expect(system).toContain("Use Markdown"); expect(system).not.toContain("NO markdown");
   expect(user).toContain("GFM table"); expect(user).not.toContain("three-line plain-text");
 });
+
+
+for (const localPath of [String.raw`C:\Users\synthetic-user\reports\annual.html`, "/home/synthetic-user/reports/annual.html"]) test(`local report path stays private in actual Host projections (${localPath.startsWith("/") ? "POSIX" : "Windows"})`, async () => {
+  syntheticReportPath = localPath;
+  const reportFile = join(root, "synthetic-report.html"), reportBytes = "<html>immutable fixture</html>";
+  writeFileSync(reportFile, reportBytes);
+  service = createWorkbenchService({ cwd: root, dependencies: () => {
+    const dependencies = createDefaultSessionDependencies({ cwd: root });
+    return { ...dependencies, beforeToolCall: () => undefined, tools: dependencies.tools.map(tool => tool.name !== "calculate_position_scenarios" ? tool : {
+      ...tool, async execute() { return { content: [{ type: "text" as const, text: `Annual research saved: fixture-id\nHTML: ${localPath}\nPrice: 12.00 CNY\nDate: 2026-10-29\nURL: https://example.com/a` }], details: {} }; },
+    }) };
+  } });
+  host = startWorkbenchServer({ service, port: 0, assetsRoot: join(root, "assets") });
+  const url = host.server.url.origin, { token } = await (await fetch(url + "/api/workbench/bootstrap")).json() as { token: string };
+  const eventsResponse = await fetch(url + "/api/workbench/events", { headers: { "x-workbench-token": token } });
+  const reader = eventsResponse.body!.getReader(), decoder = new TextDecoder(); let events = "";
+  const collect = (async () => { try { while (true) { const part = await reader.read(); if (part.done) break; events += decoder.decode(part.value, { stream: true }); } } catch {} })();
+  const client = service.client, identity = await client.identity();
+  mode = "stream-report";
+  scriptedCalls = [() => [{ name: "calculate_position_scenarios", args: { shares: 100, costPerShare: 10, observedClose: 12, observationDate: "2026-10-23", currency: "CNY", changes: [0.1] } }]];
+  try {
+    await client.submit(await requestFor(client, identity, "Generate the synthetic report"));
+    for (let i = 0; i < 300 && !releaseThinking; i++) await Bun.sleep(10);
+    expect(releaseThinking).toBeDefined();
+    await Bun.sleep(150);
+    const partial = await client.session(identity.sessionId), partialText = JSON.stringify(partial);
+    expect(partial.turns[1]?.text).toContain("Report: ");
+    expect(partial.turns[1]?.text).not.toContain(localPath.slice(0, 12));
+    expect(partialText).not.toContain(JSON.stringify(localPath).slice(1, -1));
+    expect(events).toContain("Report: ");
+    expect(events).not.toContain(JSON.stringify(localPath.slice(0, 12)).slice(1, -1));
+    const remote = await fetch(url + "/api/workbench/rpc", { method: "POST", headers: { "content-type": "application/json", "x-workbench-token": token }, body: JSON.stringify({ method: "session", args: [identity.sessionId] }) });
+    expect(JSON.stringify(await remote.json())).not.toContain(localPath.slice(0, 12));
+    releaseThinking!(); releaseThinking = undefined;
+    const finished = await terminal(client, identity.sessionId);
+    expect(finished.state).toBe("settled");
+    const visible = JSON.stringify(finished);
+    expect(visible).not.toContain(localPath); expect(visible).not.toContain(JSON.stringify(localPath).slice(1, -1));
+    expect(visible).toContain("[REDACTED]");
+    for (const preserved of ["12.00 CNY", "2026-10-29", "https://example.com/a", "fixture-id"]) expect(visible).toContain(preserved);
+    await Bun.sleep(250);
+    expect(events).not.toContain(JSON.stringify(localPath).slice(1, -1));
+    expect(events).not.toContain(JSON.stringify(localPath.slice(0, 12)).slice(1, -1));
+    expect(events).toContain("Report: ");
+    const record = createWorkbenchSessionStore().load(identity.workspaceId, identity.sessionId).record;
+    expect(JSON.stringify(record.snapshot)).not.toContain(JSON.stringify(localPath).slice(1, -1));
+    const dependencies = createDefaultSessionDependencies({ cwd: root });
+    const metadata = (await dependencies.sessions.list({ cwd: root })).find(item => item.id === record.coreSessionId)!;
+    const journal = readFileSync(metadata.path, "utf8");
+    expect(journal).toContain(JSON.stringify(localPath).slice(1, -1));
+    expect(readFileSync(reportFile, "utf8")).toBe(reportBytes);
+    await dependencies.env.cleanup();
+    await host.close(); host = undefined;
+    // Model a valid checkpoint written by an older version before this projection boundary existed.
+    const store = createWorkbenchSessionStore(), old = store.load(identity.workspaceId, identity.sessionId);
+    const oldTurns = old.record.snapshot.turns.map(turn => turn.role !== "assistant" ? turn : { ...turn,
+      text: `Legacy: ${localPath} · 12.00 CNY`,
+      activity: turn.activity?.map(item => item.result ? { ...item, result: { ...item.result, text: `Annual research saved: fixture-id\nHTML: ${localPath}\nPrice: 12.00 CNY` } } : item),
+    });
+    await store.save({ ...old.record, snapshot: { ...old.record.snapshot, turns: oldTurns } }, old.revision);
+    const checkpointPath = join(resolveWorkbenchSessionsDir(), identity.sessionId + ".json"), oldBytes = readFileSync(checkpointPath);
+    service = createWorkbenchService({ cwd: root });
+    const oldProjection = await service.client.session(identity.sessionId);
+    expect(JSON.stringify(oldProjection)).not.toContain(JSON.stringify(localPath).slice(1, -1));
+    expect(oldProjection.turns.at(-1)?.text).toContain("Legacy: [REDACTED] · 12.00 CNY");
+    expect(readFileSync(checkpointPath)).toEqual(oldBytes);
+    // A later run can echo private journal history after the Host was restarted.
+    mode = "answer"; reply = `Reopened: ${localPath} · 12.00 CNY`;
+    await service.client.submit(await requestFor(service.client, identity, "Summarize the earlier report"));
+    const reopened = await terminal(service.client, identity.sessionId);
+    expect(reopened.state).toBe("settled"); expect(reopened.turns.at(-1)?.text).toContain("Reopened: [REDACTED] · 12.00 CNY");
+    expect(JSON.stringify(createWorkbenchSessionStore().load(identity.workspaceId, identity.sessionId).record.snapshot)).not.toContain(JSON.stringify(localPath).slice(1, -1));
+    expect(readFileSync(metadata.path, "utf8").startsWith(journal)).toBe(true);
+    expect(readFileSync(reportFile, "utf8")).toBe(reportBytes);
+  } finally { releaseThinking?.(); releaseThinking = undefined; await reader.cancel(); await collect; }
+}, 30_000);

@@ -1,3 +1,4 @@
+import { posix, win32 } from "node:path";
 import type { ToolActivity } from "../../types/workbench.ts";
 import { redactModelText } from "./redaction.ts";
 
@@ -12,15 +13,36 @@ function redactHeaders(text: string): string {
     .replace(/((?:api[-_]?key|access_token|refresh_token|password)[\t ]*[=:][\t ]*)[^\s&,;]+/gi, "$1[REDACTED]");
 }
 
+/** Identify the exact absolute HTML paths returned by the existing report tools. */
+export function reportPaths(result: unknown): string[] {
+  const content = result && typeof result === "object" ? (result as { content?: unknown }).content : undefined;
+  if (!Array.isArray(content)) return [];
+  const paths = new Set<string>();
+  for (const block of content) {
+    if (!block || block.type !== "text" || typeof block.text !== "string") continue;
+    for (const match of block.text.matchAll(/(?:^|\r?\n)HTML:[\t ]*([^\r\n]+)/g)) {
+      const path = match[1]!.trim();
+      if (!path.startsWith("//") && (posix.isAbsolute(path) || win32.isAbsolute(path)) && /\.html?$/i.test(path)) paths.add(path);
+    }
+  }
+  return [...paths];
+}
+
+/** Protect literal paths and their JSON-escaped representation in projected text. */
+export function reportPathSecrets(result: unknown): string[] {
+  return [...new Set(reportPaths(result).flatMap(path => [path, JSON.stringify(path).slice(1, -1)]))];
+}
+
 /** Only model-visible text blocks, never provider envelopes, binary bodies or local files. */
 export function toolResult(result: unknown, secrets: readonly string[]): NonNullable<ToolActivity["result"]> {
   const content = result && typeof result === "object" ? (result as { content?: unknown }).content : undefined;
   const blocks = Array.isArray(content) ? content : [];
   let omittedBlocks = 0;
   const texts: string[] = [];
+  const protectedValues = [...secrets, ...reportPathSecrets(result)];
   for (const block of blocks) {
     if (!block || block.type !== "text" || typeof block.text !== "string") { omittedBlocks++; continue; }
-    let text = redactModelText(block.text, secrets);
+    let text = redactModelText(block.text, protectedValues);
     // Replace credential scalar fields without parsing numbers or reformatting the result.
     text = text.replace(/("(?:\\.|[^"\\])*")(\s*:\s*)("(?:\\.|[^"\\])*"|true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
       (whole, key: string, separator: string) => {

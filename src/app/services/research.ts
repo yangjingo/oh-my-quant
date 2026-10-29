@@ -9,7 +9,7 @@ import { WorkbenchError, modelError } from "../workbench/errors.ts";
 import { localSettings, publicPreferences, secretValues, updateModel, type SettingsPort } from "../workbench/model.ts";
 import { recoverSnapshot } from "../workbench/session-recovery.ts";
 import { thinkingText } from "../workbench/thinking.ts";
-import { toolResult } from "../workbench/tool-result.ts";
+import { reportPathSecrets, toolResult } from "../workbench/tool-result.ts";
 import { createMarketOverview } from "../workbench/market.ts";
 import type { OverviewRefreshOptions } from "../../runtime/workspace/overview-refresh.ts";
 import { toolPresentation } from "../workbench/tool-presentation.ts";
@@ -38,6 +38,19 @@ const textOf = (message: unknown): string => {
   const content = (message as { content?: unknown } | null)?.content;
   return Array.isArray(content) ? content.filter(part => part?.type === "text" && typeof part.text === "string").map(part => part.text).join("") : "";
 };
+
+/** Sanitize recognized historical projections in memory without rewriting their original checkpoint. */
+function publicTurns(turns: readonly Turn[]): Turn[] {
+  const paths = turns.flatMap(turn => (turn.activity ?? []).flatMap(item => item.result
+    ? reportPathSecrets({ content: [{ type: "text", text: item.result.text }] }) : []));
+  if (!paths.length) return [...turns];
+  return turns.map(turn => turn.role !== "assistant" ? turn : { ...turn,
+    text: redactModelText(turn.text, paths),
+    ...(turn.thinking === undefined ? {} : { thinking: redactModelText(turn.thinking, paths) }),
+    ...(turn.activity === undefined ? {} : { activity: turn.activity.map(item => item.result
+      ? { ...item, result: { ...item.result, text: redactModelText(item.result.text, paths) } } : item) }),
+  });
+}
 
 /** Owns live runs/observers; the existing Quant/Pi session still owns tools, context and its journal. */
 export function createResearchService(options: { cwd?: string; workspaceId?: string; settings?: SettingsPort; dependencies?: () => QuantAgentDependencies; store?: ReturnType<typeof createWorkbenchSessionStore>; overview?: OverviewRefreshOptions } = {}) {
@@ -86,7 +99,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
         const record = loaded.record;
         Object.assign(session, { name: record.name, cwd: record.cwd, coreSessionId: record.coreSessionId, coreLeafId: record.coreLeafId, runCount: record.runCount,
           revision: saved.revision!, runId: saved.identity.runId, updatedAt: record.updatedAt, problem: undefined });
-        session.turns = [...saved.turns]; session.output = saved.output; session.source = saved.source; session.state = saved.state; session.recovery = saved.recovery; session.fileRevision = loaded.revision;
+        session.turns = publicTurns(saved.turns); session.output = saved.output; session.source = saved.source; session.state = saved.state; session.recovery = saved.recovery; session.fileRevision = loaded.revision;
       } catch { session.problem = "storage"; throw storageError(); }
     }
     return session;
@@ -185,6 +198,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
       run.activity.set(event.toolCallId, { id: event.toolCallId, name: event.toolName, ...presentTool(event.toolName, event.args), state: "running", started: performance.now() }); assistant(session, run);
     }
     if (event.type === "tool_execution_end") {
+      for (const path of reportPathSecrets(event.result)) if (!run.secrets.includes(path)) run.secrets.push(path);
       const old = run.activity.get(event.toolCallId);
       run.activity.set(event.toolCallId, { id: event.toolCallId, name: event.toolName, ...presentTool(event.toolName), ...old,
         result: toolResult(event.result, run.secrets),
@@ -234,6 +248,12 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
       const metadata = await session.agent.getSessionMetadata();
       if (!metadata || session.coreSessionId && metadata.id !== session.coreSessionId) throw new WorkbenchError("CONTEXT_MISSING", "原研究上下文不匹配，未发送问题。", 409);
       session.coreSessionId = metadata.id; await flush(session);
+      // A later run can echo prior tool output; recover exact paths from the private branch, never the public checkpoint.
+      for (const entry of await session.agent.getSessionBranch()) {
+        if (entry.type === "message" && entry.message.role === "toolResult") {
+          for (const path of reportPathSecrets(entry.message)) if (!run.secrets.includes(path)) run.secrets.push(path);
+        }
+      }
       release = session.agent.subscribe(event => observe(session, run, event));
       await session.agent.prompt(text, { signal: run.controller.signal });
       await session.agent.waitForIdle();
