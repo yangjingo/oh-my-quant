@@ -18,3 +18,11 @@ test("explicit references do not conflate emails, escaped examples or code with 
   for (const text of ["@file:a.md", "Read @dir:docs", "Use (@session:123)", "Check @evidence:abc"]) expect(hasExplicitReference(text)).toBe(true);
   for (const text of ["user@example.com", "\\@file:a.md", "`@file:a.md`", "```text\n@file:a.md\n```", "@", "ordinary @mention"]) expect(hasExplicitReference(text)).toBe(false);
 });
+
+
+test("a path containing a configured credential remains hidden during partial streaming", () => {
+  const path = "/home/synthetic-user/reports/annual.html", secrets = ["synthetic-user", path];
+  expect(redactModelText("Report: " + path.slice(0, 20), secrets, true)).toBe("Report: ");
+  expect(redactModelText("Report: " + path, secrets, true)).toBe("Report: [REDACTED]");
+  expect(redactModelText("Report: " + path, secrets)).toBe("Report: [REDACTED]");
+});
