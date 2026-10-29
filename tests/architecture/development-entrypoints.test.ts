@@ -34,7 +34,7 @@ test("the shipped CLI does not include module development tools or repository te
   expect(loaded.filter(path => path.startsWith("tests/") || /\/(?:dev|test|tests)\//.test(path))).toEqual([]);
 }, 30000);
 
-test("default and npm test discovery include moved TUI tests but exclude manual, vendored and generated trees", () => {
+test("release discovery reaches every entry and service while excluding dev and generated trees", () => {
   const fixture = mkdtempSync(join(tmpdir(), "whyj-test-discovery-"));
   function file(path: string, text: string): void {
     const target = join(fixture, path);
@@ -48,19 +48,31 @@ test("default and npm test discovery include moved TUI tests but exclude manual,
     file("tests/app/integration.test.ts", pass);
     file("apps/tui/test/render.test.ts", pass);
     file("apps/cli/test/entry.test.ts", pass);
+    file("apps/web/test/client.test.ts", pass);
+    file("src/app/services/test/service.test.ts", pass);
+    file("tests/contracts/contract.test.ts", pass);
+    file("tests/e2e/entry.test.ts", pass);
+    file("apps/desktop/test/shell.test.mjs", 'import { test } from "node:test"; test("desktop discovery fixture", () => {});');
     for (const directory of ["src/example/dev", "apps/tui/dev", "apps/cli/dev", "apps/cli/node_modules/example", "apps/tui/node_modules/example", "reference", "apps/desktop", "site", "output", ".ohquant", "node_modules/example"]) {
       file(`${directory}/unwanted.test.ts`, 'throw new Error("manual or external tree must not execute");');
     }
     file("src/example/test/gen-example.test.ts", 'throw new Error("manual artifact must not execute");');
     const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-    const npmScope = manifest.scripts.test.split("bun test ")[1].trim().split(/\s+/);
-    for (const scope of [[], npmScope]) {
+    const npmScope = manifest.scripts.test.split("bun test ")[1].split("&&")[0].trim().split(/\s+/);
+    for (const [scope, count] of [[[], 8], [npmScope, 7]] as [string[], number][]) {
       const run = Bun.spawnSync([process.execPath, "test", ...scope], { cwd: fixture, stdout: "pipe", stderr: "pipe", timeout: 10000 });
       const output = new TextDecoder().decode(run.stderr);
       expect(run.exitCode).toBe(0);
-      expect(output).toContain("4 pass");
+      expect(output).toContain(`${count} pass`);
       expect(output).toContain("0 fail");
     }
+    const web = Bun.spawnSync([process.execPath, "test"], { cwd: join(fixture, "apps/web"), stdout: "pipe", stderr: "pipe", timeout: 10000 });
+    expect(web.exitCode).toBe(0); expect(new TextDecoder().decode(web.stderr)).toContain("1 pass");
+    const command = manifest.scripts["test:desktop"].split(/\s+/);
+    const desktop = () => Bun.spawnSync(command, { cwd: fixture, stdout: "pipe", stderr: "pipe", timeout: 10000 });
+    const passed = desktop(); expect(passed.exitCode).toBe(0); expect(new TextDecoder().decode(passed.stdout)).toContain("desktop discovery fixture");
+    file("apps/desktop/test/shell.test.mjs", 'import { test } from "node:test"; test("desktop failure fixture", () => { throw new Error("must fail"); });');
+    expect(desktop().exitCode).not.toBe(0);
   } finally {
     if (!resolve(fixture).startsWith(resolve(tmpdir()) + sep)) throw new Error("Unexpected discovery fixture directory");
     rmSync(fixture, { recursive: true, force: true });
@@ -73,6 +85,11 @@ test("npm script entrypoints keep source and root integration scopes explicit", 
     expect(typeof manifest.scripts[name]).toBe("string");
   }
   expect(manifest.scripts.test).toContain("bun test ./src ./apps/tui ./apps/cli ./tests");
+  expect(manifest.scripts.test).toContain("npm run test:desktop");
+  expect(manifest.scripts["test:desktop"]).toBe("node --test apps/desktop/test/*.test.mjs");
+  const web = JSON.parse(readFileSync(join(root, "apps/web/package.json"), "utf8"));
+  expect(manifest.scripts["web:check"]).toBe("bun run --cwd apps/web check");
+  expect(web.scripts.check).toContain("bun run test"); expect(web.scripts.test).toBe("bun test");
   expect(manifest.scripts["test:modules"]).toBe("bun test ./src ./apps/tui ./apps/cli");
   expect(manifest.scripts["test:integration"]).toBe("bun test ./tests");
   expect(manifest.scripts.start).toBe("node dist/index.js");

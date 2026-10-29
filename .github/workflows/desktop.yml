@@ -72,6 +72,8 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           bun run dev:tui:evidence
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          bun run test:entry-e2e
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           bun run --cwd apps/desktop test:crash-recovery
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           bun run --cwd apps/desktop test:host-conflicts
@@ -107,6 +109,7 @@ jobs:
             output/playwright/desktop-shared
             output/playwright/desktop-dev
             output/playwright/desktop-tui
+            output/playwright/entry-contracts
             output/playwright/desktop-crash
             output/playwright/desktop-conflict
             output/playwright/desktop-tray
