@@ -20,8 +20,9 @@
     "test:tray-events": "node scripts/tray-smoke.mjs",
     "test": "node --test test/*.test.mjs"
   },
-  "dependencies": { "node-pty": "1.1.0" },
   "devDependencies": {
+    "@electron/asar": "3.4.1",
+    "node-pty": "1.1.0",
     "@types/bun": "1.3.14",
     "@xterm/xterm": "6.0.0",
     "@xterm/addon-fit": "0.11.0",
@@ -37,13 +38,7 @@
     "productName": "WhyJ Quant",
     "electronLanguages": ["en-US", "zh-CN", "zh-TW"],
     "directories": { "output": "../../release", "buildResources": "assets" },
-    "files": [
-      "dist/**/*", "package.json", "node_modules/node-pty/**/*",
-      "!node_modules/node-pty/prebuilds/linux-*", "!node_modules/node-pty/prebuilds/darwin-*", "!node_modules/node-pty/prebuilds/win32-arm64",
-      "!node_modules/node-pty/{src,scripts,third_party,typings}{,/**/*}",
-      "!node_modules/node-pty/deps/winpty/{src,misc,ship}{,/**/*}",
-      "!node_modules/node-pty/lib/*.test.js{,.map}"
-    ],
+    "files": ["dist/**/*", "package.json"],
     "extraResources": [{ "from": "runtime", "to": "runtime", "filter": [
       "**/*", "!git{,/**/*}", "!**/__pycache__/**", "!**/*.pyc",
       "!python/Lib/site-packages/{numpy,pandas,pyarrow}/**/tests{,/**/*}",
@@ -52,7 +47,6 @@
       "!python/Lib/site-packages/plotly/labextension/static/*.js",
       "!python/Lib/site-packages/share/jupyter/labextensions/jupyterlab-plotly/static/*.js"
     ] }],
-    "asarUnpack": ["node_modules/node-pty/**/*"],
     "npmRebuild": false,
     "win": { "target": "nsis", "icon": "assets/app-icon.ico", "artifactName": "WhyJ-Quant-Setup-${version}-win-${arch}.${ext}" },
     "nsis": {

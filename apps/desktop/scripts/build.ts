@@ -1,5 +1,6 @@
-import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { replaceWebAssets } from "./web-assets.mts";
 
 const desktop = resolve(import.meta.dir, "..");
 const root = resolve(desktop, "../..");
@@ -10,7 +11,7 @@ mkdirSync(resolve(desktop, "dist"), { recursive: true });
 mkdirSync(resolve(desktop, "runtime"), { recursive: true });
 for (const entry of ["main", "preload"]) {
   const result = await Bun.build({ entrypoints: [resolve(desktop, `src/${entry}.ts`)], outdir: resolve(desktop, "dist"),
-    target: "node", format: "cjs", naming: `${entry}.cjs`, external: ["electron", "node-pty"] });
+    target: "node", format: "cjs", naming: `${entry}.cjs`, external: ["electron"] });
   if (!result.success) throw new AggregateError(result.logs, `${entry} build failed`);
 }
 const renderer = await Bun.build({ entrypoints: [resolve(desktop, "src/recovery.ts")], outdir: resolve(desktop, "dist"),
@@ -23,7 +24,7 @@ copyFileSync(resolve(desktop, "assets/app-icon.ico"), resolve(desktop, "dist/app
 copyFileSync(resolve(desktop, "assets/logo-mark.svg"), resolve(desktop, "dist/logo-mark.svg"));
 const web = Bun.spawn([process.execPath, "run", "build"], { cwd: resolve(root, "apps/web"), stdout: "inherit", stderr: "inherit" });
 if (await web.exited !== 0) throw new Error("Shared workbench build failed");
-cpSync(resolve(root, "apps/web/dist"), resolve(desktop, "runtime/web"), { recursive: true });
+replaceWebAssets(desktop, resolve(root, "apps/web/dist"));
 const preparedBun = resolve(desktop, ".downloads/bun/bun-windows-x64-baseline/bun.exe");
 const compileBun = existsSync(preparedBun) ? preparedBun : process.execPath;
 const host = Bun.spawn([process.execPath, "build", resolve(desktop, "src/host.ts"), "--compile", "--target=bun-windows-x64-baseline",

@@ -10,11 +10,11 @@ Host 负责持有一个工作区的执行服务，入口负责连接与展示。
 
 [旧研究管理器](../../src/app/research-workspace/manager.ts)已有 `start/get/current/list/subscribe/cancel/continue/followup/save/delete`：订阅释放不取消，保存经 workspace store 提交，复核通过 `parentId` 关联固定研究。它管理单股研究，不能直接冒充通用 Quant 会话。`continue` 为新执行分配新 runId 并保留原会话和历史，避免迟到事件污染新执行。旧保存格式保持兼容读取。
 
-[React 客户端端口](../../apps/web/src/client/contract.ts)已有 workspace/session/run 身份与显式取消。界面改进 PR #98 和真实 Quant Agent 接入 PR #102 已合入 main：后者提供初步本机 HTTP/SSE 服务与工作区锁，但尚不提供本契约要求的发现、跨入口复用或重启后的执行恢复。#46 已提取无界面研究服务，复用现有 Quant/Pi 核心、旧研究保存规则及已有适配器；终端尚未接入该服务。TUI、HTTP 和 React 只做适配；一个运行只能由一个服务实例持有 Agent。
+[React 客户端端口](../../apps/web/src/client/contract.ts)已有 workspace/session/run 身份与显式取消。#46 提取无界面研究服务，#75 提供 Host 发现和所有权，#47、#50 与 #76 将桌面、Web 和终端接到同一服务，#77 处理未知副作用的恢复门禁。TUI、HTTP 和 React 只做适配；一个运行只能由一个服务实例持有 Agent。安装包仍须按 #48 和 #56 分别验证实际候选及目标环境。
 
 ## 服务操作与身份
 
-以下为 #46 的应用接口语义，直调和 HTTP 使用同一实现与参数校验；具体能力与边界见[无界面服务](./services.md)。跨入口 DTO 归 `src/types`；目标是不导出 Agent、文件路径、凭证或界面回调。当前工具返回的文本可能包含本地报告路径，修复与验证由 [#142](https://github.com/yangjingo/oh-my-quant/issues/142) 跟进。
+以下为 #46 的应用接口语义，直调和 HTTP 使用同一实现与参数校验；具体能力与边界见[无界面服务](./services.md)。跨入口 DTO 归 `src/types`；公共投影不导出 Agent、凭证或界面回调。#142 已遮蔽受识别的本地 HTML 报告路径；这不代表任意工具输出中的所有私有内容都已自动识别。
 
 | 操作 | 输入与结果约束 |
 | --- | --- |
