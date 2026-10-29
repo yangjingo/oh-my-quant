@@ -16,7 +16,7 @@ type Envelope = WorkbenchSessionHeader & { digest: string };
 function envelope(text: string, workspaceId: string, sessionId: string): Envelope {
   let value: Envelope;
   try { value = JSON.parse(text); } catch { throw formatError(); }
-  if (!value || value.version !== 1 || value.workspaceId !== workspaceId || value.sessionId !== sessionId || !idPattern.test(sessionId)
+  if (!value || ![1, 2].includes(value.version) || value.workspaceId !== workspaceId || value.sessionId !== sessionId || !idPattern.test(sessionId)
     || typeof value.name !== "string" || value.name.length > 100 || typeof value.cwd !== "string" || !isAbsolute(value.cwd)
     || !(value.coreSessionId === null || typeof value.coreSessionId === "string" && value.coreSessionId.length > 0 && value.coreSessionId.length <= 160)
     || !(value.coreLeafId === undefined || value.coreLeafId === null || typeof value.coreLeafId === "string" && value.coreLeafId.length > 0 && value.coreLeafId.length <= 160)
@@ -44,7 +44,8 @@ export function createWorkbenchSessionStore(root = resolveWorkbenchSessionsDir()
     let snapshot: unknown;
     try { snapshot = JSON.parse(payload); } catch { throw formatError(); }
     if (!isWorkbenchSnapshot(snapshot) || snapshot.identity.workspaceId !== workspaceId || snapshot.identity.sessionId !== id
-      || snapshot.identity.runId !== header.runId || snapshot.revision !== header.revision || snapshot.state !== header.state) throw formatError();
+      || snapshot.identity.runId !== header.runId || snapshot.revision !== header.revision || snapshot.state !== header.state
+      || header.version === 1 && snapshot.state !== "interrupted" && snapshot.recovery !== undefined) throw formatError();
     const { state: _, runId: __, revision: ___, ...metadata } = header;
     return { record: { ...metadata, snapshot } as WorkbenchSessionRecord, revision: digest(text) };
   };
@@ -87,7 +88,8 @@ export function createWorkbenchSessionStore(root = resolveWorkbenchSessionsDir()
       const payload = JSON.stringify(snapshot), hash = digest(JSON.stringify(header) + "\n" + payload);
       const text = JSON.stringify({ ...header, digest: hash }) + "\n" + payload;
       envelope(JSON.stringify({ ...header, digest: hash }), record.workspaceId, record.sessionId);
-      if (!isWorkbenchSnapshot(snapshot) || snapshot.identity.workspaceId !== record.workspaceId || snapshot.identity.sessionId !== record.sessionId) throw formatError();
+      if (!isWorkbenchSnapshot(snapshot) || snapshot.identity.workspaceId !== record.workspaceId || snapshot.identity.sessionId !== record.sessionId
+        || record.version === 1 && snapshot.state !== "interrupted" && snapshot.recovery !== undefined) throw formatError();
       mkdirSync(root, { recursive: true });
       return withFileLockAsync(file, async () => {
         if (existsSync(file)) {
@@ -96,7 +98,8 @@ export function createWorkbenchSessionStore(root = resolveWorkbenchSessionsDir()
           if (current === text && expectedRevision !== null) return digest(current);
           if (expectedRevision === null || digest(current) !== expectedRevision) throw conflict();
           // Never replace a corrupt/unsupported generation merely because its byte revision is known.
-          load(record.workspaceId, record.sessionId);
+          const prior = load(record.workspaceId, record.sessionId);
+          if (prior.record.version === 2 && record.version === 1) throw formatError();
         } else if (expectedRevision !== null) throw conflict();
         await atomicWriteTextAsync(file, text);
         emitFileEvent({ operation: "WRITE", path: file, bytes: Buffer.byteLength(text), detail: "workbench checkpoint" });

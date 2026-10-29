@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
+import { advanceFixture } from './review-host-control.mjs';
 
 export async function captureActions({ browser, output, root }) {
   const child = spawn('bun', ['run', 'tests/app/dev/review-host-fixture.ts'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -17,7 +18,7 @@ export async function captureActions({ browser, output, root }) {
     context = await browser.newContext({ viewport: { width: 1280, height: 800 }, recordVideo: { dir: join(output, 'actions-video'), size: { width: 1280, height: 800 } } });
     const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message));
     const shot = async name => { if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw Error('Horizontal overflow: ' + name); await page.screenshot({ path: join(output, name + '.png'), scale: 'css' }); captures.push(name); };
-    const next = async () => { if (!(await fetch(fixture.control + '/advance', { method: 'POST' })).ok) throw Error('Fixture advance failed'); };
+    const next = async () => { await advanceFixture(fixture.control); };
     const state = async label => page.locator('.agent-status-label').last().filter({ hasText: new RegExp('^' + label + '$') }).waitFor();
     await page.goto(fixture.origin); await page.getByRole('heading', { name: '开始一份研究' }).waitFor();
     const input = page.getByRole('combobox', { name: '研究问题', exact: true });

@@ -7,7 +7,7 @@ import type { QuantAgentDependencies, QuantAgentEvent, QuantAgentSession } from 
 import type { AgentPhase, Preferences, RunState, SessionSnapshot, SubmitRequest, SubmitResult, ToolActivity, Turn, WorkbenchClient, WorkbenchEvent, WorkspaceOutput, WorkspaceSummary } from "../../types/workbench.ts";
 import { WorkbenchError, modelError } from "../workbench/errors.ts";
 import { localSettings, publicPreferences, secretValues, updateModel, type SettingsPort } from "../workbench/model.ts";
-import { recoverSnapshot } from "../workbench/session-recovery.ts";
+import { completeRunActivity, recoverSnapshot } from "../workbench/session-recovery.ts";
 import { thinkingText } from "../workbench/thinking.ts";
 import { reportPathSecrets, toolResult } from "../workbench/tool-result.ts";
 import { createMarketOverview } from "../workbench/market.ts";
@@ -44,6 +44,7 @@ import { terminalCommandResources, terminalReadResources } from "./resource-path
 interface Running {
   id: string; controller: AbortController; promise: Promise<void>; finished: string[];
   activity: Map<string, ToolActivity & { started: number }>;
+  effects: Promise<void>; effectFailed: boolean; blockedTools: Set<string>;
   secrets: string[]; phase: AgentPhase; thinking: string; finishedThinking: string[]; clarification?: string; terminal: boolean; answer?: string;
   command?: { parsed: ParsedCommand; result?: CommandResult };
   research?: { task: ResearchTaskSpec; expectedTaskRevision: string | null };
@@ -52,6 +53,7 @@ interface Running {
   acceptingInput?: boolean; composerQueue: string[];
 }
 interface Session {
+  version: 1 | 2;
   id: string; name: string; state: RunState; revision: number; runCount: number;
   cwd: string; coreSessionId: string | null; updatedAt: string; fileRevision: string | null; writes: Promise<void>; pending: number; timer?: ReturnType<typeof setTimeout>; problem?: string; recovery?: SessionSnapshot["recovery"];
   runId: string | null; turns?: Turn[]; output?: WorkspaceOutput; agent?: QuantAgentSession; active?: Running;
@@ -64,6 +66,16 @@ interface Session {
 }
 const emptyOutput = () => ({ conclusion: { statement: null, confidence: null, boundary: null, settled: false }, evidence: [], artifacts: [] });
 const presentTool = (name: string, args?: unknown) => name === CLARIFICATION_TOOL ? { title: "澄清研究问题" } : toolPresentation(name, args);
+const hasEffects = (name: string) => {
+  if (name === CLARIFICATION_TOOL) return false;
+  const registration = BUILTIN_TOOL_REGISTRY.find(entry => entry.tool.name === name);
+  return !registration || registration.requirements.effects.some(effect => effect !== "local-read");
+};
+const toolReturnedError = (value: unknown) => {
+  if (!value || typeof value !== "object" || !("details" in value)) return false;
+  const details = value.details;
+  return !!details && typeof details === "object" && "error" in details && !!details.error;
+};
 const textOf = (message: unknown): string => {
   const content = (message as { content?: unknown } | null)?.content;
   return Array.isArray(content) ? content.filter(part => part?.type === "text" && typeof part.text === "string").map(part => part.text).join("") : "";
@@ -107,11 +119,11 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
     }
   };
   const storage = options.store ?? createWorkbenchSessionStore();
-  const blank = (): Session => ({ id: randomUUID(), name: "新研究", state: "idle", revision: 0, runCount: 0, runId: null, turns: [], cwd,
+  const blank = (): Session => ({ version: 1, id: randomUUID(), name: "新研究", state: "idle", revision: 0, runCount: 0, runId: null, turns: [], cwd,
     coreSessionId: null, updatedAt: new Date().toISOString(), fileRevision: null, writes: Promise.resolve(), pending: 0 });
   for (const item of storage.list(workspaceId)) {
     const h = item.header;
-    sessions.set(item.sessionId, h ? { id: h.sessionId, name: h.name, state: h.state === "running" ? "interrupted" : h.state,
+    sessions.set(item.sessionId, h ? { version: h.version, id: h.sessionId, name: h.name, state: h.state === "running" ? "interrupted" : h.state,
       revision: h.revision, runCount: h.runCount, runId: h.runId, cwd: h.cwd, coreSessionId: h.coreSessionId,
       updatedAt: h.updatedAt, fileRevision: null, writes: Promise.resolve(), pending: 0 }
       : { ...blank(), id: item.sessionId, name: "无法读取的会话", problem: item.problem });
@@ -139,9 +151,9 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
     }
     if (!session.turns) {
       try {
-        const loaded = storage.load(workspaceId, id), saved = recoverSnapshot(loaded.record.snapshot);
+        const loaded = storage.load(workspaceId, id), saved = recoverSnapshot(loaded.record.snapshot, hasEffects);
         const record = loaded.record;
-        Object.assign(session, { name: record.name, cwd: record.cwd, coreSessionId: record.coreSessionId, coreLeafId: record.coreLeafId, runCount: record.runCount,
+        Object.assign(session, { version: record.version, name: record.name, cwd: record.cwd, coreSessionId: record.coreSessionId, coreLeafId: record.coreLeafId, runCount: record.runCount,
           revision: saved.revision!, runId: saved.identity.runId, updatedAt: record.updatedAt, problem: undefined });
         session.turns = publicTurns(saved.turns); session.output = saved.output; session.source = saved.source; session.state = saved.state; session.recovery = saved.recovery; session.fileRevision = loaded.revision;
       } catch { session.problem = "storage"; throw storageError(); }
@@ -153,7 +165,8 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
     state: session.state, turns: session.turns!, ...(session.recovery ? { recovery: session.recovery } : {}), ...(session.source ? { source: session.source } : {}), market: market.snapshot(), output: session.output ?? emptyOutput() });
   const flush = (session: Session, saved = snapshot(session), updatedAt = session.updatedAt) => {
     clearTimeout(session.timer); session.timer = undefined;
-    const record = { version: 1 as const, workspaceId, sessionId: session.id, name: session.name, cwd: session.cwd,
+    if (saved.state !== "interrupted" && saved.recovery) session.version = 2;
+    const record = { version: session.version, workspaceId, sessionId: session.id, name: session.name, cwd: session.cwd,
       coreSessionId: session.coreSessionId, ...(session.coreLeafId === undefined ? {} : { coreLeafId: session.coreLeafId }), runCount: session.runCount, updatedAt, snapshot: saved };
     session.pending++;
     const write = session.writes.then(async () => {
@@ -252,8 +265,8 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
       for (const path of reportPathSecrets(event.result)) if (!run.secrets.includes(path)) run.secrets.push(path);
       const old = run.activity.get(event.toolCallId);
       run.activity.set(event.toolCallId, { id: event.toolCallId, name: event.toolName, ...presentTool(event.toolName), ...old,
-        result: toolResult(event.result, run.secrets),
-        state: event.isError ? "failed" : "completed", started: old?.started ?? performance.now(), elapsedMs: Math.max(0, Math.round(performance.now() - (old?.started ?? performance.now()))) });
+        ...(run.blockedTools.has(event.toolCallId) ? {} : { result: toolResult(event.result, run.secrets) }),
+        state: run.blockedTools.has(event.toolCallId) ? "not-run" : event.isError || toolReturnedError(event.result) ? "failed" : "completed", started: old?.started ?? performance.now(), elapsedMs: Math.max(0, Math.round(performance.now() - (old?.started ?? performance.now()))) });
       run.phase = [...run.activity.values()].some(item => item.state === "running") ? "tool" : "waiting";
       assistant(session, run);
     }
@@ -306,7 +319,23 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
         });
         const protect = (items: QuantAgentDependencies["tools"]) => [...items.filter(tool => tool.name !== CLARIFICATION_TOOL), clarification].map(tool => ({ ...tool,
           async execute(...args: Parameters<typeof tool.execute>) {
-            await flush(session); run.controller.signal.throwIfAborted(); return tool.execute(...args);
+            const invoke = async () => {
+              run.controller.signal.throwIfAborted();
+              if (run.effectFailed && hasEffects(tool.name) && tool.name !== CLARIFICATION_TOOL) {
+                run.blockedTools.add(args[0]); throw new Error("Previous effectful tool outcome requires user reconciliation.");
+              }
+              await flush(session); run.controller.signal.throwIfAborted();
+              try {
+                const result = await tool.execute(...args);
+                if (hasEffects(tool.name) && tool.name !== CLARIFICATION_TOOL && toolReturnedError(result)) run.effectFailed = true;
+                return result;
+              } catch (error) {
+                if (hasEffects(tool.name) && tool.name !== CLARIFICATION_TOOL) run.effectFailed = true;
+                throw error;
+              }
+            };
+            if (!hasEffects(tool.name) || tool.name === CLARIFICATION_TOOL) return invoke();
+            const pending = run.effects.then(invoke); run.effects = pending.then(() => {}, () => {}); return pending;
           },
         }));
         const tools = protect(run.terminal ? dependencies.tools : dependencies.tools.filter(tool => allowed.has(tool.name)));
@@ -315,8 +344,12 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
             if (stopChangedPortfolio(session, run)) {
               return { block: true, reason: "The selected portfolio changed; this research was stopped.", terminate: true };
             }
-            return run.clarification ? { block: true, reason: "A user answer is required before any further tool calls.", terminate: true }
-              : dependencies.beforeToolCall?.(call);
+            if (run.clarification) return { block: true, reason: "A user answer is required before any further tool calls.", terminate: true };
+            if (run.effectFailed && hasEffects(call.toolName) && call.toolName !== CLARIFICATION_TOOL) {
+              run.blockedTools.add(call.toolCallId);
+              return { block: true, reason: "Previous effectful tool outcome requires user reconciliation.", terminate: true };
+            }
+            return dependencies.beforeToolCall?.(call);
           },
           ...(run.terminal ? { ...(dependencies.readTools ? { readTools: () => {
             const snapshot = dependencies.readTools!(); return { ...snapshot, tools: protect(snapshot.tools) };
@@ -406,6 +439,8 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
       if (session.active === run && session.state === "running") {
         session.state = run.clarification ? "needs_input" : "settled";
         finishActivities(session, run);
+        const uncertain = [...run.activity.values()].filter(item => item.state === "failed" && hasEffects(item.name)).length;
+        if (uncertain) session.recovery = { runId: run.id, unconfirmedTools: uncertain, acknowledgementRequired: true };
         assistant(session, run, [run.clarification ?? (run.finished.join("\n\n") || "本轮工具调用已结束，模型未提供文字总结。请检查工具状态或继续追问。"), review?.message, artifactMessage].filter(Boolean).join("\n\n"));
       }
     } catch (error) {
@@ -414,6 +449,8 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
       if (session.active === run && session.state === "running") {
         session.state = run.controller.signal.aborted && !session.problem ? "cancelled" : "failed";
         finishActivities(session, run);
+        const uncertain = [...run.activity.values()].filter(item => ["failed", "cancelled"].includes(item.state) && hasEffects(item.name)).length;
+        if (uncertain) session.recovery = { runId: run.id, unconfirmedTools: uncertain, acknowledgementRequired: true };
         const partial = run.finished.join("\n\n") || session.turns!.find(turn => turn.id === run.id + "-assistant")?.text || "";
         const message = session.state === "cancelled" ? "当前研究已停止，已返回的内容保留。" : (session.problem ? storageError() : error instanceof WorkbenchError ? error : modelError(error)).message;
         assistant(session, run, [partial, message].filter(Boolean).join("\n\n"));
@@ -445,7 +482,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
     if (terminal) session.terminalHud ??= new TerminalHudLatency();
     else { session.terminalHud = undefined; session.terminalUsage = undefined; }
     const id = randomUUID(), at = new Date().toISOString();
-    const run: Running = { id, controller: new AbortController(), promise: Promise.resolve(), finished: [], activity: new Map(), secrets: secretValues(settings.read()), phase: "waiting", thinking: "", finishedThinking: [], terminal, composerQueue: [],
+    const run: Running = { id, controller: new AbortController(), promise: Promise.resolve(), finished: [], activity: new Map(), effects: Promise.resolve(), effectFailed: false, blockedTools: new Set(), secrets: secretValues(settings.read()), phase: "waiting", thinking: "", finishedThinking: [], terminal, composerQueue: [],
       ...(command ? { command: { parsed: command } } : {}), ...(research ? { research } : {}),
       ...(selection ? { portfolio: { selection, key: researchSelectionKey(selection) } } : {}), ...(hudSettingsKey ? { hudSettingsKey } : {}) };
     session.recovery = undefined; session.coreLeafId = null; session.runId = id; session.state = "running"; session.active = run; session.runCount++;
@@ -500,16 +537,18 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
       if (session.runId !== request.previousRunId) throw new WorkbenchError("RUN_CONFLICT", "先前运行已变化，请读取最新会话后再操作。", 409);
       if (operation === "followup" && !["settled", "needs_input"].includes(session.state)) throw new WorkbenchError("FOLLOWUP_UNAVAILABLE", "请先完成当前研究、回答澄清问题，或明确继续未完成的运行。", 409);
       if (operation === "continue") {
-        const prior = session.turns!.find(turn => turn.id === session.runId + "-assistant");
+        const priorTurns = session.turns!.filter(turn => turn.id === session.runId + "-assistant");
+        const prior = priorTurns[0];
         if (!["cancelled", "failed", "interrupted"].includes(session.state) || !session.coreSessionId)
           throw new WorkbenchError("CONTINUE_UNAVAILABLE", "这次运行没有可继续的未完成上下文，请新建提交。", 409);
-        if (prior?.activity?.some(item => {
+        if (!completeRunActivity(session.turns!, session.runId!, session.state) || prior!.activity!.some(item => item.state === "preparing"))
+          throw new WorkbenchError("CONTINUE_UNSAFE", "上次运行的工具记录不完整或存在歧义，不能安全继续。请核对原记录后明确提交新问题。", 409);
+        if (prior!.activity!.some(item => {
           if (["unconfirmed", "cancelled", "running"].includes(item.state)) return true;
-          if (item.state !== "failed") return false;
-          const registration = BUILTIN_TOOL_REGISTRY.find(entry => entry.tool.name === item.name);
-          return !registration || registration.requirements.effects.some(effect => effect !== "local-read");
+          if (item.state !== "failed" && item.state !== "completed") return false;
+          return hasEffects(item.name);
         }))
-          throw new WorkbenchError("CONTINUE_UNSAFE", "上次工具执行结果尚不明确，不能自动继续或重放。请核对结果后明确提交新问题。", 409);
+          throw new WorkbenchError("CONTINUE_UNSAFE", "上次运行包含可能产生副作用或结果未确认的工具，不能安全自动继续。请核对结果后明确提交新问题。", 409);
       }
     }
     const receipt = beginRun(session, request.text, operation, request.previousRunId, terminal, undefined, research);
@@ -927,6 +966,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
       }
       const source = get(input.sessionId);
       if (operations.has(source.id)) throw new WorkbenchError("SESSION_BUSY", "会话正在保存或复核，请稍后重新读取。", 409);
+      if (source.recovery?.acknowledgementRequired) throw new WorkbenchError("RECONCILE_REQUIRED", "上次工具结果待核对，请先确认后再复核。", 409);
       if (source.revision !== input.expectedRevision) throw new WorkbenchError("REVISION_CONFLICT", "来源会话已变化，请重新读取后复核。", 409);
       const reference = { workspaceId, sessionId: source.id, artifactId: input.artifactId, sha256: input.sha256 };
       const fixed = reloadResearchReport(reference, snapshot(source), clean);
@@ -974,11 +1014,21 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
       assertOpen(); const input = runRevisionRequest(value);
       if (input.workspaceId !== workspaceId) throw new WorkbenchError("WORKSPACE_MISMATCH", "工作区不匹配。", 409);
       await ready; assertOpen(); const session = get(input.sessionId);
-      if (operations.has(session.id)) throw new WorkbenchError("SESSION_BUSY", "会话正在保存、删除或复核，请稍后重新读取。", 409);
+      if (session.active || operations.has(session.id)) throw new WorkbenchError("SESSION_BUSY", "会话仍在收尾或处理其他操作，请稍后重新读取。", 409);
       if (session.runId !== input.runId) throw new WorkbenchError("RUN_NOT_FOUND", "未找到这次中断运行。", 404);
       if (session.revision !== input.expectedRevision) throw new WorkbenchError("REVISION_CONFLICT", "会话已变化，请重新读取后确认。", 409);
-      if (session.state !== "interrupted" || !session.recovery) throw new WorkbenchError("RUN_CHANGED", "这次运行不再处于待确认状态。", 409);
-      session.recovery = { ...session.recovery, acknowledgementRequired: false }; emit(session); await flush(session); unload(session);
+      if (!["interrupted", "cancelled", "failed", "settled", "needs_input"].includes(session.state) || !session.recovery) throw new WorkbenchError("RUN_CHANGED", "这次运行不再处于待确认状态。", 409);
+      if (!session.recovery.acknowledgementRequired) return;
+      const operation = (async () => {
+        await session.writes; assertOpen(); assertCurrentCheckpoint(session);
+        const saved = { ...snapshot(session), revision: session.revision + 1, recovery: { ...session.recovery!, acknowledgementRequired: false } };
+        const updatedAt = new Date().toISOString();
+        await flush(session, saved, updatedAt);
+        Object.assign(session, { recovery: saved.recovery, revision: saved.revision, updatedAt });
+        publish(session);
+      })();
+      operations.set(session.id, operation);
+      try { await operation; } finally { operations.delete(session.id); unload(session); }
     },
     async cancel(value) {
       const target = runIdentity(value);
@@ -989,8 +1039,10 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
       const run = session.active;
       if (!run) return;
       if (session.state !== "running") { await run.promise; return; }
+      const uncertain = [...run.activity.values()].filter(item => ["running", "failed"].includes(item.state) && hasEffects(item.name)).length;
       run.controller.abort(); session.agent?.abort();
       session.state = "cancelled";
+      session.recovery = uncertain ? { runId: run.id, unconfirmedTools: uncertain, acknowledgementRequired: true } : undefined;
       finishActivities(session, run);
       assistant(session, run, [session.turns!.find(turn => turn.id === id + "-assistant")?.text, "当前研究已停止，草稿与已返回内容保留。"].filter(Boolean).join("\n\n"));
       await run.promise;

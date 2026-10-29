@@ -92,6 +92,8 @@ JSONL v3 用 id、parent、timestamp 和 type 形成分支树。当前上下文�
 
 reset/restore 等待旧初始化结束并取消旧工作，目标打开和资源准备全部成功后才替换；失败保留当前会话，迟到的旧事件不得发布。报告恢复即使仍在同一会话，也先完成全部来源核验和资源准备，再提交 leaf；领域要求见 [Quant 恢复](../quant-harness/README.md#recovery)。
 
+中断与副作用边界见[服务契约](./services.md)。
+
 <a id="compaction"></a>
 
 ## 5. 压缩、导航与扩展钩子

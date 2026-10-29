@@ -34,11 +34,12 @@ test("storage denial retains input and is diagnosed; rejection does not clear it
   expect(store.getSnapshot()).toMatchObject({ draft: "保留这条", error: "rejected" });
   expect(store.getSnapshot().storageWarning).toContain("关闭或刷新前请复制");
 });
-test("interrupted recovery requires explicit acknowledgement and cannot be revived by late state", async () => {
+for (const [state, unconfirmedTools] of [["interrupted", 0], ["interrupted", 1], ["cancelled", 0], ["cancelled", 1], ["failed", 1], ["settled", 1], ["needs_input", 1]] as const) test(`${state} recovery with ${unconfirmedTools} known uncertain tools requires acknowledgement and cannot be revived by late state`, async () => {
   const base = createDemoClient(); let submit = 0, ack = 0, emit!: (event: WorkbenchEvent) => void;
-  let saved = { ...await base.session("sample"), state: "interrupted" as const, revision: 2, recovery: { runId: "old", unconfirmedTools: 1, acknowledgementRequired: true } };
+  let saved = { ...await base.session("sample"), state, revision: 2, recovery: { runId: "old", unconfirmedTools, acknowledgementRequired: true } };
   saved.identity = { ...saved.identity, runId: "old" };
   const client: WorkbenchClient = { ...base, session: async () => saved, submit: async () => { submit++; return { sessionId: "sample", runId: "new" }; },
+    followup: async () => { submit++; return { sessionId: "sample", runId: "new" }; },
     acknowledgeInterruption: async input => {
       expect(input).toEqual({ ...saved.identity, runId: "old", expectedRevision: 2 });
       ack++; saved = { ...saved, revision: 3, recovery: { ...saved.recovery, acknowledgementRequired: false } };
@@ -47,7 +48,7 @@ test("interrupted recovery requires explicit acknowledgement and cannot be reviv
   const store = createWorkbenchStore(client); const detach = store.connect(); await store.load();
   store.setDraft("新问题"); expect(await store.submit("新问题")).toBe(false); expect(submit).toBe(0);
   emit({ type: "snapshot", identity: saved.identity, snapshot: { ...saved, revision: 4, state: "running", recovery: undefined } });
-  expect(store.getSnapshot().snapshot?.state).toBe("interrupted");
+  expect(store.getSnapshot().snapshot?.state).toBe(state);
   await store.acknowledgeInterruption(); expect(ack).toBe(1); expect(submit).toBe(0);
   expect(store.getSnapshot().draft).toBe("新问题"); expect(await store.submit("新问题")).toBe(true); detach();
 });

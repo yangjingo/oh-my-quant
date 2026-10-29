@@ -5,8 +5,8 @@ import { createDemoClient } from "../dev/demo-client";
 import { createWorkbenchStore } from "../src/state/workbench-store";
 import type { WorkbenchEvent } from "../src/client/contract";
 
-const bootstrap = () => Response.json({ version: 1, protocolVersion: 1, serviceContractVersion: 3, token: "a".repeat(64) });
-for (const version of [1, 2]) test(`an incompatible Host contract ${version} is rejected before any research RPC`, async () => {
+const bootstrap = () => Response.json({ version: 1, protocolVersion: 1, serviceContractVersion: 4, token: "a".repeat(64) });
+for (const version of [1, 2, 3]) test(`an incompatible Host contract ${version} is rejected before any research RPC`, async () => {
   let calls = 0;
   const request = (async (url: RequestInfo | URL) => {
     if (String(url).endsWith("bootstrap")) return Response.json({ version: 1, protocolVersion: 1, serviceContractVersion: version, token: "a".repeat(64) });
@@ -25,6 +25,16 @@ test("validated workspace market SSE is independent of research run snapshots", 
   let release!: () => void;
   const actual = await new Promise<WorkbenchEvent>(done => { release = client.subscribe(value => { if (value.type === "market") done(value); }); });
   release(); expect(actual).toEqual(event);
+});
+test("an incompatible Host is rejected before any research RPC", async () => {
+  let calls = 0;
+  const request = (async (url: RequestInfo | URL) => {
+    if (String(url).endsWith("bootstrap")) return Response.json({ version: 1, protocolVersion: 1, serviceContractVersion: 1, token: "a".repeat(64) });
+    calls++; return Response.json({ ok: true, result: null });
+  }) as typeof fetch;
+  const client = createHostClient({ baseUrl: "http://workbench.test", fetch: request });
+  await expect(client.submit({ workspaceId: "w", sessionId: "s", requestId: "once", expectedRevision: 0, text: "Must not run" })).rejects.toThrow("服务版本不兼容");
+  expect(calls).toBe(0);
 });
 test("ambiguous network submission is never automatically retried", async () => {
   let submits = 0;

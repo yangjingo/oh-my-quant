@@ -2,7 +2,7 @@ import type { SessionSnapshot } from "./workbench.ts";
 
 /** Versioned private presentation checkpoint; the Quant journal owns model context. */
 export interface WorkbenchSessionRecord {
-  version: 1;
+  version: 1 | 2;
   workspaceId: string;
   sessionId: string;
   name: string;

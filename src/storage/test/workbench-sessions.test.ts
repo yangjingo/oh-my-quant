@@ -26,6 +26,18 @@ test("checkpoint replacement is revision checked; stale and duplicate creates pr
   expect(readFileSync(file)).toEqual(bytes);
   expect(store.load(record.workspaceId, record.sessionId)).toMatchObject({ record: next, revision: second });
 });
+
+for (const state of ["cancelled", "failed", "settled", "needs_input"] as const) test(`${state} acknowledgement upgrades to v2 and cannot silently downgrade to v1`, async () => {
+  const { record, store, file } = fixture(), first = await store.save(record, null), runId = randomUUID();
+  const v2: WorkbenchSessionRecord = { ...record, version: 2, snapshot: { ...record.snapshot, revision: 1, state,
+    identity: { ...record.snapshot.identity, runId }, recovery: { runId, unconfirmedTools: 1, acknowledgementRequired: true } } };
+  await expect(store.save({ ...v2, version: 1 }, first)).rejects.toMatchObject({ code: "ESTORAGEFORMAT" });
+  const second = await store.save(v2, first), bytes = readFileSync(file);
+  expect(store.load(record.workspaceId, record.sessionId).record).toEqual(v2);
+  await expect(store.save({ ...record, snapshot: { ...record.snapshot, revision: 2 } }, second)).rejects.toMatchObject({ code: "ESTORAGEFORMAT" });
+  expect(readFileSync(file)).toEqual(bytes);
+  expect(store.list(record.workspaceId)[0]?.header?.version).toBe(2);
+});
 test("metadata listing stays available for other sessions; corrupt and unknown files are never overwritten", async () => {
   const { record, store, file } = fixture(); const revision = await store.save(record, null);
   const original = readFileSync(file, "utf8");
