@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 import type { ResearchTaskSpec } from "../../../types/research-task.ts";
 
 const connection: HostConnection = { url: "http://127.0.0.1:12345", workspaceId: "workspace", instanceId: "instance",
-  token: "a".repeat(64), controlToken: "b".repeat(64), protocolVersion: 1, serviceContractVersion: 3,
+  token: "a".repeat(64), controlToken: "b".repeat(64), protocolVersion: 1, serviceContractVersion: 4,
   applicationVersion: "1.4.0", started: false };
 const input = { workspaceId: connection.workspaceId, sessionId: "session", requestId: "once", expectedRevision: 0, text: "Request" };
 
@@ -166,6 +166,7 @@ test("detaching during a stream frame prevents delivery of remaining frames to a
 test("incompatible Host and invalid accepted replies cannot masquerade as terminal readiness", async () => {
   expect(() => createTerminalClient({ ...connection, serviceContractVersion: 1 })).toThrow("different workspace or protocol");
   expect(() => createTerminalClient({ ...connection, serviceContractVersion: 2 })).toThrow("different workspace or protocol");
+  expect(() => createTerminalClient({ ...connection, serviceContractVersion: 3 })).toThrow("different workspace or protocol");
   for (const reply of [null, {}, { ok: true, result: { sessionId: "other", runId: "run" } }]) {
     const client = createTerminalClient(connection, { fetch: (async () => Response.json(reply)) as HostFetch });
     await expect(client.submit(input)).rejects.toThrow("refused");

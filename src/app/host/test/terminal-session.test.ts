@@ -7,7 +7,7 @@ import type { TerminalClient, TerminalContext, TerminalCommandIdentity, Terminal
 import type { ResearchTaskSpec } from "../../../types/research-task.ts";
 
 const connection: HostConnection = { url: "http://127.0.0.1:12345", workspaceId: "w", instanceId: "instance",
-  token: "a".repeat(64), controlToken: "b".repeat(64), protocolVersion: 1, serviceContractVersion: 3, applicationVersion: "1.4.0", started: false };
+  token: "a".repeat(64), controlToken: "b".repeat(64), protocolVersion: 1, serviceContractVersion: 4, applicationVersion: "1.4.0", started: false };
 const snapshot = (id: string, revision = 0): SessionSnapshot => ({ identity: { workspaceId: "w", sessionId: id, runId: "run-" + id }, revision, state: "running", turns: [],
   market: { refreshedAt: "", quotes: [], source: { provider: null, updatedAt: null, available: 0, total: 0 } },
   output: { conclusion: { statement: null, confidence: null, boundary: null, settled: false }, evidence: [], artifacts: [] } });

@@ -167,12 +167,14 @@ test("authentication, origin, public capability and instance-scoped shutdown", a
 test("incompatible live registration is diagnosed without starting or killing another process", async () => {
   const connection = await connect(), store = createHostRuntimeStore(root), original = store.read()!;
   const path = join(root, ".host/registry.json");
-  writeFileSync(path, JSON.stringify({ ...original, protocolVersion: 999 }));
   try {
-    await expect(connectWorkspaceHost(options())).rejects.toThrow("different workspace or protocol");
-    expect(store.read()?.instanceId).toBe(connection.instanceId);
-    expect(hostProcessState(original.pid)).toBe("alive");
-    expect(store.readOwner("startup")).toBeUndefined();
+    for (const incompatible of [{ protocolVersion: 999 }, { serviceContractVersion: 1 }]) {
+      writeFileSync(path, JSON.stringify({ ...original, ...incompatible }));
+      await expect(connectWorkspaceHost(options())).rejects.toThrow("different workspace or protocol");
+      expect(store.read()?.instanceId).toBe(connection.instanceId);
+      expect(hostProcessState(original.pid)).toBe("alive");
+      expect(store.readOwner("startup")).toBeUndefined();
+    }
   } finally { writeFileSync(path, JSON.stringify(original)); }
 }, 15_000);
 
@@ -216,7 +218,7 @@ test("corrupt registration fails closed and preserves the original bytes", async
 
 test("an older resource-coordination contract is refused without replacing its live owner", async () => {
   const connection = await connect(), store = createHostRuntimeStore(root), original = store.read()!;
-  const path = join(root, ".host/registry.json"); writeFileSync(path, JSON.stringify({ ...original, serviceContractVersion: 2 }));
+  const path = join(root, ".host/registry.json"); writeFileSync(path, JSON.stringify({ ...original, serviceContractVersion: 3 }));
   try {
     await expect(connectWorkspaceHost(options())).rejects.toThrow("different workspace or protocol");
     expect(store.read()?.instanceId).toBe(connection.instanceId); expect(hostProcessState(original.pid)).toBe("alive");

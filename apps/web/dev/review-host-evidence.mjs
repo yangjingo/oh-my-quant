@@ -26,6 +26,12 @@ export async function captureHost({ browser, output, root }) {
     };
     const next = async () => { delayedToolGateObservations += await advanceFixture(fixture.control); };
     const state = async label => page.locator('.agent-status-label').last().filter({ hasText: new RegExp('^' + label + '$') }).waitFor();
+    const stop = async () => {
+      const response = page.waitForResponse(value => value.url().endsWith('/api/workbench/rpc') && value.request().postDataJSON()?.method === 'cancel');
+      await page.getByRole('button', { name: '停止生成', exact: true }).click();
+      if (!(await response).ok()) throw new Error('Host did not complete the cancellation request');
+      await state('已停止');
+    };
     await page.goto(fixture.origin); const input = page.getByRole('combobox', { name: '研究问题', exact: true }); await input.waitFor();
     await page.getByRole('button', { name: '刷新行情', exact: true }).waitFor();
     await page.locator('#overview [role="status"]').filter({ hasText: '5/5 可用' }).waitFor();
@@ -105,10 +111,12 @@ export async function captureHost({ browser, output, root }) {
     await page.setViewportSize({ width: 1280, height: 720 });
     await submit('Follow up on those supplied scenarios');
     await input.fill('Retained draft'); await input.press('Enter'); await capture('host-10-follow-up-draft');
-    await page.getByRole('button', { name: '停止生成', exact: true }).click(); await state('已停止');
+    await stop();
     if (await input.inputValue() !== 'Retained draft') throw new Error('Stop lost draft'); await capture('host-11-stopped');
     await page.getByRole('button', { name: 'review-fixture', exact: true }).click(); await model.fill('review-fixture-next'); await page.getByRole('button', { name: '保存偏好', exact: true }).click();
-    await page.locator('.operation-feedback:not(.error-feedback)').waitFor(); await capture('host-12-model-saved'); await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+    const feedback = page.locator('.operation-feedback'); await feedback.waitFor();
+    if (await feedback.evaluate(element => element.classList.contains('error-feedback'))) throw new Error('Saving model preferences failed: ' + await feedback.innerText());
+    await capture('host-12-model-saved'); await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
     const beforeReference = (await (await fetch(fixture.control + '/state')).json()).requests;
     await input.fill('Summarize @file:evidence.md'); await input.press('Enter');
     await page.getByRole('alert').filter({ hasText: '引用' }).waitFor();
@@ -118,13 +126,13 @@ export async function captureHost({ browser, output, root }) {
     await submit('FAIL supplied fixture'); await next(); await state('思考中'); await next(); await state('准备调用工具'); await next(); await state('正在调用工具'); await next(); await state('正在生成回答');
     await page.locator('.tool-record[data-state="failed"]').waitFor(); await capture('host-13-tool-failed'); await next(); await page.getByRole('button', { name: '发送问题', exact: true }).waitFor();
     await submit('Stop before dispatch'); await next(); await state('思考中'); await next(); await state('准备调用工具');
-    await page.getByRole('button', { name: '停止生成', exact: true }).click(); await state('已停止');
+    await stop();
     await page.locator('.tool-history').last().locator('summary').first().click(); await page.locator('.tool-record[data-state="not-run"]').waitFor(); await capture('host-14-not-executed');
     await page.setViewportSize({ width: 390, height: 844 }); await capture('host-15-narrow');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await submit('Reduced motion fixture');
     if (await page.locator('.agent-status-mark').last().evaluate(element => getComputedStyle(element).animationName) !== 'none') throw new Error('Reduced motion animates');
-    await capture('host-16-reduced-motion'); await page.getByRole('button', { name: '停止生成', exact: true }).click(); await state('已停止');
+    await capture('host-16-reduced-motion'); await stop();
     await page.setViewportSize({ width: 1280, height: 720 });
     await submit('LEGACY synthetic reading exhibit'); await next(); await state('思考中'); await next(); await state('准备调用工具'); await next(); await state('正在调用工具'); await next(); await state('正在生成回答'); await next();
     await page.getByRole('button', { name: '发送问题', exact: true }).waitFor();

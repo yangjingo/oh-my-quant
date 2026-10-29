@@ -2305,6 +2305,7 @@ test("blank clarification fails validation without inventing a waiting user ques
   const finished = await terminal(client, identity.sessionId);
   expect(finished.state).toBe("settled");
   expect(finished.turns[1]?.activity?.[0]).toMatchObject({ name: "ask_user", state: "failed" });
+  expect(finished.recovery).toBeUndefined();
   expect(finished.turns[1]?.text).toContain("同一核心会话的回答");
 });
 
@@ -2465,6 +2466,297 @@ test("a known pure tool failure can be explicitly continued without treating unk
   const finished = await terminal(client, identity.sessionId);
   expect(finished.state).toBe("settled"); expect(finished.turns[1]?.state).toBe("failed");
 });
+
+test("continue refuses a prior completed effect without replaying it or changing its checkpoint", async () => {
+  mode = "tool";
+  const { client, identity, submit } = await setup();
+  const first = await submit("受控工具完成后中断"); await terminal(client, identity.sessionId); await service!.close();
+  const store = createWorkbenchSessionStore(), loaded = store.load(identity.workspaceId, identity.sessionId);
+  const snapshot: SessionSnapshot = { ...loaded.record.snapshot, state: "running", turns: loaded.record.snapshot.turns.map(turn => turn.role === "user" ? turn :
+    { ...turn, state: "running", activity: turn.activity?.map(item => ({ ...item, name: "fetch_bars", state: "completed" })) }) };
+  await store.save({ ...loaded.record, snapshot }, loaded.revision);
+  service = createWorkbenchService({ cwd: root });
+  const recovered = await service.client.session(identity.sessionId), count = requests.length;
+  const before = store.load(identity.workspaceId, identity.sessionId);
+  mode = "answer";
+  await expect(service.client.continue!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, previousRunId: first.runId,
+    requestId: randomUUID(), expectedRevision: recovered.revision! })).rejects.toMatchObject({ code: "CONTINUE_UNSAFE" });
+  expect(requests).toHaveLength(count); expect(store.load(identity.workspaceId, identity.sessionId)).toEqual(before);
+});
+
+test("continue rejects incomplete or ambiguous prior activity without changing the stored checkpoint", async () => {
+  mode = "tool";
+  const { client, identity, submit } = await setup();
+  const first = await submit("检查历史工具记录"); await terminal(client, identity.sessionId); await service!.close();
+  const store = createWorkbenchSessionStore(), template = store.load(identity.workspaceId, identity.sessionId).record;
+  const assistant = template.snapshot.turns.find(turn => turn.role === "assistant")!;
+  const variants: Array<{ label: string; turns: SessionSnapshot["turns"] }> = [
+    { label: "missing assistant", turns: template.snapshot.turns.filter(turn => turn.role !== "assistant") },
+    { label: "missing activity", turns: template.snapshot.turns.map(turn => turn.role === "assistant" ? { ...turn, activity: undefined, state: "running" } : turn) },
+    { label: "wrong role", turns: template.snapshot.turns.map(turn => turn.role === "assistant" ? { ...turn, role: "user", state: "running" } : turn) },
+    { label: "duplicate assistant", turns: [...template.snapshot.turns, assistant].map(turn => turn.role === "assistant" ? { ...turn, state: "running" } : turn) },
+    { label: "duplicate tool identity", turns: template.snapshot.turns.map(turn => turn.role === "assistant" ? { ...turn, state: "running", activity: [...turn.activity!, ...turn.activity!] } : turn) },
+  ];
+  for (const variant of variants) {
+    const current = store.load(identity.workspaceId, identity.sessionId);
+    await store.save({ ...template, snapshot: { ...template.snapshot, state: "running", turns: variant.turns } }, current.revision);
+    service = createWorkbenchService({ cwd: root });
+    const recovered = await service.client.session(identity.sessionId), before = store.load(identity.workspaceId, identity.sessionId), count = requests.length;
+    expect(recovered.recovery?.acknowledgementRequired, variant.label).toBe(true);
+    await expect(service.client.submit({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, requestId: randomUUID(),
+      expectedRevision: recovered.revision!, text: "尚未核对的新问题" })).rejects.toMatchObject({ code: "RECONCILE_REQUIRED" });
+    expect(store.load(identity.workspaceId, identity.sessionId)).toEqual(before); expect(requests).toHaveLength(count);
+    await service.client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: first.runId, expectedRevision: recovered.revision! });
+    const acknowledged = await service.client.session(identity.sessionId), afterAck = store.load(identity.workspaceId, identity.sessionId);
+    await expect(service.client.continue!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, previousRunId: first.runId,
+      requestId: randomUUID(), expectedRevision: acknowledged.revision! }), variant.label).rejects.toMatchObject({ code: "CONTINUE_UNSAFE" });
+    expect(requests).toHaveLength(count); expect(store.load(identity.workspaceId, identity.sessionId)).toEqual(afterAck);
+    await service.close(); service = undefined;
+  }
+});
+
+test("cancelling a started effect requires persisted acknowledgement before a new question", async () => {
+  let effects = 0, started!: () => void;
+  const reachedEffect = new Promise<void>(resolve => { started = resolve; });
+  scriptedCalls = [() => [{ name: "fetch_bars", args: { symbol: "000300.SH", market: "A" } }]];
+  service = createWorkbenchService({ cwd: root, dependencies: () => {
+    const deps = createDefaultSessionDependencies({ cwd: root });
+    return { ...deps, tools: deps.tools.map(tool => tool.name !== "fetch_bars" ? tool : { ...tool, async execute(_id, _args, signal) {
+      effects++; started();
+      return new Promise<never>((_resolve, reject) => { signal?.addEventListener("abort", () => reject(new Error("controlled cancellation")), { once: true }); });
+    } }) };
+  } });
+  const client = service.client, identity = await client.identity();
+  const first = await client.submit(await requestFor(client, identity, "执行后取消"));
+  await Promise.race([reachedEffect, Bun.sleep(10000).then(() => { throw new Error("Tool did not start"); })]);
+  await client.cancel({ workspaceId: identity.workspaceId, ...first });
+  const cancelled = await client.session(identity.sessionId), count = requests.length;
+  expect(cancelled.state).toBe("cancelled"); expect(cancelled.turns.at(-1)?.activity?.[0]?.state).toBe("cancelled");
+  expect(cancelled.recovery).toMatchObject({ runId: first.runId, unconfirmedTools: 1, acknowledgementRequired: true });
+  const store = createWorkbenchSessionStore(); expect(store.load(identity.workspaceId, identity.sessionId).record.version).toBe(2);
+  await expect(client.submit(await requestFor(client, identity, "未经核对"))).rejects.toMatchObject({ code: "RECONCILE_REQUIRED" });
+  expect(requests).toHaveLength(count); expect(effects).toBe(1);
+  await service.close(); service = createWorkbenchService({ cwd: root });
+  const recovered = await service.client.session(identity.sessionId);
+  expect(recovered.state).toBe("cancelled"); expect(recovered.recovery?.acknowledgementRequired).toBe(true); expect(requests).toHaveLength(count);
+  await service.client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: first.runId, expectedRevision: recovered.revision! });
+  const acknowledged = await service.client.session(identity.sessionId);
+  expect(acknowledged.recovery?.acknowledgementRequired).toBe(false);
+  const afterAcknowledgement = store.load(identity.workspaceId, identity.sessionId);
+  await service.client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: first.runId, expectedRevision: acknowledged.revision! });
+  expect(store.load(identity.workspaceId, identity.sessionId)).toEqual(afterAcknowledgement); expect(requests).toHaveLength(count);
+  await expect(service.client.continue!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, previousRunId: first.runId,
+    requestId: randomUUID(), expectedRevision: acknowledged.revision! })).rejects.toMatchObject({ code: "CONTINUE_UNSAFE" });
+  await service.close(); service = createWorkbenchService({ cwd: root });
+  expect((await service.client.session(identity.sessionId)).recovery?.acknowledgementRequired).toBe(false);
+  const next = await service.client.submit(await requestFor(service.client, identity, "核对后提出新问题"));
+  expect(next.runId).not.toBe(first.runId); expect((await terminal(service.client, identity.sessionId)).state).toBe("settled");
+  expect(effects).toBe(1); expect(store.load(identity.workspaceId, identity.sessionId).record.version).toBe(2);
+}, 30000);
+
+test("legacy cancelled effect is gated without rewriting v1 until acknowledgement; pure cancellation stays usable", async () => {
+  mode = "tool";
+  const { client, identity, submit } = await setup();
+  const first = await submit("旧版取消记录"); await terminal(client, identity.sessionId); await service!.close();
+  const store = createWorkbenchSessionStore(), template = store.load(identity.workspaceId, identity.sessionId).record;
+  for (const [name, expectedGate] of [["calculate_position_scenarios", false], ["fetch_bars", true]] as const) {
+    const current = store.load(identity.workspaceId, identity.sessionId);
+    await store.save({ ...template, snapshot: { ...template.snapshot, state: "cancelled", turns: template.snapshot.turns.map(turn => turn.role === "assistant"
+      ? { ...turn, state: "cancelled", activity: turn.activity?.map(item => ({ ...item, name, state: "cancelled" })) } : turn) } }, current.revision);
+    const old = store.load(identity.workspaceId, identity.sessionId);
+    service = createWorkbenchService({ cwd: root });
+    const projected = await service.client.session(identity.sessionId);
+    expect(!!projected.recovery?.acknowledgementRequired).toBe(expectedGate);
+    expect(store.load(identity.workspaceId, identity.sessionId)).toEqual(old);
+    if (expectedGate) {
+      await expect(service.client.submit(await requestFor(service.client, identity, "未核对"))).rejects.toMatchObject({ code: "RECONCILE_REQUIRED" });
+      await service.client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: first.runId, expectedRevision: projected.revision! });
+      expect(store.load(identity.workspaceId, identity.sessionId).record.version).toBe(2);
+    }
+    await service.close(); service = undefined;
+  }
+});
+
+test("a cancellation acknowledgement becomes visible only after its checkpoint commits", async () => {
+  mode = "tool";
+  const { client, identity, submit } = await setup();
+  const first = await submit("等待确认持久化"); await terminal(client, identity.sessionId); await service!.close();
+  const store = createWorkbenchSessionStore(), current = store.load(identity.workspaceId, identity.sessionId);
+  await store.save({ ...current.record, snapshot: { ...current.record.snapshot, state: "cancelled", turns: current.record.snapshot.turns.map(turn => turn.role === "assistant"
+    ? { ...turn, state: "cancelled", activity: turn.activity?.map(item => ({ ...item, name: "fetch_bars", state: "cancelled" })) } : turn) } }, current.revision);
+  let entered!: () => void, release!: () => void;
+  const blocked = new Promise<void>(resolve => { entered = resolve; }), gate = new Promise<void>(resolve => { release = resolve; });
+  service = createWorkbenchService({ cwd: root, store: { ...store, async save(record, revision) {
+    if (record.snapshot.recovery?.acknowledgementRequired === false) { entered(); await gate; }
+    return store.save(record, revision);
+  } } });
+  const restored = service.client, prior = await restored.session(identity.sessionId), events: SessionSnapshot[] = [];
+  const detach = restored.subscribe(event => { if (event.type === "snapshot") events.push(event.snapshot); });
+  const ack = restored.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: first.runId, expectedRevision: prior.revision! });
+  try {
+    await blocked;
+    expect((await restored.session(identity.sessionId)).recovery?.acknowledgementRequired).toBe(true);
+    expect(events.every(event => event.recovery?.acknowledgementRequired !== false)).toBe(true);
+    await expect(restored.submit({ ...await requestFor(restored, identity, "不能越过未提交的确认") })).rejects.toMatchObject({ code: "SESSION_BUSY" });
+    release(); await ack;
+    expect((await restored.session(identity.sessionId)).recovery?.acknowledgementRequired).toBe(false);
+    expect(store.load(identity.workspaceId, identity.sessionId).record.version).toBe(2);
+  } finally { release(); await ack.catch(() => {}); detach(); }
+});
+
+test("an effect still settling after cancellation cannot be acknowledged early", async () => {
+  let started!: () => void, release!: () => void;
+  const reachedEffect = new Promise<void>(resolve => { started = resolve; }), gate = new Promise<void>(resolve => { release = resolve; });
+  scriptedCalls = [() => [{ name: "fetch_bars", args: { symbol: "000300.SH", market: "A" } }]];
+  service = createWorkbenchService({ cwd: root, dependencies: () => {
+    const deps = createDefaultSessionDependencies({ cwd: root });
+    return { ...deps, tools: deps.tools.map(tool => tool.name !== "fetch_bars" ? tool : { ...tool, async execute() {
+      started(); await gate; return { content: [{ type: "text" as const, text: "late result" }], details: {} };
+    } }) };
+  } });
+  const client = service.client, identity = await client.identity(); let cancelled: SessionSnapshot | undefined;
+  const detach = client.subscribe(event => { if (event.type === "snapshot" && event.snapshot.state === "cancelled") cancelled = event.snapshot; });
+  const first = await client.submit(await requestFor(client, identity, "停止仍在收尾的工具"));
+  await Promise.race([reachedEffect, Bun.sleep(10000).then(() => { throw new Error("Tool did not start"); })]);
+  const stopping = client.cancel({ workspaceId: identity.workspaceId, ...first });
+  try {
+    for (let i = 0; i < 100 && !cancelled; i++) await Bun.sleep(10);
+    expect(cancelled?.recovery?.acknowledgementRequired).toBe(true);
+    await expect(client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId,
+      runId: first.runId, expectedRevision: cancelled!.revision! })).rejects.toMatchObject({ code: "SESSION_BUSY" });
+    release(); await stopping;
+    const stopped = await client.session(identity.sessionId);
+    expect(stopped.recovery?.acknowledgementRequired).toBe(true);
+    expect(stopped.turns.at(-1)?.activity?.[0]?.state).toBe("cancelled");
+    expect(JSON.stringify(stopped)).not.toContain("late result");
+  } finally { release(); await stopping.catch(() => {}); detach(); }
+}, 30000);
+
+for (const failure of ["throw", "error-result"] as const) test(`an effectful ${failure} blocks a subsequent same-run effect and requires acknowledgement`, async () => {
+  let effects = 0;
+  const call = () => [{ name: "fetch_bars", args: { symbol: "000300.SH", market: "A" } }];
+  scriptedCalls = [call, call];
+  service = createWorkbenchService({ cwd: root, dependencies: () => {
+    const deps = createDefaultSessionDependencies({ cwd: root });
+    return { ...deps, tools: deps.tools.map(tool => tool.name !== "fetch_bars" ? tool : { ...tool, async execute() {
+      effects++;
+      if (failure === "throw") throw new Error("controlled uncertain effect");
+      return { content: [{ type: "text" as const, text: "controlled uncertain error" }], details: { error: { code: "FIXTURE" } } };
+    } }) };
+  } });
+  const client = service.client, identity = await client.identity();
+  const first = await client.submit(await requestFor(client, identity, "失败后不要重复副作用"));
+  const finished = await terminal(client, identity.sessionId), count = requests.length;
+  expect(effects).toBe(1);
+  expect(finished.turns.at(-1)?.activity?.[0]?.state).toBe("failed");
+  expect(finished.recovery).toMatchObject({ runId: first.runId, unconfirmedTools: 1, acknowledgementRequired: true });
+  await expect(client.submit(await requestFor(client, identity, "未经核对的新问题"))).rejects.toMatchObject({ code: "RECONCILE_REQUIRED" });
+  expect(requests).toHaveLength(count);
+  await client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: first.runId, expectedRevision: finished.revision! });
+  expect(requests).toHaveLength(count);
+}, 30000);
+
+test("parallel effectful calls cannot dispatch after an earlier same-batch failure", async () => {
+  let effects = 0;
+  scriptedCalls = [() => ["000300.SH", "000905.SH"].map(symbol => ({ name: "fetch_bars", args: { symbol, market: "A" } }))];
+  service = createWorkbenchService({ cwd: root, dependencies: () => {
+    const deps = createDefaultSessionDependencies({ cwd: root });
+    return { ...deps, tools: deps.tools.map(tool => tool.name !== "fetch_bars" ? tool : { ...tool, executionMode: "parallel" as const, async execute() {
+      effects++; await Bun.sleep(60); throw new Error("controlled first effect failed");
+    } }) };
+  } });
+  const client = service.client, identity = await client.identity();
+  await client.submit(await requestFor(client, identity, "同批工具失败后等待核对"));
+  const stopped = await terminal(client, identity.sessionId);
+  expect(effects).toBe(1);
+  expect(stopped.turns.at(-1)?.activity?.map(item => item.state)).toEqual(["failed", "not-run"]);
+  expect(stopped.recovery).toMatchObject({ unconfirmedTools: 1, acknowledgementRequired: true });
+}, 30000);
+
+test("successful parallel effectful calls run serially and remain available", async () => {
+  let effects = 0, active = 0, maximum = 0;
+  scriptedCalls = [() => ["000300.SH", "000905.SH"].map(symbol => ({ name: "fetch_bars", args: { symbol, market: "A" } }))];
+  service = createWorkbenchService({ cwd: root, dependencies: () => {
+    const deps = createDefaultSessionDependencies({ cwd: root });
+    return { ...deps, tools: deps.tools.map(tool => tool.name !== "fetch_bars" ? tool : { ...tool, executionMode: "parallel" as const, async execute() {
+      effects++; active++; maximum = Math.max(maximum, active); await Bun.sleep(30); active--;
+      return { content: [{ type: "text" as const, text: "controlled success" }], details: {} };
+    } }) };
+  } });
+  const client = service.client, identity = await client.identity();
+  await client.submit(await requestFor(client, identity, "同批成功工具"));
+  const finished = await terminal(client, identity.sessionId);
+  expect(effects).toBe(2); expect(maximum).toBe(1);
+  expect(finished.turns.at(-1)?.activity?.map(item => item.state)).toEqual(["completed", "completed"]);
+  expect(finished.recovery).toBeUndefined();
+}, 30000);
+
+test("failed effect remains gated when the enclosing run fails and after restart", async () => {
+  mode = "pure-failure"; let effects = 0;
+  scriptedCalls = [() => [{ name: "fetch_bars", args: { symbol: "000300.SH", market: "A" } }]];
+  service = createWorkbenchService({ cwd: root, dependencies: () => {
+    const deps = createDefaultSessionDependencies({ cwd: root });
+    return { ...deps, tools: deps.tools.map(tool => tool.name !== "fetch_bars" ? tool : { ...tool, async execute() { effects++; throw new Error("uncertain effect"); } }) };
+  } });
+  const client = service.client, identity = await client.identity();
+  const first = await client.submit(await requestFor(client, identity, "工具失败且模型随后失败"));
+  const failed = await terminal(client, identity.sessionId), count = requests.length;
+  expect(failed.state).toBe("failed"); expect(failed.recovery).toMatchObject({ unconfirmedTools: 1, acknowledgementRequired: true }); expect(effects).toBe(1);
+  await service.close(); service = createWorkbenchService({ cwd: root });
+  const restored = await service.client.session(identity.sessionId);
+  expect(restored.recovery?.acknowledgementRequired).toBe(true);
+  await expect(service.client.submit(await requestFor(service.client, identity, "未经核对"))).rejects.toMatchObject({ code: "RECONCILE_REQUIRED" });
+  await service.client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: first.runId, expectedRevision: restored.revision! });
+  expect(requests).toHaveLength(count); expect(effects).toBe(1);
+}, 30000);
+
+test("legacy failed effect is gated across terminal states without rewriting v1", async () => {
+  mode = "tool";
+  const { client, identity, submit } = await setup();
+  const first = await submit("旧版工具记录"); await terminal(client, identity.sessionId); await service!.close(); service = undefined;
+  const store = createWorkbenchSessionStore(), template = store.load(identity.workspaceId, identity.sessionId).record;
+  for (const state of ["failed", "settled", "needs_input", "interrupted"] as const) {
+    const sessionId = randomUUID();
+    const legacy = { ...template, sessionId, snapshot: { ...template.snapshot, identity: { ...template.snapshot.identity, sessionId }, state,
+      turns: template.snapshot.turns.map(turn => turn.role === "assistant" ? { ...turn, state,
+        activity: turn.activity?.map(item => ({ ...item, name: "fetch_bars", state: "failed" as const })) } : turn) } };
+    await store.save(legacy, null);
+    const original = store.load(identity.workspaceId, sessionId);
+    service = createWorkbenchService({ cwd: root });
+    const restored = await service.client.session(sessionId);
+    expect(restored.recovery).toMatchObject({ runId: first.runId, unconfirmedTools: 1, acknowledgementRequired: true });
+    expect(store.load(identity.workspaceId, sessionId)).toEqual(original);
+    await expect(service.client.submit({ workspaceId: identity.workspaceId, sessionId, requestId: randomUUID(), expectedRevision: restored.revision!, text: "未核对" })).rejects.toMatchObject({ code: "RECONCILE_REQUIRED" });
+    await service.client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId, runId: first.runId, expectedRevision: restored.revision! });
+    expect(store.load(identity.workspaceId, sessionId).record.version).toBe(state === "interrupted" ? 1 : 2);
+    await service.close(); service = undefined;
+  }
+});
+
+test("review cannot start a new run from a session with an unconfirmed effect", async () => {
+  let effects = 0;
+  service = createWorkbenchService({ cwd: root, dependencies: () => {
+    const deps = createDefaultSessionDependencies({ cwd: root });
+    return { ...deps, tools: deps.tools.map(tool => tool.name !== "fetch_bars" ? tool : { ...tool, async execute() { effects++; throw new Error("uncertain effect"); } }) };
+  } });
+  const client = service.client, identity = await client.identity();
+  const first = await client.submit(await requestFor(client, identity, "先保存旧报告"));
+  const finished = await terminal(client, identity.sessionId);
+  const report = await client.save!({ workspaceId: identity.workspaceId, ...first, expectedRevision: finished.revision!, expectedArtifactRevision: null });
+  scriptedCalls = [() => [{ name: "fetch_bars", args: { symbol: "000300.SH", market: "A" } }]];
+  const second = await client.submit(await requestFor(client, identity, "之后产生未确认结果"));
+  const uncertain = await terminal(client, identity.sessionId), count = requests.length;
+  expect(uncertain.recovery?.acknowledgementRequired).toBe(true); expect(effects).toBe(1);
+  const request = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, artifactId: report.id, sha256: report.sha256,
+    requestId: randomUUID(), expectedRevision: uncertain.revision!, text: "复核旧报告" };
+  expect((await client.reload!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, artifactId: report.id, sha256: report.sha256 })).identity.runId).toBe(first.runId);
+  expect(requests).toHaveLength(count);
+  await expect(client.review!(request)).rejects.toMatchObject({ code: "RECONCILE_REQUIRED" });
+  expect(requests).toHaveLength(count); expect(effects).toBe(1);
+  await client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: second.runId, expectedRevision: uncertain.revision! });
+  const reviewed = await client.review!({ ...request, requestId: randomUUID(), expectedRevision: (await client.session(identity.sessionId)).revision! });
+  expect((await terminal(client, reviewed.sessionId)).state).toBe("settled"); expect(effects).toBe(1);
+}, 30000);
 
 test("save and reload retain fixed versions across later runs, stale clients and damaged report files", async () => {
   const { client, identity, submit } = await setup();
@@ -3010,10 +3302,10 @@ test("restart restores names and tool history without requests, then opens the o
 });
 
 
-for (const phase of ["waiting", "thinking", "tool"] as const) test(`actual Host kill/restart preserves ${phase} without replay`, async () => {
-  const spawn = async (hold: boolean) => {
+for (const phase of ["waiting", "thinking", "tool", "completed-effect"] as const) test(`actual Host kill/restart preserves ${phase} without replay`, async () => {
+  const spawn = async (hold: boolean, effect = false) => {
     const child = Bun.spawn([process.execPath, join(import.meta.dir, "../../workbench/test/fixtures/host-process.ts")], {
-      env: { ...process.env, WHYJ_TEST_HOLD_TOOL: hold ? "1" : "" }, stdout: "pipe", stderr: "pipe",
+      env: { ...process.env, WHYJ_TEST_HOLD_TOOL: hold ? "1" : "", WHYJ_TEST_EFFECT_TOOL: effect ? "1" : "" }, stdout: "pipe", stderr: "pipe",
     });
     const reader = child.stdout.getReader(); let text = "";
     const timeout = setTimeout(() => child.kill(), 30000);
@@ -3032,21 +3324,43 @@ for (const phase of ["waiting", "thinking", "tool"] as const) test(`actual Host 
     };
   };
   console.log(`Crash fixture ${phase}: starting isolated Host`);
-  mode = phase === "waiting" ? "hold" : phase === "thinking" ? "hold-thinking" : "tool"; toolSent = false;
-  let processHost = await spawn(phase === "tool");
+  mode = phase === "waiting" || phase === "completed-effect" ? "answer" : phase === "thinking" ? "hold-thinking" : "tool"; toolSent = false;
+  if (phase === "completed-effect") scriptedCalls = [() => { mode = "hold"; return [{ name: "fetch_bars", args: { symbol: "000300.SH", market: "A" } }]; }];
+  let processHost = await spawn(phase === "tool", phase === "completed-effect");
   try {
     let rpc = await rpcClient(processHost.url);
     const identity = await rpc<SessionSnapshot["identity"]>("identity");
     const target = phase === "tool" ? await rpc<{ sessionId: string }>("createSession") : identity;
+    let savedReport: { reference: { workspaceId: string; sessionId: string; artifactId: string; sha256: string }; original: SavedResearch; stored: ReturnType<typeof loadArtifactSnapshot> } | undefined;
+    if (phase === "waiting") {
+      const completed = await rpc<{ runId: string; sessionId: string }>("submit", [{ workspaceId: identity.workspaceId, sessionId: target.sessionId, requestId: randomUUID(), expectedRevision: (await rpc<SessionSnapshot>("session", [target.sessionId])).revision!, text: "先保存一份完整报告" }]);
+      let finished = await rpc<SessionSnapshot>("session", [target.sessionId]);
+      for (let i = 0; i < 300 && finished.state === "running"; i++) { await Bun.sleep(10); finished = await rpc<SessionSnapshot>("session", [target.sessionId]); }
+      expect(finished.state).toBe("settled");
+      const artifact = await rpc<ArtifactSummary>("save", [{ workspaceId: identity.workspaceId, ...completed, expectedRevision: finished.revision!, expectedArtifactRevision: null }]);
+      const reference = { workspaceId: identity.workspaceId, sessionId: target.sessionId, artifactId: artifact.id, sha256: artifact.sha256 };
+      const original = await rpc<SavedResearch>("reload", [reference]);
+      const stored = loadArtifactSnapshot(`${artifact.id}@${artifact.sha256}`);
+      expect(stored).toBeDefined(); expect(original.identity.runId).toBe(completed.runId);
+      savedReport = { reference, original, stored }; mode = "hold";
+    }
+    const requestsBeforeInterruptedRun = requests.length;
     const submitted = await rpc<{ runId: string }>("submit", [{ workspaceId: identity.workspaceId, sessionId: target.sessionId, requestId: randomUUID(), expectedRevision: (await rpc<SessionSnapshot>("session", [target.sessionId])).revision!, text: "受控中断测试 " + phase }]);
     for (let i = 0; i < 400; i++) {
       const current = await rpc<SessionSnapshot>("session", [target.sessionId]);
-      if (phase === "tool" ? existsSync(join(root, "tool-receipt")) : phase === "thinking" ? current.turns.at(-1)?.phase === "thinking" : requests.length > 0) break;
+      if (phase === "tool" ? existsSync(join(root, "tool-receipt")) : phase === "thinking" ? current.turns.at(-1)?.phase === "thinking"
+        : phase === "completed-effect" ? requests.length > requestsBeforeInterruptedRun + 1 && createWorkbenchSessionStore().load(identity.workspaceId, target.sessionId).record.snapshot.turns.at(-1)?.activity?.some(item => item.name === "fetch_bars" && item.state === "completed")
+        : requests.length > requestsBeforeInterruptedRun) break;
       await Bun.sleep(10);
     }
-    expect(requests.length).toBeGreaterThan(0);
+    expect(requests.length).toBeGreaterThan(requestsBeforeInterruptedRun);
     if (phase === "thinking") expect((await rpc<SessionSnapshot>("session", [target.sessionId])).turns.at(-1)?.phase).toBe("thinking");
     if (phase === "tool") expect(readFileSync(join(root, "tool-receipt"), "utf8")).toBe("started\n");
+    if (phase === "completed-effect") {
+      expect(readFileSync(join(root, "completed-effect-receipt"), "utf8")).toBe("completed\n");
+      expect(createWorkbenchSessionStore().load(identity.workspaceId, target.sessionId).record.snapshot.turns.at(-1)?.activity).toEqual(expect.arrayContaining([expect.objectContaining({ name: "fetch_bars", state: "completed" })]));
+      expect(requests.length).toBeGreaterThan(requestsBeforeInterruptedRun + 1);
+    }
     processHost.child.kill("SIGKILL"); await processHost.child.exited;
     console.log(`Crash fixture ${phase}: process exit observed; reclaiming ownership`);
     const originals = readdirSync(root, { recursive: true }).filter((name): name is string => typeof name === "string" && (/settings|sessions/.test(name)) && name.endsWith(".json") || typeof name === "string" && name.endsWith(".jsonl"))
@@ -3058,6 +3372,17 @@ for (const phase of ["waiting", "thinking", "tool"] as const) test(`actual Host 
     const recovered = await rpc<SessionSnapshot>("session", [target.sessionId]);
     expect(recovered.state).toBe("interrupted"); expect(recovered.identity.runId).toBe(submitted.runId);
     expect(requests.length).toBe(count);
+    if (savedReport) {
+      expect(loadArtifactSnapshot(`${savedReport.reference.artifactId}@${savedReport.reference.sha256}`)).toEqual(savedReport.stored);
+      expect(await rpc<SavedResearch>("reload", [savedReport.reference])).toEqual(savedReport.original);
+      expect(requests.length).toBe(count);
+    }
+    if (phase === "completed-effect") {
+      await expect(rpc("continue", [{ workspaceId: identity.workspaceId, sessionId: target.sessionId, previousRunId: submitted.runId,
+        requestId: randomUUID(), expectedRevision: recovered.revision! }])).rejects.toThrow("CONTINUE_UNSAFE");
+      expect(requests.length).toBe(count);
+      expect(readFileSync(join(root, "completed-effect-receipt"), "utf8")).toBe("completed\n");
+    }
     for (const file of originals) expect(readFileSync(join(root, file.name))).toEqual(file.bytes);
     if (phase === "tool") {
       expect(recovered.turns[1]?.activity?.[0]?.state).toBe("unconfirmed");
@@ -3072,6 +3397,7 @@ for (const phase of ["waiting", "thinking", "tool"] as const) test(`actual Host 
     expect(JSON.stringify(requests.at(-1)?.messages)).toContain("受控中断测试 " + phase);
     expect((await rpc<SessionSnapshot>("session", [target.sessionId])).state).toBe("settled");
     if (phase === "tool") expect(readFileSync(join(root, "tool-receipt"), "utf8")).toBe("started\n");
+    if (phase === "completed-effect") expect(readFileSync(join(root, "completed-effect-receipt"), "utf8")).toBe("completed\n");
   } finally { processHost.child.kill("SIGKILL"); await processHost.child.exited; }
   console.log(`Crash fixture ${phase}: verified recovery and explicit follow-up`);
 }, 120000);
@@ -3108,8 +3434,9 @@ describe("large-history fixture lifecycle", () => {
   service = createWorkbenchService({ cwd: root }); identity = await service.client.identity(); await service.close();
   const template = store.load(identity.workspaceId, identity.sessionId).record;
   for (let i = 0; i < 30; i++) {
-    const id = randomUUID(); await store.save({ ...template, sessionId: id, name: "历史 " + i,
-      snapshot: { ...template.snapshot, identity: { ...template.snapshot.identity, sessionId: id }, turns: [{ id: "history", role: "assistant", state: "settled", text: "payload".repeat(10000), at: template.updatedAt }] } }, null);
+    const id = randomUUID(), date = new Date(Date.UTC(2026, 9, 20 + i % 3)).toISOString();
+    await store.save({ ...template, sessionId: id, name: "历史 " + i, updatedAt: date,
+      snapshot: { ...template.snapshot, identity: { ...template.snapshot.identity, sessionId: id }, turns: [{ id: "history", role: "assistant", state: "settled", text: "payload".repeat(10000), at: date }] } }, null);
   }
     })();
     await historySeed;
@@ -3124,17 +3451,32 @@ describe("large-history fixture lifecycle", () => {
   expect(rows).toHaveLength(31); expect(loads).toBe(0); expect(agents).toBe(0);
   host = startWorkbenchServer({ service, port: 0, assetsRoot: join(root, "assets") });
   const url = host.server.url.origin, { token } = await (await fetch(url + "/api/workbench/bootstrap")).json() as { token: string };
-  const response = await fetch(url + "/api/workbench/events", { headers: { "x-workbench-token": token } });
-  const reader = response.body!.getReader(), chunk = await reader.read(); await reader.cancel();
-  const frame = new TextDecoder().decode(chunk.value); expect(frame).toContain('"type":"ready"'); expect(frame).not.toContain("payload");
+  const reconnects: Array<{ latencyMs: number; bytes: number }> = [];
+  for (let i = 0; i < 3; i++) {
+    const started = performance.now();
+    const response = await fetch(url + "/api/workbench/events", { headers: { "x-workbench-token": token } });
+    const reader = response.body!.getReader(), chunk = await reader.read();
+    reconnects.push({ latencyMs: performance.now() - started, bytes: chunk.value!.byteLength }); await reader.cancel();
+    const frame = new TextDecoder().decode(chunk.value); expect(frame).toContain('"type":"ready"'); expect(frame).not.toContain("payload");
+  }
   expect(loads).toBe(0); expect(agents).toBe(0);
   const before = performance.now(); const snapshot = await service.client.session(rows.find(row => row.name === "历史 0")!.sessionId);
   expect(snapshot.turns[0]?.text).toHaveLength(70000); expect(loads).toBe(1); expect(agents).toBe(0);
-  console.log(JSON.stringify({ fixture: "30 histories x 70000 characters", listMs, selectedReadMs: performance.now() - before, listBytes: Buffer.byteLength(JSON.stringify(rows)), selectedBytes: Buffer.byteLength(JSON.stringify(snapshot)), startupSseBytes: chunk.value!.byteLength }));
-  for (let i = 0; i < 2; i++) { await service.client.submit(await requestFor(service.client, identity, "资源释放检查 " + i)); await terminal(service.client, identity.sessionId); }
-  expect(agents).toBe(2); expect(cleanups).toBe(2);
+  const selectedReadMs = performance.now() - before;
+  const historicalDays = new Set(rows.filter(row => row.name.startsWith("历史 ")).map(row => store.load(identity.workspaceId, row.sessionId).record.updatedAt.slice(0, 10)));
+  expect(historicalDays.size).toBe(3);
+  const memory: Array<{ turns: number; rss: number; heapUsed: number; agents: number; cleanups: number }> = [];
+  const sample = (turns: number) => { Bun.gc(true); const usage = process.memoryUsage(); memory.push({ turns, rss: usage.rss, heapUsed: usage.heapUsed, agents, cleanups }); };
+  sample(0);
+  for (let i = 0; i < 12; i++) {
+    await service.client.submit(await requestFor(service.client, identity, "资源释放检查 " + i));
+    await terminal(service.client, identity.sessionId);
+    if ((i + 1) % 4 === 0) sample(i + 1);
+  }
+  expect(agents).toBe(12); expect(cleanups).toBe(12);
   expect(readdirSync(join(root, "sessions"), { recursive: true }).filter(name => String(name).endsWith(".jsonl"))).toHaveLength(1);
-});
+  console.log(JSON.stringify({ fixture: "30 histories x 70000 characters, timestamps across three simulated days; same process includes test and model server", listMs, selectedReadMs, listBytes: Buffer.byteLength(JSON.stringify(rows)), selectedBytes: Buffer.byteLength(JSON.stringify(snapshot)), reconnects, memory }));
+}, 120_000);
 });
 
 
@@ -3337,3 +3679,40 @@ for (const localPath of [String.raw`C:\Users\synthetic-user\reports\annual.html`
     expect(readFileSync(reportFile, "utf8")).toBe(reportBytes);
   } finally { releaseThinking?.(); releaseThinking = undefined; await reader.cancel(); await collect; }
 }, 30_000);
+
+for (const failure of ["throw", "error-result"] as const) test(`a terminal effectful ${failure} blocks a subsequent same-run effect and requires acknowledgement`, async () => {
+  let effects = 0;
+  const call = () => [{ name: "fetch_bars", args: { symbol: "000300.SH", market: "A" } }];
+  scriptedCalls = [call, call];
+  service = createWorkbenchService({ cwd: root, dependencies: () => {
+    const deps = createDefaultSessionDependencies({ cwd: root });
+    return { ...deps, tools: deps.tools.map(tool => tool.name !== "fetch_bars" ? tool : { ...tool, async execute() {
+      effects++;
+      if (failure === "throw") throw new Error("controlled uncertain effect");
+      return { content: [{ type: "text" as const, text: "controlled uncertain error" }], details: { error: { code: "FIXTURE" } } };
+    } }) };
+  } });
+  const client = service.client, identity = await client.identity();
+  const first = await service.terminal.submit(await requestFor(client, identity, "失败后不要重复副作用"));
+  const finished = await terminal(client, identity.sessionId), count = requests.length;
+  expect(effects).toBe(1);
+  expect(finished.turns.at(-1)?.activity?.[0]?.state).toBe("failed");
+  expect(finished.recovery).toMatchObject({ runId: first.runId, unconfirmedTools: 1, acknowledgementRequired: true });
+  await expect(service.terminal.submit(await requestFor(client, identity, "未经核对的新问题"))).rejects.toMatchObject({ code: "RECONCILE_REQUIRED" });
+  expect(requests).toHaveLength(count);
+  host = startWorkbenchServer({ service, port: 0, assetsRoot: join(root, "assets") });
+  const connection = { ...await host.ready, started: false };
+  const seen: SessionSnapshot[] = [];
+  const view = await openTerminalSession(connection, { sessionId: identity.sessionId, onSnapshot: snapshot => seen.push(snapshot) });
+  const observer = await openTerminalSession(connection, { sessionId: identity.sessionId, onSnapshot: snapshot => seen.push(snapshot) });
+  try {
+    const target = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: first.runId, expectedRevision: finished.revision! };
+    await expect(view.acknowledgeRecovery({ ...target, expectedRevision: target.expectedRevision - 1 })).rejects.toThrow("Recovery changed");
+    expect(await view.acknowledgeRecovery(target)).toBe(true);
+    for (let n = 0; n < 200 && observer.snapshot?.recovery?.acknowledgementRequired; n++) await Bun.sleep(10);
+    expect(observer.snapshot?.recovery?.acknowledgementRequired).toBe(false);
+    expect((await client.session(identity.sessionId)).recovery?.acknowledgementRequired).toBe(false);
+    expect(seen.some(snapshot => snapshot.recovery?.acknowledgementRequired === false)).toBe(true);
+    expect(effects).toBe(1); expect(requests).toHaveLength(count);
+  } finally { await view.detach(); await observer.detach(); }
+}, 30000);

@@ -297,7 +297,7 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
         && (item.title === undefined || string(item.title) && item.title.length <= 100) && (item.context === undefined || string(item.context) && item.context.length <= 160)
         && ["preparing", "running", "completed", "failed", "cancelled", "not-run", "unconfirmed"].includes(String(item.state))
         && (item.elapsedMs === undefined || typeof item.elapsedMs === "number" && Number.isFinite(item.elapsedMs) && item.elapsedMs >= 0)))))) return false;
-  if (value.recovery !== undefined && (!object(value.recovery) || value.state !== "interrupted" || !string(value.recovery.runId) || value.recovery.runId !== value.identity.runId
+  if (value.recovery !== undefined && (!object(value.recovery) || !["interrupted", "cancelled", "failed", "settled", "needs_input"].includes(String(value.state)) || !string(value.recovery.runId) || value.recovery.runId !== value.identity.runId
     || !Number.isSafeInteger(value.recovery.unconfirmedTools) || Number(value.recovery.unconfirmedTools) < 0 || typeof value.recovery.acknowledgementRequired !== "boolean")) return false;
   const source = value.source;
   if (source !== undefined && (!object(source) || !["workspaceId", "sessionId", "runId", "artifactId"].every(key => string(source[key]) && source[key].length > 0 && source[key].length <= 160)

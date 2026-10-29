@@ -96,7 +96,7 @@ try {
   assert.equal(source.instanceId, first.instanceId);
   assert.equal(source.started, false);
   const registration = registry.read()!;
-  assert.equal(registration.serviceContractVersion, 3);
+  assert.equal(registration.serviceContractVersion, 4);
   const headers = { "content-type": "application/json", "x-workbench-token": registration.token, "x-host-instance-id": registration.instanceId };
   assert.equal((await fetch(first.url + "/api/host/ready")).status, 401);
   assert.equal((await fetch(first.url + "/api/host/ready", { headers: { ...headers, origin: "https://foreign.invalid" } })).status, 403);
