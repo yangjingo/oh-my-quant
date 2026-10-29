@@ -1,8 +1,8 @@
 # Agent Runtime：通用会话运行时
 
-更新：2026-10-22。本目录维护架构、会话、存储、配置与扩展；产品、数据和研究规则见 [Quant Harness](../quant-harness/README.md)。文档分类不代表代码已拆包。
+本目录维护架构、会话、存储、配置与扩展；产品、数据及研究规则见 [Quant Harness](../quant-harness/README.md)。
 
-调用链：宿主组装 → Agent 会话 → Pi 循环。Quant 注入任务、工具范围与证据核验，复用会话账本；模块边界见[架构](./architecture.md)。
+宿主组装 Agent 会话并调用 Pi；Quant 注入任务、工具范围与证据核验。模块边界见[架构](./architecture.md)。
 
 ## 本目录与相邻入口
 
@@ -21,7 +21,7 @@
 
 ## 1. 会话所有权与请求生命周期
 
-Pi 提供模型协议和 agent loop；WhyJ 持有产品会话、JSONL 分支、队列、压缩、工具装配和 UI 事件。协议兼容不等于把整个产品生命周期交给上游。
+Pi 提供模型协议和循环；WhyJ 持有会话、JSONL 分支、队列、压缩、工具装配和 UI 事件。
 
 ```text
 宿主端口 → 会话资源准备 → 独立请求快照 → Pi loop / tools
@@ -33,7 +33,7 @@ Pi 提供模型协议和 agent loop；WhyJ 持有产品会话、JSONL 分支、�
 
 一次 HarnessOperation 覆盖内部准备、模型/工具执行、持久化及被等待的监听器，但不覆盖 facade 之前的模型、技能、研究资源同步。因而 `waitForIdle()` 不是全应用事务屏障；operation 内的监听器也不能等待它自身结束。Overview 有自己的刷新、取消和代次，不由模型空闲状态决定。
 
-独立 `prompt()`、`skill()` 和手动压缩在入口准备新快照；运行中的请求及其排队 follow-up 使用原连接和资源。修改配置不能中途替换模型 endpoint、凭证或工具集合。取消会中止尚未完成的工作，但不回滚已经提交的事件；“停止这次模型请求”与“取消研究任务”是不同动作。
+独立 `prompt()`、`skill()` 和手动压缩准备新快照；运行请求及其 follow-up 保留原连接和资源，配置变更不能中途替换它们。取消会中止尚未完成的工作，但不回滚已经提交的事件；“停止这次模型请求”与“取消研究任务”是不同动作。
 
 <a id="dependencies"></a>
 
@@ -110,7 +110,7 @@ reset/restore 等待旧初始化结束并取消旧工作，目标打开和资源
 
 关键回归：[Kernel 消息顺序](../../src/agent/test/kernel.test.ts)、[生命周期](../../src/agent/test/harness-lifecycle.test.ts)、[独立宿主](../../src/agent/test/session-dependencies.test.ts)、[会话提交](../../src/agent/test/session-journal.test.ts)、[工具停止规则](../../src/agent/test/tool-call-termination.test.ts)、[请求快照](../../src/agent/test/turn-resources.test.ts)。这些使用本地/合成输入，不替代真实模型账号验证。
 
-升级核对 Pi 包精确版本、TypeBox 与锁文件，移除旧协议副本的路径别名；依次验证类型、架构、生命周期及构建。
+升级时核对 Pi、TypeBox 和锁文件，移除旧协议路径别名，验证类型、架构、生命周期及构建。
 
 ```powershell
 bun run typecheck
@@ -119,4 +119,4 @@ bun test src/agent/test
 bun run build
 ```
 
-测量见[评测](../evaluation/README.md#model-performance)。Pi 的模型能力不决定量化研究完成度。
+性能测量见[评测](../evaluation/README.md#model-performance)。
