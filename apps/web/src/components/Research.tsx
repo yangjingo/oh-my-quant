@@ -1,11 +1,13 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { MarketSnapshot, SessionSnapshot } from "../client/contract";
 import { IconButton } from "./UI";
-import { confidenceLabels, runLabels } from "../presentation";
+import { confidenceLabels } from "../presentation";
+import { RunStatus } from "./RunStatus";
+import { ToolHistory } from "./ToolHistory";
 
 const AnswerMarkdown = lazy(() => import("./Markdown").then(module => ({ default: module.ResearchMarkdown })));
 
-export function Transcript({ snapshot, positions, onEvidence, onReport, onSuggestion }: { snapshot: SessionSnapshot; positions: Map<string, number>; onEvidence(): void; onReport(): void; onSuggestion(text: string): void }) {
+export function Transcript({ snapshot, positions, onEvidence, onReport, onSuggestion, mode = "demo" }: { snapshot: SessionSnapshot; positions: Map<string, number>; onEvidence(): void; onReport(): void; onSuggestion(text: string): void; mode?: string }) {
   const stream = useRef<HTMLDivElement>(null);
   const [away, setAway] = useState(false);
   const [copyStatus, setCopyStatus] = useState("");
@@ -16,6 +18,11 @@ export function Transcript({ snapshot, positions, onEvidence, onReport, onSugges
   }, [copyStatus]);
   const following = useRef(true);
   const id = snapshot.identity.sessionId;
+  const suggestions = mode === "host" ? [
+    { label: "用假设数据计算三种仓位情景", text: "请调用 calculate_position_scenarios：假设100股、成本每股10元、给定2026-10-23收盘12元、币种CNY，计算下跌10%、不变、上涨10%的盈亏。仅使用这些假设输入，不取实时行情，不作投资建议。" },
+    { label: "判断一次回撤，需要先收集哪些证据？", text: "我应该收集哪些证据，才能判断回撤结构？请区分必要数据、计算方法和还不能下的结论。" },
+    { label: "梳理一个可以验证的研究问题", text: "帮我把一个投资疑问整理成研究问题。请先询问研究对象、时间范围和我已有的材料，不预设结论。" },
+  ] : ["比较 002048.SZ 与沪深300今年的区间表现", "我应该收集哪些证据，才能判断回撤结构？", "帮我检查已有研究中哪些结论还缺少依据"].map(text => ({ label: text, text }));
   useEffect(() => {
     const el = stream.current;
     if (!el) return;
@@ -32,11 +39,12 @@ export function Transcript({ snapshot, positions, onEvidence, onReport, onSugges
   return <><div id="stream" ref={stream} className="stream" role="region" aria-label="研究会话" onScroll={e => {
     const el = e.currentTarget; positions.set(id, el.scrollTop); following.current = el.scrollHeight - el.scrollTop - el.clientHeight <= 60; setAway(!following.current);
   }}>
-    {!snapshot.turns.length && <div className="empty-state research-welcome"><span className="eyebrow">从一个明确的问题开始</span><h2>开始一份研究</h2><p>说明研究对象、时间区间，以及你想验证的判断。</p><div className="starter-questions">{["比较 002048.SZ 与沪深300今年的区间表现", "我应该收集哪些证据，才能判断回撤结构？", "帮我检查已有研究中哪些结论还缺少依据"].map(text => <button key={text} onClick={() => onSuggestion(text)}>{text}<span aria-hidden="true">↗</span></button>)}</div><p className="supporting">点击只会填入草稿。发送前可以修改问题或用 @ 添加引用。</p></div>}
+    {!snapshot.turns.length && <div className="empty-state research-welcome"><span className="eyebrow">从一个明确的问题开始</span><h2>开始一份研究</h2><p>{mode === "host" ? "本机 Agent 已连接。可以先用给定数据验证工具；真实行情来源需要单独配置。" : "说明研究对象、时间区间，以及你想验证的判断。"}</p><div className="starter-questions">{suggestions.map(item => <button key={item.label} onClick={() => onSuggestion(item.text)}>{item.label}<span aria-hidden="true">↗</span></button>)}</div><p className="supporting">{mode === "host" ? "点击只会填入草稿。请核对并修改后再发送；当前连接暂未启用文件引用。" : "点击只会填入草稿。发送前可以修改问题或用 @ 添加引用。"}</p></div>}
     <div className="thread-inner">{snapshot.turns.map(turn => <article className={"turn turn-" + turn.role} key={turn.id}>
       {turn.role === "user" ? <div className="question"><span className="prompt">›</span><p>{turn.text}</p></div> : <>
-        <details className="process"><summary>{turn.state === "running" ? "研究进行中" : turn.state === "cancelled" ? "已停止" : "过程与状态"}</summary><p>状态：{runLabels[turn.state]}。界面只显示服务提供的执行状态，不推测分析进度。</p></details>
-        <span className="assistant-label">WhyJ</span><div className="answer markdown-body">{turn.text ? <Suspense fallback={<p className="plain-answer">{turn.text}</p>}><AnswerMarkdown text={turn.text} /></Suspense> : <p className="waiting-message">正在等待研究结果。你可以先写下一条草稿，或切换会话查看其他研究。</p>}</div>
+        <RunStatus turn={turn} />
+        <ToolHistory turn={turn} />
+        <span className="assistant-label">WhyJ</span><div className="answer markdown-body">{turn.text ? <Suspense fallback={<p className="plain-answer">{turn.text}</p>}><AnswerMarkdown text={turn.text} /></Suspense> : <p className="waiting-message">{turn.state === "running" ? "Agent 正在处理，你可以继续写下一条草稿。" : "本轮未返回文字内容。"}</p>}</div>
       </>}
       <div className="turn-meta"><small>{turn.at}</small><button onClick={() => void copy(turn.text)}>复制{turn.role === "user" ? "问题" : "回答"}</button></div>
     </article>)}

@@ -2,7 +2,7 @@
 
 `apps/web` 是供浏览器与 Desktop renderer 复用的 React + TypeScript + Vite 模块。它承接 #84 的终端式布局，并复用 [PR #81](https://github.com/yangjingo/oh-my-quant/pull/81) 的包基础与订阅/取消契约。原来的 `prototypes/web-terminal` 已撤除，不再维护第二套 HTML 字符串渲染器。
 
-本页说明已实现的模块边界。[架构](../agent-runtime/architecture.md)定义 Host、服务、runtime 与 storage 的职责；[UI/UX](./uiux.md)和 [DESIGN](../../DESIGN.md)维护交互与视觉原则。真实 HTTP/SSE Host、桌面加载与跨入口接续仍需要各自集成验收，不能以浏览器演示代替。
+本页说明已实现的模块边界。[架构](../agent-runtime/architecture.md)定义 Host、服务、runtime 与 storage 的职责；[UI/UX](./uiux.md)和 [DESIGN](../../DESIGN.md)维护交互与视觉原则。初步本机 HTTP/SSE Host 已连接真实 Agent；桌面加载与跨入口接续仍需分别集成验收，不能以浏览器演示代替。
 
 后续按[共享 Host 契约](../agent-runtime/host.md)接入：#46/#75 提供服务和实例所有权，#50 完成本界面集成，#47 负责 Electron/tray，#78 验证真实跨入口运行。#105 的会话/草稿持久化应被 #77 复用，不能各建一份恢复真值；上述能力均须按实现修订验收。
 
@@ -21,9 +21,25 @@
 
 组件通过 `WorkbenchClient` 读取会话、行情、证据、成果及偏好，并提交、取消或订阅。`mountWorkbench(element, client)` 是集成入口。实际服务实现属于 `src/app`；依赖组装属于 `src/runtime`；文件与 journal 属于 storage。renderer 不通过相对导入绕过这些边界。
 
-正常入口使用未连接适配器，展示可诊断错误并禁用提交。只有显式 `demo` 模式加载 `dev/demo-client.ts`；生产构建检查拒绝示例运行和会话标记。演示模式复用同一组件树，并明确标注合成行情、证据及报告；其偏好可存入独立浏览器键，模拟会话只在内存中。
+独立 Vite/preview 入口使用未连接适配器并禁用提交；`web:start` 构建后由本机 Host 提供静态页面，入口标记选择真实客户端。只有显式 `demo` 模式加载 `dev/demo-client.ts`；生产构建检查拒绝示例运行和会话标记。演示模式明确标注合成行情、证据及报告；其偏好可存入独立浏览器键，模拟会话只在内存中。
+
+## 初步本机 Agent 连接（#101）
+
+`src/app/workbench` 通过现有 `createQuantResearchAgent` 与 runtime 依赖组装复用 Pi 会话、工具和 journal；不新增执行循环。初始连接排除 shell、外部 skills 和动态工具配置。共享 DTO 归 `src/types/workbench.ts`，Web 只通过 `client/host.ts` 的 HTTP RPC 与 fetch SSE 交互。Host 仅监听 127.0.0.1，校验 Host/Origin、内存 capability token 和严格参数；token 不写 URL，模型凭证不发给 renderer。工作区锁限制单一写入者，但不提供 Host 发现和跨入口接续。
+
+同一会话追问复用 Agent 上下文。SSE 提供带单调 revision 的全量快照，合并短时间内的更新；重连重新同步，拒绝旧 revision 和取消运行的迟到事件。断开只释放订阅；停止按钮/Ctrl+G 显式定位运行并中止请求。请求结果未知时不自动重发提交，以免重复工作。模型连接失败保留已显示内容并提示错误类别，不暴露 provider 原始响应。
+
+设置可修改当前 provider 的模型 ID 和支持的 thinking level，使用存储 revision 拒绝覆盖其他修改；运行时拒绝改模型。已配置凭证不等于已验证连接，新增 provider/key 仍通过本机配置。默认保留当前推理深度。回答上方持续显示动态状态与累计用时：等待模型响应、思考中、调用工具、正在生成回答；仅收到真实 thinking 事件才标为思考中，不传递推理内容。工具执行时直接显示工具名称，展开可看历史与耗时。计时在完成、失败或停止时冻结；减少动态效果设置禁用旋转动画。计时只表示等待时长，不表示完成比例。示例只填入假设数据草稿，用户确认发送后才调用模型。
+
+本阶段行情概览、文件引用、证据/报告投影仍为空，不以回答完成冒充核验归档。浏览器刷新可同步存活 Host 的会话；Host 重启不恢复会话列表，也不自动重放 journal。#46 的完整服务提取、#75 的发现/生命周期与 #77 的恢复仍是后续工作。启动和私有配置目录选择见 [README](../../apps/web/README.md)。
+
+执行记录按同一调用标识合并“准备中 → 执行中 → 返回结果”，准备参数不等于已执行；准备阶段被取消时记为“未执行”。可读动作标题来自现有工具注册表的展示元数据，原有终端标签不变。Host 只提供经过校验、限长的输入摘要，不转发原始参数、查询、文件路径或工具响应。每轮默认汇总状态与数量，运行时展开执行记录；单条记录按需展开工具身份与调用标识。失败、停止、未执行分别呈现，工具返回不代表结论已独立核验。设计借鉴 [DSH 的同一调用三阶段](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/.agents/notes/implemented/architecture/2026-09-22-tool-call-three-phases.md)和 [Codex 的执行条目生命周期](https://openai.com/index/unlocking-the-codex-harness/)，继续复用现有 Agent 及事件流。
 
 ## 会话状态与运行生命周期
+
+提交已被服务接受后，客户端重新读取权威会话摘要，更新自动命名和运行次数；无需刷新页面即可在标题、侧栏和名称搜索中看到新名称。列表刷新失败不把已接受的问题变成提交失败，也不自动重发；较晚返回的列表不能覆盖期间发生的会话选择或重新加载。
+
+CI 浏览器证据在纯前端演示之外，通过 `tests/app/dev/review-host-fixture.ts` 启动临时目录中的真实 Host、Pi 会话和计算工具，使用本机受控的假模型响应停留在各执行阶段。`dev/review-host-evidence.mjs` 验证自动命名、刷新不重放、模型保存与忙时拒绝、停止保留草稿、失败和未执行记录、终态计时冻结及减少动画偏好，并录制截图和录像。该夹具不读取个人设置、不连接付费模型；停留时间不能作为真实性能数据，静态 Vercel 演示也不能替代 Host 验收。
 
 草稿、当前会话、面板开关、字号与滚动位置属于视图。运行身份、状态、对话和成果来自客户端。切换会话或卸载界面只释放观察者；取消必须是显式操作，并传递准确 runId。
 
@@ -57,4 +73,5 @@ Overview 只展示客户端提供的行情与分组，缺失值保留为空。�
 
 本次不迁移用户数据，不改变 CLI/npm 与旧研究宿主入口，也不关闭 Host、Electron 或 #50 的后续集成事项。
 
+评审修复：自动会话标题先按已配置凭据脱敏再截断，显式重命名使用同一脱敏边界。共享凭据收集器复用现有配置别名，覆盖 Tushare 与 Financial Datasets；流式文本暂存尚未完整的凭据前缀。未开放读取的显式 @file:/@dir:/@session:/@evidence: 引用在启动 Agent 前被拒绝，保留草稿且不发送模型请求；邮件、反斜杠转义与代码示例保持普通文本。此保护不等于已提供真实文件引用能力。
 评审补充：真实连接的引用、证据和报告读取未开放时，输入与帮助明确说明能力边界，空目录不再暗示“取证后自动出现”。发送图标采用 Enter 符号，停止与运行中草稿语义保持不变。概览提供键盘滚动和底部留白；浏览器验收等待实际草稿恢复与窄屏布局完成后保留原断言。

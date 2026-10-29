@@ -5,6 +5,10 @@ description: Draft and manage single-module issues for oh-my-quant with explicit
 
 # Issue Skill
 
+## GitHub Operations
+
+Prefer `gh` for GitHub issue operations, including inspection, updates, and comments; use `gh api` when a supported operation is not exposed by a dedicated command. Use Chrome or computer use only when `gh` cannot perform the requested operation or the user explicitly requests that interface. Respect the user's instructions, access permissions, and authorization regardless of the tool.
+
 ## Scope
 
 - One implementation issue, one primary functional module, one implementation PR.

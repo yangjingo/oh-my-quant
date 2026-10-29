@@ -1,6 +1,6 @@
 # 共享 Host：身份、所有权与退出契约
 
-本页是 #51 的待实现契约，初稿基于 main `5ae8012`，并对照 main `cd6c669` 更新；它不代表已发布能力。当前目录与依赖规则见[模块架构](./architecture.md)，持久化提交点见[存储](./storage.md)。实现必须逐项提供运行证据，不能以本文替代验收。
+本页是 #51 的目标契约，初稿基于 main `5ae8012`，并对照 main `f1e37fe` 更新；目标能力不等于已交付能力。当前目录与依赖规则见[模块架构](./architecture.md)，持久化提交点见[存储](./storage.md)。实现必须逐项提供运行证据，不能以本文替代验收。
 
 ## 从现有代码提取，不增加第二份业务真值
 
@@ -8,7 +8,7 @@
 
 [旧研究管理器](../../src/app/research-workspace/manager.ts)已有 `start/get/current/list/subscribe/cancel/continue/followup/save/delete`：订阅释放不取消，保存经 workspace store 提交，复核通过 `parentId` 关联固定研究。它管理单股研究，不能直接冒充通用 Quant 会话。`continue` 当前复用原 run；目标契约须为新执行分配新 runId，并保留原运行关系，避免迟到事件污染新执行。旧保存格式保持兼容读取。
 
-[React 客户端端口](../../apps/web/src/client/contract.ts)已有 workspace/session/run 身份与显式取消。界面改进 PR #98 已合入当前 main；真实 Quant Agent 接入 PR #102 仍在评审中。#46 应复用现有 Quant/Pi 核心、旧研究保存规则及已有适配器，移出业务操作中的界面回调。TUI、HTTP 和 React 只做适配；一个运行只能由一个服务实例持有 Agent。
+[React 客户端端口](../../apps/web/src/client/contract.ts)已有 workspace/session/run 身份与显式取消。界面改进 PR #98 和真实 Quant Agent 接入 PR #102 已合入 main：后者提供初步本机 HTTP/SSE 服务与工作区锁，但尚不提供本契约要求的发现、跨入口复用或重启恢复。#46 应复用现有 Quant/Pi 核心、旧研究保存规则及已有适配器，移出业务操作中的界面回调。TUI、HTTP 和 React 只做适配；一个运行只能由一个服务实例持有 Agent。
 
 ## 服务操作与身份
 
