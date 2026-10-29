@@ -39,7 +39,8 @@ export async function captureActions({ browser, output, root }) {
     await page.getByRole('button', { name: '发送问题', exact: true }).waitFor();
     await page.getByRole('button', { name: '研究成果', exact: true }).click(); await page.getByRole('tab', { name: '报告版本' }).click();
     await page.getByRole('button', { name: '保存当前研究' }).click(); await page.getByText('报告版本已保存。').waitFor({ timeout: 30000 }); await shot('actions-01-report-wide');
-    await page.getByRole('button', { name: '查看记录' }).first().click(); await page.getByText('已打开固定版本。').waitFor(); await shot('actions-02-record-wide');
+    await page.getByRole('button', { name: '查看记录' }).first().click(); await page.getByText('已打开固定版本。').waitFor();
+    await page.locator('.saved-report').getByText(/数据仍需核对/).waitFor(); await shot('actions-02-record-wide');
     await page.getByRole('button', { name: '发起复核' }).first().click();
     const question = page.getByRole('textbox', { name: '复核问题' });
     await question.fill('Review @file:unavailable.md'); await page.getByRole('button', { name: '开始复核' }).click();
