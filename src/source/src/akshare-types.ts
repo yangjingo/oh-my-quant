@@ -28,6 +28,9 @@ export interface AkshareIndexInfoResult {
 }
 
 export interface AkshareIndexQuote {
+  asOfDate?: string;
+  asOfTime?: string;
+  provider?: string;
   code: string;
   name: string;
   price: number;

@@ -8,6 +8,10 @@ import type { AgentPhase, Preferences, RunState, SessionSnapshot, SubmitRequest,
 import { WorkbenchError, modelError } from "../workbench/errors.ts";
 import { localSettings, publicPreferences, secretValues, updateModel, type SettingsPort } from "../workbench/model.ts";
 import { recoverSnapshot } from "../workbench/session-recovery.ts";
+import { thinkingText } from "../workbench/thinking.ts";
+import { toolResult } from "../workbench/tool-result.ts";
+import { createMarketOverview } from "../workbench/market.ts";
+import type { OverviewRefreshOptions } from "../../runtime/workspace/overview-refresh.ts";
 import { toolPresentation } from "../workbench/tool-presentation.ts";
 import { redactModelText } from "../workbench/redaction.ts";
 import { hasExplicitReference } from "../workbench/references.ts";
@@ -19,7 +23,7 @@ import { clarificationTool, CLARIFICATION_TOOL } from "./clarification.ts";
 interface Running {
   id: string; controller: AbortController; promise: Promise<void>; finished: string[];
   activity: Map<string, ToolActivity & { started: number }>;
-  secrets: string[]; phase: AgentPhase; clarification?: string;
+  secrets: string[]; phase: AgentPhase; thinking: string; finishedThinking: string[]; clarification?: string;
 }
 interface Session {
   id: string; name: string; state: RunState; revision: number; runCount: number;
@@ -28,7 +32,6 @@ interface Session {
   source?: SessionSnapshot["source"];
   coreLeafId?: string | null;
 }
-const emptyMarket = () => ({ refreshedAt: "", quotes: [], source: { provider: null, updatedAt: null, available: 0, total: 0 } });
 const emptyOutput = () => ({ conclusion: { statement: null, confidence: null, boundary: null, settled: false }, evidence: [], artifacts: [] });
 const presentTool = (name: string, args?: unknown) => name === CLARIFICATION_TOOL ? { title: "澄清研究问题" } : toolPresentation(name, args);
 const textOf = (message: unknown): string => {
@@ -37,7 +40,7 @@ const textOf = (message: unknown): string => {
 };
 
 /** Owns live runs/observers; the existing Quant/Pi session still owns tools, context and its journal. */
-export function createResearchService(options: { cwd?: string; workspaceId?: string; settings?: SettingsPort; dependencies?: () => QuantAgentDependencies; store?: ReturnType<typeof createWorkbenchSessionStore> } = {}) {
+export function createResearchService(options: { cwd?: string; workspaceId?: string; settings?: SettingsPort; dependencies?: () => QuantAgentDependencies; store?: ReturnType<typeof createWorkbenchSessionStore>; overview?: OverviewRefreshOptions } = {}) {
   const cwd = options.cwd ?? process.cwd(), settings = options.settings ?? localSettings;
   const clean = (text: string) => redactModelText(text, secretValues(settings.read()));
   const workspaceId = options.workspaceId ?? researchWorkspaceId();
@@ -60,6 +63,9 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
   let initial = [...sessions.values()].filter(item => !item.problem).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
   const fresh = !initial;
   if (!initial) { initial = blank(); sessions.set(initial.id, initial); }
+  const market = createMarketOverview(value => {
+    for (const listener of listeners) { try { listener({ type: "market", identity: { workspaceId, sessionId: initial.id, runId: null }, snapshot: value }); } catch { listeners.delete(listener); } }
+  }, options.overview, () => settings.read().preferences.marketColorScheme);
   const storageError = () => new WorkbenchError("SESSION_STORAGE", "会话记录无法安全保存或读取，原文件已保留。请检查存储后重新连接；也可以新建会话。", 409);
   const assertCurrentCheckpoint = (session: Session) => {
     let revision: string;
@@ -87,7 +93,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
   };
   const summary = (session: Session): WorkspaceSummary => ({ workspaceId, sessionId: session.id, code: "", name: clean(session.name), state: session.state, runCount: session.runCount });
   const snapshot = (session: Session): SessionSnapshot => structuredClone({ identity: { workspaceId, sessionId: session.id, runId: session.runId }, revision: session.revision,
-    state: session.state, turns: session.turns!, ...(session.recovery ? { recovery: session.recovery } : {}), ...(session.source ? { source: session.source } : {}), market: emptyMarket(), output: session.output ?? emptyOutput() });
+    state: session.state, turns: session.turns!, ...(session.recovery ? { recovery: session.recovery } : {}), ...(session.source ? { source: session.source } : {}), market: market.snapshot(), output: session.output ?? emptyOutput() });
   const flush = (session: Session, saved = snapshot(session), updatedAt = session.updatedAt) => {
     clearTimeout(session.timer); session.timer = undefined;
     const record = { version: 1 as const, workspaceId, sessionId: session.id, name: session.name, cwd: session.cwd,
@@ -131,8 +137,9 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
       ...(item.context ? { context: redact(run, item.context) } : {}) }));
     const old = session.turns!.find(turn => turn.id === run.id + "-assistant");
     const visible = text === undefined ? old?.text ?? "" : redactModelText(text, run.secrets, session.state === "running");
-    if (old?.text === visible && old.state === session.state && old.phase === run.phase && JSON.stringify(old.activity) === JSON.stringify(activity)) return;
-    session.turns = session.turns!.map(turn => turn.id === run.id + "-assistant" ? { ...turn, text: visible, activity, phase: run.phase, state: session.state,
+    const thinking = redactModelText(run.thinking, run.secrets, run.phase === "thinking") || undefined;
+    if (old?.text === visible && old.thinking === thinking && old.state === session.state && old.phase === run.phase && JSON.stringify(old.activity) === JSON.stringify(activity)) return;
+    session.turns = session.turns!.map(turn => turn.id === run.id + "-assistant" ? { ...turn, text: visible, thinking, activity, phase: run.phase, state: session.state,
       ...(session.state === "running" ? {} : { endedAt: new Date().toISOString() }) } : turn);
     emit(session);
   };
@@ -163,8 +170,15 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
         }
       }
       const text = textOf(event.message);
-      if (event.type === "message_end") { if (text) run.finished.push(text); assistant(session, run, run.finished.join("\n\n")); }
-      else assistant(session, run, [...run.finished, text].filter(Boolean).join("\n\n"));
+      const thinking = thinkingText(event.message);
+      if (event.type === "message_end") {
+        if (text) run.finished.push(text);
+        if (thinking) run.finishedThinking.push(thinking);
+        run.thinking = run.finishedThinking.join("\n\n"); assistant(session, run, run.finished.join("\n\n"));
+      } else {
+        run.thinking = [...run.finishedThinking, thinking].filter(Boolean).join("\n\n");
+        assistant(session, run, [...run.finished, text].filter(Boolean).join("\n\n"));
+      }
     }
     if (event.type === "tool_execution_start") {
       run.phase = "tool";
@@ -173,6 +187,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
     if (event.type === "tool_execution_end") {
       const old = run.activity.get(event.toolCallId);
       run.activity.set(event.toolCallId, { id: event.toolCallId, name: event.toolName, ...presentTool(event.toolName), ...old,
+        result: toolResult(event.result, run.secrets),
         state: event.isError ? "failed" : "completed", started: old?.started ?? performance.now(), elapsedMs: Math.max(0, Math.round(performance.now() - (old?.started ?? performance.now()))) });
       run.phase = [...run.activity.values()].some(item => item.state === "running") ? "tool" : "waiting";
       assistant(session, run);
@@ -184,7 +199,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
     try {
       run.controller.signal.throwIfAborted();
       if (!session.agent) {
-        const dependencies = options.dependencies?.() ?? createDefaultSessionDependencies({ cwd: session.cwd });
+        const dependencies = options.dependencies?.() ?? createDefaultSessionDependencies({ cwd: session.cwd }, "markdown");
         cleanup = () => dependencies.env.cleanup();
         const allowed = new Set(BUILTIN_TOOL_REGISTRY.filter(item => item.domain !== "system").map(item => item.tool.name));
         // No shell or dynamically loaded external tool registry at this initial Web boundary.
@@ -249,7 +264,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
   };
   const beginRun = (session: Session, text: string, operation: NonNullable<Turn["operation"]>, previousRunId?: string): Promise<SubmitResult> => {
     const id = randomUUID(), at = new Date().toISOString();
-    const run: Running = { id, controller: new AbortController(), promise: Promise.resolve(), finished: [], activity: new Map(), secrets: secretValues(settings.read()), phase: "waiting" };
+    const run: Running = { id, controller: new AbortController(), promise: Promise.resolve(), finished: [], activity: new Map(), secrets: secretValues(settings.read()), phase: "waiting", thinking: "", finishedThinking: [] };
     session.recovery = undefined; session.coreLeafId = null; session.runId = id; session.state = "running"; session.active = run; session.runCount++;
     if (!session.turns!.length && session.name === "新研究") session.name = redact(run, text.trim()).slice(0, 32);
     session.turns!.push({ id: id + "-user", role: "user", operation, ...(previousRunId ? { previousRunId: previousRunId } : {}), text: redact(run, text.trim()), state: "settled", at }, { id: id + "-assistant", role: "assistant", text: "", state: "running", at, activity: [], phase: "waiting" });
@@ -311,7 +326,8 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
     async workspaces() { await ready; return [...sessions.values()].map(summary); },
     async session(id) { return read(id); },
     async transcript(id) { return (await read(id)).turns; },
-    async market() { return emptyMarket(); },
+    async market() { assertOpen(); return market.read(); },
+    async refreshMarket(failedOnly) { assertOpen(); return market.refresh(failedOnly); },
     async output(id) { return (await read(id)).output; },
     async createSession() {
       assertOpen();
@@ -330,8 +346,10 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
     async preferences() { return publicPreferences(settings.read()); },
     async updatePreferences(next: Preferences) {
       assertOpen(); next = preferencesRequest(next);
-      if (operations.size || [...sessions.values()].some(session => !!session.active)) throw new WorkbenchError("RUN_ACTIVE", "请先等待或停止研究，再修改模型。", 409);
+      if (operations.size || [...sessions.values()].some(session => !!session.active)) throw new WorkbenchError("RUN_ACTIVE", "请先等待或停止研究，再修改研究设置。", 409);
+      const source = settings.read().preferences.source;
       updateModel(settings, next);
+      if (settings.read().preferences.source !== source) market.invalidate();
     },
     submit: value => accept("submit", value),
     continue: value => accept("continue", value),
@@ -455,6 +473,7 @@ export function createResearchService(options: { cwd?: string; workspaceId?: str
   };
   return { client, workspaceId, async close() {
     closed = true;
+    market.close();
     await Promise.allSettled([...operations.values()]);
     const pending = [...sessions.values()].flatMap(session => session.active
       ? [client.cancel({ workspaceId, sessionId: session.id, runId: session.active.id })] : []);

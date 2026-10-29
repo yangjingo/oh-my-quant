@@ -63,9 +63,9 @@ export function startWorkbenchServer(options: { port?: number; assetsRoot?: stri
               } catch { cleanup(); }
             };
             const queue = (event: WorkbenchEvent) => {
-              if ((event.type !== "snapshot" && event.type !== "session-error") || ended) return;
+              if ((event.type !== "snapshot" && event.type !== "session-error" && event.type !== "market") || ended) return;
               pending.set(event.identity.sessionId + ":" + event.type, event);
-              if (event.type === "session-error" || event.snapshot.state !== "running") { clearTimeout(timer); flush(); }
+              if (event.type !== "snapshot" || event.snapshot.state !== "running") { clearTimeout(timer); flush(); }
               else timer ??= setTimeout(flush, 50);
             };
             const stream = new ReadableStream<Uint8Array>({ start(value) {
