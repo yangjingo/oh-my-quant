@@ -205,7 +205,9 @@ test.skipIf(process.platform !== "win32")("a readable resource directory does no
   if (!shell) throw new Error("PowerShell is required for the isolated Windows ACL test");
   const run = (script: string, extra: Record<string, string> = {}) => Bun.spawnSync([shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], {
     env: { ...process.env, WHYJ_ACL_TEST_DIRECTORY: resource, ...extra }, stdout: "pipe", stderr: "pipe" });
-  const saved = run('(Get-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY).Sddl');
+  // Compare actual access rules independently of raw SDDL formatting and ordering.
+  const fingerprint = 'function Fingerprint($acl) { $rules=@($acl.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]) | ForEach-Object { "{0}|{1}|{2}|{3}|{4}|{5}" -f $_.IdentityReference.Value,[int]$_.FileSystemRights,$_.AccessControlType,$_.InheritanceFlags,$_.PropagationFlags,$_.IsInherited } | Sort-Object); [ordered]@{Owner=$acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; Group=$acl.GetGroup([System.Security.Principal.SecurityIdentifier]).Value; Protected=$acl.AreAccessRulesProtected; Rules=$rules} | ConvertTo-Json -Compress }';
+  const saved = run(`${fingerprint}; Fingerprint (Get-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY)`);
   if (saved.exitCode !== 0) throw new Error("Could not inspect isolated fixture ACL");
   const original = saved.stdout.toString().trim();
   let restored = false;
@@ -217,7 +219,7 @@ test.skipIf(process.platform !== "win32")("a readable resource directory does no
     await (await acquireResourceLeases([resource], "read"))();
     expect(existsSync(join(resource, ".whyj-resource-leases"))).toBe(false);
   } finally {
-    const restore = run('$ErrorActionPreference="Stop"; $acl=Get-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY; $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User; $r=[System.Security.AccessControl.FileSystemRights]::CreateFiles -bor [System.Security.AccessControl.FileSystemRights]::CreateDirectories; $rule=[System.Security.AccessControl.FileSystemAccessRule]::new($sid,$r,[System.Security.AccessControl.InheritanceFlags]::None,[System.Security.AccessControl.PropagationFlags]::None,[System.Security.AccessControl.AccessControlType]::Deny); $acl.RemoveAccessRuleSpecific($rule); Set-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY -AclObject $acl; if ((Get-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY).Sddl -ne $env:WHYJ_ACL_TEST_SDDL) { throw "Restored ACL differs from the saved descriptor" }', { WHYJ_ACL_TEST_SDDL: original });
+    const restore = run(`${fingerprint}; $ErrorActionPreference="Stop"; $acl=Get-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY; $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User; $r=[System.Security.AccessControl.FileSystemRights]::CreateFiles -bor [System.Security.AccessControl.FileSystemRights]::CreateDirectories; $rule=[System.Security.AccessControl.FileSystemAccessRule]::new($sid,$r,[System.Security.AccessControl.InheritanceFlags]::None,[System.Security.AccessControl.PropagationFlags]::None,[System.Security.AccessControl.AccessControlType]::Deny); $acl.RemoveAccessRuleSpecific($rule); Set-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY -AclObject $acl; $actual=Fingerprint (Get-Acl -LiteralPath $env:WHYJ_ACL_TEST_DIRECTORY); if ($actual -ne $env:WHYJ_ACL_TEST_ORIGINAL) { throw "Restored ACL rules differ. Expected: $env:WHYJ_ACL_TEST_ORIGINAL; actual: $actual" }`, { WHYJ_ACL_TEST_ORIGINAL: original });
     restored = restore.exitCode === 0;
     if (restored) cleanup(root);
     if (!restored) throw new Error(`Could not restore isolated fixture ACL: ${root}: ${restore.stderr.toString().trim()}`);
