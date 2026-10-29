@@ -1,14 +1,16 @@
 # Agent Runtime：通用会话运行时
 
-更新：2026-10-22。本目录维护架构、会话、存储、配置与扩展；产品、数据和研究规则见 [Quant Harness](../quant-harness/README.md)。文档分类不代表代码已拆包。
+本目录维护架构、会话、存储、配置与扩展；产品、数据及研究规则见 [Quant Harness](../quant-harness/README.md)。
 
-调用链：宿主组装 → Agent 会话 → Pi 循环。Quant 注入任务、工具范围与证据核验，复用会话账本；模块边界见[架构](./architecture.md)。
+宿主组装 Agent 会话并调用 Pi；Quant 注入任务、工具范围与证据核验。模块边界见[架构](./architecture.md)。
 
 ## 本目录与相邻入口
 
 | 入口 | 阅读目的 |
 |---|---|
 | [模块架构](./architecture.md) | 先看多入口架构图、Host、共享服务与依赖边界 |
+| [无界面服务](./services.md) | 运行身份、固定报告与独立复核 |
+| [工作区 Host](./host.md) | 实例发现、所有权与退出 |
 | 本页 | 会话生命周期 |
 | [存储策略](./storage.md) | 路径、提交与归档 |
 | [扩展宿主](./extensions.md) | 理解受信任扩展的资源声明、启停与修订 |
@@ -19,7 +21,7 @@
 
 ## 1. 会话所有权与请求生命周期
 
-Pi 提供模型协议和 agent loop；WhyJ 持有产品会话、JSONL 分支、队列、压缩、工具装配和 UI 事件。协议兼容不等于把整个产品生命周期交给上游。
+Pi 提供模型协议和循环；WhyJ 持有会话、JSONL 分支、队列、压缩、工具装配和 UI 事件。
 
 ```text
 宿主端口 → 会话资源准备 → 独立请求快照 → Pi loop / tools
@@ -31,7 +33,7 @@ Pi 提供模型协议和 agent loop；WhyJ 持有产品会话、JSONL 分支、�
 
 一次 HarnessOperation 覆盖内部准备、模型/工具执行、持久化及被等待的监听器，但不覆盖 facade 之前的模型、技能、研究资源同步。因而 `waitForIdle()` 不是全应用事务屏障；operation 内的监听器也不能等待它自身结束。Overview 有自己的刷新、取消和代次，不由模型空闲状态决定。
 
-独立 `prompt()`、`skill()` 和手动压缩在入口准备新快照；运行中的请求及其排队 follow-up 使用原连接和资源。修改配置不能中途替换模型 endpoint、凭证或工具集合。取消会中止尚未完成的工作，但不回滚已经提交的事件；“停止这次模型请求”与“取消研究任务”是不同动作。
+独立 `prompt()`、`skill()` 和手动压缩准备新快照；运行请求及其 follow-up 保留原连接和资源，配置变更不能中途替换它们。取消会中止尚未完成的工作，但不回滚已经提交的事件；“停止这次模型请求”与“取消研究任务”是不同动作。
 
 <a id="dependencies"></a>
 
@@ -78,11 +80,13 @@ Pi 1.x 使用 TranscriptContext；手写摘要请求先经 `normalizeContext()`�
 
 ## 4. 队列、分支与持久化
 
-空闲输入进入 prompt，工具执行期间进入 steer，其余流式期间进入 follow-up；Composer 消费 `queue_update`，不持有另一份执行队列。turn、compaction、branch summary 互斥，清理在 finally 完成。`abort` 贯穿准备、模型与工具，并清理待续队列；监听器异常不能留下永久 busy，未成功 flush 的事件不能提前出队。取消不撤销已经提交的事实。
+空闲输入进入 prompt，工具执行期间进入 steer，其余流式期间进入 follow-up；Composer 消费 `queue_update`，不另建执行队列。只有仍消费输入的 turn 接受 steer/follow-up：最后的空轮询同步关闭入口，并接住两次轮询间的 steering；结束持久化、监听器等待、取消和非 turn 操作期间拒绝插入。失败或结束清空本轮队列，显式 nextTurn 保留到下一次 prompt；abort 清空全部队列。turn、compaction、branch summary 互斥，finally 释放占用；监听器异常不能留下永久 busy，未成功 flush 的事件不能提前出队。取消不撤销已提交事实。
 
 JSONL v3 用 id、parent、timestamp 和 type 形成分支树。当前上下文只沿 leaf 祖先链读取，恢复最近的模型、thinking、活动工具及摘要；全文分支证据与经过压缩的模型上下文是两个视图。Session 读口返回副本，写操作从已提交 leaf 串行计算。
 
 默认 `SessionFilePort` / `LocalSessionFile` 用精确字节版本、进程锁、唯一临时文件及 fsync/rename 整体替换；外部编辑、追加或删除使旧 writer 冲突，内存只在提交成功后发布。完整 fork 一次提交；分支 fork 保留目标与标签所需祖先，不带入其它分支上下文。leaf 移动与摘要在同一批次提交，取消传播到锁等待，文件观察者异常不改变已确认提交。
+
+本地 `listDir` 确认父目录可读取后跳过已消失的子项；父目录、权限及其它错误仍失败，取消不返回成功。列表非事务快照，打开会话仍须核对。
 
 失败重试保留原 entry 身份；提交结果不确定时先重新打开核实，不能改 ID 盲目重发。重复/歧义 ID、缺父节点、环、缺 leaf 或截断 JSON 拒绝恢复，Resume 隐藏坏记录但保留原文件。整文件复制成本随历史增长；[存储测量脚本](../../src/storage/dev/measure-session-storage.ts)用于观察这一代价，不承诺所有文件系统的断电安全。
 
@@ -106,7 +110,7 @@ reset/restore 等待旧初始化结束并取消旧工作，目标打开和资源
 
 关键回归：[Kernel 消息顺序](../../src/agent/test/kernel.test.ts)、[生命周期](../../src/agent/test/harness-lifecycle.test.ts)、[独立宿主](../../src/agent/test/session-dependencies.test.ts)、[会话提交](../../src/agent/test/session-journal.test.ts)、[工具停止规则](../../src/agent/test/tool-call-termination.test.ts)、[请求快照](../../src/agent/test/turn-resources.test.ts)。这些使用本地/合成输入，不替代真实模型账号验证。
 
-升级核对 Pi 包精确版本、TypeBox 与锁文件，移除旧协议副本的路径别名；依次验证类型、架构、生命周期及构建。
+升级时核对 Pi、TypeBox 和锁文件，移除旧协议路径别名，验证类型、架构、生命周期及构建。
 
 ```powershell
 bun run typecheck
@@ -115,4 +119,4 @@ bun test src/agent/test
 bun run build
 ```
 
-测量见[评测](../evaluation/README.md#model-performance)。Pi 的模型能力不决定量化研究完成度。
+性能测量见[评测](../evaluation/README.md#model-performance)。
