@@ -10,11 +10,26 @@ From the repository root:
 bun install --cwd apps/web --frozen-lockfile
 bun run web:dev       # application entry: explicit disconnected Host state
 bun run web:demo      # same React UI, explicit synthetic development adapter
+bun run web:start     # build + real local Agent Host at 127.0.0.1:4182
 bun run web:check     # types, client/editor/boundary tests, production build and fixture exclusion
 bun run --cwd apps/web build:demo
 ```
 
 Development binds 127.0.0.1:4176. Normal output is `dist/`; demonstration output is `dist-demo/`. Do not publish the package directory, dev data, tests or local receipts. Deploy only the selected build output. Preview is a demo, not a real local filesystem/model connection.
+
+For the real Agent, install root dependencies too. Select a local configuration directory explicitly before starting; in PowerShell:
+
+```powershell
+$env:OHQUANT_DIR = 'E:\path\to\private-workspace'
+$env:WHYJ_WEB_PORT = '4182' # optional
+bun run web:start
+```
+
+The directory uses the existing `.ohquant` settings format: configure the provider, credentials and model through the existing local configuration workflow. No credentials or history are copied automatically. `web:host` serves an already built `dist/`; plain Vite/preview remains disconnected. Stop the foreground Host with Ctrl+C. A workspace lock prevents a second Host from writing the same directory.
+
+The Host reuses the Quant/Pi Agent and registered research tools, excluding shell tools and external skills for this initial connection. The model panel edits the selected provider's model ID and supported thinking level; keys stay on the server. A saved configuration is not proof of a successful provider request. Use the hypothetical-data starter to verify a real tool call before configuring market sources.
+
+Browser disconnect/reload preserves a run while this Host remains alive. Host restart does not restore the UI session list; journals alone are not a recovery implementation. Live market Overview, file references, report/evidence projection, cross-entry continuation and automatic discovery are not delivered in this slice. An Agent answer is not a verified research report.
 
 ## Ownership
 
@@ -30,7 +45,7 @@ Development binds 127.0.0.1:4176. Normal output is `dist/`; demonstration output
 | `dev/` | Explicit synthetic adapter and build/browser verification entrypoints |
 | `test/` | Lifecycle, concurrency, editor and dependency regressions |
 
-`mountWorkbench(element, client)` is the integration seam. It accepts a `WorkbenchClient`; unmount releases observers and never cancels a run. Only an explicit cancel action targets a run. The default bundle contains no demo adapter. Real HTTP/SSE, Host discovery, storage, credentials, provider calls and service commands belong to their existing shared modules and subsequent Host integration; the renderer cannot import them.
+`mountWorkbench(element, client)` is the integration seam. It accepts a `WorkbenchClient`; unmount releases observers and never cancels a run. Only an explicit cancel action targets a run. The default bundle contains no demo adapter. `src/app/workbench` owns the initial HTTP/SSE Host; `src/types/workbench.ts` owns neutral DTOs, re-exported by the UI contract. The renderer cannot import provider, storage or service implementations.
 
 The package foundation and detach/cancel contract originate in [PR #81](https://github.com/yangjingo/oh-my-quant/pull/81) at `a5ac07d` (Liears). This migration preserves result access while applying #84's terminal layout, and extends events with session/run identity. It does not close #50/#81 or implement #46/#75.
 

@@ -1,6 +1,6 @@
 # WhyJ Quant 模块架构
 
-更新：2026-10-26。产品见[PRD](../prd.md)，交互见[UI/UX](../quant-harness/uiux.md)，进展见 Issues/PR。
+更新：2026-10-26。产品见[PRD](../prd.md)，交互见[UI/UX](../quant-harness/uiux.md)。
 
 ## 当前顶层布局
 
@@ -8,10 +8,11 @@
 |---|---|
 | `src/index.ts`、`src/cli/` | 现有启动与业务命令、JSON 单次调用；CLI 入口迁移仍待 #76 |
 | `apps/tui/` | 终端布局、输入与面板；包含源码、测试和探针，不持有会话真值 |
-| `apps/web/` | 共享 React 界面及客户端端口；Host 待接入 |
+| `apps/web/` | 共享 React 界面和 HTTP/SSE 客户端 |
 | `src/app-runtime.ts`、`src/app-watchlist.ts` | 应用组装与动作；AppRuntime 仍使用界面回调，共享会话投影类型归 `src/types` |
-| `apps/desktop/` | Electron main/preload、PTY/xterm 与安装包 |
-| `src/app/research-workspace/` | HTTP/SSE、研究管理器与原生 Web UI；不是目标 Host |
+| `apps/desktop/` | Electron、PTY/xterm 与安装包 |
+| `src/app/research-workspace/` | 旧研究宿主与原生 Web UI |
+| `src/app/workbench/` | React 本机 Host，复用 Quant/Pi；尚无跨入口恢复 |
 | `src/app/paper-execution/` | 显式私有模拟盘宿主与独立账本 |
 | `site/` | 独立静态官网，不连接本地研究数据 |
 
@@ -21,7 +22,7 @@
 
 当前 Web 原型的运行与取消由独立[研究宿主](../../src/app/research-workspace/manager.ts)管理，未保存进度只在内存中：页面刷新可接回，服务重启则只从显式保存的对话和固定证据重建上下文，不重放完整 journal 或自动获取新行情。关闭浏览器只断开订阅，不停止任务。首次研究须有结构化发布结果才能保存，后续解释型对话不冒充新研究；复核另开会话取证并关联旧版本。这些现状边界不能由下方目标 Host 的恢复承诺代替。
 
-React 入口边界见 [Web 模块](../quant-harness/web-ui.md)；Host 尚未接入。
+React 的初步 Host 与配置见 [Web 模块](../quant-harness/web-ui.md)：支持工具、追问、取消和存活 Host 重连；行情/成果、发现、跨入口和重启恢复仍待实现。
 
 ## 当前依赖契约
 
@@ -110,13 +111,13 @@ daemon 与休眠期间运行不在本阶段范围。Host 登记/锁、兼容判�
 
 测试在 `src/<module>/test/`（保留 `source/tests/`）、`apps/tui/test/` 与 `tests/app/`；默认/watch/模块测试及类型检查覆盖 TUI，`dev` 探针不自动执行。[依赖回归](../../tests/architecture/module-boundaries.test.ts)覆盖 `src`/`apps`，除启动桥接外禁止共享层导入入口；[入口回归](../../tests/architecture/development-entrypoints.test.ts)验证发现与构建，违规基线为空。
 
-后续目标：服务测试在 `src/app/services/test`，CLI 启动测试在 `apps/cli/test`。`tests/contracts` 复用直调服务与 Host API 的身份、状态和错误断言，验证单次命令不加载 TUI。
+Host 测试在 `src/app/workbench/test`；后续 CLI 测试归 `apps/cli/test`，共享契约测试归 `tests/contracts`。
 
 `tests/e2e` 用真实 Host、临时工作区和假模型贯通 Web 提交 → Desktop 接回 → 关窗继续 → CLI 取消 → 拒绝晚到事件，另验保存/追问及恢复不重复副作用。发现规则、依赖围栏和 CI 随迁移同步。
 
 ## 开发入口与 npm 命令
 
-`dev` 保持 CLI/TUI，`workspace:dev` 运行旧研究宿主；`web:dev` / `web:demo` 运行共享 React 界面及显式演示。目标新增 `dev:web`（Host＋Vite）、`dev:desktop`（再加 Electron），均须有就绪、日志和退出清理。
+`dev` 保持 CLI/TUI，`workspace:dev` 运行旧宿主；`web:dev` / `web:demo` 运行未连接界面/演示；`web:start` 构建并启动本机 Host，`web:host` 使用已有产物。Host＋Vite/Electron 联调仍待接入。
 
 工具保留各模块 `dev/`：构建归 cli，测量/评测归 runtime，绘制/报告归 tui/artifact，IO 基准归 storage。根 `scripts/` 已退役；探针不进入默认 Agent 能力。子进程回归固定 cwd、隔离配置并使用假服务。
 
