@@ -1,4 +1,5 @@
-import type { Preferences, SessionSnapshot, WorkbenchClient, WorkspaceSummary } from "../client/contract";
+import { browserViewStorage, draftKey, selectionKey, type ViewStorage } from "./view-persistence";
+import type { MarketSnapshot, Preferences, SessionSnapshot, WorkbenchClient, WorkspaceSummary } from "../client/contract";
 
 export interface ViewState {
   phase: "loading" | "ready" | "error";
@@ -7,12 +8,16 @@ export interface ViewState {
   snapshot: SessionSnapshot | null;
   preferences: Preferences;
   error: string | null;
+  draft: string;
+  storageWarning: string | null;
+  market: MarketSnapshot | null;
+  marketError: string | null;
 }
 
 /** Projection owner only. Services/client own runs; views own drafts and selection. */
-export function createWorkbenchStore(client: WorkbenchClient) {
+export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStorage | undefined = client.mode === "host" ? browserViewStorage() : undefined) {
   let view: ViewState = {
-    phase: "loading", sessions: [], selected: null, snapshot: null, error: null,
+    phase: "loading", sessions: [], selected: null, snapshot: null, error: null, draft: "", storageWarning: null, market: null, marketError: null,
     preferences: { model: "", source: "none", portfolio: "" },
   };
   const listeners = new Set<() => void>();
@@ -25,9 +30,24 @@ export function createWorkbenchStore(client: WorkbenchClient) {
     listeners.forEach(listener => listener());
   };
   const report = (error: unknown) => publish({ error: error instanceof Error ? error.message : String(error) });
+  const drafts = new Map<string, string>();
+  let workspace = "";
+  const persistence = <T>(action: () => T): T | undefined => {
+    try { return action(); } catch { publish({ storageWarning: "浏览器无法保存草稿或会话选择。当前窗口仍可使用，关闭或刷新前请复制未发送内容。" }); }
+  };
+  const draft = (id: string) => {
+    const key = draftKey(workspace, id);
+    if (!drafts.has(key)) drafts.set(key, persistence(() => storage?.getItem(key)) ?? "");
+    return drafts.get(key)!;
+  };
+  const saveDraft = (scope: string, id: string, text: string) => {
+    const key = draftKey(scope, id); drafts.set(key, text);
+    persistence(() => { if (text) storage?.setItem(key, text); else storage?.removeItem(key); });
+    if (scope === workspace && view.selected === id) publish({ draft: text });
+  };
   const select = async (id: string) => {
     const ticket = ++generation;
-    publish({ selected: id, snapshot: null, phase: "loading", error: null });
+    publish({ phase: view.snapshot ? "ready" : "loading", error: null });
     try {
       // A subscription event during the read invalidates that response.
       let snapshot: SessionSnapshot;
@@ -37,9 +57,14 @@ export function createWorkbenchStore(client: WorkbenchClient) {
         snapshot = await client.session(id);
         if (ticket !== generation) return;
       } while (revision !== eventRevision);
-      publish({ snapshot, phase: "ready" });
+      publish({ selected: id, snapshot, draft: draft(id), phase: "ready" });
+      persistence(() => storage?.setItem(selectionKey(workspace), id));
     } catch (error) {
-      if (ticket === generation) { report(error); publish({ phase: "error" }); }
+      if (ticket === generation) {
+        const target = view.sessions.find(session => session.sessionId === id)?.name ?? id;
+        report(new Error(`切换会话“${target}”失败：${error instanceof Error ? error.message : String(error)}`));
+        publish({ phase: view.snapshot ? "ready" : "error" });
+      }
     }
   };
   const load = async () => {
@@ -50,11 +75,23 @@ export function createWorkbenchStore(client: WorkbenchClient) {
         client.workspaces(), client.preferences(), client.identity(),
       ]);
       if (ticket !== generation) return;
+      workspace = identity.workspaceId;
+      const saved = view.selected ?? persistence(() => storage?.getItem(selectionKey(workspace)));
       publish({ sessions, preferences });
-      await select(sessions.some(session => session.sessionId === view.selected) ? view.selected! : identity.sessionId);
+      await select(sessions.some(session => session.workspaceId === workspace && session.sessionId === saved) ? saved! : identity.sessionId);
+      if (workspace === identity.workspaceId) void refreshMarket(false);
     } catch (error) {
       if (ticket === generation) { report(error); publish({ phase: "error" }); }
     }
+  };
+  let marketRequest = 0;
+  const refreshMarket = async (explicit: boolean, failedOnly = false) => {
+    const ticket = ++marketRequest, scope = workspace;
+    publish({ marketError: null });
+    try {
+      const market = await (explicit && client.refreshMarket ? client.refreshMarket(failedOnly) : client.market());
+      if (ticket === marketRequest && scope === workspace) publish({ market });
+    } catch { if (ticket === marketRequest && scope === workspace) publish({ marketError: "行情获取失败，请重试。已有数据保留，请核对日期。" }); }
   };
   return {
     getSnapshot: () => view,
@@ -67,11 +104,19 @@ export function createWorkbenchStore(client: WorkbenchClient) {
           else publish({ phase: "error", error: event.error ?? "研究服务连接已中断，请重新连接。" });
           return;
         }
+        if (event.type === "market") {
+          if (event.identity.workspaceId === workspace) { marketRequest++; publish({ market: event.snapshot, marketError: null }); }
+          return;
+        }
         if (event.identity.sessionId !== view.selected) return;
         eventRevision++;
         const snapshot = view.snapshot;
         if (!snapshot) return;
         if (event.identity.workspaceId !== snapshot.identity.workspaceId) return;
+        if (event.type === "session-error") {
+          if (event.identity.runId === snapshot.identity.runId) report(new Error(event.message));
+          return;
+        }
         if (event.type === "snapshot") {
           const next = event.snapshot;
           if (next.identity.workspaceId !== event.identity.workspaceId || next.identity.sessionId !== event.identity.sessionId || next.identity.runId !== event.identity.runId
@@ -79,7 +124,7 @@ export function createWorkbenchStore(client: WorkbenchClient) {
           const oldRun = snapshot.identity.runId, newRun = next.identity.runId;
           const key = (run: string) => JSON.stringify([event.identity.workspaceId, event.identity.sessionId, run]);
           if (newRun && retiredRuns.has(key(newRun))) return;
-          if (oldRun === newRun && oldRun && ["cancelled", "failed", "settled"].includes(snapshot.state)) return;
+          if (oldRun === newRun && oldRun && ["cancelled", "failed", "settled", "interrupted"].includes(snapshot.state) && !(snapshot.state === "interrupted" && next.state === "interrupted")) return;
           if (oldRun && oldRun !== newRun) retiredRuns.add(key(oldRun));
           publish({ snapshot: next, sessions: view.sessions.map(session => session.sessionId === view.selected ? { ...session, state: next.state } : session) });
           return;
@@ -95,7 +140,7 @@ export function createWorkbenchStore(client: WorkbenchClient) {
         if (eventRun !== previousRun) {
           if (event.type !== "state" || event.state !== "running") return;
           if (previousRun) retiredRuns.add(runKey(previousRun));
-        } else if (["cancelled", "failed", "settled"].includes(snapshot.state) && eventRun !== null) return;
+        } else if (["cancelled", "failed", "settled", "interrupted"].includes(snapshot.state) && eventRun !== null) return;
         if (event.type === "turn") {
           if (snapshot.state === "cancelled" && event.identity.runId === snapshot.identity.runId) return;
           if (snapshot.identity.runId && event.identity.runId !== snapshot.identity.runId) return;
@@ -106,12 +151,13 @@ export function createWorkbenchStore(client: WorkbenchClient) {
         } else if (event.type === "state") {
           if (snapshot.state === "cancelled" && event.identity.runId === snapshot.identity.runId) return;
           publish({ snapshot: { ...snapshot, identity: event.identity, state: event.state }, sessions: view.sessions.map(s => s.sessionId === view.selected ? { ...s, state: event.state } : s) });
-        } else publish({ snapshot: { ...snapshot, market: event.snapshot } });
+        }
       });
       void load();
-      return () => { generation++; release?.(); release = undefined; };
+      return () => { generation++; marketRequest++; release?.(); release = undefined; };
     },
-    load, select,
+    load, select, refreshMarket: (failedOnly = false) => refreshMarket(true, failedOnly),
+    setDraft(text: string) { if (view.selected) saveDraft(workspace, view.selected, text); },
     async create() {
       try { const session = await client.createSession(); publish({ sessions: await client.workspaces() }); await select(session.sessionId); }
       catch (error) { report(error); }
@@ -124,19 +170,27 @@ export function createWorkbenchStore(client: WorkbenchClient) {
     },
     async submit(text: string): Promise<boolean> {
       const snapshot = view.snapshot;
-      if (!snapshot || snapshot.state === "running") return false;
-      const id = view.selected;
+      if (!snapshot || snapshot.state === "running" || snapshot.recovery?.acknowledgementRequired) return false;
+      const id = view.selected, scope = workspace;
       try {
         await client.submit({ workspaceId: snapshot.identity.workspaceId, sessionId: snapshot.identity.sessionId, text });
+        if (id && drafts.get(draftKey(scope, id)) === text) {
+          const key = draftKey(scope, id); drafts.set(key, "");
+          persistence(() => { if (storage?.getItem(key) === text) storage.removeItem(key); });
+          if (scope === workspace && view.selected === id) publish({ draft: "" });
+        }
         if (view.selected === id) await select(snapshot.identity.sessionId);
-        // An accepted run must not become a rejected submission if only its list refresh fails.
-        const ticket = generation;
-        try {
-          const sessions = await client.workspaces();
-          if (ticket === generation) publish({ sessions });
-        } catch { /* Reconnection/load can refresh metadata without replaying this question. */ }
+        // Submission is already accepted: a metadata refresh failure cannot turn it into a retry.
+        const summaryTicket = generation;
+        try { const sessions = await client.workspaces(); if (workspace === scope && generation === summaryTicket) publish({ sessions }); } catch { /* Reconnect refreshes metadata. */ }
         return true;
       } catch (error) { if (view.selected === id) report(error); return false; }
+    },
+    async acknowledgeInterruption() {
+      const id = view.selected, run = view.snapshot?.recovery?.runId;
+      if (!run || !client.acknowledgeInterruption) return;
+      try { await client.acknowledgeInterruption(run); if (view.selected === id) await select(id!); }
+      catch (error) { if (view.selected === id) report(error); }
     },
     async cancel() {
       const id = view.selected;
@@ -147,7 +201,7 @@ export function createWorkbenchStore(client: WorkbenchClient) {
     },
     async preferences(preferences: Preferences) {
       publish({ error: null });
-      try { await client.updatePreferences(preferences); publish({ preferences: await client.preferences() }); if (view.selected) await select(view.selected); }
+      try { await client.updatePreferences(preferences); publish({ preferences: await client.preferences() }); if (view.selected) await select(view.selected); await refreshMarket(false); }
       catch (error) { report(error); throw error; }
     },
     clearError: () => publish({ error: null }),

@@ -20,6 +20,7 @@
 - cache and serve market bar data under `.ohquant/data/{source}/{symbol}/`
 - list agent session transcripts and compute context-usage summaries
 - atomically commit version-checked session bytes through `SessionFilePort`
+- save versioned Workbench presentation checkpoints with integrity and compare-and-swap checks
 - persist benchmark comparison artifacts and benchmark result dashboards
 - retain checksummed report revisions and repair their HTML views without regeneration
 - manage Overview Portfolio symbol list (panel-portfolio.json)

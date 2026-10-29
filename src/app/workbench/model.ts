@@ -13,7 +13,13 @@ export function publicPreferences(settings: OhQuantSettings): Preferences {
   return { revision: settings.revision, model: model.id, modelProvider: model.provider, modelProtocol: model.api,
     thinkingLevel: configuredThinking(settings), availableThinkingLevels: configuredThinkingLevels(settings),
     modelCredentialsConfigured: !!provider?.apiKey || !!provider?.oauthId,
-    source: "none", portfolio: "" };
+    researchSource: settings.preferences.source,
+    researchSources: [
+      { id: "akshare", label: "AKShare", requiresCredential: false, credentialConfigured: false },
+      { id: "tushare", label: "Tushare", requiresCredential: true, credentialConfigured: !!readWhyjEnvValue({ ...process.env, ...settings.env }, "tushareToken") },
+      { id: "llmquant-data", label: "LLMQuant", requiresCredential: true, credentialConfigured: !!readWhyjEnvValue({ ...process.env, ...settings.env }, "llmquantApiKey") },
+      { id: "financial-datasets", label: "Financial Datasets", requiresCredential: true, credentialConfigured: !!readWhyjEnvValue({ ...process.env, ...settings.env }, "financialDatasetsKey") },
+    ], source: "none", portfolio: "" };
 }
 
 export function updateModel(port: SettingsPort, next: Preferences) {
@@ -21,6 +27,10 @@ export function updateModel(port: SettingsPort, next: Preferences) {
   if (!next.revision) throw new WorkbenchError("SETTINGS_REVISION", "请重新连接，取得当前设置版本后再保存。", 409);
   if (typeof next.model !== "string" || !next.model.trim() || next.model.length > 160) throw new WorkbenchError("MODEL_INVALID", "请输入不超过 160 字符的模型 ID。");
   const settings = port.read();
+  if (next.researchSource !== undefined) {
+    if (!["akshare", "tushare", "llmquant-data", "financial-datasets"].includes(next.researchSource)) throw new WorkbenchError("SOURCE_INVALID", "请选择已接入的研究数据源。");
+    settings.preferences.source = next.researchSource;
+  }
   settings.model = next.model.trim(); settings.revision = next.revision;
   if (next.thinkingLevel !== undefined) settings.thinkingLevel = next.thinkingLevel;
   try {

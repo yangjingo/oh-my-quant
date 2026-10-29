@@ -15,6 +15,7 @@ export {
   resolveOhquantDir,
   resolvePanelPortfolioPath,
   resolveSessionsDir,
+  resolveWorkbenchSessionsDir,
   resolveSettingsPath,
   resolveSkillsDir,
   resolveWatchlistPath,
@@ -47,6 +48,7 @@ export { saveAnnualReport, loadAnnualReport, materializeAnnualReport, listAnnual
 export { saveResearchDecision, loadResearchDecision, listResearchDecisionFiles, researchDecisionHash } from "./src/research-decisions.ts";
 export { listStoredSessions } from "./src/sessions.ts";
 export { LocalSessionFile } from "./src/session-file.ts";
+export { createWorkbenchSessionStore } from "./src/workbench-sessions.ts";
 export { createWorkspaceStore, workspaceHash, canArchiveWorkspaceReply } from "./src/workspace.ts";
 export {
   loadWorkspaceMetadata,

@@ -5,7 +5,10 @@ import { join, resolve, sep } from "node:path";
 import { DEFAULT_SETTINGS } from "../../src/types/config.ts";
 import { saveSettings } from "../../src/storage/index.ts";
 import { createWorkbenchService } from "../../src/app/workbench/service.ts";
-import { createWorkbenchStore } from "../../apps/web/src/state/workbench-store";
+import type { WorkbenchClient, WorkspaceSummary } from "../../src/types/workbench.ts";
+// Web and Host have separate TypeScript environments; execute the real store without importing DOM types into the Host build.
+const storeModule = "../../apps/web/src/state/workbench-store";
+const { createWorkbenchStore } = await import(storeModule) as { createWorkbenchStore(client: WorkbenchClient): { connect(): () => void; submit(text: string): Promise<boolean>; getSnapshot(): { phase: string; sessions: readonly WorkspaceSummary[] } } };
 
 test("actual Host/core auto-naming reaches the visible session list without reloading", async () => {
   const root = mkdtempSync(join(tmpdir(), "whyj-summary-"));

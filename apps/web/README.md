@@ -29,7 +29,7 @@ The directory uses the existing `.ohquant` settings format: configure the provid
 
 The Host reuses the Quant/Pi Agent and registered research tools, excluding shell tools and external skills for this initial connection. The model panel edits the selected provider's model ID and supported thinking level; keys stay on the server. A saved configuration is not proof of a successful provider request. Use the hypothetical-data starter to verify a real tool call before configuring market sources.
 
-Browser disconnect/reload preserves a run while this Host remains alive. Host restart does not restore the UI session list; journals alone are not a recovery implementation. Live market Overview, file references, report/evidence projection, cross-entry continuation and automatic discovery are not delivered in this slice. An Agent answer is not a verified research report.
+Browser disconnect/reload preserves live work and restores workspace-scoped selection/drafts. Host restart restores private conversation checkpoints; explicit follow-ups reopen the original Quant journal. Interrupted requests are never replayed automatically, and uncertain tool outcomes require acknowledgement before a new question. See [conversation continuity](../../docs/quant-harness/workbench-sessions.md) for format and recovery boundaries. Live market Overview, file references, report/evidence projection, cross-entry continuation and automatic discovery remain separate work. An Agent answer is not a verified research report.
 
 ## Ownership
 
