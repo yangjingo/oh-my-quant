@@ -48,6 +48,7 @@ Desktop 面向 Windows/macOS，CLI/TUI 面向 Linux 专业用户；Web 是共享
 | [报告与制品](./quant-harness/artifacts-design.md) | 固定报告、恢复与分享 |
 | [年度报告](./quant-harness/annual-reports.md) | 年度范围、研究决策与私有输出 |
 | [UI/UX](./quant-harness/uiux.md) | 输入、渐进状态与可恢复交互 |
+| [会话连续性](./quant-harness/workbench-sessions.md) | 工作台历史、草稿、中断与原 journal 的恢复边界 |
 | [共享 Web UI](./quant-harness/web-ui.md) | apps/web 的 React 组件、客户端端口、开发适配器与 Host 接入边界 |
 
 <a id="reference"></a>

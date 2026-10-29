@@ -6,7 +6,7 @@ import { canSubmitText } from "../presentation";
 const descriptions: Record<string, string> = { config: "界面与连接设置", resume: "切换会话", clear: "新建研究", portfolio: "选择观察组", artifact: "报告与版本", evidence: "当前证据", help: "输入快捷键" };
 export function Composer(props: {
   client: WorkbenchClient; sessionId: string; text: string; onText(text: string): void;
-  running: boolean; disabled: boolean; onSubmit(text: string): Promise<boolean>; onCancel(): void; onCommand(name: string): boolean;
+  running: boolean; disabled: boolean; submitBlocked?: boolean; onSubmit(text: string): Promise<boolean>; onCancel(): void; onCommand(name: string): boolean;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
   const [caret, setCaret] = useState(props.text.length);
@@ -72,6 +72,7 @@ export function Composer(props: {
   };
   const send = async () => {
     if (props.running) { setFeedback("研究仍在进行，草稿已保留。停止请用右侧按钮或 Ctrl + G。"); return; }
+    if (props.submitBlocked) { setFeedback("请先核对上次中断的工具结果，草稿已保留。"); return; }
     if (!canSubmitText(props.text, props.running, props.disabled, pending, composing.current)) return;
     const text = props.text;
     if (text.trim().startsWith("/")) {
@@ -102,7 +103,7 @@ export function Composer(props: {
           }
           if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); }
         }} /></div>
-      <div className="composer-actions"><button key={props.running ? "stop" : "send"} id="send" type={props.running ? "button" : "submit"} onClick={props.running ? event => { event.preventDefault(); props.onCancel(); requestAnimationFrame(() => input.current?.focus()); } : undefined} className="icon-button send-button" disabled={props.disabled || pending || (!props.running && !props.text.trim())}
+      <div className="composer-actions"><button key={props.running ? "stop" : "send"} id="send" type={props.running ? "button" : "submit"} onClick={props.running ? event => { event.preventDefault(); props.onCancel(); requestAnimationFrame(() => input.current?.focus()); } : undefined} className="icon-button send-button" disabled={props.disabled || props.submitBlocked || pending || (!props.running && !props.text.trim())}
         aria-label={props.running ? "停止生成" : "发送问题"} title={props.running ? "停止生成 · Ctrl + G" : "发送 · Enter"}><span aria-hidden="true">{props.running ? "■" : "↵"}</span></button></div>
     </div>
     {open && <section id="cmdMenu" className="suggestion-panel" aria-label="输入候选">

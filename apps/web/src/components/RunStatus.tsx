@@ -27,11 +27,9 @@ export function RunStatus({ turn }: { turn: Turn }) {
     return () => clearInterval(timer);
   }, [turn.id, running]);
   const elapsed = elapsedLabel(turn, now);
-  const tools = turn.activity?.filter(item => running && (item.state === "running" || item.state === "preparing"));
   return <div className={"agent-status" + (running ? " is-running" : "")}>
     <span className="agent-status-mark" aria-hidden="true" />
     <span role="status" className="agent-status-label">{runStatusLabel(turn)}</span>
     {elapsed && <small aria-hidden="true">已用 {elapsed}</small>}
-    {!!tools?.length && <span className="agent-status-tool">{tools.map(item => item.title ?? "研究工具").join(" · ")}</span>}
   </div>;
 }
