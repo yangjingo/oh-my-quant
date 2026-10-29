@@ -166,6 +166,19 @@ test("PRs always create desktop checks and only explicit dispatch may publish", 
   assert.equal(workflow.jobs.checks.uses, "./.github/workflows/ci.yml");
 });
 
+test("cross-entry validation remains required and the platform aggregate fails closed", () => {
+  const ci = parse(readFileSync(new URL("../workflows/ci.yml", import.meta.url), "utf8"));
+  assert.equal(ci.jobs.required.name, "CI required");
+  assert.deepEqual(ci.jobs.required.needs, "check");
+  assert.match(ci.jobs.required.if, /always\(\)/);
+  assert.match(ci.jobs.required.steps[0].run, /CHECK_RESULT.*success/);
+  const desktop = parse(readFileSync(new URL("../workflows/desktop.yml", import.meta.url), "utf8"));
+  const bundle = desktop.jobs.windows.steps.find(step => step.name === "Bundle runtimes and installer");
+  assert.match(bundle.run, /bun run test:entry-e2e\s+if \(\$LASTEXITCODE\) \{ exit \$LASTEXITCODE \}/);
+  const evidence = desktop.jobs.windows.steps.find(step => step.with?.name === "desktop-evidence");
+  assert.match(evidence.with.path, /output\/playwright\/entry-contracts/);
+});
+
 test("Desktop release tags must resolve to the tested installer source", () => {
   const current = "a".repeat(40), old = "b".repeat(40), tagObject = "c".repeat(40);
   const ref = "refs/tags/v1.4.0";

@@ -63,6 +63,8 @@ Bailey 等人的 [The Probability of Backtest Overfitting](https://escholarship.
 
 ## 与内部回归的分工
 
+跨入口回归用隔离 Host 和受控模型检查直接服务与 HTTP/SSE 的相同操作，并在 Windows 中让浏览器发起、桌面附着、终端取消同一运行。它覆盖恢复、继续、固定报告和身份边界，不评价真实模型、行情或外部副作用的幂等性。实际跨日资源测量见 #146，可选的定期真实供应商评测见 #152，目标机安装验收见 #56；这些结果不能由短时合成夹具替代。执行与证据保留方式见 [CI 与发布](../ci-release.md)。
+
 <a id="tasks"></a>
 <a id="news"></a>
 <a id="annual"></a>
