@@ -4,7 +4,7 @@ const API = "https://api.github.com";
 const MAX_ARCHIVE_BYTES = 32 * 1024 * 1024;
 export const isRevision = (value: unknown): value is string => typeof value === "string" && /^[a-f0-9]{40}$/.test(value);
 
-async function bytes(response: Response, limit: number, signal: AbortSignal): Promise<Buffer> {
+async function bytes(response: Response, limit: number, signal: AbortSignal, progress: (size: number) => void): Promise<Buffer> {
   if (!response.body) throw new Error("GitHub returned an empty response.");
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -18,6 +18,7 @@ async function bytes(response: Response, limit: number, signal: AbortSignal): Pr
       signal.throwIfAborted();
       if (done) break;
       size += value.length;
+      progress(size);
       if (size > limit) throw new Error("GitHub download exceeded its size limit.");
       chunks.push(value);
     }
@@ -32,6 +33,7 @@ export function skillGithub(request: SkillFetch, signal?: AbortSignal) {
   if (token) headers.Authorization = `Bearer ${token}`;
   async function get(path: string, archive = false): Promise<Buffer> {
     const timeoutMs = archive ? 180_000 : 60_000;
+    let stage = archive ? "requesting archive" : "requesting metadata", received = 0;
     const timeout = AbortSignal.timeout(timeoutMs);
     const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
     combined.throwIfAborted();
@@ -47,10 +49,11 @@ export function skillGithub(request: SkillFetch, signal?: AbortSignal) {
         await response.body?.cancel();
         throw new Error(`GitHub request failed (HTTP ${response.status}). Check access/rate limits; private repositories require GH_TOKEN or GITHUB_TOKEN with Contents read access.`);
       }
-      return await bytes(response, archive ? MAX_ARCHIVE_BYTES : 4 * 1024 * 1024, combined);
+      stage = archive ? "receiving archive" : "receiving metadata";
+      return await bytes(response, archive ? MAX_ARCHIVE_BYTES : 4 * 1024 * 1024, combined, size => { received = size; });
     } catch (error) {
       if (signal?.aborted) throw new Error("Skill installation cancelled.");
-      if (timeout.aborted) throw new Error(`GitHub download timed out after ${timeoutMs} ms.`);
+      if (timeout.aborted) throw new Error(`GitHub download timed out after ${timeoutMs} ms (${stage}; received ${received} bytes).`);
       // Fetch errors may contain signed redirect URLs. Return only our own diagnostics.
       if (error instanceof Error && /^(GitHub (request failed \(HTTP|download exceeded|returned)|Unexpected GitHub archive redirect)/.test(error.message)) throw error;
       throw new Error("GitHub download failed. Check network access and retry.");
