@@ -1,7 +1,7 @@
 import type { HostRegistration } from "../../storage/index.ts";
 
-export const HOST_PROTOCOL_VERSION = 1;
-export const HOST_SERVICE_CONTRACT_VERSION = 1;
+import { HOST_PROTOCOL_VERSION, HOST_SERVICE_CONTRACT_VERSION } from "../../types/workbench-host.ts";
+export { HOST_PROTOCOL_VERSION, HOST_SERVICE_CONTRACT_VERSION };
 export const HOST_READY_TIMEOUT_MS = 15_000;
 
 export function publicHostIdentity(entry: HostRegistration) {

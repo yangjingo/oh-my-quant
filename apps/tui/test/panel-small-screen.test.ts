@@ -26,6 +26,24 @@ function screen(panel: PanelController, width: number, height: number) {
   return buf.toPlain().map(line => line.replace(/^[\s│]+|[\s│]+$/g, ""));
 }
 
+it("uses the selected Host cwd for report listing and clears stale choices until the next context arrives", () => {
+  const seen: Array<string | undefined> = [];
+  const data: PanelDataService = {
+    cwd: () => "terminal-cwd", loadSettings: () => structuredClone(DEFAULT_SETTINGS), saveSettings: () => {},
+    listStoredSessions: () => [], listArtifacts: cwd => { seen.push(cwd); return []; },
+    loadPanelPortfolio: () => ({ updated: "", groups: [], symbols: [] }), editPortfolio: () => ({ updated: "", groups: [], symbols: [] }),
+    hasWhyjEnvValue: () => false, stripTerminalControlCodes: value => value,
+  };
+  const panel = new PanelController(data);
+  try {
+    panel.setArtifactCwd(null); panel.open("artifact"); expect(seen).toEqual([]);
+    panel.setArtifactCwd("host-first"); expect(seen).toEqual(["host-first"]);
+    panel.setArtifactCwd("host-first"); expect(seen).toEqual(["host-first"]);
+    panel.setArtifactCwd(null); expect(seen).toEqual(["host-first"]);
+    panel.setArtifactCwd("host-second"); expect(seen).toEqual(["host-first", "host-second"]);
+  } finally { panel.close(); }
+});
+
 it.each(sizes)("shows complete empty-state instructions at %s x %s", (width, height) => {
   const panel = controller();
   try {

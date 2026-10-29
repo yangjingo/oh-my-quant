@@ -2,7 +2,7 @@ import { expect, it } from "bun:test";
 import { mkdtempSync, writeFileSync, readFileSync, statSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
-import { DEFAULT_SETTINGS } from "../../types/config.ts";
+import { DEFAULT_SETTINGS } from "../../../src/types/config.ts";
 
 it("retains structured endpoint failures in the real one-shot JSON protocol without writing research data", async () => {
   const root = mkdtempSync(join(tmpdir(), "whyj-tool-probe-cli-")); let mode = "403", calls = 0;

@@ -5,6 +5,12 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { HostConnection } from "../../../src/app/bootstrap.ts";
 
+// Only the local development parent owns this IPC channel; renderer IPC is unchanged.
+if (process.env.WHYJ_DESKTOP_DEV_CONTROL === "1" && process.connected) {
+  process.on("message", value => { if (value && typeof value === "object" && "type" in value && value.type === "whyj-development-quit") app.quit(); });
+  process.on("disconnect", () => app.quit());
+}
+
 const recoveryUrl = "app://desktop/recovery.html";
 const workbenchUrl = "app://desktop/";
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);

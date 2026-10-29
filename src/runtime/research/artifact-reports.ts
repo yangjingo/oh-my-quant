@@ -15,7 +15,7 @@ import {
 } from "../../storage/index.ts";
 import type { CommandContext, CommandResult } from "../../types/commands.ts";
 
-function openLocalFile(path: string): void {
+export function openLocalFile(path: string): void {
   const command = process.platform === "win32" ? "cmd.exe" : process.platform === "darwin" ? "open" : "xdg-open";
   const args = process.platform === "win32" ? ["/d", "/s", "/c", "start", "", path] : [path];
   const child = spawn(command, args, { detached: true, stdio: "ignore", windowsHide: true });
@@ -23,15 +23,14 @@ function openLocalFile(path: string): void {
   child.unref();
 }
 
-function storedJsonlSessions() {
-  const cwd = process.cwd();
+function storedJsonlSessions(cwd = process.cwd()) {
   return listStoredSessions({ cwd, scope: "all", limit: Number.MAX_SAFE_INTEGER })
     .filter((session) => session.format === "jsonl" && session.cwd === cwd);
 }
 
 /** List committed versions with available source sessions; retain unavailable files for repair. */
-export function listRestorableArtifactReports(): ArtifactMeta[] {
-  const sourceSessionIds = new Set(storedJsonlSessions().map((session) => session.id));
+export function listRestorableArtifactReports(cwd = process.cwd()): ArtifactMeta[] {
+  const sourceSessionIds = new Set(storedJsonlSessions(cwd).map((session) => session.id));
   return pruneUnrestorableArtifacts(sourceSessionIds).artifacts.flatMap(meta => {
     const versions = listArtifactVersions(meta.sessionId).filter(version => sourceSessionIds.has(version.sourceSessionId ?? version.sessionId));
     return versions.length ? versions : [meta];
@@ -63,7 +62,7 @@ export async function restoreArtifactReport(reportId: string, ctx: CommandContex
   if (!snapshot) return { success: false, message: "Report version is unavailable or damaged. Saved revisions have been retained." };
   const { meta } = snapshot;
   const sourceSessionId = meta.sourceSessionId ?? meta.sessionId;
-  const stored = storedJsonlSessions().find(session => session.id === sourceSessionId);
+  const stored = storedJsonlSessions(ctx.cwd).find(session => session.id === sourceSessionId);
   if (!stored) return { success: false, message: "Report source session is unavailable. The saved report has been retained for recovery." };
   if (meta.provenance && !verifyReportSession(stored.path, meta.provenance)) {
     return { success: false, message: "Report source entries changed or are unavailable. The current session was not replaced." };
@@ -101,12 +100,14 @@ export async function restoreArtifactReport(reportId: string, ctx: CommandContex
 export async function generateCurrentSessionArtifact(
   ctx: CommandContext,
   titleOverride?: string,
-): Promise<CommandResult> {
+): Promise<CommandResult & { data?: { artifact: ArtifactMeta } }> {
+  ctx.commandSignal?.throwIfAborted();
   const meta = await ctx.agentSession?.getSessionMetadata?.();
   const sessionPath = meta?.path;
   if (!sessionPath) return { success: false, message: "No active session is available for automatic artifact generation." };
 
   const leafId = await ctx.agentSession?.getLeafId?.();
+  ctx.commandSignal?.throwIfAborted();
   const marketColorScheme = loadSettings().preferences.marketColorScheme;
   const result = generateArtifact({ sessionPath, title: titleOverride, leafId, marketColorScheme });
   if (!result) return { success: false, message: "Failed to generate artifact from session." };
@@ -146,5 +147,5 @@ export async function generateCurrentSessionArtifact(
   (ctx.openFile ?? openLocalFile)(outputPath);
 
   const suffix = contextNoteFailed ? " · context note failed" : " · context updated";
-  return { success: true, message: `${result.title} — ${(saved.bytes / 1024).toFixed(0)}KB · ${result.messageCount} msgs${suffix}` };
+  return { success: true, message: `${result.title} — ${(saved.bytes / 1024).toFixed(0)}KB · ${result.messageCount} msgs${suffix}`, data: { artifact: saved } };
 }

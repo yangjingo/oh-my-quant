@@ -25,9 +25,17 @@ async function probe(entry: HostRegistration, workspaceId: string, timeoutMs: nu
   return { ...publicHostIdentity(entry), token: entry.token, controlToken: entry.controlToken };
 }
 
+/** Discover an already registered owner without starting a replacement. */
+export async function connectExistingWorkspaceHost(): Promise<HostConnection> {
+  const registry = createHostRuntimeStore(), entry = registry.read(), owner = registry.readOwner("owner");
+  if (!entry || !owner || owner.instanceId !== entry.instanceId || owner.pid !== entry.pid || hostProcessState(entry.pid) === "dead")
+    throw failure("HOST_OWNER_NOT_READY", "The workspace owner is unavailable or not ready; no replacement was started.");
+  return { ...await probe(entry, researchWorkspaceId(registry.root), 2000), started: false };
+}
+
 /** Launch/connect only. Entry adapters own presentation, not the detached process. */
 export async function connectWorkspaceHost(options: {
-  workspaceRoot?: string; timeoutMs?: number; bunExecutable?: string;
+  workspaceRoot?: string; timeoutMs?: number; bunExecutable?: string; executable?: string;
   /** Alternate bundled entry for packaging/tests; never supplied over HTTP. */
   entrypoint?: string;
 } = {}): Promise<HostConnection> {
@@ -54,11 +62,11 @@ export async function connectWorkspaceHost(options: {
     }
     const owner = registry.readOwner("owner");
     if (owner && hostProcessState(owner.pid) !== "dead") throw failure("HOST_OWNER_NOT_READY", "A live or unverified execution owner has not published readiness. No duplicate was started.");
-    const executable = options.bunExecutable ?? (process.versions.bun ? process.execPath : undefined);
-    if (!executable) throw failure("BUN_REQUIRED", "A Bun executable is required; Electron/Node cannot run the Bun HTTP Host in-process.");
+    const executable = options.executable ?? options.bunExecutable ?? (process.versions.bun ? process.execPath : undefined);
+    if (!executable) throw failure("HOST_RUNTIME_REQUIRED", "Provide a runtime executable for this Host entry; Node/Electron callers must select a compatible child runtime explicitly.");
     child = await launchHostProcess(executable, options.entrypoint ?? fileURLToPath(new URL("./host/run.ts", import.meta.url)), registry.root);
     for (;;) {
-      if (child.terminal()) throw failure("HOST_START_FAILED", child.failed() ? "The Bun Host process could not be launched." : "The Host exited before authenticated readiness; check assets and local configuration.");
+      if (child.terminal()) throw failure("HOST_START_FAILED", child.failed() ? "The Host process could not be launched." : "The Host exited before authenticated readiness; check assets and local configuration.");
       const published = registry.read();
       if (published && published.pid === child.pid && registry.readOwner("owner")?.instanceId === published.instanceId) {
         const connection = await probe(published, workspaceId, Math.max(1, Math.min(2000, deadline - Date.now())));

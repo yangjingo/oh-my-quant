@@ -10,7 +10,7 @@ function list(directory: string): string[] {
 }
 
 test("all module-local TypeScript development tools retain resolvable import closures without execution", async () => {
-  const entries = [...list(join(root, "src")), ...list(join(root, "apps/tui"))].filter(path => path.replaceAll("\\", "/").includes("/dev/") && path.endsWith(".ts"));
+  const entries = [...list(join(root, "src")), ...list(join(root, "apps/tui")), ...list(join(root, "apps/cli"))].filter(path => path.replaceAll("\\", "/").includes("/dev/") && path.endsWith(".ts"));
   expect(entries.length).toBeGreaterThan(0);
   const built = await Bun.build({ entrypoints: entries, target: "bun" });
   expect(built.logs.filter(log => log.level === "error")).toEqual([]);
@@ -29,6 +29,7 @@ test("the shipped CLI does not include module development tools or repository te
   });
   expect(built.success).toBe(true);
   expect(loaded).toContain("src/index.ts");
+  expect(loaded).toContain("apps/cli/src/index.ts");
   expect(loaded).toContain("apps/tui/src/tui.ts");
   expect(loaded.filter(path => path.startsWith("tests/") || /\/(?:dev|test|tests)\//.test(path))).toEqual([]);
 }, 30000);
@@ -46,7 +47,8 @@ test("default and npm test discovery include moved TUI tests but exclude manual,
     file("src/example/test/module.test.ts", pass);
     file("tests/app/integration.test.ts", pass);
     file("apps/tui/test/render.test.ts", pass);
-    for (const directory of ["src/example/dev", "apps/tui/dev", "apps/tui/node_modules/example", "reference", "apps/desktop", "site", "output", ".ohquant", "node_modules/example"]) {
+    file("apps/cli/test/entry.test.ts", pass);
+    for (const directory of ["src/example/dev", "apps/tui/dev", "apps/cli/dev", "apps/cli/node_modules/example", "apps/tui/node_modules/example", "reference", "apps/desktop", "site", "output", ".ohquant", "node_modules/example"]) {
       file(`${directory}/unwanted.test.ts`, 'throw new Error("manual or external tree must not execute");');
     }
     file("src/example/test/gen-example.test.ts", 'throw new Error("manual artifact must not execute");');
@@ -56,7 +58,7 @@ test("default and npm test discovery include moved TUI tests but exclude manual,
       const run = Bun.spawnSync([process.execPath, "test", ...scope], { cwd: fixture, stdout: "pipe", stderr: "pipe", timeout: 10000 });
       const output = new TextDecoder().decode(run.stderr);
       expect(run.exitCode).toBe(0);
-      expect(output).toContain("3 pass");
+      expect(output).toContain("4 pass");
       expect(output).toContain("0 fail");
     }
   } finally {
@@ -67,11 +69,11 @@ test("default and npm test discovery include moved TUI tests but exclude manual,
 
 test("npm script entrypoints keep source and root integration scopes explicit", () => {
   const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  for (const name of ["dev", "build", "start", "test", "check", "typecheck", "check:architecture", "test:fence", "test:modules", "test:integration", "docs:build", "check:docs"]) {
+  for (const name of ["dev", "dev:web", "build", "start", "test", "check", "typecheck", "check:architecture", "test:fence", "test:modules", "test:integration", "docs:build", "check:docs"]) {
     expect(typeof manifest.scripts[name]).toBe("string");
   }
-  expect(manifest.scripts.test).toContain("bun test ./src ./apps/tui ./tests");
-  expect(manifest.scripts["test:modules"]).toBe("bun test ./src ./apps/tui");
+  expect(manifest.scripts.test).toContain("bun test ./src ./apps/tui ./apps/cli ./tests");
+  expect(manifest.scripts["test:modules"]).toBe("bun test ./src ./apps/tui ./apps/cli");
   expect(manifest.scripts["test:integration"]).toBe("bun test ./tests");
   expect(manifest.scripts.start).toBe("node dist/index.js");
   expect(Object.values(manifest.scripts).filter(command => typeof command === "string" && /\b(?:run|node) scripts\//.test(command))).toEqual([]);

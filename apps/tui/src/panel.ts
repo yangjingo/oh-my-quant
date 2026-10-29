@@ -87,6 +87,8 @@ export class PanelController {
   private capabilitiesPanel: ToolCapabilitiesPanel | null = null;
   private researchPanel: ResearchTaskPanel | null = null;
   private artifacts: ArtifactMeta[] = [];
+  /** undefined is standalone; null waits for the shared Host's selected cwd. */
+  private artifactCwd: string | null | undefined;
   private doctor: DoctorResult | null = null;
   private readonly doctorPanel = new DoctorPanel();
   private doctorEditing = false;
@@ -137,8 +139,14 @@ export class PanelController {
     if (mode === "artifact") this.refreshArtifacts();
   }
 
-  setCurrentSessionMeta(meta: CurrentSessionMeta): void {
+  setCurrentSessionMeta(meta: CurrentSessionMeta | null): void {
     this.currentSessionMeta = meta;
+  }
+
+  setArtifactCwd(cwd: string | null): void {
+    if (this.artifactCwd === cwd) return;
+    this.artifactCwd = cwd;
+    if (this.cfg && this.mode === "artifact") this.refreshArtifacts();
   }
 
   setResearchSnapshot(snapshot: ResearchTaskSnapshot): void { this.researchPanel = new ResearchTaskPanel(snapshot); }
@@ -800,7 +808,7 @@ export class PanelController {
   }
 
   private refreshArtifacts(): void {
-    this.artifacts = this.data.listArtifacts();
+    this.artifacts = this.artifactCwd === null ? [] : this.data.listArtifacts(this.artifactCwd);
     this.artifactSelection = Math.max(0, Math.min(this.artifactSelection, this.artifacts.length - 1));
   }
 

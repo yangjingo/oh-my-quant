@@ -6,6 +6,8 @@ import type * as readline from "node:readline";
 import { Screen } from "./buffer.ts";
 import { layout, drawHeader, drawConversation, drawPortfolio, drawComposer, drawStatus, buildConversationView, buildOverviewView, activeConversationStatusRows } from "./render.ts";
 import { CANVAS, marketForegrounds } from "./styles.ts";
+import { drawRecoveryConfirmation } from "./recovery-confirmation.ts";
+import type { RunRevisionRequest, SessionSnapshot } from "../../../src/types/workbench.ts";
 import type { AppState, CurrentSessionMeta } from "../../../src/types/ui.ts";
 import type { ComposerReferenceSuggestion } from "../../../src/types/composer-reference.ts";
 import { activeReferenceQuery } from "../../../src/runtime/workspace/reference-syntax.ts";
@@ -38,6 +40,12 @@ export class QuantTui {
   private history: string[] = [];
   private histIdx = -1;
   private submitHandler: ((text: string) => void) | null = null;
+  private recoveryTarget: (RunRevisionRequest & { unconfirmedTools: number; activities: string[] }) | null = null;
+  private recoveryPrompt: (RunRevisionRequest & { unconfirmedTools: number; activities: string[] }) | null = null;
+  private recoveryConfirming = false;
+  private recoveryOffset = 0;
+  private recoveryMaxOffset = 0;
+  private recoveryHandler: ((target: RunRevisionRequest) => Promise<boolean>) | null = null;
   private artifactRestoreHandler: ((reportId: string) => void) | null = null;
   private privateAnnualExportHandler: ((request: PrivateAnnualExportRequest) => void) | null = null;
   private panelRefreshHandler: (() => void) | null = null;
@@ -129,6 +137,24 @@ export class QuantTui {
   }
 
   onSubmit(handler: (text: string) => void): void { this.submitHandler = handler; }
+  onRecoveryConfirm(handler: (target: RunRevisionRequest) => Promise<boolean>): void { this.recoveryHandler = handler; }
+  setRecoverySnapshot(snapshot: SessionSnapshot): void {
+    const recovery = snapshot.recovery, identity = snapshot.identity;
+    const next = recovery?.acknowledgementRequired && identity.runId && recovery.runId === identity.runId
+      && Number.isSafeInteger(snapshot.revision) && snapshot.revision! >= 0
+      ? { workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: identity.runId,
+        expectedRevision: snapshot.revision!, unconfirmedTools: recovery.unconfirmedTools,
+        activities: (snapshot.turns?.find(turn => turn.id === `${identity.runId}-assistant`)?.activity ?? [])
+          .filter(item => ["unconfirmed", "failed", "cancelled", "not-run"].includes(item.state))
+          .map(item => `${item.name} · ${item.state}`) } : null;
+    if (this.recoveryPrompt && (!next || next.workspaceId !== this.recoveryPrompt.workspaceId
+      || next.sessionId !== this.recoveryPrompt.sessionId || next.runId !== this.recoveryPrompt.runId
+      || next.expectedRevision !== this.recoveryPrompt.expectedRevision)) {
+      this.recoveryPrompt = null; this.recoveryConfirming = false;
+    }
+    this.recoveryTarget = next;
+    if (this.running) this.paint();
+  }
   setReferenceProvider(provider: (input: string) => Promise<ComposerReferenceSuggestion[]>): void {
     this.referenceProvider = provider;
     this.referenceInput = null;
@@ -146,11 +172,12 @@ export class QuantTui {
     this.panel.setDoctor(doctor as any);
     this.paint();
   }
-  openResume(meta?: CurrentSessionMeta): void { if (meta) this.panel.setCurrentSessionMeta(meta); this.panel.open("resume"); this.paint(); }
+  openResume(meta?: CurrentSessionMeta): void { this.panel.setCurrentSessionMeta(meta ?? null); this.panel.open("resume"); this.paint(); }
   openResearch(snapshot: ResearchTaskSnapshot): void { this.panel.open("research"); this.panel.setResearchSnapshot(snapshot); this.paint(); }
-  syncCurrentSessionMeta(meta?: CurrentSessionMeta): void { if (meta) this.panel.setCurrentSessionMeta(meta); this.paint(); }
+  syncCurrentSessionMeta(meta?: CurrentSessionMeta): void { this.panel.setCurrentSessionMeta(meta ?? null); this.paint(); }
   openPortfolio(): void { this.panel.open("portfolio"); this.paint(); }
   openArtifact(): void { this.panel.open("artifact"); this.paint(); }
+  setArtifactCwd(cwd: string | null): void { this.panel.setArtifactCwd(cwd); this.paint(); }
   openHelp(): void { this.panel.open("help"); this.paint(); }
 
   private currentLayout() {
@@ -162,8 +189,9 @@ export class QuantTui {
     this.refreshReferenceSuggestions();
     const L = this.currentLayout();
     this.clampScroll(L);
-    const st = { ...this.state, input: this.inputBuf, composerStatus: this.referenceError
-      ? { kind: "error" as const, text: this.referenceError } : this.state.composerStatus };
+    const status = this.referenceError ? { kind: "error" as const, text: this.referenceError } : this.state.composerStatus;
+    const st = { ...this.state, input: this.inputBuf, composerStatus: this.recoveryTarget && status?.kind !== "error"
+      ? { kind: "info" as const, text: "工具结果待核对 · Enter 查看确认，草稿保留" } : status };
     this.screen.buf.clear();
     this.screen.buf.foregrounds = marketForegrounds(this.state.marketColorScheme);
     for (let y = 0; y < this.screen.buf.h; y++)
@@ -194,6 +222,7 @@ export class QuantTui {
     drawComposer(this.screen.buf, L.composer, st, st.input, suggestions, selectedIdx, L.conversation);
     drawStatus(this.screen.buf, L.statusRow, this.screen.cols, st);
     this.panel.render(this.screen.buf);
+    if (this.recoveryPrompt) this.recoveryMaxOffset = drawRecoveryConfirmation(this.screen.buf, this.recoveryPrompt.unconfirmedTools, this.recoveryPrompt.activities, this.recoveryOffset, this.recoveryConfirming);
     this.screen.flush();
   }
 
@@ -429,6 +458,28 @@ export class QuantTui {
       return;
     }
 
+    if (this.recoveryPrompt) {
+      if (this.recoveryConfirming) return;
+      if (key.name === "escape") { this.recoveryPrompt = null; return; }
+      if (key.name === "up") { this.recoveryOffset = Math.max(0, this.recoveryOffset - 1); return; }
+      if (key.name === "down") { this.recoveryOffset = Math.min(this.recoveryMaxOffset, this.recoveryOffset + 1); return; }
+      if (key.name === "return" && this.recoveryHandler) {
+        const prompt = this.recoveryPrompt, { unconfirmedTools: _, activities: _activities, ...target } = prompt;
+        this.recoveryConfirming = true;
+        void this.recoveryHandler(target).then(() => {
+          if (this.recoveryPrompt !== prompt) return;
+          this.recoveryPrompt = null; this.recoveryConfirming = false;
+          if (this.running) this.paint();
+        }, () => {
+          if (this.recoveryPrompt !== prompt) return;
+          this.recoveryPrompt = null; this.recoveryConfirming = false;
+          this.state.composerStatus = { kind: "error", text: "确认结果未知，请重新连接并核对会话。" };
+          if (this.running) this.paint();
+        });
+      }
+      return;
+    }
+
     if (this.panel.isOpen()) {
       const result = this.panel.handleKey(ch, key);
       if (result?.refreshPanel) this.panelRefreshHandler?.();
@@ -462,6 +513,9 @@ export class QuantTui {
     }
 
     if (key.name === "return") {
+      if (this.recoveryTarget && !this.inputBuf.trimStart().startsWith("/")) {
+        this.recoveryOffset = 0; this.recoveryPrompt = { ...this.recoveryTarget }; return;
+      }
       if (activeReferenceQuery(this.inputBuf) && this.referencePending) return;
       const input = this.inputBuf;
       if (hasSuggestions) {

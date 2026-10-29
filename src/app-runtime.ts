@@ -1,21 +1,9 @@
+import { reviewTerminalAnswer } from "./app/services/terminal-answer-review.ts";
 import { buildCommandHelpText } from "./cli/catalog.ts";
 import { executeCommand, parseCommand } from "./cli/registry.ts";
 import { commandPreflight } from "./runtime/workspace/command-preflight.ts";
-import { auditCurrentFundAnswer } from "./runtime/evidence/fund-answer-evidence.ts";
-import { auditCurrentFactorAnswer } from "./runtime/evidence/factor-answer-evidence.ts";
-import { auditCurrentPortfolioAnswer } from "./runtime/evidence/portfolio-answer-evidence.ts";
-import { auditCurrentRiskAnswer } from "./runtime/evidence/risk-answer-evidence.ts";
-import { auditCurrentNewsAnswer } from "./runtime/evidence/news-answer-evidence.ts";
-import { knownNewsPriceBasisViolations } from "./runtime/evidence/news-answer-claims.ts";
-import { newsAnswerCitationKeys } from "./research/news-citations.ts";
-import { hasRiskMetricLabel, RISK_ANSWER_VIOLATION_LABELS } from "./runtime/evidence/risk-answer-claims.ts";
-import { performanceMethodClaimViolations } from "./runtime/evidence/performance-method-claims.ts";
-import { portfolioWeightClaimViolations } from "./runtime/evidence/portfolio-weight-claims.ts";
-import { comparisonExcessClaimViolations } from "./runtime/evidence/comparison-answer-methods.ts";
-import { auditCurrentAnnualAnswer } from "./runtime/evidence/annual-answer-evidence.ts";
-import { hasExplicitFactorLatestClaim, knownFactorAnswerViolations } from "./runtime/evidence/factor-answer-claims.ts";
 import { isInstalledToolProbeSchemaQuery } from "./runtime/data/tool-probe-schema.ts";
-import { generateCurrentSessionArtifact, restoreArtifactReport } from "./runtime/research/artifact-reports.ts";
+import { generateCurrentSessionArtifact, openLocalFile, restoreArtifactReport } from "./runtime/research/artifact-reports.ts";
 import { dispatchUserMessage, isAgentTurnActive } from "./agent/src/dispatch.ts";
 import { isQuantAnalysisRequest } from "./agent/src/context.ts";
 import type { QuantAgentSession } from "./agent/src/session.ts";
@@ -56,6 +44,10 @@ import {
 import { extractAssistantText } from "./runtime/workspace/messages.ts";
 import { perfLog, perfNow } from "./perf.ts";
 import { ComposerReferences } from "./runtime/workspace/composer-references.ts";
+import { researchTaskLines } from "./runtime/workspace/research-task-view.ts";
+import type { HostConnection } from "./app/bootstrap.ts";
+import { openTerminalSession } from "./app/host/terminal-session.ts";
+import type { RunRevisionRequest, SessionSnapshot } from "./types/workbench.ts";
 import type { DoctorResult } from "./types/doctor.ts";
 import type { CommandResult } from "./types/commands.ts";
 import type { PrivateAnnualExportRequest } from "./types/private-annual-export.ts";
@@ -80,12 +72,14 @@ interface AppRuntimeCallbacks {
   onLocalState?: (state: Pick<AppState, "activePortfolio" | "source" | "showPortfolioPanel">) => void;
   onComposerStatus?: (status: AppState["composerStatus"]) => void;
   onComposerQueue?: (queue: string[]) => void;
+  onRecoverySnapshot?: (snapshot: SessionSnapshot) => void;
   onConfigRequest?: () => void;
   onDoctorRequest?: (doctor?: unknown) => void;
   onResumeRequest?: (meta?: CurrentSessionMeta) => void;
   onResearchRequest?: (snapshot: ResearchTaskSnapshot) => void;
   onPortfolioRequest?: () => void;
   onArtifactRequest?: () => void;
+  onArtifactCwd?: (cwd: string | null) => void;
   onHelpRequest?: () => void;
   onSessionRequest?: (meta?: CurrentSessionMeta) => void;
   onPanel?: (panel: PanelSection[], loading?: boolean) => void;
@@ -114,6 +108,19 @@ async function runArtifactRestore(reportId: string, agent: QuantAgentSession): P
 }
 
 export class AppRuntime {
+  private readonly agentFactory?: AgentFactory;
+  private readonly sharedConnection?: HostConnection;
+  private terminal?: Awaited<ReturnType<typeof openTerminalSession>>;
+  private terminalDetach?: Promise<void>;
+  private terminalPoll?: ReturnType<typeof setTimeout>;
+  private terminalReading?: Promise<void>;
+  private terminalRefreshPending = false;
+  private terminalSessionMeta?: { sessionId: string; meta: CurrentSessionMeta | null };
+  private terminalArtifactSession?: string;
+  private terminalDisplayedModel?: AppRuntimeSnapshot;
+  private terminalHudResetPending = false;
+  private terminalCommandMessages: UIMessage[] = [];
+  private terminalCommandScope?: { sessionId: string; runId: string | null };
   private agent: QuantAgentSession | null = null;
   private unsubscribeAgent: (() => void) | null = null;
   /** Slash command in flight (panel refresh). Agent concurrency uses agent.state.isStreaming. */
@@ -160,20 +167,30 @@ export class AppRuntime {
     return { id: metadata.id, path: metadata.path, entries };
   } });
 
-  getReferenceSuggestions(input: string) { return this.references.suggest(input); }
+  async getReferenceSuggestions(input: string) {
+    if (this.sharedConnection) {
+      if (this.disposed) return [];
+      if (!this.terminal) await this.bootstrap();
+      return this.disposed ? [] : this.terminal!.references(input);
+    }
+    return this.references.suggest(input);
+  }
 
   constructor(
     private readonly callbacks: AppRuntimeCallbacks,
     quoteFetcher: QuoteFetcher = fetchOverviewQuotes,
     holdingFetcher: HoldingFetcher = fetchOverviewHoldings,
-    private readonly agentFactory?: AgentFactory,
+    execution?: AgentFactory | { host: HostConnection },
     private readonly autoArtifactRunner: AutoArtifactRunner = runAutoArtifact,
     private readonly artifactRestoreRunner: ArtifactRestoreRunner = runArtifactRestore,
     marketRefreshTimeoutMs = 120_000,
     marketRefreshIntervalMs = 60_000,
     overviewOptions: Pick<OverviewRefreshOptions, "poolFactory"> = {},
     extensions?: RuntimeExtensions,
+    private readonly openArtifactFile: (path: string) => void = openLocalFile,
   ) {
+    if (typeof execution === "function") this.agentFactory = execution;
+    else this.sharedConnection = execution?.host;
     this.extensions = extensions;
     this.overview = new OverviewRefresh({ ...overviewOptions, quoteFetcher, holdingFetcher,
       retryKey: () => this.failedQuotesRetryKey,
@@ -190,6 +207,12 @@ export class AppRuntime {
 
   /** Stop the current operation, retaining the session and its research evidence. */
   interruptResearch(): Promise<boolean> {
+    if (this.sharedConnection) {
+      if (this.disposed || !this.terminal) return Promise.resolve(false);
+      return this.terminal.interrupt().catch(error => {
+        if (!this.disposed) this.setStatus({ kind: "error", text: errorText(error) }); return false;
+      });
+    }
     if (this.interruption) return this.interruption;
     const agent = this.agent;
     if (this.disposed || !agent || !this.activePrompts && !isAgentTurnActive(agent)) return Promise.resolve(false);
@@ -219,11 +242,27 @@ export class AppRuntime {
 
   async getSkillSuggestions() {
     if (this.disposed) return [];
+    if (this.sharedConnection) {
+      if (!this.terminal) await this.bootstrap();
+      return this.disposed ? [] : this.terminal!.skills();
+    }
     return this.agent ? toSkillEntries(await this.agent.getSkills()) : loadRuntimeSkillSuggestions();
   }
 
   /** Structured research entry for hosts; shares the normal UI/event/command runtime. */
   async submitResearch(task: ResearchTaskSpec, expectedRevision: string | null = null, signal?: AbortSignal): Promise<void> {
+    if (this.sharedConnection) {
+      if (this.slashRunning) throw new Error("Research requires a ready, idle session.");
+      if (!this.terminal) await this.bootstrap();
+      if (this.disposed || !this.terminal) throw new Error("Terminal view is detached.");
+      if (this.slashRunning) throw new Error("Research requires a ready, idle session.");
+      const accepted = await this.terminal.submitResearch(structuredClone(task), expectedRevision, signal);
+      if (this.disposed) return;
+      const finished = await this.terminal.waitResearch({ workspaceId: this.sharedConnection.workspaceId, ...accepted }, signal);
+      if (!this.disposed && ["failed", "interrupted"].includes(finished.state))
+        throw new Error(finished.turns.at(-1)?.text || "Research task did not finish; inspect the session.");
+      return;
+    }
     if (!this.agent || this.slashRunning || isAgentTurnActive(this.agent)) throw new Error("Research requires a ready, idle session.");
     const snapshot = structuredClone(task);
     const denied = singlePortfolioToolDenial("research_task", { action: "declare", task: snapshot });
@@ -253,6 +292,21 @@ export class AppRuntime {
     this.configuredProvider = settings.provider;
 
     this.setActivity("starting");
+
+    if (this.sharedConnection) {
+      const view = await openTerminalSession(this.sharedConnection, {
+        onSnapshot: snapshot => this.observeTerminal(snapshot),
+        onConnection: (connected, message) => {
+          if (!this.disposed && !connected) this.setStatus({ kind: "error", text: message ?? "Host connection lost; reconnect before submitting again." });
+        },
+      });
+      this.terminal = view;
+      if (this.disposed) { await view.detach(); throw new Error("Terminal view closed during startup."); }
+      await this.refreshTerminalContext();
+      this.observeTerminal(view.snapshot!);
+      this.scheduleMarketRefresh();
+      return this.terminalDisplayedModel ?? this.configuredModel;
+    }
 
     const agentStartedAt = perfNow();
     if (this.agentFactory) this.agent = this.agentFactory();
@@ -292,13 +346,15 @@ export class AppRuntime {
         if (this.researchInterrupted) return;
         const answer = this.latestCompletedAssistantText;
         this.latestCompletedAssistantText = null;
-        if (answer && (this.flagContradictoryPerformanceMethod(answer)
-          || await this.flagContradictoryWeightSum(answer)
-          || await this.flagContradictoryAnnualAnswer(answer)
-          || await this.flagContradictoryFundAnswer(answer) || await this.flagUnsupportedFactorAnswer(answer)
-          || await this.flagContradictoryRiskAnswer(answer)
-          || await this.flagUnsupportedNewsAnswer(answer)
-          || await this.flagContradictoryPortfolioAnswer(answer))) return;
+        if (answer) {
+          const review = await reviewTerminalAnswer(answer, this.agent);
+          if (review) {
+            this.pushLocalCommandMessage(review.message, "error");
+            this.setStatus({ kind: "error", text: review.status });
+            this.pendingAutoArtifactInput = null;
+            return;
+          }
+        }
         await this.maybeAutoGenerateArtifact();
       }
     });
@@ -330,6 +386,7 @@ export class AppRuntime {
       applyRuntimeCommandResult(early, this.commandResultContext());
       return "continue";
     }
+    if (this.sharedConnection) return this.submitTerminal(trimmed, parsed);
     const localOnly = parsed ? getRuntimeCommandInvocation(parsed).localOnly : false;
 
     if (parsed) {
@@ -358,6 +415,8 @@ export class AppRuntime {
     this.lifetime.abort();
     this.cancelDoctor();
     this.overview.dispose();
+    clearTimeout(this.terminalPoll);
+    this.terminalDetach ??= this.terminal?.detach();
     this.unsubscribeAgent?.();
     this.unsubscribeAgent = null;
     this.agent?.abort();
@@ -366,6 +425,12 @@ export class AppRuntime {
 
   async shutdown(): Promise<void> {
     this.dispose();
+    if (this.sharedConnection) {
+      // Host-owned commands/research can outlive this view. Only local panel
+      // operations and connection establishment belong to terminal shutdown.
+      await Promise.allSettled([this.bootstrapTask, this.terminalDetach, ...this.localOperations]);
+      return;
+    }
     await Promise.allSettled([this.bootstrapTask, this.extensionShutdown, ...this.localOperations]);
     await Promise.allSettled([this.agent?.waitForIdle()]);
   }
@@ -379,23 +444,45 @@ export class AppRuntime {
     const settings = loadSettings();
     this.configuredModel = { model: readModel(settings), modelLabel: readModelLabel(settings) };
     this.configuredProvider = settings.provider;
-    if (this.rememberModelConnection(settings)) this.modelConnectionPending = true;
-    if (!isAgentTurnActive(this.agent)) {
+    if (this.rememberModelConnection(settings)) {
+      this.modelConnectionPending = true;
+      if (this.sharedConnection) this.terminalHudResetPending = true;
+    }
+    const active = this.sharedConnection ? this.terminal?.snapshot?.state === "running" : isAgentTurnActive(this.agent);
+    if (!active) {
       // Saved connections can change credentials/endpoint without changing the model ID.
       // Do not display previous connection measurements beside the new selection.
       if (this.modelConnectionPending) {
         this.hud.contextUsage = null;
         this.resetHudLatency();
+        this.terminalHudResetPending = false;
       }
-      this.callbacks.onModel?.(this.configuredModel);
+      if (this.sharedConnection) this.emitTerminalModel(this.configuredModel);
+      else this.callbacks.onModel?.(this.configuredModel);
     }
     this.emitLocalStorageState();
     this.callbacks.onSkillsChanged?.();
-    if (!this.agent) void this.bootstrap().then(snapshot => this.callbacks.onModel?.(snapshot)).catch(error => this.setStatus({ kind: "error", text: errorText(error) }));
+    if (!this.agent && !this.sharedConnection) void this.bootstrap().then(snapshot => this.callbacks.onModel?.(snapshot)).catch(error => this.setStatus({ kind: "error", text: errorText(error) }));
   }
 
   /** Handle a report selected in the Artifact panel without routing through slash parsing. */
   async restoreArtifact(reportId: string): Promise<void> {
+    if (this.sharedConnection) {
+      try {
+        if (!this.terminal) await this.bootstrap();
+        if (this.disposed || !this.terminal) return;
+        this.setStatus({ kind: "info", text: "Restoring artifact session..." });
+        const receipt = await this.terminal.restoreReport(reportId);
+        if (this.disposed || !receipt) return;
+        if (receipt.result.success && receipt.filePath) this.openArtifactFile(receipt.filePath);
+        await this.refreshTerminalContext();
+        if (this.disposed || receipt.selectedSessionId && this.terminal.snapshot?.identity.sessionId !== receipt.selectedSessionId) return;
+        applyRuntimeCommandResult(receipt.result, this.commandResultContext());
+      } catch (error) {
+        if (!this.disposed) this.setStatus({ kind: "error", text: `Artifact restore failed · ${errorText(error)}` });
+      }
+      return;
+    }
     if (!this.agent || this.slashRunning || isAgentTurnActive(this.agent)) return;
     this.slashRunning = true;
     this.setStatus({ kind: "info", text: "Restoring artifact session..." });
@@ -414,6 +501,8 @@ export class AppRuntime {
   }
 
   private async collectCurrentSessionMeta(): Promise<CurrentSessionMeta | undefined> {
+    if (this.sharedConnection) return this.terminalSessionMeta?.sessionId === this.terminal?.snapshot?.identity.sessionId
+      ? structuredClone(this.terminalSessionMeta?.meta ?? undefined) : undefined;
     if (!this.agent) return undefined;
     if (
       typeof this.agent.getSessionMetadata !== "function"
@@ -529,9 +618,152 @@ export class AppRuntime {
     } finally {
       if (!localOnly && !(parsed.command === "config" && parsed.flags.extensions !== undefined)) this.scheduleMarketRefresh();
       if (!localOnly) this.slashRunning = false;
-      if (!isInstalledToolProbeSchemaQuery(parsed) && !cancelled() && !isAgentTurnActive(this.agent)) this.setActivity("ready");
+      const active = this.sharedConnection ? this.terminal?.snapshot?.state === "running" : isAgentTurnActive(this.agent);
+      if (!isInstalledToolProbeSchemaQuery(parsed) && !cancelled() && !active) this.setActivity("ready");
       if (doctorRun && this.doctorRun === doctorRun) this.doctorRun = null;
     }
+  }
+
+  private observeTerminal(snapshot: SessionSnapshot): void {
+    if (!this.disposed) this.callbacks.onRecoverySnapshot?.(snapshot);
+    if (snapshot.state === "running" && (this.terminalCommandScope?.sessionId !== snapshot.identity.sessionId || this.terminalCommandScope?.runId !== snapshot.identity.runId)) {
+      this.emitTerminalModel({ model: "", modelLabel: "Starting…" });
+    }
+    if (this.terminalArtifactSession !== snapshot.identity.sessionId) {
+      this.terminalArtifactSession = snapshot.identity.sessionId;
+      this.callbacks.onArtifactCwd?.(null);
+    }
+    if (this.terminalCommandScope?.sessionId !== snapshot.identity.sessionId || this.terminalCommandScope?.runId !== snapshot.identity.runId) {
+      this.terminalCommandMessages = [];
+      this.emitComposerQueue([]);
+    }
+    this.terminalCommandScope = snapshot.identity;
+    if (this.disposed) return;
+    const phase = snapshot.turns.at(-1)?.phase;
+    this.setActivity(snapshot.state === "running" ? phase === "tool" ? "running tool" : "thinking" : "ready");
+    this.terminalRefreshPending = true;
+    clearTimeout(this.terminalPoll);
+    this.terminalPoll = setTimeout(() => { void this.refreshTerminalContext(); }, 0);
+  }
+
+  private refreshTerminalContext(): Promise<void> {
+    if (this.disposed || !this.terminal) return Promise.resolve();
+    if (this.terminalReading) return this.terminalReading.then(() => this.refreshTerminalContext());
+    const reading = this.readTerminalContext().finally(() => {
+      if (this.terminalReading === reading) this.terminalReading = undefined;
+    });
+    return this.terminalReading = reading;
+  }
+
+  private async readTerminalContext(): Promise<void> {
+    this.terminalRefreshPending = false;
+    try {
+      const context = await this.terminal!.context();
+      if (!context || this.disposed) return;
+      if (context.session.state === "running") {
+        this.emitTerminalModel(context.activeModel ? { model: context.activeModel.id, modelLabel: context.activeModel.label } : { model: "", modelLabel: "Starting…" });
+      } else {
+        const settings = loadSettings();
+        if (this.rememberModelConnection(settings)) {
+          this.configuredModel = { model: readModel(settings), modelLabel: readModelLabel(settings) };
+          this.configuredProvider = settings.provider; this.modelConnectionPending = true; this.terminalHudResetPending = true;
+        }
+        if (this.terminalHudResetPending) { this.resetHudLatency(); this.terminalHudResetPending = false; }
+        if (this.configuredModel) this.emitTerminalModel(this.configuredModel);
+      }
+      this.callbacks.onArtifactCwd?.(context.cwd);
+      this.terminalSessionMeta = { sessionId: context.session.identity.sessionId, meta: context.currentSession };
+      this.callbacks.onSessionRequest?.(context.currentSession ?? undefined);
+      this.messages = [...context.messages];
+      if (context.thinkingText && context.session.state === "running") this.messages.push({ role: "thinking", text: context.thinkingText, thinkingLive: true });
+      this.messages.push(...this.terminalCommandMessages);
+      this.emitMessages();
+      this.emitComposerQueue(context.composerQueue);
+      this.hud.contextUsage = context.contextUsage;
+      this.hud.ttftMs = context.latency.ttftMs;
+      this.hud.tpotMs = context.latency.tpotMs;
+      this.hud.turnCount = context.turnCount;
+      this.emitHud();
+      if (["failed", "cancelled", "needs_input", "interrupted"].includes(context.session.state)) {
+        const text = context.session.turns.at(-1)?.text;
+        if (text) this.setStatus({ kind: context.session.state === "failed" ? "error" : "info", text });
+      }
+    } catch (error) {
+      if (["CONTEXT_CHANGED", "SESSION_BUSY"].includes(String((error as { code?: string })?.code))) this.terminalRefreshPending = true;
+      else if (!this.disposed) this.setStatus({ kind: "error", text: errorText(error) });
+    } finally {
+      if (!this.disposed && (this.terminalRefreshPending || this.terminal?.snapshot?.state === "running")) {
+        clearTimeout(this.terminalPoll);
+        this.terminalPoll = setTimeout(() => { void this.refreshTerminalContext(); }, 100);
+      }
+    }
+  }
+
+  /** Acknowledgement never submits or replays a draft; it is bound to the displayed run and revision. */
+  async acknowledgeRecovery(target: RunRevisionRequest): Promise<boolean> {
+    if (this.disposed || !this.terminal) return false;
+    try {
+      const confirmed = await this.terminal.acknowledgeRecovery(target);
+      if (confirmed && !this.disposed) this.setStatus({ kind: "info", text: "已记录核对；草稿保留，需手动发送。" });
+      return confirmed;
+    } catch (error) {
+      if (!this.disposed) this.setStatus({ kind: "error", text: errorText(error) });
+      return false;
+    }
+  }
+
+  private async submitTerminal(input: string, parsed: ReturnType<typeof parseCommand>): Promise<"continue"> {
+    if (this.disposed) return "continue";
+    try {
+      if (!this.terminal) await this.bootstrap();
+      if (this.disposed || !this.terminal) return "continue";
+      if (this.slashRunning && (!parsed || !getRuntimeCommandInvocation(parsed).localOnly)) {
+        this.setStatus({ kind: "error", text: "Wait for the current operation before starting research." });
+        return "continue";
+      }
+      if (!parsed) {
+        this.setStatus(null);
+        await this.terminal.submit(input);
+      } else if (parsed.command === "resume" && !parsed.positional.length && !Object.keys(parsed.flags).length && this.callbacks.onResumeRequest) {
+        // Opening the existing picker is local UI; selecting a row still uses
+        // the private Host command and its journal ownership checks.
+        await this.refreshTerminalContext();
+        if (!this.disposed) await this.runSlashCommand(parsed, true);
+      } else if (["compact", "resume", "skill", "mcp", "clear"].includes(parsed.command)
+        || parsed.command === "config" && parsed.flags.extensions !== undefined) {
+        // Session commands never fall back to a second local Agent. Remaining
+        // command adapters must be completed before the #76 release gate.
+        const expectedSelection = this.terminal.selectionVersion, expectedIdentity = this.terminal.snapshot?.identity;
+        const receipt = await this.terminal.command(input);
+        await this.refreshTerminalContext();
+        if (this.disposed) return "continue";
+        if (parsed.command === "resume" && parsed.flags.task === true && !parsed.positional.length && Object.keys(parsed.flags).length === 1
+          && receipt.result.success && this.callbacks.onResearchRequest) {
+          if (expectedSelection !== this.terminal.selectionVersion || expectedIdentity?.sessionId !== this.terminal.snapshot?.identity.sessionId
+            || expectedIdentity?.runId !== this.terminal.snapshot?.identity.runId) return "continue";
+          const data = receipt.result.data as ResearchTaskSnapshot;
+          try {
+            if (!data || typeof data !== "object" || !(data.leafId === null || typeof data.leafId === "string")
+              || !(data.task === null || typeof data.task === "object" && !Array.isArray(data.task))
+              || !Array.isArray(data.taskErrors) || !Array.isArray(data.unresolved) || !researchTaskLines(data).every(line => typeof line === "string"))
+              throw new Error("Invalid task snapshot");
+          } catch { throw new Error("The Host returned an invalid research task snapshot; reconnect before inspecting it."); }
+          this.callbacks.onResearchRequest(data);
+          return "continue";
+        }
+        applyRuntimeCommandResult(receipt.result, this.commandResultContext());
+        if (receipt.result.success && (parsed.command === "skill" && ["install", "remove", "reload"].includes(parsed.positional[0] ?? "")
+          || parsed.command === "config" && parsed.flags.extensions !== undefined)) this.callbacks.onSkillsChanged?.();
+      } else {
+        const operation = this.runSlashCommand(parsed, getRuntimeCommandInvocation(parsed).localOnly);
+        this.localOperations.add(operation);
+        try { await operation; } finally { this.localOperations.delete(operation); }
+      }
+      await this.refreshTerminalContext();
+    } catch (error) {
+      if (!this.disposed) this.setStatus({ kind: "error", text: errorText(error) });
+    }
+    return "continue";
   }
 
   private emitLocalStorageState(): void {
@@ -592,11 +824,25 @@ export class AppRuntime {
       return;
     }
     this.slashRunning = true;
-    this.setStatus({ kind: "info", text: "Checking public annual evidence and exporting private HTML..." });
     const selected = structuredClone(request);
-    const operation = this.writePrivateAnnual(selected);
+    const operation = (async () => {
+      if (this.sharedConnection) {
+        if (!this.terminal) await this.bootstrap();
+        if (this.disposed || !this.terminal) return;
+        const selection = this.terminal.selectionVersion, snapshot = await this.terminal.confirmSelectedSnapshot();
+        if (this.disposed) return;
+        if (!snapshot || selection !== this.terminal.selectionVersion) throw new Error("Selected session changed; review the export before trying again.");
+        if (snapshot.state === "running") {
+          this.setStatus({ kind: "error", text: "Wait for the current operation before exporting a private annual report." });
+          return;
+        }
+      }
+      this.setStatus({ kind: "info", text: "Checking public annual evidence and exporting private HTML..." });
+      await this.writePrivateAnnual(selected);
+    })();
     this.localOperations.add(operation);
     try { await operation; }
+    catch (error) { if (!this.disposed) this.setStatus({ kind: "error", text: `Private annual export failed · ${errorText(error)}` }); }
     finally { this.localOperations.delete(operation); this.slashRunning = false; }
   }
 
@@ -640,11 +886,13 @@ export class AppRuntime {
   }
 
   private pushLocalCommandMessage(text: string, role: "assistant" | "error"): void {
+    if (this.sharedConnection) this.terminalCommandMessages = reducePushLocalCommandMessage(this.terminalCommandMessages, text, role);
     this.messages = reducePushLocalCommandMessage(this.messages, text, role);
     this.emitMessages();
   }
 
   private syncMessagesFromAgentState(): void {
+    if (this.sharedConnection) { void this.refreshTerminalContext(); return; }
     this.resetHudLatency();
     const agentMessages = this.agent?.state.messages ?? [];
     this.messages = reduceSyncMessagesFromAgentState(agentMessages);
@@ -667,6 +915,7 @@ export class AppRuntime {
   }
 
   private refreshHudFromAgentState(): void {
+    if (this.sharedConnection) { this.emitHud(); return; }
     if (!this.agent) {
       this.hud.contextUsage = null;
       this.hud.turnCount = 0;
@@ -749,156 +998,6 @@ export class AppRuntime {
     this.turnTtftRecorded = true;
   }
 
-  private flagContradictoryPerformanceMethod(answer: string): boolean {
-    const violations = performanceMethodClaimViolations(answer);
-    if (!violations.length) return false;
-    const detail = violations.map(code => code === "wrong-drawdown-period-method"
-      ? "最大回撤是累计峰谷跌幅，不是单期收益"
-      : "Sharpe 取决于平均超额收益与收益标准差，零回撤不能解释高 Sharpe").join("；");
-    this.pushLocalCommandMessage(`绩效口径回答需要复核：${detail}。`, "error");
-    this.setStatus({ kind: "error", text: `Performance answer needs review · ${detail}` });
-    this.pendingAutoArtifactInput = null;
-    return true;
-  }
-
-  private async flagContradictoryWeightSum(answer: string): Promise<boolean> {
-    if (!this.agent || !/[+＋]/u.test(answer) || !/[%％]/u.test(answer)) return false;
-    try {
-      const request = (await this.agent.getResearchState()).requests.at(-1)?.text ?? "";
-      if (!portfolioWeightClaimViolations(answer, request).length) return false;
-      const detail = "列出的标的权重之和与用户提供的组合权重不一致";
-      this.pushLocalCommandMessage(`组合权重回答需要复核：${detail}。`, "error");
-      this.setStatus({ kind: "error", text: `Portfolio weights need review · ${detail}` });
-      this.pendingAutoArtifactInput = null;
-      return true;
-    } catch { return false; } // No matched supplied weights means no numerical claim can be checked.
-  }
-
-  private async flagContradictoryAnnualAnswer(answer: string): Promise<boolean> {
-    if (!this.agent || !comparisonExcessClaimViolations(answer).length) return false;
-    try {
-      const audit = auditCurrentAnnualAnswer(await this.agent.getResearchState(), answer);
-      if (audit.status === "not-annual" || !audit.violations.length) return false;
-      const detail = "本年报超额收益是与基准的总收益百分点差，不是风险调整 alpha，表头应标为超额收益";
-      this.pushLocalCommandMessage(`年报回答需要复核：${detail}。`, "error");
-      this.setStatus({ kind: "error", text: `Annual answer needs review · ${detail}` });
-    } catch {
-      this.pushLocalCommandMessage("年报回答需要复核：当前无法读取研究证据。", "error");
-      this.setStatus({ kind: "error", text: "Annual answer needs review · evidence unavailable" });
-    }
-    this.pendingAutoArtifactInput = null;
-    return true;
-  }
-
-  /** The final text stays visible; warn on a proven mismatch and avoid archiving it as an automatic report. */
-  private async flagContradictoryFundAnswer(answer: string): Promise<boolean> {
-    if (!this.agent || !/(?:Principal\s+return|本金收益率|Time[- ]weighted\s+return|时间加权收益率|Maximum\s+drawdown|最大回撤|TWR)/iu.test(answer))
-      return false;
-    try {
-      const audit = auditCurrentFundAnswer(await this.agent.getResearchState(), answer);
-      if (audit.status === "not-fund") return false;
-      if (audit.status === "audited" && !audit.violations.length) return false;
-      const labels: Record<string, string> = {
-        "wrong-verified-principal-return": "本金收益率",
-        "wrong-verified-time-weighted-return": "时间加权收益率",
-        "wrong-verified-twr-drawdown": "最大回撤",
-        "wrong-fixed-principal-formula": "本金收益公式",
-      };
-      const detail = audit.status === "unavailable" ? "当前任务缺少可匹配的已核验基金指标"
-        : audit.violations.map(code => code === "unaligned-direct-twr-comparison"
-          ? "基金或基准直接比较缺少同句明确的区间、币种、费用与分红对齐前提"
-          : `${labels[code] ?? code}与已核验工具结果不一致`).join("；");
-      this.pushLocalCommandMessage(`基金回答需要复核：${detail}。请检查 fund_dca_backtest 的任务参数与原始指标。`, "error");
-      this.setStatus({ kind: "error", text: `Fund answer needs review · ${detail}` });
-    } catch {
-      this.pushLocalCommandMessage("基金回答需要复核：当前无法读取研究证据。", "error");
-      this.setStatus({ kind: "error", text: "Fund answer needs review · evidence unavailable" });
-    }
-    this.pendingAutoArtifactInput = null;
-    return true;
-  }
-
-  private async flagUnsupportedFactorAnswer(answer: string): Promise<boolean> {
-    if (!this.agent || !knownFactorAnswerViolations(answer).length && !hasExplicitFactorLatestClaim(answer)
-      && !/\b(?:momentum|reversal|volatility|rsi)\s*[(（]\s*\d+\s*[)）]/iu.test(answer)) return false;
-    try {
-      const audit = auditCurrentFactorAnswer(await this.agent.getResearchState(), answer);
-      if (audit.status === "not-factor" || audit.status === "audited" && !audit.violations.length) return false;
-      const detail = audit.status === "unavailable" ? "当前任务缺少可匹配的已核验因子证据"
-        : audit.violations.map(code => code === "wrong-verified-factor-latest" ? "最新因子值与已核验工具结果不一致"
-          : code === "ambiguous-verified-factor-latest" ? "多个因子结果需要标明因子名和周期才能匹配最新值"
-          : code === "unsupported-factor-annualization-prohibition" ? "因子原值未年化；有明确观察频率与假设时可另行按平方根频率换算，不能笼统禁止年化"
-          : code === "wrong-factor-close-observation-minimum" ? "N 期收益因子至少需要 N+1 个收盘价观察"
-          : "历史因子分位未检验后续收益，不能据此断言均值回归").join("；");
-      this.pushLocalCommandMessage(`因子回答需要复核：${detail}。请核对 compute_factor 的任务参数与原始指标。`, "error");
-      this.setStatus({ kind: "error", text: `Factor answer needs review · ${detail}` });
-    } catch {
-      this.pushLocalCommandMessage("因子回答需要复核：当前无法读取研究证据。", "error");
-      this.setStatus({ kind: "error", text: "Factor answer needs review · evidence unavailable" });
-    }
-    this.pendingAutoArtifactInput = null;
-    return true;
-  }
-
-  private async flagContradictoryRiskAnswer(answer: string): Promise<boolean> {
-    if (!this.agent || !hasRiskMetricLabel(answer)) return false;
-    try {
-      const audit = auditCurrentRiskAnswer(await this.agent.getResearchState(), answer);
-      if (audit.status === "not-risk" || audit.status === "audited" && !audit.violations.length) return false;
-      const detail = audit.status === "unavailable" ? "当前任务缺少可匹配的已核验风险指标"
-        : `${audit.violations.map(code => RISK_ANSWER_VIOLATION_LABELS[code] ?? code).join("、")}与已核验工具结果不一致`;
-      this.pushLocalCommandMessage(`风险回答需要复核：${detail}。请检查 check_risk 的任务参数与原始指标。`, "error");
-      this.setStatus({ kind: "error", text: `Risk answer needs review · ${detail}` });
-    } catch {
-      this.pushLocalCommandMessage("风险回答需要复核：当前无法读取研究证据。", "error");
-      this.setStatus({ kind: "error", text: "Risk answer needs review · evidence unavailable" });
-    }
-    this.pendingAutoArtifactInput = null;
-    return true;
-  }
-
-  private async flagUnsupportedNewsAnswer(answer: string): Promise<boolean> {
-    if (!this.agent || !newsAnswerCitationKeys(answer).length && !knownNewsPriceBasisViolations(answer, null).length) return false;
-    try {
-      const audit = auditCurrentNewsAnswer(await this.agent.getResearchState(), answer);
-      if (audit.status === "not-news" || audit.status === "audited" && !audit.violations.length) return false;
-      const detail = audit.status === "unavailable" ? "无法唯一匹配新闻结果或引用映射"
-        : audit.violations.some(code => code.endsWith("news-citation")) ? "正文引用格式无效，或所引段落不在可引用证据中"
-          : audit.violations.includes("unreported-condition-promoted-to-nonoccurrence") ? "原文未报告条件发生，不能据此断言条件未发生"
-          : "价格复权口径断言缺少对应新闻快照支持";
-      this.pushLocalCommandMessage(`新闻回答需要复核：${detail}。请检查 research_news 的原始正文引用与价格复权说明。`, "error");
-      this.setStatus({ kind: "error", text: `News answer needs review · ${detail}` });
-    } catch {
-      this.pushLocalCommandMessage("新闻回答需要复核：当前无法读取研究证据。", "error");
-      this.setStatus({ kind: "error", text: "News answer needs review · evidence unavailable" });
-    }
-    this.pendingAutoArtifactInput = null;
-    return true;
-  }
-
-  private async flagContradictoryPortfolioAnswer(answer: string): Promise<boolean> {
-    if (!this.agent || !/(?:累计收益|总收益|总回报|total\s+return|最大回撤|max(?:imum)?\s+drawdown|\bTR\b|\bDD\b)/iu.test(answer)
-      && !comparisonExcessClaimViolations(answer).length && !/(?:基准|benchmark|跑赢|跑输|outperformed|underperformed|matched|tied|\bbeat\b|\blagged\b)/iu.test(answer)) return false;
-    try {
-      const audit = auditCurrentPortfolioAnswer(await this.agent.getResearchState(), answer);
-      if (audit.status === "not-portfolio" || audit.status === "audited" && !audit.violations.length) return false;
-      const detail = audit.status === "unavailable" ? "当前任务缺少可匹配的已核验组合比较"
-        : `${audit.violations.map(code => {
-          if (code === "excess-return-labelled-alpha") return "超额收益标签";
-          const group = code.includes("-a-") ? "组合 A" : "组合 B";
-          if (code.endsWith("-benchmark-direction")) return `${group} 相对基准的收益方向`;
-          return `${group} ${code.endsWith("-return") ? "累计收益" : "最大回撤"}`;
-        }).join("、")}与已核验工具结果不一致`;
-      this.pushLocalCommandMessage(`组合回答需要复核：${detail}。请检查 compare_portfolios 的任务参数与原始指标。`, "error");
-      this.setStatus({ kind: "error", text: `Portfolio answer needs review · ${detail}` });
-    } catch {
-      this.pushLocalCommandMessage("组合回答需要复核：当前无法读取研究证据。", "error");
-      this.setStatus({ kind: "error", text: "Portfolio answer needs review · evidence unavailable" });
-    }
-    this.pendingAutoArtifactInput = null;
-    return true;
-  }
-
   private resetHudLatency(): void {
     this.latencyTracker = createLatencyTracker();
     this.ttftTotalMs = this.ttftSamples = this.tpotTotalMs = this.tpotSamples = 0;
@@ -932,6 +1031,11 @@ export class AppRuntime {
     this.callbacks.onActivity(activity);
   }
 
+  private emitTerminalModel(model: AppRuntimeSnapshot): void {
+    if (this.terminalDisplayedModel?.model === model.model && this.terminalDisplayedModel.modelLabel === model.modelLabel) return;
+    this.terminalDisplayedModel = { ...model }; this.callbacks.onModel?.({ ...model });
+  }
+
   private setStatus(status: AppState["composerStatus"]): void {
     this.callbacks.onComposerStatus?.(status);
   }
@@ -962,7 +1066,7 @@ export class AppRuntime {
       },
       openResume: () => {
         void this.collectCurrentSessionMeta()
-          .then(meta => this.callbacks.onResumeRequest?.(meta))
+          .then(meta => { if (!this.disposed) this.callbacks.onResumeRequest?.(meta); })
           .catch(() => {});
       },
       openSession: () => {

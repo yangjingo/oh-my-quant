@@ -1,0 +1,2 @@
+export const HOST_PROTOCOL_VERSION = 1;
+export const HOST_SERVICE_CONTRACT_VERSION = 3;
