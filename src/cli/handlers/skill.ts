@@ -23,7 +23,8 @@ export const skillHandler: CommandHandler = async (flags, positional, ctx) => {
   }
   if (action === "remove") return removeSelectedSkills(positional.slice(1));
   if (action === "reload") invalidateSkillDiscovery();
-  const skills = ctx.agentSession ? await ctx.agentSession.getSkills() : await discoverRuntimeSkills();
+  const skills = ctx.skillCatalog ? await ctx.skillCatalog()
+    : ctx.agentSession ? await ctx.agentSession.getSkills() : await discoverRuntimeSkills(ctx.cwd);
   if (action === "list" || action === "reload") {
     const filter = String(flags.scope || flags.source || "");
     const filtered = skills.filter(skill => !filter || `${skill.scope}/${skill.source}`.includes(filter));

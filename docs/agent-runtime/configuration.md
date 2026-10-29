@@ -2,6 +2,8 @@
 
 本页只说明量化研究相关设置：数据连接、观察组合、报告、行情展示与回测引擎。通过 Settings 选择对应分组；配置保存在工作区 `.ohquant` 中。
 
+CLI Web 入口沿用 `OHQUANT_DIR` 选择工作区，不迁移或合并配置。Host 默认使用当前 CLI 的 Node/Bun 运行时；`WHYJ_BUN_EXECUTABLE` 可显式指定替代运行时，这是入口环境，不保存为模型或行情设置。连接、退出与尚未完成的 TUI 接入见 [Host](./host.md)。
+
 ## Market Data 与凭证
 
 | 数据源 | 主要范围 | 凭证/依赖 |

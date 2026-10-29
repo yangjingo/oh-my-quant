@@ -5,7 +5,17 @@ import { createDemoClient } from "../dev/demo-client";
 import { createWorkbenchStore } from "../src/state/workbench-store";
 import type { WorkbenchEvent } from "../src/client/contract";
 
-const bootstrap = () => Response.json({ version: 1, token: "a".repeat(64) });
+const bootstrap = () => Response.json({ version: 1, protocolVersion: 1, serviceContractVersion: 3, token: "a".repeat(64) });
+for (const version of [1, 2]) test(`an incompatible Host contract ${version} is rejected before any research RPC`, async () => {
+  let calls = 0;
+  const request = (async (url: RequestInfo | URL) => {
+    if (String(url).endsWith("bootstrap")) return Response.json({ version: 1, protocolVersion: 1, serviceContractVersion: version, token: "a".repeat(64) });
+    calls++; return Response.json({ ok: true, result: null });
+  }) as typeof fetch;
+  const client = createHostClient({ baseUrl: "http://workbench.test", fetch: request });
+  await expect(client.submit({ workspaceId: "w", sessionId: "s", requestId: "once", expectedRevision: 0, text: "Must not run" })).rejects.toThrow("服务版本不兼容");
+  expect(calls).toBe(0);
+});
 test("validated workspace market SSE is independent of research run snapshots", async () => {
   const event: WorkbenchEvent = { type: "market", identity: { workspaceId: "w", sessionId: "s", runId: null },
     snapshot: { refreshedAt: "2026-10-24 12:00", status: "success", quotes: [], source: { provider: "AKShare", updatedAt: null, available: 0, total: 0 } } };

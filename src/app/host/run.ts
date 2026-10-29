@@ -1,16 +1,24 @@
 import { startWorkbenchServer } from "../workbench/server.ts";
 
-/** Bun-only child entry. Tokens are written only to private storage, never argv/stdout. */
+/** Child entry. Tokens are written only to private storage, never argv/stdout. */
 export async function runWorkspaceHost(options: { port?: number; assetsRoot?: string } = {}) {
   let deadline: ReturnType<typeof setTimeout> | undefined;
+  let published = false;
   const host = startWorkbenchServer({ ...options,
     onStopping() { deadline ??= setTimeout(() => process.exit(1), 10_000); },
-    onStopped() { clearTimeout(deadline); process.exit(0); },
+    onStopped() { clearTimeout(deadline); if (published) process.exit(0); },
   });
   const stop = () => { void host.close().catch(() => process.exit(1)); };
   process.once("SIGINT", stop); process.once("SIGTERM", stop);
   const startupDeadline = setTimeout(() => process.exit(1), 15_000);
-  const entry = await host.ready.finally(() => clearTimeout(startupDeadline));
+  let entry;
+  try { entry = await host.ready; }
+  catch (error) {
+    // A failed listen is asynchronous under Node. Drain the owner before the
+    // entrypoint exits; otherwise a dead child leaves its ownership record.
+    await host.close(); throw error;
+  } finally { clearTimeout(startupDeadline); }
+  published = true;
   console.log(JSON.stringify({ type: "ready", instanceId: entry.instanceId }));
 }
 

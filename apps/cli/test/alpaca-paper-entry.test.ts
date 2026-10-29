@@ -1,7 +1,7 @@
 import { expect, it } from "bun:test";
 import { resolve } from "node:path";
 
-const source = resolve(import.meta.dir, "../../index.ts");
+const source = resolve(import.meta.dir, "../src/index.ts");
 async function cli(args: string[]) {
   const child = Bun.spawn([process.execPath, "run", source, ...args], {
     env: { ...processEnv(), ALPACA_PAPER_KEY_ID: "", ALPACA_PAPER_SECRET_KEY: "" }, stdout: "pipe", stderr: "pipe", timeout: 10_000 });

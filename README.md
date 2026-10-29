@@ -83,7 +83,7 @@ Most technical references are in Chinese. The [website](https://oh-my-quant.verc
 
 ## Development
 
-The package exposes npm script entrypoints; Bun remains a development prerequisite, not a requirement for running the built Node CLI.
+The package exposes npm script entrypoints. The built terminal and one-shot CLI run on Node. The #76 source branch adds `whyj web [--no-open]` (also with `--json`): this mode starts or reuses a local Host using the CLI's Node or Bun runtime. It is not yet a published release. See the [CLI entry](./apps/cli/README.md) for build prerequisites and the remaining TUI integration.
 
 ```sh
 npm run dev            # Source CLI with watch mode

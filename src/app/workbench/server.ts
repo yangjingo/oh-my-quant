@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, realpathSync, statSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import { extname, isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createHostRuntimeStore, ensureDirs, type HostRegistration } from "../../storage/index.ts";
 import manifest from "../../../package.json";
 import { HOST_PROTOCOL_VERSION, HOST_SERVICE_CONTRACT_VERSION, publicHostIdentity } from "../host/protocol.ts";
@@ -9,8 +11,9 @@ import type { WorkbenchEvent } from "../../types/workbench.ts";
 import { createWorkbenchService } from "./service.ts";
 import { dispatchWorkbench } from "./rpc.ts";
 import { publicError, WorkbenchError } from "./errors.ts";
+import { startLocalHttpServer, type LocalHttpServer } from "./http-server.ts";
 
-export const WORKBENCH_ASSETS_ROOT = resolve(import.meta.dir, "../../..", "apps/web/dist");
+export const WORKBENCH_ASSETS_ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..", "apps/web/dist");
 
 /** Local connection; restoring a checkpoint never starts an Agent request. */
 export function startWorkbenchServer(options: { port?: number; assetsRoot?: string; service?: ReturnType<typeof createWorkbenchService>; onStopping?: () => void; onStopped?: () => void } = {}) {
@@ -35,9 +38,12 @@ export function startWorkbenchServer(options: { port?: number; assetsRoot?: stri
   const streams = new Set<() => void>();
   const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "Cross-Origin-Resource-Policy": "same-origin",
     "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" };
-  const json = (value: unknown, status = 200) => Response.json(value, { status, headers });
-  let server: ReturnType<typeof Bun.serve>;
-  try { server = Bun.serve({ hostname: "127.0.0.1", port: options.port ?? 4182, idleTimeout: 60, maxRequestBodySize: 32768,
+  // Terminal tools can read local files. Their public projections must never
+  // turn an echoed control capability into browser execution authority.
+  const serialize = (value: unknown) => JSON.stringify(value).split(controlToken).join("[REDACTED]");
+  const json = (value: unknown, status = 200) => new Response(serialize(value), { status, headers: { ...headers, "Content-Type": "application/json" } });
+  let server: LocalHttpServer;
+  try { server = startLocalHttpServer({ port: options.port ?? 4182,
     async fetch(request) {
       const url = new URL(request.url);
       if (url.origin !== server.url.origin || request.headers.get("host") !== server.url.host || request.headers.get("sec-fetch-site") === "cross-site"
@@ -52,10 +58,24 @@ export function startWorkbenchServer(options: { port?: number; assetsRoot?: stri
           if (request.headers.get("x-workbench-token") !== token) return json({ ok: false, error: { code: "TOKEN_INVALID", message: "服务连接已变化，请重新连接。" } }, 401);
           await ready;
           lease.assertOwned();
+          if (request.headers.has("x-host-instance-id") && request.headers.get("x-host-instance-id") !== lease.instanceId)
+            throw new WorkbenchError("HOST_INSTANCE_CHANGED", "后端实例已变化，请显式重新连接。", 409);
           if (request.method === "GET" && url.pathname === "/api/host/ready") return json(publicHostIdentity(registration));
           if (request.method === "GET" && url.pathname === "/api/host/status") {
             const sessions = await service.client.workspaces();
             return json({ ...publicHostIdentity(registration), clients: clients.count(), observers: streams.size, activeRuns: sessions.filter(item => item.state === "running").length });
+          }
+          if (request.method === "POST" && url.pathname === "/api/host/terminal") {
+            if (request.headers.get("x-host-control-token") !== controlToken) throw new WorkbenchError("CONTROL_TOKEN_INVALID", "终端操作需要本机控制能力。", 403);
+            const payload = await hostBody(request);
+            if (payload.instanceId !== lease.instanceId || Object.keys(payload).some(key => !["instanceId", "method", "input"].includes(key)))
+              throw new WorkbenchError("INPUT_INVALID", "请指定当前终端实例和操作。");
+            const method = payload.method;
+            if (method !== "submit" && method !== "followup" && method !== "continue" && method !== "command" && method !== "cancelCommand" && method !== "context" && method !== "enqueue" && method !== "suggestReferences" && method !== "restoreReport" && method !== "submitResearch") throw new WorkbenchError("METHOD_NOT_FOUND", "此终端连接不支持该操作。", 404);
+            if (method === "command" || method === "restoreReport") server.timeout(request, 0); // Service owns the bounded command deadline.
+            operations++;
+            try { return json({ ok: true, result: (await service.terminal[method](payload.input)) ?? null }); }
+            finally { operations--; }
           }
           if (request.method === "POST" && url.pathname === "/api/host/clients") return json(clients.update(await hostBody(request)));
           if (request.method === "POST" && url.pathname === "/api/host/shutdown") {
@@ -94,7 +114,7 @@ export function startWorkbenchServer(options: { port?: number; assetsRoot?: stri
               try {
                 for (const [id, event] of pending) {
                   if ((controller.desiredSize ?? 0) <= 0) break;
-                  controller.enqueue(encoder.encode("data: " + JSON.stringify({ ...event, instanceId: lease.instanceId }) + "\n\n")); pending.delete(id);
+                  controller.enqueue(encoder.encode("data: " + serialize({ ...event, instanceId: lease.instanceId }) + "\n\n")); pending.delete(id);
                 }
               } catch { cleanup(); }
             };
@@ -124,12 +144,15 @@ export function startWorkbenchServer(options: { port?: number; assetsRoot?: stri
         if (!existsSync(file) || !statSync(file).isFile()) throw new WorkbenchError("NOT_FOUND", "没有这个页面。", 404);
         const contained = relative(assetsRoot, realpathSync(file));
         if (isAbsolute(contained) || contained.startsWith("..")) throw new WorkbenchError("NOT_FOUND", "没有这个页面。", 404);
-        if (name === "index.html") return new Response((await Bun.file(file).text()).replace("</head>", '<meta name="whyj-workbench-host" content="1"></head>'), { headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
-        return new Response(Bun.file(file), { headers });
+        if (name === "index.html") return new Response((await readFile(file, "utf8")).replace("</head>", '<meta name="whyj-workbench-host" content="1"></head>'), { headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
+        const types: Record<string, string> = { ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json",
+          ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif", ".ico": "image/x-icon", ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf" };
+        return new Response(await readFile(file), { headers: { ...headers, "Content-Type": types[extname(file).toLowerCase()] ?? "application/octet-stream" } });
       } catch (error) { const failure = publicError(error); return json({ ok: false, error: { code: failure.code, message: failure.message } }, failure.status); }
     },
   }); } catch (error) { lease.release(); void service.close(); throw error; }
   ready = (async () => {
+    await server.ready;
     await service.client.identity();
     if (stopping) throw new WorkbenchError("HOST_STOPPING", "后端已停止启动。", 503);
     registration = { schemaVersion: 1, instanceId: lease.instanceId, pid: lease.pid, startedAt: lease.startedAt,

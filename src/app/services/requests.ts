@@ -1,5 +1,58 @@
 import type { ArtifactRequest, ContinueRequest, DeleteSessionRequest, FollowupRequest, Preferences, RenameSessionRequest, ReviewRequest, RunIdentity, RunRevisionRequest, SaveRequest, SubmitRequest } from "../../types/workbench.ts";
 import { WorkbenchError } from "../workbench/errors.ts";
+import type { TerminalCommandIdentity, TerminalContextRequest, TerminalQueueRequest, TerminalReferenceRequest, TerminalRestoreRequest, TerminalResearchRequest } from "../../types/terminal.ts";
+import { validateResearchTask } from "../../research/tasks.ts";
+
+export function terminalResearchRequest(value: unknown): TerminalResearchRequest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new WorkbenchError("INPUT_INVALID", "结构化研究请求无效。");
+  const { task: rawTask, expectedTaskRevision, ...identity } = value as Record<string, unknown>;
+  if (Object.hasOwn(identity, "text")) throw new WorkbenchError("INPUT_INVALID", "结构化研究请求包含未支持的字段。");
+  let task: TerminalResearchRequest["task"];
+  try { task = validateResearchTask(rawTask); } catch { throw new WorkbenchError("TASK_INVALID", "研究任务格式或范围无效，请检查任务后重试。"); }
+  const request = submitRequest({ ...identity, text: task.request });
+  if (!(expectedTaskRevision === null || typeof expectedTaskRevision === "string" && expectedTaskRevision.length > 0 && expectedTaskRevision.length <= 160))
+    throw new WorkbenchError("INPUT_INVALID", "请提供已读取的任务修订号。");
+  return { workspaceId: request.workspaceId, sessionId: request.sessionId, requestId: request.requestId,
+    expectedRevision: request.expectedRevision, expectedTaskRevision, task };
+}
+
+export function terminalRestoreRequest(value: unknown): TerminalRestoreRequest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new WorkbenchError("INPUT_INVALID", "报告恢复请求无效。");
+  const { reportId, ...identity } = value as Record<string, unknown>;
+  if (Object.hasOwn(identity, "text")) throw new WorkbenchError("INPUT_INVALID", "报告恢复请求包含未支持的字段。");
+  const input = submitRequest({ ...identity, text: "restore-report" });
+  return { workspaceId: input.workspaceId, sessionId: input.sessionId, requestId: input.requestId,
+    expectedRevision: input.expectedRevision, reportId: requestString(reportId, 256) };
+}
+
+export function terminalReferenceRequest(value: unknown): TerminalReferenceRequest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new WorkbenchError("INPUT_INVALID", "引用建议请求无效。");
+  const { input, ...identity } = value as Record<string, unknown>;
+  return { ...terminalContextRequest(identity), input: requestString(input, 16000, true) };
+}
+
+export function terminalQueueRequest(value: unknown): TerminalQueueRequest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new WorkbenchError("INPUT_INVALID", "排队请求无效。");
+  const { runId, ...input } = value as Record<string, unknown>;
+  if (Object.hasOwn(input, "expectedRevision")) throw new WorkbenchError("INPUT_INVALID", "排队请求使用运行标识。");
+  const { expectedRevision: _, ...request } = submitRequest({ ...input, expectedRevision: 0 });
+  return { ...request, runId: requestString(runId) };
+}
+
+export function terminalContextRequest(value: unknown): TerminalContextRequest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new WorkbenchError("INPUT_INVALID", "终端上下文标识无效。");
+  const input = value as Record<string, unknown>;
+  if (Object.keys(input).some(key => !["workspaceId", "sessionId"].includes(key))) throw new WorkbenchError("INPUT_INVALID", "终端上下文标识无效。");
+  return { workspaceId: requestString(input.workspaceId), sessionId: requestString(input.sessionId) };
+}
+
+export function terminalCommandIdentity(value: unknown): TerminalCommandIdentity {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new WorkbenchError("INPUT_INVALID", "终端命令标识无效。");
+  const input = value as Record<string, unknown>;
+  if (Object.keys(input).some(key => !["workspaceId", "sessionId", "requestId"].includes(key))) throw new WorkbenchError("INPUT_INVALID", "终端命令标识无效。");
+  const { workspaceId, sessionId, runId } = runIdentity({ workspaceId: input.workspaceId, sessionId: input.sessionId, runId: input.requestId });
+  return { workspaceId, sessionId, requestId: runId };
+}
 
 /** The same runtime boundary for local callers and HTTP; copy before any await. */
 export function submitRequest(value: unknown): SubmitRequest {

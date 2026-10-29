@@ -1,0 +1,22 @@
+const { spawn, spawnSync } = require('node:child_process');
+const { createRequire } = require('node:module');
+const { mkdtempSync, mkdirSync, writeFileSync } = require('node:fs');
+const { tmpdir } = require('node:os');
+const { join, resolve } = require('node:path');
+const { setTimeout: delay } = require('node:timers/promises');
+const repo=resolve(__dirname, '../../..'), root=mkdtempSync(join(tmpdir(),'whyj-dev-ctrlc-')), work=join(root,'workspace'); mkdirSync(work,{recursive:true});
+const requireDesktop=createRequire(join(repo,'apps/desktop/package.json')); const pty=requireDesktop('node-pty');
+const bun=spawnSync('bun',['-e','console.log(process.execPath)'],{encoding:'utf8'}).stdout.trim();
+const env=Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(systemroot|windir|comspec|temp|tmp|localappdata|appdata|path|pathext|userprofile|homedrive|homepath|username|userdomain|processor_architecture|number_of_processors)$/i.test(key)));
+Object.assign(env,{OHQUANT_DIR:work, WHYJ_DESKTOP_HOME:join(root,'desktop'), WHYJ_WEB_PORT:'0', NO_PROXY:'127.0.0.1,localhost', WHYJ_REVIEW_HOST_ROOT:work, WHYJ_REVIEW_WEB_ROOT:join(repo,'apps/web/dist')});
+const fixture=spawn(bun,['run','tests/app/dev/review-host-fixture.ts'],{cwd:repo,env,stdio:['ignore','pipe','pipe'],windowsHide:true}); let term, exitPromise;
+(async()=>{ let output='', errors=''; fixture.stderr.on('data',x=>errors+=x); const info=await new Promise((ok,fail)=>{const timeout=setTimeout(()=>fail(Error('Host timeout '+errors)),30000); fixture.once('exit',code=>fail(Error('Host stopped '+code+' '+errors))); fixture.stdout.on('data',x=>{output+=x;const line=output.split('\n').find(s=>s.startsWith('{"origin"'));if(line){clearTimeout(timeout);ok(JSON.parse(line));}});});
+ const boot=await (await fetch(info.origin+'/api/workbench/bootstrap')).json(); const status=async()=>await (await fetch(info.origin+'/api/host/status',{headers:{'x-workbench-token':boot.token}})).json();
+ term=pty.spawn(bun,['run','apps/cli/dev/desktop.ts'],{name:'xterm-256color',cols:100,rows:35,cwd:repo,env});let log='';term.onData(x=>log+=x);exitPromise=new Promise(ok=>term.onExit(ok));
+ let before; for(let n=0;n<500;n++){before=await status();if(before.clients===1&&before.observers===1)break;await delay(100);} if(before.clients!==1||before.observers!==1)throw Error('Desktop did not attach: '+log.slice(-1000));
+ term.write('\u0003');const exit=await Promise.race([exitPromise,delay(20000).then(()=>{throw Error('Ctrl+C did not stop launcher: '+log.slice(-1000));})]);term=undefined;
+ let after=await status();for(let n=0;n<100&&(after.clients||after.observers);n++){await delay(100);after=await status();}
+ const provider=await (await fetch(info.control+'/state')).json();if(after.clients||after.observers||after.instanceId!==before.instanceId||provider.requests!==0)throw Error('Host or view cleanup failed: '+JSON.stringify({before,after,provider,exit,tail:log.slice(-500)}));
+ const receipt={result:'passed',scope:'real Windows ConPTY, Electron and isolated Host with a synthetic provider',revision:process.env.GITHUB_SHA || null,before:{clients:before.clients,observers:before.observers},after:{clients:after.clients,observers:after.observers},sameHost:before.instanceId===after.instanceId,modelRequests:provider.requests,exit};
+ const evidence=join(repo,'output/playwright/desktop-dev');mkdirSync(evidence,{recursive:true});writeFileSync(join(evidence,'receipt.json'),JSON.stringify(receipt,null,2));console.log(JSON.stringify(receipt));
+})().catch(e=>{console.error(e);const evidence=join(repo,'output/playwright/desktop-dev');mkdirSync(evidence,{recursive:true});writeFileSync(join(evidence,'receipt.json'),JSON.stringify({result:'failed',error:String(e)},null,2));process.exitCode=1}).finally(async()=>{if(term)term.kill();if(fixture.exitCode===null){const stopped=new Promise(done=>fixture.once('exit',done));fixture.kill();await stopped;} process.exit(process.exitCode||0);});

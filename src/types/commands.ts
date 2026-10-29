@@ -81,6 +81,12 @@ export interface CommandAgentSession {
 }
 
 export interface CommandContext {
+  /** Workspace selected by the execution owner; omitted for standalone process.cwd(). */
+  cwd?: string;
+  /** Enabled Host catalog for management, without constructing a model session. */
+  skillCatalog?: () => Promise<CommandSkill[]>;
+  /** Host-owned session selection without a second UI-owned Agent. */
+  sessionCommands?: Pick<CommandAgentSession, "listSessions" | "getSessionMetadata" | "resumeSession" | "getResearchState">;
   manageExtensions?: (action: ExtensionAction, id?: string, signal?: AbortSignal) => Promise<CommandResult>;
   /** When set, /config opens the settings panel. */
   openConfig?: () => void;

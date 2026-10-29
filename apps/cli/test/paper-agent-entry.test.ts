@@ -2,8 +2,8 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
-import { createLocalPaperService } from "../../app/paper-execution/index.ts";
-import { DEFAULT_SETTINGS } from "../../types/config.ts";
+import { createLocalPaperService } from "../../../src/app/paper-execution/index.ts";
+import { DEFAULT_SETTINGS } from "../../../src/types/config.ts";
 
 let root: string, ledger: string, state: string;
 beforeEach(async () => {

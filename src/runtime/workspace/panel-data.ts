@@ -39,7 +39,7 @@ export interface PanelDataService {
     scope: PanelSessionScope;
     sort: PanelSessionSort;
   }): StoredSessionSummary[];
-  listArtifacts(): ArtifactMeta[];
+  listArtifacts(cwd?: string): ArtifactMeta[];
   loadPanelPortfolio(): PanelPortfolioFile;
   editPortfolio(edit: PortfolioEdit): PanelPortfolioFile;
   hasWhyjEnvValue(env: Record<string, string | undefined>, key: WhyjEnvAliasKey): boolean;

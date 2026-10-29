@@ -2,8 +2,9 @@ import manifest from "../package.json";
 import { AppRuntime, createInitialAppState } from "./app-runtime.ts";
 import { QuantTui } from "../apps/tui/src/tui.ts";
 import { loadSettings } from "./storage/index.ts";
+import type { HostConnection } from "./app/bootstrap.ts";
 
-export async function startApp(): Promise<void> {
+export async function startApp(connection: HostConnection): Promise<void> {
   const initial = createInitialAppState(manifest.version);
   let tui: QuantTui | null = null;
 
@@ -13,23 +14,27 @@ export async function startApp(): Promise<void> {
     onLocalState: (partial) => tui?.update(partial),
     onComposerStatus: (composerStatus) => tui?.update({ composerStatus }),
     onComposerQueue: (composerQueue) => tui?.update({ composerQueue }),
+    onRecoverySnapshot: snapshot => tui?.setRecoverySnapshot(snapshot),
     onConfigRequest: () => tui?.openConfig(),
     onDoctorRequest: (doctor) => tui?.openDoctor(doctor),
     onResumeRequest: (meta) => tui?.openResume(meta),
     onResearchRequest: snapshot => tui?.openResearch(snapshot),
     onPortfolioRequest: () => tui?.openPortfolio(),
     onArtifactRequest: () => tui?.openArtifact(),
+    onArtifactCwd: cwd => tui?.setArtifactCwd(cwd),
     onHelpRequest: () => tui?.openHelp(),
     onSessionRequest: (meta) => tui?.syncCurrentSessionMeta(meta),
     onPanel: (panel, panelLoading = false) => tui?.update({ panel, panelLoading }),
     onHud: (hud) => tui?.update({ hud }),
     onModel: (model) => tui?.update(model),
     onSkillsChanged: () => { void tui?.refreshSkills(() => runtime.getSkillSuggestions()); },
-  });
+  }, undefined, undefined, { host: connection });
 
   tui = new QuantTui(initial, loadSettings().keybindings);
+  tui.setArtifactCwd(null);
   tui.setReferenceProvider(input => runtime.getReferenceSuggestions(input));
   tui.onResearchInterrupt(() => { void runtime.interruptResearch(); });
+  tui.onRecoveryConfirm(target => runtime.acknowledgeRecovery(target));
   tui.onFailedQuotesRetry(() => { void runtime.retryFailedOverviewQuotes(); });
   tui.onDoctorClose(() => runtime.cancelDoctor());
   tui.onConfigurationChange(() => runtime.refreshConfiguration());
@@ -42,7 +47,6 @@ export async function startApp(): Promise<void> {
       model: snapshot.model,
       modelLabel: snapshot.modelLabel,
       panelLoading: false,
-      activity: "ready",
     });
   } catch (err) {
     tui.update({

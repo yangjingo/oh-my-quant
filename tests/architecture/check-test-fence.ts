@@ -37,13 +37,15 @@ for (const module of readdirSync(srcRoot, { withFileTypes: true }).filter(entry 
   if (scattered.length) throw new Error(`${module.toUpperCase()} tests must live under src/${module}/test/: ${scattered.join(", ")}`);
 }
 
-const tuiRoot = join(process.cwd(), "apps", "tui");
+for (const entry of ["tui", "cli"]) {
+const tuiRoot = join(process.cwd(), "apps", entry);
 if (existsSync(tuiRoot)) {
   const scattered = readdirSync(tuiRoot, { recursive: true, withFileTypes: true })
     .filter(entry => entry.isFile() && /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(entry.name))
     .map(entry => relative(tuiRoot, join(entry.parentPath, entry.name)).replace(/\\/g, "/"))
     .filter(path => !path.startsWith("test/") && !path.startsWith("node_modules/"));
-  if (scattered.length) throw new Error(`TUI tests must live under apps/tui/test/: ${scattered.join(", ")}`);
+  if (scattered.length) throw new Error(`${entry.toUpperCase()} tests must live under apps/${entry}/test/: ${scattered.join(", ")}`);
+}
 }
 
 console.log("Test fence verified: grouped src/apps tests retained; module dev entrypoints and manual artifact generators excluded; no root scripts/.");

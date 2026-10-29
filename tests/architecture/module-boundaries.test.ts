@@ -198,8 +198,9 @@ test("test fence rejects root maintenance scripts and a missing dev exclusion", 
 test.each(["runtime", "app/services", "agent", "types", "storage", "cli"])("%s cannot import relocated apps contracts", module => {
   file("apps/tui/src/view.ts", "export type View = string;");
   file("apps/web/src/view.tsx", "export type View = string;");
+  file("apps/cli/src/entry.ts", "export type View = string;");
   const prefix = module.includes("/") ? "../../../" : "../../";
-  for (const entry of ["tui/src/view.ts", "web/src/view.tsx"]) {
+  for (const entry of ["tui/src/view.ts", "web/src/view.tsx", "cli/src/entry.ts"]) {
     file(`src/${module}/host.ts`, `import type { View } from "${prefix}apps/${entry}";`);
     expect(check()).toMatchObject({ code: 1, error: expect.stringContaining("shared-layers-do-not-import-apps") });
   }
@@ -220,11 +221,11 @@ test("relocated TUI keeps its dependency boundaries and excludes dev/test consum
   }
 });
 
-test("TUI test fence accepts the moved suite and rejects scattered tests", () => {
-  file("apps/tui/test/render.test.ts", "// grouped");
+test.each(["tui", "cli"])("%s test fence accepts the moved suite and rejects scattered tests", entry => {
+  file(`apps/${entry}/test/render.test.ts`, "// grouped");
   expect(check("check-test-fence.ts").code).toBe(0);
-  file("apps/tui/src/render.test.ts", "// misplaced");
-  expect(check("check-test-fence.ts")).toMatchObject({ code: 1, error: expect.stringContaining("TUI tests must live under apps/tui/test/") });
+  file(`apps/${entry}/src/render.test.ts`, "// misplaced");
+  expect(check("check-test-fence.ts")).toMatchObject({ code: 1, error: expect.stringContaining(`${entry.toUpperCase()} tests must live under apps/${entry}/test/`) });
 });
 
 test("Web's explicit demo bootstrap is allowed while component dev imports remain blocked", () => {

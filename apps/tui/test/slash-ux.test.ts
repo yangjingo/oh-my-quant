@@ -80,6 +80,48 @@ describe("slash command UX simulation", () => {
     return (tui as any).currentSuggestions();
   }
 
+  it("requires explicit recovery acknowledgement without sending or discarding the draft", async () => {
+    (tui as any).paint = () => {};
+    const snapshot = { identity: { workspaceId: "workspace", sessionId: "session", runId: "run" },
+      revision: 4, recovery: { runId: "run", unconfirmedTools: 1, acknowledgementRequired: true } } as any;
+    const calls: unknown[] = [];
+    tui.onRecoveryConfirm(async target => { calls.push(target); return true; });
+    tui.setRecoverySnapshot(snapshot);
+    type("keep my draft");
+    pressEnter();
+    expect(submitted).toBeNull();
+    expect(getInput()).toBe("keep my draft");
+    (tui as any).handleKeyAction(keyAction("escape"));
+    expect(calls).toHaveLength(0);
+    expect(getInput()).toBe("keep my draft");
+    pressEnter();
+    pressEnter();
+    pressEnter();
+    await Promise.resolve();
+    expect(calls).toEqual([{ workspaceId: "workspace", sessionId: "session", runId: "run", expectedRevision: 4 }]);
+    expect(submitted).toBeNull();
+    expect(getInput()).toBe("keep my draft");
+    tui.setRecoverySnapshot({ ...snapshot, revision: 5, recovery: { ...snapshot.recovery, acknowledgementRequired: false } });
+    pressEnter();
+    expect(submitted).toBe("keep my draft");
+  });
+
+  it("dismisses an open recovery confirmation when the session revision changes", () => {
+    (tui as any).paint = () => {};
+    const snapshot = { identity: { workspaceId: "workspace", sessionId: "session", runId: "run" },
+      revision: 4, recovery: { runId: "run", unconfirmedTools: 1, acknowledgementRequired: true } } as any;
+    const calls: unknown[] = [];
+    tui.onRecoveryConfirm(async target => { calls.push(target); return true; });
+    tui.setRecoverySnapshot(snapshot);
+    type("draft");
+    pressEnter();
+    tui.setRecoverySnapshot({ ...snapshot, revision: 5 });
+    pressEnter();
+    expect(calls).toHaveLength(0);
+    expect((tui as any).recoveryPrompt.expectedRevision).toBe(5);
+    expect(getInput()).toBe("draft");
+  });
+
   it("auto-completes / to first suggestion on Enter", () => {
     type("/");
     expect(getInput()).toBe("/");
@@ -274,6 +316,9 @@ describe("slash command UX simulation", () => {
       entryCount: { messages: 8, compactions: 1, branches: 0 },
     });
 
+    expect((tui as any).panel.isOpen()).toBe(false);
+    tui.syncCurrentSessionMeta();
+    expect((tui as any).panel.currentSessionMeta).toBeNull();
     expect((tui as any).panel.isOpen()).toBe(false);
   });
 

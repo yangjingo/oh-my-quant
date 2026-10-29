@@ -332,10 +332,11 @@ async function runDoctorHandler(
 export { portfolioHandler } from "./portfolio.ts";
 
 export const resumeHandler: CommandHandler = async (_flags, positional, ctx) => {
+  const agent = ctx.sessionCommands ?? ctx.agentSession;
   if (_flags.task !== undefined) {
     if (_flags.task !== true || positional.length || Object.keys(_flags).length !== 1) return { success: false, message: "Use /resume --task by itself to inspect the active research task." };
-    if (!ctx.agentSession?.getResearchState) return { success: false, message: "Task inspection needs an active Quant session. Start whyj, then use /resume --task." };
-    const state = await ctx.agentSession.getResearchState();
+    if (!agent?.getResearchState) return { success: false, message: "Task inspection needs an active Quant session. Start whyj, then use /resume --task." };
+    const state = await agent.getResearchState();
     const snapshot = { leafId: state.leafId, task: state.task, taskErrors: state.taskErrors, unresolved: state.unresolved };
     if (ctx.openResearch) { ctx.openResearch(snapshot); return { success: true, message: "", data: snapshot }; }
     return { success: true, message: researchTaskLines(snapshot).join("\n"), data: snapshot, renderAs: "text" };
@@ -347,7 +348,6 @@ export const resumeHandler: CommandHandler = async (_flags, positional, ctx) => 
     }
   }
 
-  const agent = ctx.agentSession;
   if (!agent) {
     return { success: false, message: "This command needs an active agent session. Send any AI message first, then try /resume again." };
   }

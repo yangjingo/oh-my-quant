@@ -9,7 +9,7 @@ import { createHostRuntimeStore, hostProcessState } from "../../../storage/index
 import { DEFAULT_SETTINGS } from "../../../types/config.ts";
 import type { SessionSnapshot, WorkspaceIdentity } from "../../../types/workbench.ts";
 
-let root: string, previousHang: string | undefined;
+let root: string, previousHang: string | undefined, previousLeaseRoot: string | undefined;
 const connections: HostConnection[] = [];
 let model: ReturnType<typeof Bun.serve> | undefined;
 beforeEach(() => {
@@ -17,6 +17,7 @@ beforeEach(() => {
   mkdirSync(join(root, "assets"));
   writeFileSync(join(root, "assets/index.html"), "<html><head></head><body>Built fixture</body></html>");
   previousHang = process.env.WHYJ_HOST_TEST_HANG;
+  previousLeaseRoot = process.env.WHYJ_RESOURCE_LEASE_ROOT; process.env.WHYJ_RESOURCE_LEASE_ROOT = join(root, "lease-registry");
 });
 async function eventually(check: () => boolean, budget = 5000) {
   const end = Date.now() + budget;
@@ -32,6 +33,7 @@ afterEach(async () => {
     }
   }
   await model?.stop(true); model = undefined;
+  if (previousLeaseRoot === undefined) delete process.env.WHYJ_RESOURCE_LEASE_ROOT; else process.env.WHYJ_RESOURCE_LEASE_ROOT = previousLeaseRoot;
   if (!resolve(root).startsWith(resolve(tmpdir()) + sep + "whyj-host-bootstrap-")) throw new Error("Unexpected fixture cleanup path");
   rmSync(root, { recursive: true, force: true });
 });
@@ -211,6 +213,15 @@ test("corrupt registration fails closed and preserves the original bytes", async
   expect(readFileSync(path, "utf8")).toBe("unknown-format");
   expect(createHostRuntimeStore(root).readOwner("owner")).toBeUndefined();
 });
+
+test("an older resource-coordination contract is refused without replacing its live owner", async () => {
+  const connection = await connect(), store = createHostRuntimeStore(root), original = store.read()!;
+  const path = join(root, ".host/registry.json"); writeFileSync(path, JSON.stringify({ ...original, serviceContractVersion: 2 }));
+  try {
+    await expect(connectWorkspaceHost(options())).rejects.toThrow("different workspace or protocol");
+    expect(store.read()?.instanceId).toBe(connection.instanceId); expect(hostProcessState(original.pid)).toBe("alive");
+  } finally { writeFileSync(path, JSON.stringify(original)); }
+}, 15000);
 
 test("missing built assets fail startup and release both launch and execution ownership", async () => {
   unlinkSync(join(root, "assets/index.html"));
