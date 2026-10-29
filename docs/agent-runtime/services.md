@@ -24,7 +24,7 @@
 
 `save` 要求完整 run 身份、expectedRevision 和 expectedArtifactRevision（首次保存为 null）。仅保存已完成且拥有固定 journal 位置的运行。终态在现有私有 checkpoint 中记录可选 coreLeafId；旧 checkpoint 仍能读取，但缺少此位置时不会猜测最新 journal 内容并保存为旧成果。
 
-保存使用已有 artifact generator 和不可变 report store。每个工作台会话拥有自己的报告版本链，结果包含 artifactId、递增版本、内容哈希、创建时间和来源 runId。报告头的预期哈希在存储写锁内校验；旧版本仍按固定哈希读取。完整 HTML、原始轨迹与源文件路径留在本机私有存储中，不作为普通 RPC 状态返回。
+保存使用已有 artifact generator 和不可变 report store。每个工作台会话拥有自己的报告版本链，结果包含 artifactId、递增版本、内容哈希、创建时间和来源 runId。报告头的预期哈希在存储写锁内校验；旧版本仍按固定哈希读取。本保存接口不通过普通 RPC 状态返回完整 HTML、原始轨迹或源文件路径；其他工具返回的文本仍可能包含本地路径，[#142](https://github.com/yangjingo/oh-my-quant/issues/142) 跟进该投影边界。
 
 保存期间，该会话拒绝新的提交、重命名、删除或第二次保存；只有 checkpoint 提交后，读取与订阅才显示新成果。对话 checkpoint 与 report head 分别原子提交，并非跨文件事务：如果报告已提交而 checkpoint 随后失败，服务返回失败并保留已生成的不可变报告，不删除它伪装回滚，也不自动重试。需核对磁盘记录再处理，不能把未知结果当作成功保存。
 
