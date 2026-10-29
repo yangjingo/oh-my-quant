@@ -15,6 +15,8 @@ export interface StoragePolicyEntry {
 }
 
 export const STORAGE_POLICY: StoragePolicyEntry[] = [
+  { path: ".ohquant/workbench/sessions/", class: "durable", cacheable: false,
+    description: "Private versioned Workbench conversation projections and run identity, bound to Quant journals. Not verified research artifacts; preserve on downgrade or unknown versions." },
   { path: ".ohquant/skills/.selection.json", class: "durable", cacheable: false,
     description: "User-selected skill names per shared repository. Removal changes loading choices, not cached source files or local edits." },
   { path: ".ohquant/research/decisions/", class: "artifact", cacheable: false,

@@ -506,9 +506,18 @@ export class NodeExecutionEnv implements ExecutionEnv {
 					const info = fileInfoFromStats(entryPath, await lstat(entryPath));
 					if (info.ok) infos.push(info.value);
 				} catch (error) {
+					// Skip a vanished child only while its parent remains listable.
+					if (isNodeError(error) && error.code === "ENOENT") {
+						const cancelled = abortResult<FileInfo[]>(abortSignal, resolved);
+						if (cancelled) return cancelled;
+						await readdir(resolved, { withFileTypes: true });
+						continue;
+					}
 					return err(toFileError(error, entryPath));
 				}
 			}
+			const afterListAbort = abortResult<FileInfo[]>(abortSignal, resolved);
+			if (afterListAbort) return afterListAbort;
 			return ok(infos);
 		} catch (error) {
 			return err(toFileError(error, resolved));

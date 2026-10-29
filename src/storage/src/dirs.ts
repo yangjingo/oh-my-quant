@@ -14,6 +14,10 @@ export function resolveSessionsDir(): string {
   return join(resolveOhquantDir(), "sessions");
 }
 
+export function resolveWorkbenchSessionsDir(): string {
+  return join(resolveOhquantDir(), "workbench", "sessions");
+}
+
 export function resolveBenchmarkDir(): string {
   return join(resolveOhquantDir(), "benchmark");
 }

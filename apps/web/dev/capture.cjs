@@ -68,7 +68,7 @@ async (page) => {
     await input.fill('草稿 B');
     await capture('04-empty-session');
     await page.getByRole('button', { name: /回撤结构研究.*300308/ }).click();
-    await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 A');
+    try { await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 A'); } catch { throw new Error('Draft A restore failed: ' + JSON.stringify({ actual: await input.inputValue(), title: await page.locator('#sessionTitle').innerText() })); }
     check(await input.inputValue() === '草稿 A', 'Draft A must restore');
     await page.getByRole('button', { name: /结构跟踪.*002048/ }).click();
     await page.waitForFunction(() => document.querySelector('#input')?.value === '草稿 B');

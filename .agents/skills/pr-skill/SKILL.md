@@ -5,6 +5,10 @@ description: Prepare and review single-issue PRs for oh-my-quant targeting stabl
 
 # PR Skill
 
+## GitHub Operations
+
+Prefer `gh` for GitHub PR operations, including inspection, comments, checks, merges, and GitHub-hosted screenshot attachments; use `gh api` when a supported operation is not exposed by a dedicated command. Use Chrome or computer use only when `gh` cannot perform the requested operation or the user explicitly requests that interface. Respect the user's instructions, access permissions, and authorization regardless of the tool.
+
 ## Scope
 
 - Require one implementation issue; use [issue-skill](../issue-skill/SKILL.md) if missing. Continue an existing implementation PR when available.
