@@ -52,6 +52,14 @@ For visible Web, desktop, TUI, or HTML-report changes:
 
 For internal changes, briefly explain why visual evidence is inapplicable.
 
+### Interactive Frontend Preview (Recommended)
+
+For visible frontend changes, strongly recommend a temporary Vercel Preview Deployment alongside the required implementation screenshots and applicable interaction recordings. Include an accessible preview URL, source commit SHA, reproduction steps, and whether it uses a real service, synthetic demo, or disconnected client. Refresh the preview and affected captures after relevant changes; a preview does not replace the visual evidence above.
+
+Deploy only the intended frontend build with synthetic or redacted data. Keep credentials and private workspace contents out of the deployment. Preserve local-only Host boundaries: a static demo does not verify real Agent execution, cancellation, SSE reconnection, or Desktop integration. Supply separate evidence from the applicable environment for those behaviors, and do not claim that a demo covers controls or states its adapter cannot produce.
+
+If preview deployment is unavailable, explain the limitation and provide accessible captures with reproduction instructions. Vercel is a recommendation, not a mandatory provider or CI gate; deployment follows the user's existing authorization.
+
 ## Technical Blog: Recommended for Major Changes
 
 For substantial features or non-obvious design decisions, consider a focused article in `docs/blog/`. Explain the problem, prior limitations, alternatives, chosen mechanism, evidence, costs, and remaining limits. Link claims to implementation or verification; distinguish facts from proposals.

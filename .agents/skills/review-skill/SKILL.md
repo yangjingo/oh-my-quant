@@ -39,6 +39,8 @@ Each finding includes `[Priority] Short title → trigger → impact → current
 
 ## Collaboration and Convergence
 
+- Repair documentation at its owning revision. If the reviewed PR introduces missing or inaccurate docs, ask its author to fix them in that PR. If the defect is already in current `main` and review work includes authorized documentation maintenance, open a separate focused documentation PR against `main` using issue-skill and pr-skill; link the evidence and affected review rather than leaving the correction only in a comment. Reuse an existing matching issue/PR and preserve concurrent work. A review-only request does not itself authorize publication, and documentation-PR authorization does not imply merge authorization.
+- Distinguish inaccurate documentation from a proposed policy change. Do not rewrite a requirement merely to make a noncompliant PR pass. Keep the original finding and any unresolved acceptance gap visible until the relevant correction is verified; a documentation PR does not supply missing implementation evidence.
 - Assign a clear repair owner for each behavior. Coordinate shared interfaces; avoid simultaneous edits to the same source of truth. Later PRs verify against the updated main.
 - Discuss code and observable consequences, not author ability or motives. Authors may fix or explain why the contract or counterexample does not apply. Resolve disagreement with evidence rather than votes.
 - Consolidate related findings in the first pass. Re-review the new diff, affected paths, and prior findings without repeatedly expanding scope absent new evidence. Persistent disagreement calls for a smaller PR or maintainer decision, not automatic approval after a round limit.

@@ -14,6 +14,10 @@ Use one implementation issue and one primary module per PR. Keep the template's 
 
 The validator rereads PR state to handle edits and closure during validation. It does not assess reasoning quality or atomically reconcile all concurrent issue/PR changes. Finalize the description before auditing the latest checks: a body edit can start a new policy run without changing the commit.
 
+Visible UI changes require reviewer-accessible implementation captures under [pr-skill's visual evidence rules](../.agents/skills/pr-skill/SKILL.md#visual-evidence); a local archive path is not shared evidence. An [interactive frontend preview](../.agents/skills/pr-skill/SKILL.md#interactive-frontend-preview-recommended), preferably a temporary Vercel deployment, is recommended in addition. Identify its source revision and service/demo mode; preview access does not establish real Host or Desktop acceptance. Reviewers assess this evidence manually; PR policy checks section completion, not screenshot quality or deployment availability.
+
+When review finds inaccurate or missing documentation, follow [review-skill's repair ownership](../.agents/skills/review-skill/SKILL.md#collaboration-and-convergence): changes introduced by the PR belong with its author, while confirmed defects already in `main` receive a focused documentation PR when that maintenance is authorized. Keep proposed policy changes distinct from corrections and retain unresolved implementation findings.
+
 ## Continuous Integration
 
 The local baseline is:
