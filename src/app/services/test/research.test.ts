@@ -822,13 +822,14 @@ test("reads and existing mutators share direct and HTTP validation, including sc
   const remote = (method: string, args: unknown[]) => fetch(host!.server.url + "api/workbench/rpc", { method: "POST",
     headers: { "Content-Type": "application/json", "x-workbench-token": token }, body: JSON.stringify({ method, args }) });
   const rename = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, expectedRevision: 0, title: "共享名称" };
-  const preference = { revision: (await client.preferences()).revision, model: "workbench-fixture", source: "none", portfolio: "" };
+  const preference = { revision: (await client.preferences()).revision, model: "workbench-fixture", source: "none" as const, portfolio: "" };
   const bad: Array<[keyof WorkbenchClient, unknown[]]> = [
     ["session", [null]], ["transcript", [" "]], ["output", [3]], ["references", [identity.sessionId, []]],
     ["renameSession", [{ ...rename, title: "" }]], ["renameSession", [{ ...rename, expectedRevision: "0" }]],
     ["renameSession", [{ ...rename, path: root }]], ["acknowledgeInterruption", ["old-run-only"]],
     ["updatePreferences", [{ ...preference, apiKey: "injected" }]], ["updatePreferences", [null]],
     ["updatePreferences", [{ ...preference, source: "demo" }]], ["updatePreferences", [{ ...preference, thinkingLevel: [] }]],
+    ["updatePreferences", [{ ...preference, researchSource: [] }]], ["updatePreferences", [{ ...preference, researchSource: "x".repeat(31) }]],
   ];
   for (const [method, args] of bad) {
     const failure = await (client[method] as (...values: unknown[]) => Promise<unknown>)(...args).then(() => null, error => error as { code: string });
@@ -836,6 +837,13 @@ test("reads and existing mutators share direct and HTTP validation, including sc
     expect(response.status).toBe(400); expect(failure).not.toBeNull();
     expect((await response.json() as { error: { code: string } }).error.code).toBe(failure!.code);
   }
+  const sourceChange = { ...preference, researchSource: "akshare" as const };
+  expect((await remote("updatePreferences", [sourceChange])).status).toBe(200);
+  expect((await client.preferences()).researchSource).toBe("akshare");
+  await expect(client.updatePreferences(sourceChange)).rejects.toMatchObject({ code: "ESTORAGECONFLICT" });
+  const staleSettings = await remote("updatePreferences", [sourceChange]);
+  expect(staleSettings.status).toBe(409);
+  expect((await staleSettings.json() as { error: { code: string } }).error.code).toBe("ESTORAGECONFLICT");
   await client.renameSession(rename);
   expect((await remote("renameSession", [rename])).status).toBe(409);
   await expect(client.renameSession(rename)).rejects.toMatchObject({ code: "REVISION_CONFLICT" });
