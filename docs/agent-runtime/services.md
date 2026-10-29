@@ -16,7 +16,7 @@
 
 `needs_input` 来自服务组装的 `ask_user` 工具成功提出明确问题。该工具通过现有 Quant/Pi 执行并记录 journal，仍受已声明任务的工具范围限制；普通问句或任务证据 blocked 不会被猜测为等待输入。问题最多 1000 字，公开投影隐藏已知凭证。澄清请求给出后，服务阻止后续工具执行；Pi 按现有批次终止规则结束本轮，界面显示问题并停止运行计时。取消或错误仍优先于完成投影。
 
-等待输入的状态与问题写入 checkpoint；重开只读取，不重问或续跑。用户通过带 previousRunId 和修订的 `followup` 回答，创建新 run 并保留旧轮次；不能以无回答的 `continue` 代替，也不能将未解决的澄清保存为已完成成果。
+等待输入的状态与问题写入 checkpoint；重开只读取，不重问或续跑。用户通过带 previousRunId 和修订的 `followup` 回答，创建新 run 并保留旧轮次；普通 `submit` 在等待期间会被拒绝；其他研究可新建会话。不能以无回答的 `continue` 代替，也不能将未解决的澄清保存为已完成成果。
 
 `cancel` 必须传递完整 workspace/session/run 身份。重复取消同一终态运行不再执行；旧运行不能取消新运行。释放订阅仅移除观察者，既不取消也不续跑。关闭服务拒绝新的修改，等待已接受的保存/复核操作并收束活动运行。
 
@@ -24,7 +24,7 @@
 
 `save` 要求完整 run 身份、expectedRevision 和 expectedArtifactRevision（首次保存为 null）。仅保存已完成且拥有固定 journal 位置的运行。终态在现有私有 checkpoint 中记录可选 coreLeafId；旧 checkpoint 仍能读取，但缺少此位置时不会猜测最新 journal 内容并保存为旧成果。
 
-保存使用已有 artifact generator 和不可变 report store。每个工作台会话拥有自己的报告版本链，结果包含 artifactId、递增版本、内容哈希、创建时间和来源 runId。报告头的预期哈希在存储写锁内校验；旧版本仍按固定哈希读取。完整 HTML、原始轨迹与源文件路径留在本机私有存储中，不作为普通 RPC 状态返回。
+保存使用已有 artifact generator 和不可变 report store。每个工作台会话拥有自己的报告版本链，结果包含 artifactId、递增版本、内容哈希、创建时间和来源 runId。报告头的预期哈希在存储写锁内校验；旧版本仍按固定哈希读取。本保存接口不通过普通 RPC 状态返回完整 HTML、原始轨迹或源文件路径；其他工具返回的文本仍可能包含本地路径，[#142](https://github.com/yangjingo/oh-my-quant/issues/142) 跟进该投影边界。
 
 保存期间，该会话拒绝新的提交、重命名、删除或第二次保存；只有 checkpoint 提交后，读取与订阅才显示新成果。对话 checkpoint 与 report head 分别原子提交，并非跨文件事务：如果报告已提交而 checkpoint 随后失败，服务返回失败并保留已生成的不可变报告，不删除它伪装回滚，也不自动重试。需核对磁盘记录再处理，不能把未知结果当作成功保存。
 

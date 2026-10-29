@@ -1,5 +1,5 @@
 import { browserViewStorage, draftKey, selectionKey, type ViewStorage } from "./view-persistence";
-import type { Preferences, SessionSnapshot, WorkbenchClient, WorkspaceSummary } from "../client/contract";
+import type { MarketSnapshot, Preferences, SessionSnapshot, WorkbenchClient, WorkspaceSummary } from "../client/contract";
 
 export interface ViewState {
   phase: "loading" | "ready" | "error";
@@ -10,12 +10,14 @@ export interface ViewState {
   error: string | null;
   draft: string;
   storageWarning: string | null;
+  market: MarketSnapshot | null;
+  marketError: string | null;
 }
 
 /** Projection owner only. Services/client own runs; views own drafts and selection. */
 export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStorage | undefined = client.mode === "host" ? browserViewStorage() : undefined) {
   let view: ViewState = {
-    phase: "loading", sessions: [], selected: null, snapshot: null, error: null, draft: "", storageWarning: null,
+    phase: "loading", sessions: [], selected: null, snapshot: null, error: null, draft: "", storageWarning: null, market: null, marketError: null,
     preferences: { model: "", source: "none", portfolio: "" },
   };
   const listeners = new Set<() => void>();
@@ -77,9 +79,19 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
       const saved = view.selected ?? persistence(() => storage?.getItem(selectionKey(workspace)));
       publish({ sessions, preferences });
       await select(sessions.some(session => session.workspaceId === workspace && session.sessionId === saved) ? saved! : identity.sessionId);
+      if (workspace === identity.workspaceId) void refreshMarket(false);
     } catch (error) {
       if (ticket === generation) { report(error); publish({ phase: "error" }); }
     }
+  };
+  let marketRequest = 0;
+  const refreshMarket = async (explicit: boolean, failedOnly = false) => {
+    const ticket = ++marketRequest, scope = workspace;
+    publish({ marketError: null });
+    try {
+      const market = await (explicit && client.refreshMarket ? client.refreshMarket(failedOnly) : client.market());
+      if (ticket === marketRequest && scope === workspace) publish({ market });
+    } catch { if (ticket === marketRequest && scope === workspace) publish({ marketError: "行情获取失败，请重试。已有数据保留，请核对日期。" }); }
   };
   return {
     getSnapshot: () => view,
@@ -90,6 +102,10 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
         if (event.type === "connection") {
           if (event.connected) void load();
           else publish({ phase: "error", error: event.error ?? "研究服务连接已中断，请重新连接。" });
+          return;
+        }
+        if (event.type === "market") {
+          if (event.identity.workspaceId === workspace) { marketRequest++; publish({ market: event.snapshot, marketError: null }); }
           return;
         }
         if (event.identity.sessionId !== view.selected) return;
@@ -135,12 +151,12 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
         } else if (event.type === "state") {
           if (snapshot.state === "cancelled" && event.identity.runId === snapshot.identity.runId) return;
           publish({ snapshot: { ...snapshot, identity: event.identity, state: event.state }, sessions: view.sessions.map(s => s.sessionId === view.selected ? { ...s, state: event.state } : s) });
-        } else publish({ snapshot: { ...snapshot, market: event.snapshot } });
+        }
       });
       void load();
-      return () => { generation++; release?.(); release = undefined; };
+      return () => { generation++; marketRequest++; release?.(); release = undefined; };
     },
-    load, select,
+    load, select, refreshMarket: (failedOnly = false) => refreshMarket(true, failedOnly),
     setDraft(text: string) { if (view.selected) saveDraft(workspace, view.selected, text); },
     async create() {
       try { const session = await client.createSession(); publish({ sessions: await client.workspaces() }); await select(session.sessionId); }
@@ -195,7 +211,7 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
     },
     async preferences(preferences: Preferences) {
       publish({ error: null });
-      try { await client.updatePreferences(preferences); publish({ preferences: await client.preferences() }); if (view.selected) await select(view.selected); }
+      try { await client.updatePreferences(preferences); publish({ preferences: await client.preferences() }); if (view.selected) await select(view.selected); await refreshMarket(false); }
       catch (error) { report(error); throw error; }
     },
     clearError: () => publish({ error: null }),

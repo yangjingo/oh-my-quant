@@ -70,7 +70,7 @@ export function Workbench({ client }: { client: WorkbenchClient }) {
         {snapshot && <Transcript key={selected} snapshot={snapshot} positions={positions} mode={client.mode} onEvidence={() => openResearch("evidence")} onReport={() => openResearch("report")} onSuggestion={text => { store.setDraft(text); focusInput(); }} />}
         {!snapshot && view.phase !== "loading" && <div className="empty-state research-welcome"><span className="eyebrow">研究工作台</span><h2>{view.sessions.length ? "这条会话暂时无法打开" : "连接工作区后开始研究"}</h2><p>{view.sessions.length ? "请切换其他会话或新建研究，原记录会保留。" : "当前界面还没有接入研究服务，暂时不能运行模型、获取行情或打开历史研究。"}</p><div className="welcome-actions"><button className="action" onClick={() => view.sessions.length ? void store.create().then(focusInput) : openSettings("about")}>{view.sessions.length ? "新建研究" : "了解当前连接方式"}</button><button className="text-action" onClick={() => void store.load()}>重试连接</button></div><p className="supporting">界面不会用演示记录替代缺失的 Host 数据。</p></div>}
       </main>
-      {overview && <Overview snapshot={snapshot?.market ?? null} portfolio={view.preferences.portfolio} demo={client.mode === "demo"} onClose={() => setOverview(false)} />}
+      {overview && <Overview snapshot={view.market ?? snapshot?.market ?? null} error={view.marketError} onRefresh={client.refreshMarket ? failedOnly => void store.refreshMarket(failedOnly) : undefined} portfolio={view.preferences.portfolio} demo={client.mode === "demo"} onClose={() => setOverview(false)} />}
     </div>
     <Composer key={selected} client={client} sessionId={selected} text={view.draft}
       onText={text => store.setDraft(text)}

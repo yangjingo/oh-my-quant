@@ -1,3 +1,4 @@
+import type { OutputPresentation } from "../agent/src/system-prompt.ts";
 import { NodeExecutionEnv } from "../agent/src/session-runtime/node.ts";
 import { isDeepStrictEqual } from "node:util";
 import { JsonlSessionRepo, type ThinkingLevel } from "../agent/src/session-runtime/index.ts";
@@ -14,7 +15,7 @@ function thinkingLevel(level: string): ThinkingLevel {
 }
 
 /** Local application composition; the session facade itself owns no settings or discovery IO. */
-export function createDefaultSessionDependencies(options: QuantAgentOptions): QuantAgentDependencies {
+export function createDefaultSessionDependencies(options: QuantAgentOptions, presentation: OutputPresentation = "terminal"): QuantAgentDependencies {
   const cwd = options.cwd ?? process.cwd();
   const env = new NodeExecutionEnv({ cwd });
   const override = structuredClone(options.settings);
@@ -54,7 +55,7 @@ export function createDefaultSessionDependencies(options: QuantAgentOptions): Qu
     },
     readSkillRevision: () => JSON.stringify([skillDiscoveryRevision(), skillPaths(), settings().skillIntegrations]),
     async loadSkills() { return (await discoverSkills({ cwd, env, extraPaths: skillPaths(), integrations: settings().skillIntegrations })).skills; },
-    prompts: { system: ({ tools, skills }) => buildSystemPrompt(undefined, skills, tools), turn: injectTurnContext, skill: injectSkillContext },
+    prompts: { system: ({ tools, skills }) => buildSystemPrompt(undefined, skills, tools, presentation), turn: (input, ctx) => injectTurnContext(input, ctx, presentation), skill: (name, instructions) => injectSkillContext(name, instructions, presentation) },
     verifyResearch: buildResearchReport,
     verifyReport(ref, provenance) {
       const snapshot = loadArtifactSnapshot(ref);

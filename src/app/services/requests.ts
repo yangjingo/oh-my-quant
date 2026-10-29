@@ -100,9 +100,9 @@ export function requestString(value: unknown, max = 160, allowEmpty = false): st
 export function preferencesRequest(value: unknown): Preferences {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new WorkbenchError("INPUT_INVALID", "设置参数无效。");
   const input = value as Record<string, unknown>;
-  if (Object.keys(input).some(key => !["revision", "model", "source", "portfolio", "thinkingLevel"].includes(key)))
+  if (Object.keys(input).some(key => !["revision", "model", "source", "portfolio", "thinkingLevel", "researchSource"].includes(key)))
     throw new WorkbenchError("INPUT_INVALID", "设置包含未支持的字段。");
   if (input.source !== "none" && input.source !== "akshare") throw new WorkbenchError("INPUT_INVALID", "此连接不接受演示数据源。");
   return { revision: requestString(input.revision), model: requestString(input.model, 160, true), source: input.source,
-    portfolio: requestString(input.portfolio, 160, true), ...(input.thinkingLevel === undefined ? {} : { thinkingLevel: requestString(input.thinkingLevel, 20, true) }) };
+    portfolio: requestString(input.portfolio, 160, true), ...(input.researchSource === undefined ? {} : { researchSource: requestString(input.researchSource, 30, true) as NonNullable<Preferences["researchSource"]> }), ...(input.thinkingLevel === undefined ? {} : { thinkingLevel: requestString(input.thinkingLevel, 20, true) }) };
 }

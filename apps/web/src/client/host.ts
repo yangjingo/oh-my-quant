@@ -1,4 +1,4 @@
-import { isWorkbenchSnapshot, type Preferences, type WorkbenchClient, type WorkbenchEvent } from "./contract";
+import { isWorkbenchSnapshot, isMarketSnapshot, type Preferences, type WorkbenchClient, type WorkbenchEvent } from "./contract";
 
 const failure = "研究服务连接已中断，请重新连接核对当前会话。关闭页面不会停止服务中的研究。";
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -65,6 +65,10 @@ export function createHostClient(options: { baseUrl?: string; fetch?: typeof fet
               emit({ type: "session-error", identity: { workspaceId: event.identity.workspaceId, sessionId: event.identity.sessionId, runId: event.identity.runId }, message: event.message });
               continue;
             }
+            if (object(event) && event.type === "market" && isMarketSnapshot(event.snapshot) && object(event.identity)
+              && typeof event.identity.workspaceId === "string" && typeof event.identity.sessionId === "string" && event.identity.runId === null) {
+              emit({ type: "market", identity: { workspaceId: event.identity.workspaceId, sessionId: event.identity.sessionId, runId: null }, snapshot: event.snapshot }); continue;
+            }
             if (!object(event) || event.type !== "snapshot" || !isWorkbenchSnapshot(event.snapshot) || !object(event.identity)
               || event.identity.workspaceId !== event.snapshot.identity.workspaceId || event.identity.sessionId !== event.snapshot.identity.sessionId || event.identity.runId !== event.snapshot.identity.runId) throw new Error("研究服务事件无效，请重新连接。");
             if (!connected) { connected = true; emit({ type: "connection", connected: true }); }
@@ -82,11 +86,13 @@ export function createHostClient(options: { baseUrl?: string; fetch?: typeof fet
   };
   return {
     mode: "host",
-    identity: () => rpc("identity"), workspaces: () => rpc("workspaces"), preferences: () => rpc("preferences"), market: () => rpc("market"),
+    identity: () => rpc("identity"), workspaces: () => rpc("workspaces"), preferences: () => rpc("preferences"),
+    market: async () => { const value = await rpc("market"); if (!isMarketSnapshot(value)) throw new Error("行情响应无效。"); return value; },
+    refreshMarket: async failedOnly => { const value = await rpc("refreshMarket", [failedOnly]); if (!isMarketSnapshot(value)) throw new Error("行情响应无效。"); return value; },
     session: async id => { const value: unknown = await rpc("session", [id]); if (!isWorkbenchSnapshot(value)) throw new Error("研究服务会话无效。"); return value; },
     transcript: id => rpc("transcript", [id]), output: id => rpc("output", [id]), createSession: () => rpc("createSession"),
     renameSession: value => rpc("renameSession", [value]), references: (id, query) => rpc("references", [id, query]),
-    updatePreferences: (next: Preferences) => rpc("updatePreferences", [{ revision: next.revision, model: next.model, source: next.source, portfolio: next.portfolio, ...(next.thinkingLevel === undefined ? {} : { thinkingLevel: next.thinkingLevel }) }]),
+    updatePreferences: (next: Preferences) => rpc("updatePreferences", [{ revision: next.revision, model: next.model, source: next.source, portfolio: next.portfolio, ...(next.researchSource === undefined ? {} : { researchSource: next.researchSource }), ...(next.thinkingLevel === undefined ? {} : { thinkingLevel: next.thinkingLevel }) }]),
     submit: value => rpc("submit", [value]), cancel: id => rpc("cancel", [id]),
     continue: value => rpc("continue", [value]), followup: value => rpc("followup", [value]),
     save: value => rpc("save", [value]), reload: value => rpc("reload", [value]),

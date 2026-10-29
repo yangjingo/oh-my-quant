@@ -44,6 +44,8 @@ export interface Turn {
   readonly id: string;
   readonly role: TurnRole;
   readonly text: string;
+  /** Optional provider-returned, non-redacted thinking text; distinct from the answer. */
+  readonly thinking?: string;
   readonly state: RunState;
   readonly at: string;
   readonly activity?: readonly ToolActivity[];
@@ -56,6 +58,8 @@ export interface Turn {
 }
 
 export interface ToolActivity {
+  /** Redacted model-visible tool text, not independently verified evidence. */
+  readonly result?: { readonly text: string; readonly truncated: boolean; readonly omittedBlocks: number; readonly capturedAt: string };
   readonly id: string;
   readonly name: string;
   readonly title?: string;
@@ -65,11 +69,16 @@ export interface ToolActivity {
 }
 
 export interface MarketQuote {
+  readonly basis?: "snapshot" | "daily";
+  readonly asOfTime?: string;
   readonly group?: "watchlist" | "market";
   readonly code: string;
   readonly name: string;
   readonly value: number | null;
   readonly change: number | null;
+  readonly asOfDate?: string | null;
+  readonly provider?: string;
+  readonly freshness?: "available" | "outside-window" | "unavailable" | "refreshing" | "stale";
 }
 
 export interface SourceStatus {
@@ -80,6 +89,10 @@ export interface SourceStatus {
 }
 
 export interface MarketSnapshot {
+  readonly pollIntervalMs?: number;
+  readonly colorScheme?: "red-up" | "green-up";
+  readonly status?: "idle" | "fetching" | "success" | "partial" | "unavailable" | "timeout" | "error";
+  readonly retryable?: boolean;
   readonly refreshedAt: string;
   readonly quotes: readonly MarketQuote[];
   readonly source: SourceStatus;
@@ -199,7 +212,10 @@ export interface ReferenceCandidate {
 }
 
 export interface Preferences {
-  /** Opaque storage revision for concurrent model-setting edits; never a credential. */
+  /** Research-tool routing is separate from the overview feed below. No credential values. */
+  readonly researchSource?: "akshare" | "tushare" | "llmquant-data" | "financial-datasets";
+  readonly researchSources?: readonly { id: NonNullable<Preferences["researchSource"]>; label: string; credentialConfigured: boolean; requiresCredential: boolean }[];
+  /** Opaque storage revision for concurrent setting edits; never a credential. */
   readonly revision?: string;
   readonly modelProvider?: string;
   readonly modelProtocol?: string;
@@ -226,6 +242,7 @@ export interface WorkbenchClient {
   workspaces(): Promise<readonly WorkspaceSummary[]>;
   transcript(sessionId: string): Promise<readonly Turn[]>;
   market(): Promise<MarketSnapshot>;
+  refreshMarket?(failedOnly: boolean): Promise<MarketSnapshot>;
   output(sessionId: string): Promise<WorkspaceOutput>;
   submit(request: SubmitRequest): Promise<SubmitResult>;
   continue?(request: ContinueRequest): Promise<SubmitResult>;
@@ -241,6 +258,24 @@ export interface WorkbenchClient {
   subscribe(listener: (event: WorkbenchEvent) => void): Release;
 }
 
+export function isMarketSnapshot(value: unknown): value is MarketSnapshot {
+  const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+  const nullable = (v: unknown) => v === null || typeof v === "string";
+  return object(value) && typeof value.refreshedAt === "string" && Array.isArray(value.quotes) && object(value.source)
+    && nullable(value.source.provider) && nullable(value.source.updatedAt)
+    && [value.source.available, value.source.total].every(v => typeof v === "number" && Number.isSafeInteger(v) && v >= 0)
+    && (value.status === undefined || ["idle", "fetching", "success", "partial", "unavailable", "timeout", "error"].includes(String(value.status)))
+    && (value.retryable === undefined || typeof value.retryable === "boolean")
+    && (value.pollIntervalMs === undefined || typeof value.pollIntervalMs === "number" && Number.isSafeInteger(value.pollIntervalMs) && value.pollIntervalMs >= 0 && value.pollIntervalMs <= 2147483647)
+    && (value.colorScheme === undefined || value.colorScheme === "red-up" || value.colorScheme === "green-up")
+    && value.quotes.every(q => object(q) && typeof q.code === "string" && typeof q.name === "string"
+      && (q.basis === undefined || q.basis === "snapshot" || q.basis === "daily") && (q.asOfTime === undefined || typeof q.asOfTime === "string")
+      && [q.value, q.change].every(v => v === null || typeof v === "number" && Number.isFinite(v))
+      && (q.asOfDate === undefined || nullable(q.asOfDate)) && (q.provider === undefined || typeof q.provider === "string")
+      && (q.group === undefined || q.group === "market" || q.group === "watchlist")
+      && (q.freshness === undefined || ["available", "outside-window", "unavailable", "refreshing", "stale"].includes(String(q.freshness))));
+}
+
 /** Validate network snapshots before any view state is replaced. No IO or private runtime types. */
 export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
   const object = (item: unknown): item is Record<string, unknown> => !!item && typeof item === "object" && !Array.isArray(item);
@@ -250,12 +285,15 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
   if (!object(value) || !object(value.identity) || !string(value.identity.workspaceId) || !string(value.identity.sessionId) || !nullable(value.identity.runId)
     || !states.includes(String(value.state)) || !Number.isSafeInteger(value.revision) || Number(value.revision) < 0) return false;
   if (!Array.isArray(value.turns) || !value.turns.every(turn => object(turn) && string(turn.id) && ["user", "assistant"].includes(String(turn.role))
-    && string(turn.text) && string(turn.at) && states.includes(String(turn.state))
+    && string(turn.text) && (turn.thinking === undefined || string(turn.thinking)) && string(turn.at) && states.includes(String(turn.state))
     && (turn.operation === undefined || ["submit", "continue", "followup", "review"].includes(String(turn.operation)))
     && (turn.previousRunId === undefined || string(turn.previousRunId) && turn.previousRunId.length > 0 && turn.previousRunId.length <= 160)
     && (turn.phase === undefined || ["waiting", "thinking", "preparing", "tool", "answering"].includes(String(turn.phase)))
     && (turn.endedAt === undefined || string(turn.endedAt) && Number.isFinite(Date.parse(turn.endedAt))) && (turn.activity === undefined || (Array.isArray(turn.activity)
       && turn.activity.every(item => object(item) && string(item.id) && string(item.name)
+        && (item.result === undefined || object(item.result) && string(item.result.text) && item.result.text.length <= 16_000
+          && typeof item.result.truncated === "boolean" && Number.isSafeInteger(item.result.omittedBlocks) && Number(item.result.omittedBlocks) >= 0
+          && string(item.result.capturedAt) && Number.isFinite(Date.parse(item.result.capturedAt)))
         && (item.title === undefined || string(item.title) && item.title.length <= 100) && (item.context === undefined || string(item.context) && item.context.length <= 160)
         && ["preparing", "running", "completed", "failed", "cancelled", "not-run", "unconfirmed"].includes(String(item.state))
         && (item.elapsedMs === undefined || typeof item.elapsedMs === "number" && Number.isFinite(item.elapsedMs) && item.elapsedMs >= 0)))))) return false;
@@ -264,11 +302,7 @@ export function isWorkbenchSnapshot(value: unknown): value is SessionSnapshot {
   const source = value.source;
   if (source !== undefined && (!object(source) || !["workspaceId", "sessionId", "runId", "artifactId"].every(key => string(source[key]) && source[key].length > 0 && source[key].length <= 160)
     || !string(source.sha256) || !/^[a-f0-9]{64}$/.test(source.sha256))) return false;
-  if (!object(value.market) || !Array.isArray(value.market.quotes) || !string(value.market.refreshedAt) || !object(value.market.source)) return false;
-  if (!nullable(value.market.source.provider) || !nullable(value.market.source.updatedAt)
-    || ![value.market.source.available, value.market.source.total].every(item => typeof item === "number" && Number.isSafeInteger(item) && item >= 0)) return false;
-  if (!value.market.quotes.every(quote => object(quote) && string(quote.code) && string(quote.name)
-    && [quote.value, quote.change].every(item => item === null || typeof item === "number" && Number.isFinite(item)))) return false;
+  if (!isMarketSnapshot(value.market)) return false;
   if (!object(value.output) || !object(value.output.conclusion) || !Array.isArray(value.output.evidence) || !Array.isArray(value.output.artifacts)) return false;
   const conclusion = value.output.conclusion;
   return nullable(conclusion.statement) && nullable(conclusion.boundary) && [null, "low", "medium", "high"].includes(conclusion.confidence as null | string) && typeof conclusion.settled === "boolean"

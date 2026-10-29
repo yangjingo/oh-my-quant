@@ -4,7 +4,7 @@ import { appendFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readd
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { DEFAULT_SETTINGS } from "../../../types/config.ts";
-import { createWorkbenchSessionStore, loadArtifactSnapshot, readSettings, saveSettings } from "../../../storage/index.ts";
+import { createWorkbenchSessionStore, loadArtifactSnapshot, readSettings, saveSettings, resolveWorkbenchSessionsDir } from "../../../storage/index.ts";
 import { createDefaultSessionDependencies } from "../../../runtime/session-dependencies.ts";
 import { createResearchService as createWorkbenchService } from "../research.ts";
 import { startWorkbenchServer, WORKBENCH_ASSETS_ROOT } from "../../workbench/server.ts";
@@ -14,22 +14,37 @@ const KEY = "fixture-workbench-secret-101";
 let root: string, previous: string | undefined, proxy: string | undefined;
 let model: ReturnType<typeof Bun.serve>, host: ReturnType<typeof startWorkbenchServer> | undefined;
 let service: ReturnType<typeof createWorkbenchService> | undefined;
-let mode: "answer" | "tool" | "hold" | "empty" | "thinking" | "preparing" | "bad-tool" | "hold-thinking" | "pure-failure", requests: Record<string, unknown>[], toolSent: boolean;
+let mode: "answer" | "tool" | "hold" | "empty" | "thinking" | "preparing" | "bad-tool" | "hold-thinking" | "pure-failure" | "stream-thinking" | "tool-thinking", requests: Record<string, unknown>[], toolSent: boolean;
 let reached: (() => void) | undefined;
 let releasePreparation: (() => void) | undefined;
+let releaseThinking: (() => void) | undefined;
+let streamCredential = KEY;
 let historySeed: Promise<void> | undefined;
 let reply: string | undefined;
 let scriptedCalls: Array<(payload: Record<string, unknown>) => Array<{ name: string; args: unknown }>>;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "whyj-workbench-")); previous = process.env.OHQUANT_DIR; proxy = process.env.NO_PROXY;
   process.env.OHQUANT_DIR = root; process.env.NO_PROXY = "127.0.0.1,localhost";
-  mode = "answer"; requests = []; toolSent = false; reached = undefined; releasePreparation = undefined; scriptedCalls = []; reply = undefined;
+  mode = "answer"; requests = []; toolSent = false; reached = undefined; releasePreparation = undefined; releaseThinking = undefined; streamCredential = KEY; scriptedCalls = []; reply = undefined;
   model = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
     const payload = await request.json() as Record<string, unknown>; requests.push(payload); reached?.();
     if (mode === "pure-failure" && toolSent) return Response.json({ error: { message: "Controlled model refusal after a pure calculation error", type: "invalid_request_error" } }, { status: 400 });
-    if (mode === "hold" || mode === "hold-thinking") return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(mode === "hold" ? ": waiting\n\n" : "data: " + JSON.stringify({id:"hold-thinking",object:"chat.completion.chunk",created:0,model:payload.model,choices:[{index:0,delta:{role:"assistant",reasoning_content:"PRIVATE_REASONING_NOT_FOR_UI"},finish_reason:null}]}) + "\n\n")); } }), { headers: { "Content-Type": "text/event-stream" } });
+    if (mode === "hold" || mode === "hold-thinking") return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(mode === "hold" ? ": waiting\n\n" : "data: " + JSON.stringify({id:"hold-thinking",object:"chat.completion.chunk",created:0,model:payload.model,choices:[{index:0,delta:{role:"assistant",reasoning_content:"PROVIDER_THINKING_FIXTURE"},finish_reason:null}]}) + "\n\n")); } }), { headers: { "Content-Type": "text/event-stream" } });
+    if (mode === "stream-thinking") return new Response(new ReadableStream({ start(controller) {
+      const frame = (delta: unknown, finish_reason: string | null = null) => new TextEncoder().encode("data: " + JSON.stringify({ id: "stream-thinking", object: "chat.completion.chunk", created: 0, model: payload.model, choices: [{ index: 0, delta, finish_reason }] }) + "\n\n");
+      controller.enqueue(frame({ role: "assistant", reasoning_content: "第一段：核对数据日期。" }));
+      let stage = 0;
+      releaseThinking = () => {
+        if (stage++ === 0) controller.enqueue(frame({ reasoning_content: "第二段：对照风险。" + streamCredential.slice(0, 10) }));
+        else {
+          controller.enqueue(frame({ reasoning_content: streamCredential.slice(10) + " 已完成核对。" }));
+          controller.enqueue(frame({ content: "这是最终回答，假设结果。" })); controller.enqueue(frame({}, "stop"));
+          controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n")); controller.close();
+        }
+      };
+    } }), { headers: { "Content-Type": "text/event-stream" } });
     const scripted = scriptedCalls.shift()?.(payload);
-    const call = !!scripted || ["tool", "preparing", "bad-tool", "pure-failure"].includes(mode) && !toolSent;
+    const call = !!scripted || ["tool", "preparing", "bad-tool", "pure-failure", "tool-thinking"].includes(mode) && !toolSent;
     if (call) toolSent = true;
     const args = JSON.stringify({ shares: mode === "bad-tool" || mode === "pure-failure" ? KEY : 100, costPerShare: 10, observedClose: 12, observationDate: "2026-10-23", currency: "CNY", changes: [-0.1, 0, 0.1] });
     const delta = scripted ? { role: "assistant", tool_calls: scripted.map((item, index) => ({ index, id: `service-step-${requests.length}-${index}`, type: "function", function: { name: item.name, arguments: JSON.stringify(item.args) } })) }
@@ -44,7 +59,8 @@ beforeEach(() => {
         controller.enqueue(encode({}, "tool_calls")); controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n")); controller.close();
       };
     } }), { headers: { "Content-Type": "text/event-stream" } });
-    const reasoning = mode === "thinking" ? Array.from({ length: 10 }, () => ({ ...chunk, choices: [{ index: 0, delta: { role: "assistant", reasoning_content: "PRIVATE_REASONING_NOT_FOR_UI" }, finish_reason: null }] })) : [];
+    const reasoning = mode === "thinking" ? Array.from({ length: 10 }, () => ({ ...chunk, choices: [{ index: 0, delta: { role: "assistant", reasoning_content: "PROVIDER_THINKING_FIXTURE" }, finish_reason: null }] })) : [];
+    if (mode === "tool-thinking") reasoning.push({ ...chunk, choices: [{ index: 0, delta: { role: "assistant", reasoning_content: call ? "先规划计算。" : "再核对结果。" }, finish_reason: null }] });
     return new Response([...reasoning, { ...chunk, choices: [{ index: 0, delta, finish_reason: null }] }, { ...chunk, choices: [{ index: 0, delta: {}, finish_reason: call ? "tool_calls" : "stop" }] }]
       .map(value => "data: " + JSON.stringify(value) + "\n\n").join("") + "data: [DONE]\n\n", { headers: { "Content-Type": "text/event-stream" } });
   } });
@@ -112,13 +128,16 @@ test("the default entry resolves built assets under the repository apps director
 
 test("explicit clarification survives restart without replay and an HTTP answer creates a new run", async () => {
   scriptedCalls = [() => [{ name: "ask_user", args: { question: `请补充研究范围？${KEY}` } }]];
-  const { client, identity, submit } = await setup();
-  const asked = await submit("请先澄清范围");
+  const { client, identity } = await setup();
+  const original = await requestFor(client, identity, "请先澄清范围");
+  const asked = await client.submit(original);
   const waiting = await terminal(client, identity.sessionId);
   expect(waiting.state).toBe("needs_input");
   expect(waiting.turns[1]).toMatchObject({ state: "needs_input", text: "请补充研究范围？[REDACTED]" });
   expect(waiting.turns[1]?.endedAt).toBeTruthy();
   expect(waiting.turns[1]?.activity?.[0]).toMatchObject({ name: "ask_user", state: "completed", title: "澄清研究问题" });
+  expect(requests).toHaveLength(1);
+  expect(await client.submit(original)).toEqual(asked);
   expect(requests).toHaveLength(1);
   const next = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, requestId: randomUUID(), expectedRevision: waiting.revision!, previousRunId: asked.runId };
   await expect(client.continue!(next)).rejects.toMatchObject({ code: "CONTINUE_UNAVAILABLE" });
@@ -130,6 +149,13 @@ test("explicit clarification survives restart without replay and an HTTP answer 
   const remote = (method: string, input: unknown) => fetch(host!.server.url + "api/workbench/rpc", { method: "POST",
     headers: { "Content-Type": "application/json", "x-workbench-token": token }, body: JSON.stringify({ method, args: [input] }) });
   expect((await (await remote("session", identity.sessionId)).json() as { result: SessionSnapshot }).result).toEqual(waiting);
+  const unscoped = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, requestId: randomUUID(), expectedRevision: waiting.revision!, text: "未经关联的提交" };
+  await expect(service.client.submit(unscoped)).rejects.toMatchObject({ code: "CLARIFICATION_PENDING" });
+  const rejectedSubmit = await remote("submit", unscoped);
+  expect(rejectedSubmit.status).toBe(409);
+  expect((await rejectedSubmit.json() as { error: { code: string } }).error.code).toBe("CLARIFICATION_PENDING");
+  expect(await service.client.session(identity.sessionId)).toEqual(waiting);
+  expect(requests).toHaveLength(1);
   expect((await remote("followup", { ...next, expectedRevision: 0, text: "过期回答" })).status).toBe(409);
   const input = { ...next, text: "只讨论固定样本，不获取新数据。" };
   const response = await remote("followup", input); expect(response.status).toBe(200);
@@ -643,16 +669,16 @@ test("an empty provider reply cannot appear as a successfully completed answer",
   expect(finished.output.artifacts).toHaveLength(0);
 });
 
-test("thinking events project only a phase, avoid per-token snapshots, and freeze the terminal clock", async () => {
+test("thinking events project actual provider text and freeze the terminal clock", async () => {
   mode = "thinking"; const { client, identity, submit } = await setup();
   const snapshots: SessionSnapshot[] = [];
   const detach = client.subscribe(event => { if (event.type === "snapshot") snapshots.push(event.snapshot); });
   await submit("验证真实 thinking 事件的安全状态投影");
   const finished = await terminal(client, identity.sessionId); detach();
   expect(finished.state).toBe("settled");
-  expect(snapshots.filter(value => value.turns[1]?.phase === "thinking")).toHaveLength(1);
+  expect(snapshots.filter(value => value.turns[1]?.phase === "thinking").length).toBeGreaterThan(1);
   expect(snapshots.some(value => value.turns[1]?.phase === "answering")).toBe(true);
-  expect(JSON.stringify(snapshots)).not.toContain("PRIVATE_REASONING_NOT_FOR_UI");
+  expect(finished.turns[1]?.thinking).toBe("PROVIDER_THINKING_FIXTURE".repeat(10));
   expect(Number.isFinite(Date.parse(finished.turns[1]!.endedAt!))).toBe(true);
   expect((await client.session(identity.sessionId)).turns[1]?.endedAt).toBe(finished.turns[1]?.endedAt);
 });
@@ -669,6 +695,14 @@ test("one actual tool call moves from preparation through execution to a readabl
   releasePreparation!(); const done = await terminal(client, identity.sessionId); detach();
   expect(states).toContain("running"); expect(done.turns[1]?.activity).toHaveLength(1);
   expect(done.turns[1]?.activity?.[0]).toMatchObject({ id: "core-tool-101", title: "计算持仓情景", context: "100 股 · 3 个情景", state: "completed" });
+  const result = done.turns[1]?.activity?.[0]?.result;
+  expect(result?.text).toContain("100"); expect(result?.truncated).toBe(false);
+  expect(JSON.stringify(done)).not.toContain(KEY);
+  await service!.close(); service = createWorkbenchService({ cwd: root });
+  const restored = await service.client.session(identity.sessionId);
+  expect(restored.turns[1]?.activity?.[0]?.result).toEqual(result);
+  const other = await service.client.createSession();
+  expect((await service.client.session(other.sessionId)).turns).toHaveLength(0);
 });
 
 test("cancelled preparation never becomes executed history, and tool failure never becomes completed evidence", async () => {
@@ -678,6 +712,7 @@ test("cancelled preparation never becomes executed history, and tool failure nev
   mode = "bad-tool"; toolSent = false;
   await submit("无效参数仍保留失败记录"); const result = await terminal(client, identity.sessionId);
   expect(result.turns[3]?.activity?.[0]).toMatchObject({ title: "计算持仓情景", state: "failed" });
+  expect(result.turns[3]?.activity?.[0]?.result?.text).toBeTruthy();
   expect(JSON.stringify(result)).not.toContain(KEY);
 });
 test("model settings have storage revisions, reject stale saves and never project credentials", async () => {
@@ -797,13 +832,14 @@ test("reads and existing mutators share direct and HTTP validation, including sc
   const remote = (method: string, args: unknown[]) => fetch(host!.server.url + "api/workbench/rpc", { method: "POST",
     headers: { "Content-Type": "application/json", "x-workbench-token": token }, body: JSON.stringify({ method, args }) });
   const rename = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, expectedRevision: 0, title: "共享名称" };
-  const preference = { revision: (await client.preferences()).revision, model: "workbench-fixture", source: "none", portfolio: "" };
+  const preference = { revision: (await client.preferences()).revision, model: "workbench-fixture", source: "none" as const, portfolio: "" };
   const bad: Array<[keyof WorkbenchClient, unknown[]]> = [
     ["session", [null]], ["transcript", [" "]], ["output", [3]], ["references", [identity.sessionId, []]],
     ["renameSession", [{ ...rename, title: "" }]], ["renameSession", [{ ...rename, expectedRevision: "0" }]],
     ["renameSession", [{ ...rename, path: root }]], ["acknowledgeInterruption", ["old-run-only"]],
     ["updatePreferences", [{ ...preference, apiKey: "injected" }]], ["updatePreferences", [null]],
     ["updatePreferences", [{ ...preference, source: "demo" }]], ["updatePreferences", [{ ...preference, thinkingLevel: [] }]],
+    ["updatePreferences", [{ ...preference, researchSource: [] }]], ["updatePreferences", [{ ...preference, researchSource: "x".repeat(31) }]],
   ];
   for (const [method, args] of bad) {
     const failure = await (client[method] as (...values: unknown[]) => Promise<unknown>)(...args).then(() => null, error => error as { code: string });
@@ -811,6 +847,13 @@ test("reads and existing mutators share direct and HTTP validation, including sc
     expect(response.status).toBe(400); expect(failure).not.toBeNull();
     expect((await response.json() as { error: { code: string } }).error.code).toBe(failure!.code);
   }
+  const sourceChange = { ...preference, researchSource: "akshare" as const };
+  expect((await remote("updatePreferences", [sourceChange])).status).toBe(200);
+  expect((await client.preferences()).researchSource).toBe("akshare");
+  await expect(client.updatePreferences(sourceChange)).rejects.toMatchObject({ code: "ESTORAGECONFLICT" });
+  const staleSettings = await remote("updatePreferences", [sourceChange]);
+  expect(staleSettings.status).toBe(409);
+  expect((await staleSettings.json() as { error: { code: string } }).error.code).toBe("ESTORAGECONFLICT");
   await client.renameSession(rename);
   expect((await remote("renameSession", [rename])).status).toBe(409);
   await expect(client.renameSession(rename)).rejects.toMatchObject({ code: "REVISION_CONFLICT" });
@@ -995,4 +1038,114 @@ test("missing original context fails explicitly without a provider call or a rep
   expect(stopped.state).toBe("failed"); expect(stopped.turns.at(-1)?.text).toContain("原研究上下文无法读取");
   expect(requests.length).toBe(count);
   expect(readdirSync(join(root, "sessions"), { recursive: true }).filter(name => String(name).endsWith(".jsonl"))).toHaveLength(0);
+});
+
+async function thinking(client: WorkbenchClient, id: string, text: string) {
+  for (let i = 0; i < 250; i++) { const value = await client.session(id); if (value.turns.at(-1)?.thinking?.includes(text)) return value; await Bun.sleep(10); }
+  throw new Error("Thinking delta did not arrive");
+}
+test("thinking streams before the answer, redacts split secrets, and persists without replay", async () => {
+  mode = "stream-thinking"; const { client, identity, submit } = await setup(); await submit("显示实际返回的思考文本");
+  const first = await thinking(client, identity.sessionId, "第一段");
+  expect(first.turns[1]?.text).toBe(""); expect(first.turns[1]?.phase).toBe("thinking");
+  releaseThinking!(); const second = await thinking(client, identity.sessionId, "第二段");
+  expect(second.turns[1]?.thinking).not.toContain(streamCredential.slice(0, 10));
+  releaseThinking!(); const done = await terminal(client, identity.sessionId);
+  expect(done.turns[1]?.thinking).toBe("第一段：核对数据日期。第二段：对照风险。[REDACTED] 已完成核对。");
+  expect(done.turns[1]?.text).toBe("这是最终回答，假设结果。");
+  const count = requests.length; await service!.close(); service = createWorkbenchService({ cwd: root });
+  expect((await service.client.session(identity.sessionId)).turns[1]?.thinking).toBe(done.turns[1]?.thinking);
+  expect(requests.length).toBe(count);
+});
+test("cancelling thinking retains its partial text and does not turn it into an answer", async () => {
+  mode = "stream-thinking"; const { client, identity, submit } = await setup(); const run = await submit("停止思考流");
+  await thinking(client, identity.sessionId, "第一段"); releaseThinking!(); await thinking(client, identity.sessionId, "第二段"); await client.cancel({ workspaceId: identity.workspaceId, ...run });
+  const stopped = await client.session(identity.sessionId);
+  expect(stopped.state).toBe("cancelled"); expect(stopped.turns[1]?.thinking).toBe("第一段：核对数据日期。第二段：对照风险。");
+  expect(stopped.turns[1]?.text).not.toContain("第一段");
+});
+test("thinking across tool-separated assistant messages is aggregated once in original order", async () => {
+  mode = "tool-thinking"; const { client, identity, submit } = await setup(); await submit("计算后继续思考");
+  const done = await terminal(client, identity.sessionId);
+  expect(done.state).toBe("settled"); expect(done.turns[1]?.thinking).toBe("先规划计算。\n\n再核对结果。");
+  expect(done.turns[1]?.activity?.[0]?.state).toBe("completed");
+});
+
+for (const slot of ["WHYJ_QUANT_TUSHARE_TOKEN", "WHYJ_QUANT_FINANCIAL_DATASETS_KEY"]) {
+  test(`split thinking and checkpoints redact ${slot} with the shared collector`, async () => {
+    mode = "stream-thinking"; streamCredential = "dummy-stream-data-secret-" + slot;
+    const settings = readSettings(); settings.env = { ...settings.env, [slot]: streamCredential }; saveSettings(settings);
+    const { client, identity, submit } = await setup(); await submit("Synthetic streaming credential projection");
+    for (let i = 0; !releaseThinking && i < 100; i++) await Bun.sleep(5);
+    expect(typeof releaseThinking).toBe("function"); releaseThinking!();
+    let partial = await client.session(identity.sessionId);
+    for (let i = 0; !partial.turns.at(-1)?.thinking?.includes("第二段") && i < 100; i++) { await Bun.sleep(5); partial = await client.session(identity.sessionId); }
+    expect(partial.turns.at(-1)?.thinking).toContain("第二段");
+    expect(JSON.stringify(partial)).not.toContain(streamCredential.slice(0, 10));
+    releaseThinking!(); const ended = await terminal(client, identity.sessionId);
+    expect(JSON.stringify(ended)).not.toContain(streamCredential);
+    expect(ended.turns.at(-1)?.text).toContain("最终回答");
+    await service!.close();
+    expect(JSON.stringify(createWorkbenchSessionStore().load(identity.workspaceId, identity.sessionId).record)).not.toContain(streamCredential);
+  });
+}
+
+
+test("authorization credentials never enter actual public snapshots or persisted checkpoints", async () => {
+  mode = "tool";
+  const basic = Buffer.from(KEY).toString("base64"), digest = "synthetic-private-digest";
+  const raw = `Authorization: Basic ${basic}\r\nProxy-Authorization: Digest username=synthetic, response=${digest}\r\nAuthorization: Bearer ${KEY}\r\nprice: 12.00\r\nvolume: 9007199254740993\r\nzero: 0`;
+  service = createWorkbenchService({ cwd: root, dependencies: () => {
+    const deps = createDefaultSessionDependencies({ cwd: root });
+    return { ...deps, tools: deps.tools.map(tool => tool.name !== "calculate_position_scenarios" ? tool : { ...tool, async execute(...args) {
+      const value = await tool.execute(...args);
+      return { ...value, content: [...value.content, { type: "text" as const, text: raw }] };
+    } }) };
+  } });
+  const { client } = service, identity = await client.identity();
+  const publicFrames: string[] = [];
+  const detach = client.subscribe(event => publicFrames.push(JSON.stringify(event)));
+  await client.submit(await requestFor(client, identity, "Only calculate supplied hypothetical values"));
+  const finished = await terminal(client, identity.sessionId); detach();
+  expect(finished.turns[1]?.activity?.[0]?.result?.text).toContain("Authorization: [REDACTED]");
+  expect(finished.turns[1]?.activity?.[0]?.result?.text).toContain("volume: 9007199254740993");
+  await service.close(); service = undefined;
+  const checkpoint = readFileSync(join(resolveWorkbenchSessionsDir(), identity.sessionId + ".json"), "utf8");
+  for (const value of [checkpoint, JSON.stringify(finished), ...publicFrames]) for (const hidden of [KEY, basic, digest]) expect(value).not.toContain(hidden);
+  service = createWorkbenchService({ cwd: root });
+  expect((await service.client.session(identity.sessionId)).turns[1]?.activity?.[0]?.result).toEqual(finished.turns[1]?.activity?.[0]?.result);
+});
+
+test("research source routing persists separately from overview and rejects invalid or stale changes", async () => {
+  const { client, identity, submit } = await setup();
+  const editable = (value: Awaited<ReturnType<WorkbenchClient["preferences"]>>) => ({ revision: value.revision, model: value.model, source: value.source, portfolio: value.portfolio, thinkingLevel: value.thinkingLevel, researchSource: value.researchSource });
+  const before = await client.preferences();
+  expect(before.researchSources?.map(item => item.id)).toEqual(["akshare", "tushare", "llmquant-data", "financial-datasets"]);
+  expect(JSON.stringify(before)).not.toContain(KEY);
+  await client.updatePreferences({ ...editable(before), researchSource: "akshare" });
+  const saved = await client.preferences();
+  expect(saved.researchSource).toBe("akshare"); expect(saved.source).toBe("none");
+  expect(readSettings().preferences.source).toBe("akshare");
+  await expect(client.updatePreferences({ ...editable(before), researchSource: "tushare" })).rejects.toThrow();
+  await expect(client.updatePreferences({ ...editable(saved), researchSource: "adata" as "akshare" })).rejects.toThrow("已接入");
+  await client.updatePreferences({ ...editable(saved), researchSource: undefined });
+  expect((await client.preferences()).researchSource).toBe("akshare");
+  mode = "hold"; const started = new Promise<void>(resolve => { reached = resolve; });
+  const run = await submit("运行中不能换源"); await started;
+  await expect(client.updatePreferences({ ...editable(await client.preferences()), researchSource: "tushare" })).rejects.toThrow("请先等待或停止");
+  await client.cancel({ workspaceId: identity.workspaceId, ...run });
+  const configured = readSettings(); configured.env.WHYJ_QUANT_TUSHARE_TOKEN = "data-credential-must-stay-local"; saveSettings(configured);
+  const publicState = await client.preferences();
+  expect(publicState.researchSources?.find(item => item.id === "tushare")?.credentialConfigured).toBe(true);
+  expect(JSON.stringify(publicState)).not.toContain("data-credential-must-stay-local");
+});
+
+test("Web model requests consistently select Markdown instead of terminal-only formatting", async () => {
+  const { submit, client, identity } = await setup(); await submit("比较两个给定指标，列一个表格");
+  await terminal(client, identity.sessionId);
+  const messages = requests[0]?.messages as { role: string; content: unknown }[];
+  const system = JSON.stringify(messages.filter(message => ["system", "developer"].includes(message.role)));
+  const user = JSON.stringify(messages.filter(message => message.role === "user"));
+  expect(system).toContain("Use Markdown"); expect(system).not.toContain("NO markdown");
+  expect(user).toContain("GFM table"); expect(user).not.toContain("three-line plain-text");
 });

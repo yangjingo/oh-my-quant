@@ -4,6 +4,9 @@ import { confidenceLabels, researchSummary } from "../presentation";
 import { Dialog } from "./UI";
 import { ResearchMarkdown } from "./Markdown";
 
+import { ToolResult } from "./ToolResult";
+import { toolStateLabels } from "./ToolHistory";
+
 export type ResearchPage = "conclusion" | "evidence" | "report";
 const pages: ResearchPage[] = ["conclusion", "evidence", "report"];
 const labels = { conclusion: "结论与条件", evidence: "证据", report: "报告版本" };
@@ -14,8 +17,10 @@ export function ResearchDialog({ page, setPage, snapshot, title, demo, onClose }
   const [copied, setCopied] = useState("");
   const [compare, setCompare] = useState(false);
   const output = snapshot.output;
+  const calls = snapshot.turns.flatMap(turn => (turn.activity ?? []).map(item => ({ item, turnId: turn.id, at: turn.at })));
   const artifacts = [...output.artifacts].sort((a, b) => b.version - a.version);
   const available = output.evidence.filter(item => item.available).length;
+  const returned = calls.filter(call => !!call.item.result).length;
   const download = () => {
     const url = URL.createObjectURL(new Blob([researchSummary(title, snapshot, demo)], { type: "text/markdown;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = "research-summary.md"; link.click();
@@ -30,7 +35,7 @@ export function ResearchDialog({ page, setPage, snapshot, title, demo, onClose }
       const next = event.key === "Home" ? 0 : event.key === "End" ? pages.length - 1 : (index + (event.key === "ArrowRight" ? 1 : pages.length - 1)) % pages.length;
       setPage(pages[next]!);
       event.currentTarget.querySelectorAll<HTMLButtonElement>("[role=tab]")[next]?.focus();
-    }}>{pages.map(item => <button key={item} id={"research-tab-" + item} role="tab" aria-selected={page === item} aria-controls="research-content" tabIndex={page === item ? 0 : -1} onClick={() => setPage(item)}>{labels[item]}{item === "evidence" && <span className="count">{available}/{output.evidence.length}</span>}</button>)}</div>
+    }}>{pages.map(item => <button key={item} id={"research-tab-" + item} role="tab" aria-selected={page === item} aria-controls="research-content" tabIndex={page === item ? 0 : -1} onClick={() => setPage(item)}>{labels[item]}{item === "evidence" && <span className="count">{calls.length ? `${calls.length} 条调用` : `${available}/${output.evidence.length}`}</span>}</button>)}</div>
     <section id="research-content" className="research-content" role="tabpanel" aria-labelledby={"research-tab-" + page} tabIndex={0}>
       {page === "conclusion" && <>
         <p className="eyebrow">当前判断</p><div className="markdown-body"><ResearchMarkdown text={output.conclusion.statement ?? "尚未提供研究结论。"} /></div>
@@ -39,14 +44,21 @@ export function ResearchDialog({ page, setPage, snapshot, title, demo, onClose }
         <p className="notice">记录状态和模型置信度不代表独立核验。请检查来源、日期和缺失证据后再作判断。</p>
       </>}
       {page === "evidence" && <>
-        <div className="section-intro"><h3>判断依据在哪里</h3><p>已记录 {available} / {output.evidence.length}。缺失项保留在目录中，便于下一次补齐。</p></div>
+        <div className="section-intro"><h3>判断依据在哪里</h3><p>来源摘要 {available} / {output.evidence.length}；工具返回记录 {returned} / {calls.length}。失败与缺失项分别保留，不能视为核验通过。</p></div>
         {output.evidence.map(item => <article className="evidence-card" key={item.id}>
           <div className="evidence-heading"><h3>{item.label}</h3><span className={"badge " + (item.available ? "" : "badge-warning")}>{item.available ? "已记录" : "缺失"}</span></div>
           <dl className="evidence-facts"><dt>来源</dt><dd>{item.source ?? "未提供"}</dd><dt>数据日期</dt><dd>{item.asOf ?? "未提供"}</dd></dl>
           <details><summary>证据标识</summary><code>{item.id}</code></details>
         </article>)}
-        {!output.evidence.length && <div className="empty-state"><h3>{demo ? "还没有可查看的证据" : "当前连接未开放证据读取"}</h3><p>{demo ? "示例目录为空。" : "这不表示研究没有取得证据。当前仅提供对话和摘要，无法在这里读取原始证据。"}</p></div>}
-        <p className="notice">当前客户端提供来源摘要，尚未提供原始数据与计算明细。这里不会用摘要替代数值核验。</p>
+        {!output.evidence.length && !calls.length && <div className="empty-state"><h3>{demo ? "还没有可查看的证据" : "尚无工具返回记录"}</h3><p>{demo ? "示例目录为空。" : "请先发起研究。新工具调用返回后会保留可查看的文本；旧会话未保存的结果不会补造。"}</p></div>}
+        {!!calls.length && <section aria-label="工具取证记录"><h3>工具取证记录</h3><p>按本会话调用顺序保留。返回记录时间不是行情日期；来源、数据日期与计算口径请核对工具内容。成功状态只表示工具返回。</p>
+          {calls.map(({ item, turnId, at }) => <article className="evidence-card" key={turnId + item.id}>
+            <div className="evidence-heading"><h3>{item.title ?? item.name}</h3><span className={"badge " + (item.state === "completed" ? "" : "badge-warning")}>{toolStateLabels[item.state]}</span></div>
+            <dl className="evidence-facts"><dt>工具</dt><dd><code>{item.name}</code></dd><dt>调用标识</dt><dd><code>{item.id}</code></dd><dt>所属轮次</dt><dd>{at}</dd></dl>
+            {item.context && <p>{item.context}</p>}<ToolResult item={item} />
+          </article>)}
+        </section>}
+        <p className="notice">来源摘要与工具返回均不代表独立核验。此入口不读取本地原始文件，也不提供完整归档或报告。</p>
       </>}
       {page === "report" && <>
         <div className="section-intro"><h3>保留版本，方便以后再看</h3><p>以下是客户端提供的报告版本标识。下载按钮只导出当前可见摘要。</p></div>
