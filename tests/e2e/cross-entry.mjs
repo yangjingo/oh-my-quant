@@ -51,7 +51,9 @@ try {
   await web.screenshot({ path: join(output, 'browser-running.png') });
   app = await electron.launch({ args: [join(root, 'apps/desktop')], env, timeout: 60000 }); page = await app.firstWindow();
   page.on('pageerror', error => result.errors.push(error.message));
-  await page.getByText('Cross entry controlled question').first().waitFor({ timeout: 45000 });
+  // A compact window hides the project title; wait for the actual conversation.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(800, 720));
+  await page.locator('.turn-user').getByText('Cross entry controlled question', { exact: true }).waitFor({ timeout: 45000 });
   const desktopIdentity = await page.evaluate(async () => {
     const boot = await (await fetch('/api/workbench/bootstrap')).json();
     const response = await fetch('/api/workbench/rpc', { method: 'POST', headers: { 'content-type': 'application/json', 'x-workbench-token': boot.token }, body: JSON.stringify({ method: 'identity', args: [] }) });
