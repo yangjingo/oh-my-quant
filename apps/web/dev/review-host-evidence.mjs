@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
+import { advanceFixture } from './review-host-control.mjs';
 
 export async function captureHost({ browser, output, root }) {
   const child = spawn('bun', ['run', 'tests/app/dev/review-host-fixture.ts'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -8,6 +9,7 @@ export async function captureHost({ browser, output, root }) {
   const closed = new Promise(done => child.once('close', done));
   let context;
   const results = [];
+  let delayedToolGateObservations = 0;
   try {
     const fixture = await new Promise((done, reject) => {
       let text = ''; const timer = setTimeout(() => reject(new Error('Fixture startup timeout: ' + logs)), 30000);
@@ -22,7 +24,7 @@ export async function captureHost({ browser, output, root }) {
       if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error(name + ': page overflow');
       await page.screenshot({ path: join(output, name + '.png'), scale: 'css' }); results.push(name);
     };
-    const next = async () => { if (!(await fetch(fixture.control + '/advance', { method: 'POST' })).ok) throw new Error('Fixture control failed'); };
+    const next = async () => { delayedToolGateObservations += await advanceFixture(fixture.control); };
     const state = async label => page.locator('.agent-status-label').last().filter({ hasText: new RegExp('^' + label + '$') }).waitFor();
     await page.goto(fixture.origin); const input = page.getByRole('combobox', { name: '研究问题', exact: true }); await input.waitFor();
     await page.getByRole('button', { name: '刷新行情', exact: true }).waitFor();
@@ -134,7 +136,7 @@ export async function captureHost({ browser, output, root }) {
     await legacyAnswer.scrollIntoViewIfNeeded(); await capture('host-reading-wide');
     await page.setViewportSize({ width: 390, height: 480 }); await legacyAnswer.scrollIntoViewIfNeeded(); await capture('host-reading-narrow');
     if (errors.length) throw new Error(errors.join('\n'));
-    return { result: 'passed', captures: results, data: 'controlled fake provider / actual core and calculator', errors };
+    return { result: 'passed', captures: results, data: 'controlled fake provider / actual core and calculator', delayedToolGateObservations, errors };
   } finally {
     await context?.close(); if (child.exitCode === null) child.kill('SIGTERM'); await closed;
     await writeFile(join(output, 'host-fixture-log.txt'), logs);

@@ -16,7 +16,11 @@ const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 255, a
   const url = new URL(request.url);
   if (url.pathname === "/state") return Response.json({ stage, requests, canAdvance: !!advance });
   if (url.pathname === "/market" && request.method === "POST") { marketRound++; return Response.json({ marketRound }); }
-  if (url.pathname === "/advance" && request.method === "POST") { const next = advance; advance = undefined; next?.(); return Response.json({ stage, requests }); }
+  if (url.pathname === "/advance" && request.method === "POST") {
+    const next = advance;
+    if (!next) return Response.json({ stage, requests, advanced: false }, { status: 409 });
+    advance = undefined; next(); return Response.json({ stage, requests, advanced: true });
+  }
   const payload = await request.json() as { model: string; messages: { role: string; content: unknown }[] }; requests++;
   const index = payload.messages.findLastIndex(message => message.role === "user");
   const returning = payload.messages.slice(index + 1).some(message => message.role === "tool");
@@ -54,6 +58,8 @@ const service = createWorkbenchService({ cwd: root, overview: {
   const deps = createDefaultSessionDependencies({ cwd: root });
   return { ...deps, tools: deps.tools.map(tool => tool.name !== "calculate_position_scenarios" ? tool : { ...tool, async execute(...args: Parameters<typeof tool.execute>) {
     stage = "executing"; const signal = args[2];
+    const gateDelayMs = Number(process.env.WHYJ_REVIEW_TOOL_GATE_DELAY_MS ?? 0);
+    if (Number.isFinite(gateDelayMs) && gateDelayMs > 0) await Bun.sleep(gateDelayMs);
     await new Promise<void>((done, reject) => {
       const cancel = () => { stage = "idle"; advance = undefined; reject(new Error("Controlled tool stopped")); };
       advance = () => { signal?.removeEventListener("abort", cancel); done(); };
