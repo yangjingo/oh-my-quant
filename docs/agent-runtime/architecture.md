@@ -13,6 +13,7 @@
 | `apps/desktop/` | Electron、PTY/xterm 与安装包 |
 | `src/app/research-workspace/` | 旧研究宿主与原生 Web UI |
 | `src/app/services/` | 无终端回调的 Quant 执行、旧单股复核及元数据协调 |
+| `src/app/bootstrap.ts`、`src/app/host/` | 工作区实例发现、认证复用、Bun 子进程与客户端生命周期 |
 | `src/app/workbench/` | HTTP/SSE 与投影辅助；执行委托 services |
 | `src/app/paper-execution/` | 显式私有模拟盘宿主与独立账本 |
 | `site/` | 独立静态官网，不连接本地研究数据 |
@@ -23,7 +24,7 @@
 
 旧单股研究工作区的运行与取消由独立[研究宿主](../../src/app/research-workspace/manager.ts)管理，未保存进度只在内存中：页面刷新可接回，服务重启则只从显式保存的对话和固定证据重建上下文，不重放完整 journal 或自动获取新行情。关闭浏览器只断开订阅，不停止任务。首次研究须有结构化发布结果才能保存，后续解释型对话不冒充新研究；复核另开会话取证并关联旧版本。这些现状边界不能由下方目标 Host 的恢复承诺代替。
 
-React 的无界面运行与固定报告接口见[无界面服务](./services.md)，交互与行情、会话和草稿连续性见 [Web 模块](../quant-harness/web-ui.md)。Host 发现、跨入口适配与完整执行恢复仍待实现。
+React 的运行与固定报告见[无界面服务](./services.md)，行情与会话交互见 [Web 模块](../quant-harness/web-ui.md)，发现与停止见 [Host](./host.md)。CLI/TUI、Electron 接入及完整恢复仍待实现。
 
 ## 当前依赖契约
 
@@ -93,7 +94,7 @@ GUI 采用 React＋TypeScript＋Vite，服务采用 Bun HTTP/SSE；不假定 Bun
 
 规划顺序为 #51 → #46 → #75 → #76 → #50 → #47 → #105/#77 → #78 → #48/#56。#98/#102 和提前合入的 #105 应复用；#105 的对话连续性不等于 #77 的工作流恢复。具体前置条件与验收见[顺序表](./host.md#顺序复用与完成条件)。#78 可先补测试发现，跨入口验收在真实能力到位后执行。
 
-单次 CLI 可直调无界面服务；同一工作区的共享运行通过 Host 维持唯一所有者。帮助/版本不启动 Host。关窗、退订和显式取消分别处理；停止后端需明确影响范围。全机退出、OS daemon 与休眠期间继续运行不在本轮承诺中。
+当前 Host 实现所有权锁、登记、版本握手与显式停止；CLI/TUI 与 Electron 尚未接入。目标单次 CLI 可直调无界面服务，共享运行通过 Host 维持唯一所有者。关窗、退订和取消分别处理；不承诺 daemon、全机退出或休眠期间运行。
 
 ## 测试布局
 
@@ -105,7 +106,7 @@ GUI 采用 React＋TypeScript＋Vite，服务采用 Bun HTTP/SSE；不假定 Bun
 
 ## 开发入口与 npm 命令
 
-`dev` 保持 CLI/TUI，`workspace:dev` 运行旧宿主；`web:dev` / `web:demo` 运行未连接界面/演示；`web:start` 构建并启动本机 Host，`web:host` 使用已有产物。Host＋Vite/Electron 联调仍待接入。
+`dev` 保持 CLI/TUI，`workspace:dev` 为旧前台宿主；`web:dev` / `web:demo` 为未连接界面/演示；`web:start` 构建并发现 Host，`web:host` 使用已有产物，`host:stop` 停止独立后端。Vite/Electron 联调待接入。
 
 工具保留各模块 `dev/`：构建归 cli，测量/评测归 runtime，绘制/报告归 tui/artifact，IO 基准归 storage。根 `scripts/` 已退役；探针不进入默认 Agent 能力。子进程回归固定 cwd、隔离配置并使用假服务。
 

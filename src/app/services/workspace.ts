@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
-import { realpathSync, statSync } from "node:fs";
+import { mkdirSync, realpathSync, statSync } from "node:fs";
 import { ensureDirs, resolveOhquantDir } from "../../storage/index.ts";
 
 /** Resolve links and filesystem casing before hashing; paths never enter public state. */
-export function researchWorkspaceId(): string {
-  ensureDirs();
-  let canonical = realpathSync.native(resolveOhquantDir());
+export function researchWorkspaceId(root?: string): string {
+  if (root === undefined) ensureDirs(); else mkdirSync(root, { recursive: true });
+  let canonical = realpathSync.native(root ?? resolveOhquantDir());
   if (process.platform === "win32") {
     // Preserve the existing identity on ordinary Windows roots, but do not
     // collapse distinct directories when case-sensitive names are enabled.

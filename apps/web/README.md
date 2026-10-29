@@ -10,7 +10,7 @@ From the repository root:
 bun install --cwd apps/web --frozen-lockfile
 bun run web:dev       # application entry: explicit disconnected Host state
 bun run web:demo      # same React UI, explicit synthetic development adapter
-bun run web:start     # build + real local Agent Host at 127.0.0.1:4182
+bun run web:start     # build + start/reuse the local Agent Host; prints its loopback URL
 bun run web:check     # types, client/editor/boundary tests, production build and fixture exclusion
 bun run --cwd apps/web build:demo
 ```
@@ -25,7 +25,7 @@ $env:WHYJ_WEB_PORT = '4182' # optional
 bun run web:start
 ```
 
-The directory uses the existing `.ohquant` settings format: configure the provider, credentials and model through the existing local configuration workflow. No credentials or history are copied automatically. `web:host` serves an already built `dist/`; plain Vite/preview remains disconnected. Stop the foreground Host with Ctrl+C. A workspace lock prevents a second Host from writing the same directory.
+The directory uses the existing `.ohquant` settings format: configure the provider, credentials and model through the existing local configuration workflow. No credentials or history are copied automatically. `web:host` serves an already built `dist/`; plain Vite/preview remains disconnected. The launcher returns after authenticated readiness and the detached Host survives its terminal. Use `bun run host:stop` to explicitly stop the selected workspace backend, including active research. Workspace discovery reuses a compatible instance; an incompatible or uncertain owner is diagnosed instead of starting another writer. See the [Host lifecycle](../../docs/agent-runtime/host.md).
 
 The Host reuses the Quant/Pi Agent and registered research tools, excluding shell tools and external skills for this initial connection. The model panel edits the selected provider's model ID and supported thinking level; keys stay on the server. A saved configuration is not proof of a successful provider request. Use the hypothetical-data starter to verify a real tool call before configuring market sources.
 

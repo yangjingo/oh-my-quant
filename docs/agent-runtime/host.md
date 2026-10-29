@@ -29,7 +29,7 @@ workspaceId 绑定 storage resolver 选择的同一本地数据根：规范化�
 
 sessionId 标识对话；runId 标识一次执行；artifactId/version/hash 标识固定成果，三者不能互换。新建会话不启动 Agent。修改请求必须匹配 workspaceId、sessionId 和修订；不匹配分别返回可区分的 `WORKSPACE_MISMATCH`、`SESSION_NOT_FOUND`、`REVISION_CONFLICT` 或 `RUN_CONFLICT`。同一 requestId 的相同输入返回同一接受结果，输入不同则冲突；#46 提供存活期间去重，跨崩溃的提交记录由 #77 接管，未交付前重连不得自动重试提交。
 
-状态至少区分 idle、running、needs_input、settled、cancelled、failed、interrupted。取消提交终态后拒绝该 run 的后续写入；继续创建新 run，不能把 cancelled 改回 running。目标 Host 每次启动生成 instanceId，快照带 instanceId 和单调 revision；客户端只在同一实例内比较 revision。当前 #46 服务尚未提供实例标识，由 #75 实现。实例改变时重新读取，不把旧实例迟到的高 revision 当新状态。
+状态至少区分 idle、running、needs_input、settled、cancelled、failed、interrupted。取消提交终态后拒绝该 run 的后续写入；继续创建新 run，不能把 cancelled 改回 running。Host 每次启动生成 instanceId，SSE 信封携带实例标识和会话修订；服务快照本身不携带 instanceId。客户端只应在同一实例内比较 revision，实例改变时重新读取；入口侧完整拦截旧实例迟到事件仍须在 #50/#76 验证。
 
 ## 工作区发现与启动
 
@@ -66,9 +66,19 @@ Host 跟踪已附着客户端及活动运行；网络断连不表示用户授权
 
 完成或取消后释放 Agent、订阅和临时缓冲，旧历史按需读取。当前旧研究管理器的 50 次研究、12 轮历史保护不能因引入 Host 被直接移除；先记录重复会话和跨日 fixture 的 Agent/observer 数、内存、快照字节、重连耗时，再在 #77 提出有证据的替代预算。初版保留全量快照；只有测量证明需要时才引入含序号、保留窗口和缺口重同步的增量协议。
 
+## 当前工作区 Host 实现
+
+`src/app/bootstrap.ts` 持启动锁发现并认证兼容实例；没有存活或无法确认的所有者时才启动 Bun Host。storage 在私有 `.host/` 中原子发布非空锁目录和登记；只在确认进程死亡时回收，损坏、未知或不兼容的状态保留并报错。锁目录不递归删除，PID 和文件时间戳不单独作为终止或抢占凭据。
+
+Host 仅监听 loopback，校验 Host、Origin、Fetch Metadata 与连接 token；显式停止还要求私有控制能力和匹配的 instanceId，浏览器 bootstrap 不提供该能力。就绪登记含实例、工作区与协议版本，Host 关闭时释放自身登记和锁。登记权限依赖本机文件系统及 Windows 账户 ACL，不承诺同账户恶意程序隔离；工具结果中可能出现本地路径的限制仍由 #142 跟进。
+
+Web SSE 断连只释放观察；客户端登记以 90 秒租约维持存在，过期不取消研究。空闲停止检查其他客户端、观察者、在途操作与活动运行；显式停止拒绝新操作并收束运行。旧单股前台入口同样取得执行锁。CLI/TUI 和 Electron 接入分别由 #76、#47 负责；崩溃后的副作用对账仍属 #77。
+
+`bun run web:start` 构建界面后启动或复用 Host，`bun run web:host` 使用现有产物，`bun run host:stop` 显式停止。Windows/Bun 使用隐藏 PowerShell broker 保留启动子进程句柄至就绪；Node/Electron 必须显式提供 Bun 可执行文件。并发启动、认证、真实进程停止及重连由 Host 测试覆盖，不能以浏览器测试代替安装包或目标机器验收。
+
 ## 顺序、复用与完成条件
 
-原规划按下列顺序逐项实施；#105 已提前合入，剩余事项各自保留独立 Issue/PR。后续分支基于当时最新 main；确需未合入依赖时显式记录临时堆叠关系，最终目标仍为 main。目录迁移与会话连续性中已交付的部分不重做。
+原规划按下列顺序逐项实施；#51、#46 和 #105 已合入，其他事项各自保留独立 Issue/PR。后续分支基于当时最新 main；确需未合入依赖时显式记录临时堆叠关系，最终目标仍为 main。目录迁移与会话连续性中已交付的部分不重做。
 
 | 顺序 | 负责事项 | 进入下一阶段的证据 |
 | --- | --- | --- |

@@ -27,6 +27,8 @@
 
 独立 Vite/preview 入口使用未连接适配器并禁用提交；`web:start` 构建后由本机 Host 提供静态页面，入口标记选择真实客户端。只有显式 `demo` 模式加载 `dev/demo-client.ts`；生产构建检查拒绝示例运行和会话标记。演示模式明确标注合成行情、证据及报告；其偏好可存入独立浏览器键，模拟会话只在内存中。
 
+`web:start` / `web:host` 经[共享 Host bootstrap](../agent-runtime/host.md)认证复用同一工作区实例，默认打印系统分配的 loopback 地址后返回。关页或启动终端退出只断开入口；`host:stop` 才显式停止后端。不同协议、损坏登记或活进程就绪失败不会触发替代写入者。Vite 独立界面保持未连接，正式 Desktop/TUI 接入仍由对应入口迁移负责。
+
 ## 初步本机 Agent 连接（#101）
 
 `src/app/services/research.ts` 通过现有 `createQuantResearchAgent` 与 runtime 依赖组装复用 Pi 会话、工具和 journal；`src/app/workbench` 提供 HTTP/SSE 适配，不新增执行循环。初始连接排除 shell、外部 skills 和动态工具配置。共享 DTO 归 `src/types/workbench.ts`，Web 只通过 `client/host.ts` 的 HTTP RPC 与 fetch SSE 交互。Host 仅监听 127.0.0.1，校验 Host/Origin、内存 capability token 和严格参数；token 不写 URL，模型凭证不发给 renderer。工作区锁限制单一写入者，但不提供 Host 发现和跨入口接续。

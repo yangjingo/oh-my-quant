@@ -937,12 +937,11 @@ for (const phase of ["waiting", "thinking", "tool"] as const) test(`actual Host 
     if (phase === "thinking") expect((await rpc<SessionSnapshot>("session", [target.sessionId])).turns.at(-1)?.phase).toBe("thinking");
     if (phase === "tool") expect(readFileSync(join(root, "tool-receipt"), "utf8")).toBe("started\n");
     processHost.child.kill("SIGKILL"); await processHost.child.exited;
-    console.log(`Crash fixture ${phase}: killed; waiting for ownership lease`);
+    console.log(`Crash fixture ${phase}: process exit observed; reclaiming ownership`);
     const originals = readdirSync(root, { recursive: true }).filter((name): name is string => typeof name === "string" && (/settings|sessions/.test(name)) && name.endsWith(".json") || typeof name === "string" && name.endsWith(".jsonl"))
       .map(name => ({ name, bytes: readFileSync(join(root, name)) }));
     const count = requests.length;
-    // A killed production Host retains its ownership lease until natural stale expiry.
-    await Bun.sleep(31000);
+    // Process exit was observed above. Recovery must not wait for an mtime lease.
     processHost = await spawn(false); rpc = await rpcClient(processHost.url);
     console.log(`Crash fixture ${phase}: restarted`);
     const recovered = await rpc<SessionSnapshot>("session", [target.sessionId]);
