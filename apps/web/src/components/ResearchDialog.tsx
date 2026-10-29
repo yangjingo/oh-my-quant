@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { SessionSnapshot } from "../client/contract";
+import { useEffect, useRef, useState } from "react";
+import type { ArtifactSummary, SavedResearch, SessionSnapshot } from "../client/contract";
 import { confidenceLabels, researchSummary } from "../presentation";
 import { Dialog } from "./UI";
 import { ResearchMarkdown } from "./Markdown";
@@ -11,11 +11,26 @@ export type ResearchPage = "conclusion" | "evidence" | "report";
 const pages: ResearchPage[] = ["conclusion", "evidence", "report"];
 const labels = { conclusion: "结论与条件", evidence: "证据", report: "报告版本" };
 
-export function ResearchDialog({ page, setPage, snapshot, title, demo, onClose }: {
+export function ResearchDialog({ page, setPage, snapshot, title, demo, canSave, canOpen, canReview, onSave, onOpen, onReview, onClose }: {
   page: ResearchPage; setPage(page: ResearchPage): void; snapshot: SessionSnapshot; title: string; demo: boolean; onClose(): void;
+  canSave: boolean; canOpen: boolean; canReview: boolean; onSave(): Promise<void>; onOpen(artifact: ArtifactSummary): Promise<SavedResearch>; onReview(artifact: ArtifactSummary, text: string): Promise<void>;
 }) {
   const [copied, setCopied] = useState("");
   const [compare, setCompare] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [feedback, setFeedback] = useState<{ error: boolean; text: string } | null>(null);
+  const feedbackElement = useRef<HTMLParagraphElement>(null);
+  const [saved, setSaved] = useState<SavedResearch | null>(null);
+  const [review, setReview] = useState<ArtifactSummary | null>(null);
+  const [question, setQuestion] = useState("");
+  useEffect(() => { if (feedback?.error) feedbackElement.current?.scrollIntoView({ block: "nearest" }); }, [feedback]);
+  const perform = async (action: () => Promise<void>, success: string) => {
+    if (pending) return;
+    setPending(true); setFeedback(null);
+    try { await action(); setFeedback({ error: false, text: success }); }
+    catch (error) { setFeedback({ error: true, text: error instanceof Error ? error.message : "操作未完成，请重新读取后再试。" }); }
+    finally { setPending(false); }
+  };
   const output = snapshot.output;
   const calls = snapshot.turns.flatMap(turn => (turn.activity ?? []).map(item => ({ item, turnId: turn.id, at: turn.at })));
   const artifacts = [...output.artifacts].sort((a, b) => b.version - a.version);
@@ -61,14 +76,17 @@ export function ResearchDialog({ page, setPage, snapshot, title, demo, onClose }
         <p className="notice">来源摘要与工具返回均不代表独立核验。此入口不读取本地原始文件，也不提供完整归档或报告。</p>
       </>}
       {page === "report" && <>
-        <div className="section-intro"><h3>保留版本，方便以后再看</h3><p>以下是客户端提供的报告版本标识。下载按钮只导出当前可见摘要。</p></div>
-        {artifacts.map((artifact, index) => <article className="evidence-card" key={artifact.id}>
+        <div className="section-intro"><h3>保留版本，方便以后再看</h3><p>保存已完成研究的固定版本；查看历史版本不会启动新的研究。</p><button className="action" disabled={!canSave || pending || snapshot.state !== "settled" || !snapshot.identity.runId} onClick={() => void perform(onSave, "报告版本已保存。")}>保存当前研究</button></div>
+        {artifacts.map((artifact, index) => <article className="evidence-card" key={artifact.id + artifact.version + artifact.sha256}>
           <div className="evidence-heading"><h3>{artifact.title}</h3><span className="badge">v{artifact.version}{index === 0 ? " · 最新记录" : ""}</span></div>
           <p className="supporting">{artifact.createdAt}</p><details><summary>文件校验标识 SHA-256</summary><code>{artifact.sha256}</code><button className="text-action" onClick={() => void navigator.clipboard.writeText(artifact.sha256).then(() => setCopied("校验标识已复制。"), () => setCopied("复制未完成，请展开后手动选择标识。"))}>复制校验标识</button></details>
+          <div className="report-actions"><button className="text-action" disabled={!canOpen || pending} onClick={() => void perform(async () => { setSaved(await onOpen(artifact)); setReview(null); }, "已打开固定版本。")}>查看记录</button><button className="text-action" disabled={!canReview || pending} onClick={() => { setReview(artifact); setSaved(null); setFeedback(null); }}>发起复核</button></div>
         </article>)}
-        {artifacts.length > 1 && <><button className="text-action" aria-expanded={compare} onClick={() => setCompare(!compare)}>对照最近两个版本的标识</button>{compare && <div className="version-comparison"><div className="table-scroll" role="region" aria-label="版本标识对照" tabIndex={0}><table><thead><tr><th>字段</th>{artifacts.slice(0, 2).map(a => <th key={a.id}>v{a.version}</th>)}</tr></thead><tbody><tr><th>记录时间</th>{artifacts.slice(0, 2).map(a => <td key={a.id}>{a.createdAt}</td>)}</tr><tr><th>SHA-256</th>{artifacts.slice(0, 2).map(a => <td key={a.id}><code>{a.sha256}</code></td>)}</tr></tbody></table></div><p className="supporting">这是版本元数据对照。哈希不同不说明市场或结论发生了什么变化；当前尚未提供报告正文对比。</p></div>}</>}
-        {!artifacts.length && <div className="empty-state"><h3>{demo ? "还没有保存的报告版本" : "当前连接未开放报告目录"}</h3><p>版本目录由研究服务提供，结束一次对话不会自动生成不可变报告。</p></div>}
-        <p className="notice">原始报告读取和重新取证复核尚未接入。当前摘要不能用于恢复完整运行。</p>
+        {saved && <section className="saved-report" aria-label="保存的研究记录"><h3>固定记录 · v{saved.artifact.version}</h3><p className="supporting">只读记录，未恢复或启动运行。证据 {saved.evidence.filter(item => item.available).length} / {saved.evidence.length} 可用，数据仍需核对。</p>{saved.turns.map(turn => <article key={turn.id}><strong>{turn.role === "user" ? "问题" : "回答"}</strong><div className="markdown-body"><ResearchMarkdown text={turn.text || "（无文字内容）"} /></div></article>)}</section>}
+        {review && <section className="saved-report"><h3>复核版本 v{review.version}</h3><p className="supporting">将从固定版本创建独立会话，并按你的问题开始新的研究。</p><label className="field-row">复核问题<textarea aria-label="复核问题" value={question} onChange={event => setQuestion(event.target.value)} rows={3} /></label><button className="action primary-action" disabled={pending || !question.trim()} onClick={() => void perform(async () => { await onReview(review, question); setReview(null); setQuestion(""); }, "复核已提交；新会话会出现在会话列表中。")}>开始复核</button></section>}
+        {artifacts.length > 1 && <><button className="text-action" aria-expanded={compare} onClick={() => setCompare(!compare)}>对照最近两个版本的标识</button>{compare && <div className="version-comparison"><div className="table-scroll" role="region" aria-label="版本标识对照" tabIndex={0}><table><thead><tr><th>字段</th>{artifacts.slice(0, 2).map(a => <th key={a.id + a.version + a.sha256}>v{a.version}</th>)}</tr></thead><tbody><tr><th>记录时间</th>{artifacts.slice(0, 2).map(a => <td key={a.id + a.version + a.sha256}>{a.createdAt}</td>)}</tr><tr><th>SHA-256</th>{artifacts.slice(0, 2).map(a => <td key={a.id + a.version + a.sha256}><code>{a.sha256}</code></td>)}</tr></tbody></table></div><p className="supporting">这是版本元数据对照。哈希不同不说明市场或结论发生了什么变化；当前尚未提供报告正文对比。</p></div>}</>}
+        {!artifacts.length && <div className="empty-state"><h3>还没有保存的报告版本</h3><p>结束一次对话不会自动生成不可变报告。</p></div>}
+        {feedback && <p ref={feedbackElement} className={feedback.error ? "operation-feedback error-feedback" : "operation-feedback"} role={feedback.error ? "alert" : "status"}>{feedback.text}</p>}
       </>}
     </section>
     <footer className="research-footer"><span role="status">{copied || (demo ? "全部内容为合成示例" : "保留来源与缺失信息")}</span><button className="action" onClick={download}>下载当前摘要 Markdown</button></footer>

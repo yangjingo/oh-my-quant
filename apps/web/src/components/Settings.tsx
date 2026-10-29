@@ -10,6 +10,7 @@ export function Settings(props: {
   page: DialogPage; setPage(page: DialogPage): void; onClose(): void;
   preferences: Preferences; onPreferences(prefs: Preferences): Promise<void>;
   snapshot: SessionSnapshot | null; title: string; onRename(title: string): Promise<void>;
+  canDelete: boolean; onDelete(): Promise<void>;
   fontSize: number; onFontSize(size: number): void; onStop(): void; mode: string;
 }) {
   const [model, setModel] = useState(props.preferences.model);
@@ -17,6 +18,7 @@ export function Settings(props: {
   const [title, setTitle] = useState(props.title);
   const [feedback, setFeedback] = useState<{ error: boolean; text: string } | null>(null);
   const [pending, setPending] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const perform = async (action: () => Promise<void>, success: string) => {
     if (pending) return;
     setPending(true); setFeedback(null);
@@ -52,7 +54,8 @@ export function Settings(props: {
         </> : <><p>仅连接成功的数据源才能提供行情。变更偏好不会把旧数据当作新数据。</p><label className="field-row">数据源<select aria-label="数据源" disabled={pending} value={props.preferences.source} onChange={event => void savePreferences({ ...props.preferences, source: event.target.value as Preferences["source"] })}><option value="none">未启用</option>{props.mode === "demo" && <option value="demo">本地合成 · 示例</option>}<option value="akshare">AKShare · 需研究服务连接</option></select></label></>}</>}
         {props.page === "portfolio" && <><p>观察组用于行情概览，不改变已经保存的研究。</p>{props.preferences.availablePortfolios?.length ? <label className="field-row">观察组<select aria-label="投资组合" value={props.preferences.portfolio} disabled={pending} onChange={event => void savePreferences({ ...props.preferences, portfolio: event.target.value })}>{props.preferences.availablePortfolios.map(name => <option key={name}>{name}</option>)}</select></label> : <p className="notice">研究服务尚未提供观察组。</p>}</>}
         {props.page === "runtime" && <><h3>{props.title || "当前会话"}</h3><p>{props.snapshot ? runLabels[props.snapshot.state] : "研究服务未连接"}</p><button className="action" disabled={props.snapshot?.state !== "running"} onClick={props.onStop}>停止生成</button><p className="supporting">关闭面板、切换会话只改变查看位置，研究仍会继续。</p>{props.snapshot?.identity.runId && <details><summary>运行标识</summary><code>{props.snapshot.identity.runId}</code></details>}</>}
-        {props.page === "session" && <><label className="field-row">会话名称<input aria-label="会话名称" value={title} disabled={pending} onChange={event => { setTitle(event.target.value); setFeedback(null); }} /></label><button className="action primary-action" disabled={pending || !props.snapshot} onClick={() => void perform(() => props.onRename(title), "会话名称已保存。")}>保存名称</button></>}
+        {props.page === "session" && <><label className="field-row">会话名称<input aria-label="会话名称" value={title} disabled={pending} onChange={event => { setTitle(event.target.value); setFeedback(null); }} /></label><button className="action primary-action" disabled={pending || !props.snapshot} onClick={() => void perform(() => props.onRename(title), "会话名称已保存。")}>保存名称</button>
+          <div className="delete-session"><h3>删除会话</h3><p className="supporting">运行中的会话不能删除。报告文件会保留，但删除后不能再从该会话查看或复核。</p>{!confirmDelete ? <button className="action" disabled={pending || !props.canDelete || props.snapshot?.state === "running"} onClick={() => setConfirmDelete(true)}>删除当前会话</button> : <><p>确认删除“{props.title}”？会话记录将从工作区移除。</p><button className="action" disabled={pending} onClick={() => setConfirmDelete(false)}>取消</button><button className="action danger-action" disabled={pending} onClick={() => void perform(async () => { await props.onDelete(); props.onClose(); }, "会话已删除。")}>确认删除会话</button></>}</div></>}
         {props.page === "help" && <><h3>从问题开始</h3><p>/ 菜单提供界面操作，不执行 CLI 的全部命令。真实 Host 暂未开放文件、会话与证据引用；@ 候选仅在演示中可用。</p><dl className="shortcut-list"><dt>Enter</dt><dd>空闲时发送；运行中保留草稿</dd><dt>Shift + Enter</dt><dd>换行</dd><dt>Ctrl + G</dt><dd>停止当前会话正在运行的研究</dd><dt>↑ / ↓</dt><dd>选择输入候选</dd><dt>Tab / Enter</dt><dd>补全所选候选</dd><dt>Esc</dt><dd>收起候选或关闭弹窗</dd></dl><p className="supporting">引用由研究服务解释；演示候选不读取你的本机文件。</p></>}
         {props.page === "about" && <><h3>WhyJ Quant v{__APP_VERSION__}</h3><p>提问、检查证据、保留研究，再持续复核。</p><div className="notice">{props.mode === "demo" ? "当前为交互演示：数据、证据与报告均为合成示例，没有调用模型。" : props.mode === "disconnected" ? "当前界面尚未连接研究服务。此独立入口暂不能执行研究；请使用接入 Host 的应用入口。" : "当前界面连接到工作区研究服务。"}</div><p className="supporting">浏览器与桌面共用界面，运行与保存由研究服务管理。已结束不等于结论已核验。</p></>}
         {feedback && <p className={feedback.error ? "operation-feedback error-feedback" : "operation-feedback"} role={feedback.error ? "alert" : "status"}>{feedback.text}</p>}

@@ -1,5 +1,5 @@
 import { browserViewStorage, draftKey, selectionKey, type ViewStorage } from "./view-persistence";
-import type { MarketSnapshot, Preferences, SessionSnapshot, WorkbenchClient, WorkspaceSummary } from "../client/contract";
+import type { ArtifactSummary, MarketSnapshot, Preferences, SessionSnapshot, WorkbenchClient, WorkspaceSummary } from "../client/contract";
 
 export interface ViewState {
   phase: "loading" | "ready" | "error";
@@ -159,7 +159,7 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
     load, select, refreshMarket: (failedOnly = false) => refreshMarket(true, failedOnly),
     setDraft(text: string) { if (view.selected) saveDraft(workspace, view.selected, text); },
     async create() {
-      try { const session = await client.createSession(); publish({ sessions: await client.workspaces() }); await select(session.sessionId); }
+      try { const session = await client.createSession(); workspace = session.workspaceId; publish({ sessions: await client.workspaces() }); await select(session.sessionId); }
       catch (error) { report(error); }
     },
     async rename(title: string) {
@@ -173,6 +173,49 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
       }
       catch (error) { report(error); throw error; }
     },
+    async saveReport() {
+      const snapshot = view.snapshot, id = view.selected, ticket = generation;
+      if (!snapshot?.identity.runId || snapshot.state !== "settled" || !client.save) throw new Error("当前研究不能保存，请先完成研究并检查服务连接。");
+      const prior = snapshot.output.artifacts.filter(a => a.id === `workbench-${id}`).at(-1);
+      await client.save({ ...snapshot.identity, runId: snapshot.identity.runId, expectedRevision: snapshot.revision ?? 0, expectedArtifactRevision: prior?.sha256 ?? null });
+      if (view.selected === id && generation === ticket) await select(id!);
+    },
+    async openReport(artifact: ArtifactSummary) {
+      const snapshot = view.snapshot;
+      if (!snapshot || !client.reload) throw new Error("当前连接无法读取保存的研究。");
+      return client.reload({ workspaceId: snapshot.identity.workspaceId, sessionId: snapshot.identity.sessionId, artifactId: artifact.id, sha256: artifact.sha256 });
+    },
+    async reviewReport(artifact: ArtifactSummary, text: string) {
+      const snapshot = view.snapshot, selected = view.selected, ticket = generation, scope = workspace;
+      if (!snapshot || !client.review || !text.trim()) throw new Error("请填写复核问题并检查服务连接。");
+      const result = await client.review({ workspaceId: snapshot.identity.workspaceId, sessionId: snapshot.identity.sessionId,
+        artifactId: artifact.id, sha256: artifact.sha256, expectedRevision: snapshot.revision ?? 0, requestId: crypto.randomUUID(), text: text.trim() });
+      try { const sessions = await client.workspaces(); if (workspace === scope && generation === ticket) publish({ sessions }); } catch { /* The review was accepted; reconnect can refresh the list. */ }
+      if (workspace === scope && generation === ticket && view.selected === selected) { await select(result.sessionId); return view.selected === result.sessionId; }
+      return false;
+    },
+    async continueRun() {
+      const snapshot = view.snapshot, id = view.selected, ticket = generation;
+      if (!snapshot?.identity.runId || !client.continue || snapshot.recovery?.acknowledgementRequired) throw new Error("请先核对中断的研究并检查服务连接。");
+      await client.continue({ workspaceId: snapshot.identity.workspaceId, sessionId: snapshot.identity.sessionId, previousRunId: snapshot.identity.runId,
+        expectedRevision: snapshot.revision ?? 0, requestId: crypto.randomUUID() });
+      if (view.selected === id && generation === ticket) await select(id!);
+    },
+    async deleteSelected() {
+      const snapshot = view.snapshot, id = view.selected, ticket = generation, scope = workspace;
+      if (!snapshot || !id || !client.deleteSession) throw new Error("当前连接无法删除会话。");
+      await client.deleteSession({ workspaceId: snapshot.identity.workspaceId, sessionId: id, expectedRevision: snapshot.revision ?? 0 });
+      // A different tab may have written a newer draft. Keep local drafts after deletion.
+      if (workspace === scope) publish({ sessions: view.sessions.filter(session => session.sessionId !== id) });
+      let sessions: readonly WorkspaceSummary[];
+      try { sessions = await client.workspaces(); } catch { if (generation === ticket && view.selected === id) publish({ selected: null, snapshot: null, draft: "", sessions: view.sessions.filter(s => s.sessionId !== id) }); return; }
+      if (workspace !== scope || generation !== ticket) return;
+      publish({ sessions });
+      if (view.selected !== id) return;
+      const next = sessions.find(s => s.workspaceId === scope);
+      if (next) await select(next.sessionId);
+      else { ++generation; publish({ selected: null, snapshot: null, draft: "", phase: "ready" }); }
+    },
     async submit(text: string): Promise<boolean> {
       const snapshot = view.snapshot;
       if (!snapshot || snapshot.state === "running" || snapshot.recovery?.acknowledgementRequired) return false;
@@ -180,7 +223,7 @@ export function createWorkbenchStore(client: WorkbenchClient, storage: ViewStora
       try {
         const request = { workspaceId: snapshot.identity.workspaceId, sessionId: snapshot.identity.sessionId,
           requestId: crypto.randomUUID(), expectedRevision: snapshot.revision ?? 0, text };
-        if (snapshot.state === "needs_input") {
+        if (snapshot.state === "needs_input" || (snapshot.state === "settled" && snapshot.identity.runId && client.followup)) {
           if (!client.followup || !snapshot.identity.runId) throw new Error("当前服务不能接收澄清回答，请重新连接。");
           await client.followup({ ...request, previousRunId: snapshot.identity.runId });
         } else await client.submit(request);

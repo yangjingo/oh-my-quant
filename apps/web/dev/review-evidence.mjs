@@ -29,7 +29,7 @@ const start = (directory, outDir, port) => {
 let browser, context;
 const receipt = { headSha: process.env.REVIEW_HEAD_SHA, baseSha: process.env.REVIEW_BASE_SHA,
   checkoutSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
-  environment: { platform: process.platform, node: process.version }, data: 'synthetic demo and disconnected production only', captures: [] };
+  environment: { platform: process.platform, node: process.version }, data: 'synthetic demo, disconnected production, and isolated Host with controlled synthetic provider', captures: [] };
 try {
   const web = resolve(root, 'apps/web');
   const ready = [start(web, 'dist-demo', 4176)(), start(web, 'dist', 4177)()];
@@ -54,6 +54,7 @@ try {
   try { await readFile(hostCapture); hasHostCapture = true; }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   if (hasHostCapture) receipt.host = await (await import(pathToFileURL(hostCapture).href)).captureHost({ browser, output, root });
+  receipt.actions = await (await import('./review-actions-evidence.mjs')).captureActions({ browser, output, root });
   receipt.result = 'passed';
 } catch (error) { receipt.result = 'failed'; receipt.failure = String(error); throw error; }
 finally {
