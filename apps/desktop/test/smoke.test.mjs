@@ -29,17 +29,25 @@ async function runSmoke(t, { queryError, pids = [], failDiagnosticWrite = false 
   writeFileSync(join(root, "apps/desktop/package.json"), JSON.stringify({ version: "1.4.0" }));
   writeFileSync(join(home, "workspace/.ohquant/settings.json"), JSON.stringify({ preferences: { source: "akshare", marketColorScheme: "green-up" } }));
   writeFileSync(join(home, "window.json"), JSON.stringify({ width: 820 }));
+  let draft = "";
   const page = {
-    waitForFunction: async () => {}, screenshot: async () => {}, evaluate: async () => "undefined",
+    url: () => "http://127.0.0.1:4182/",
+    waitForFunction: async () => {}, screenshot: async () => {}, evaluate: async fn => {
+      const source = fn.toString();
+      if (source.includes("desktopRecovery")) return true;
+      if (source.includes("instanceId")) return "fixture-instance";
+      if (source.includes("bootstrap")) return { instanceId: "fixture-instance", token: "fixture-token", url: "http://127.0.0.1:4182" };
+      return "undefined";
+    },
     keyboard: { type: async () => {}, press: async () => {} }, on: () => {},
-    getByRole: () => ({ click: async () => {} }),
+    getByRole: () => ({ click: async () => {}, fill: async text => { draft = text; }, inputValue: async () => draft }),
     locator: selector => ({ isVisible: async () => false, innerText: async () => "fixture",
       textContent: async () => selector === "#status" ? "Desktop 1.4.0" : "15px",
       evaluate: async () => selector === "img.mark" ? true : "rgb(255, 243, 196)" }),
   };
   const application = { firstWindow: async () => page, waitForEvent: async () => {}, close: async () => {},
     evaluate: async fn => fn.toString().includes("getLastWebPreferences")
-      ? { nodeIntegration: false, sandbox: true, contextIsolation: true } : undefined };
+      ? { nodeIntegration: false, sandbox: true, contextIsolation: true } : fn.toString().includes("isVisible") ? false : undefined };
   const command = (file, args, options) => {
     if (file.endsWith("powershell.exe")) {
       if (queryError) throw queryError;
@@ -70,6 +78,9 @@ async function runSmoke(t, { queryError, pids = [], failDiagnosticWrite = false 
     scriptUrl: pathToFileURL(join(root, "apps/desktop/scripts/smoke.mjs")).href,
     process: { env: { SystemRoot: process.env.SystemRoot || "C:\\Windows", WHYJ_SMOKE_HOME: home, GITHUB_SHA: "fixture-revision" } },
     console: { log() {}, error() {} }, execFileSync: command,
+    createRequire: () => () => "electron.exe",
+    spawn: () => ({ once(event, callback) { if (event === "exit") queueMicrotask(() => callback(0)); return this; } }),
+    fetch: async () => { throw new Error("Host stopped"); },
     inspectProcesses: name => inspectProcesses(name, command),
     writeFileSync: (file, ...args) => {
       if (failDiagnosticWrite && queryError?.processQuery && /result\.json$/.test(file)) throw new Error("receipt disk failure");
@@ -92,7 +103,7 @@ test("post-close query timeout retains partial checks and the original failure w
   assert.equal(result?.status, "failed");
   assert.equal(result.stage, "process-cleanup-query");
   assert.equal(result.revision, "fixture-revision");
-  assert.equal(result.checks.length, 12);
+  assert.equal(result.checks.length, 7);
   assert.equal(result.processQuery.code, "ETIMEDOUT");
   assert.equal(result.processQuery.timeoutMs, 20000);
   assert.match(readFileSync(join(evidence, "failure.txt"), "utf8"), /ETIMEDOUT/);
@@ -109,7 +120,7 @@ test("normal completion retains every existing smoke check", async t => {
   const { error, result } = await runSmoke(t);
   assert.equal(error, undefined);
   assert.equal(result.status, "passed");
-  assert.equal(result.checks.length, 13);
+  assert.equal(result.checks.length, 8);
   assert.ok(result.checks.some(check => check.includes("both pinned repositories over HTTPS")));
   assert.deepEqual(result.processQuery.pids, []);
 });

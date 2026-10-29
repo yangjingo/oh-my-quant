@@ -351,7 +351,7 @@ equity[t] = cash[t] + positionShares[t] × price[t]
 <p>已有<a href="../../apps/tui/test/research-workflow.test.ts">键盘流程回归</a>覆盖设置、观察组合、研究、清空与恢复。这些检查约束原有行为，不能证明新的 GUI 或跨入口流程已交付。打开旧报告必须保留原数据与版本，不能为了“恢复成功”悄悄换成今天的数据。保存成果也不意味着中断的任务能继续执行。</p>
 <p>两种形态服务不同的使用习惯。Linux 专业用户沿用已有 CLI/TUI 做终端研究、确定性单次读取与脚本组合；Windows/macOS 用户通过 Desktop 安装、配置和持续研究。它们复用研究契约，各自维护交互体验；不能因为桌面改造而把 CLI 变成临时过渡。当前安装包覆盖 Windows，macOS 仍需独立交付验收。浏览器用于共享 UI 的开发、验证与可选访问；官网 <code>site/</code> 只承载公开内容和演示。</p>
 <h3>复用终端解决了启动，却没有形成对象协议</h3>
-<p>当前<a href="../../apps/desktop/scripts/build.ts">桌面构建</a>打包同一 CLI，<a href="../../apps/desktop/src/main.ts">主进程</a>通过 node-pty 启动它，<a href="../../apps/desktop/src/bridge.ts">Bridge</a>交换终端输入、尺寸与输出。这样能保留原有研究行为，也减少用户安装开发环境的负担。当前关窗仍退出 CLI，不能把未来的托盘保活写成已有能力。</p>
+<p>当前<a href="../../apps/desktop/scripts/build.ts">桌面构建</a>同时包含 CLI 和共享工作台；<a href="../../apps/desktop/src/main.ts">主进程</a>连接独立 Host，并通过托盘保留入口。关闭窗口不停止研究；显式停止后端会影响共享该 Host 的其他入口。</p>
 <p>字符流没有稳定表达“报告版本”“配置保存代次”和“请求身份”。若从屏幕文字推断这些对象，独立设置页、来源链接和报告比较就会形成另一份业务状态。现有 <code>src/app/research-workspace/</code> 已验证本地 HTTP/SSE 研究入口，但仍有自己的生命周期和资源限制，不等于已完成统一 Host。</p>
 <p>共享代码也存在耦合。<a href="../../src/app-runtime.ts">AppRuntime</a>仍导入 CLI 执行器与 TUI 类型；直接放进 <code>packages/core</code> 不会解除终端依赖。早期方案先讨论 <code>apps/cli</code>、<code>apps/desktop</code> 和领域 packages，却没有充分回答谁持有正在运行的 Agent、关窗后谁继续执行、两端如何找到同一实例。</p>
 <p>后续<a href="https://github.com/yangjingo/oh-my-quant/pull/79">定稿文章的 PR #79 审阅稿</a>将生命周期放在目录之前：先分离应用服务和宿主所有权，UI 与薄入口再消费它们。前端框架和首阶段传输已经选定；原先“技术栈仍待定”“正式 UI 只属于 Desktop renderer”的表述不再作为实施依据。</p>

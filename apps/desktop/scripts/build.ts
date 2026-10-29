@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const desktop = resolve(import.meta.dir, "..");
@@ -13,16 +13,26 @@ for (const entry of ["main", "preload"]) {
     target: "node", format: "cjs", naming: `${entry}.cjs`, external: ["electron", "node-pty"] });
   if (!result.success) throw new AggregateError(result.logs, `${entry} build failed`);
 }
-const renderer = await Bun.build({ entrypoints: [resolve(desktop, "src/renderer.ts")], outdir: resolve(desktop, "dist"),
+const renderer = await Bun.build({ entrypoints: [resolve(desktop, "src/recovery.ts")], outdir: resolve(desktop, "dist"),
   target: "browser", format: "iife", minify: true });
 if (!renderer.success) throw new AggregateError(renderer.logs, "Renderer build failed");
-for (const name of ["index.html", "style.css"]) copyFileSync(resolve(desktop, "src", name), resolve(desktop, "dist", name));
-copyFileSync(resolve(desktop, "node_modules/@xterm/xterm/css/xterm.css"), resolve(desktop, "dist/xterm.css"));
+const adapter = await Bun.build({ entrypoints: [resolve(desktop, "src/host-adapter.ts")], outdir: resolve(desktop, "dist"), target: "node", format: "esm", naming: "host-adapter.mjs" });
+if (!adapter.success) throw new AggregateError(adapter.logs, "Host adapter build failed");
+for (const name of ["recovery.html", "recovery.css"]) copyFileSync(resolve(desktop, "src", name), resolve(desktop, "dist", name));
 copyFileSync(resolve(desktop, "assets/app-icon.ico"), resolve(desktop, "dist/app-icon.ico"));
 copyFileSync(resolve(desktop, "assets/logo-mark.svg"), resolve(desktop, "dist/logo-mark.svg"));
+const web = Bun.spawn([process.execPath, "run", "build"], { cwd: resolve(root, "apps/web"), stdout: "inherit", stderr: "inherit" });
+if (await web.exited !== 0) throw new Error("Shared workbench build failed");
+cpSync(resolve(root, "apps/web/dist"), resolve(desktop, "runtime/web"), { recursive: true });
+const preparedBun = resolve(desktop, ".downloads/bun/bun-windows-x64-baseline/bun.exe");
+const compileBun = existsSync(preparedBun) ? preparedBun : process.execPath;
+const host = Bun.spawn([process.execPath, "build", resolve(desktop, "src/host.ts"), "--compile", "--target=bun-windows-x64-baseline",
+  "--minify-whitespace", "--minify-syntax", "--compile-executable-path", compileBun,
+  "--outfile", resolve(desktop, "runtime/whyj-host.exe")], { cwd: root, stdout: "inherit", stderr: "inherit" });
+if (await host.exited !== 0) throw new Error("Desktop Host build failed");
 const child = Bun.spawn([process.execPath, "build", resolve(root, "src/index.ts"), "--compile", "--target=bun-windows-x64-baseline",
   "--minify-whitespace", "--minify-syntax",
-  "--compile-executable-path", resolve(desktop, ".downloads/bun/bun-windows-x64-baseline/bun.exe"),
+  "--compile-executable-path", compileBun,
   "--outfile", resolve(desktop, "runtime/whyj.exe")], { cwd: root, stdout: "inherit", stderr: "inherit" });
 if (await child.exited !== 0) throw new Error("Standalone CLI build failed");
 mkdirSync(resolve(desktop, "runtime/notes/quant"), { recursive: true });
