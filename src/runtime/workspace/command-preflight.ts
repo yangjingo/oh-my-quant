@@ -70,7 +70,7 @@ export function commandPreflight(parsed: ParsedCommand): CommandResult | undefin
   if (command === "portfolio") {
     const count = positional.length;
     const valid = action === "list" ? count <= 1 : action === "create" ? count >= 2 : action === "rename" || action === "add" ? count >= 3
-      : action === "remove" ? count === 3 : action === "delete" ? count === 2 : action === "import";
+      : action === "remove" ? count === 3 : action === "delete" || action === "select" ? count === 2 : action === "import";
     if (!valid) return fail("Invalid portfolio action or argument count.");
   }
   if (command === "skill") {

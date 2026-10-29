@@ -14,7 +14,7 @@ const invalid = [
   "/skill info Alpha --check-imports false", "/skill run Alpha --check-imports", "/skill list --check-imports",
   "/clear --dry-run", "/clear extra", "/exit --force", "/help --verbose", "/artifact --generate", "/config --unknown", "/config extra",
   "/compact --symbol AAPL", "/resume one two", "/resume --task false", "/resume session --task", "/resume --unknown",
-  "/portfolio delete Core --dry-run", "/portfolio list Core", "/portfolio add Core", "/portfolio use Core",
+  "/portfolio delete Core --dry-run", "/portfolio list Core", "/portfolio add Core", "/portfolio use Core", "/portfolio select", "/portfolio select Core extra",
   "/doctor --phase", '/doctor --phase ""', "/doctor --phase data,typo", "/doctor --phsae data", "/doctor extra",
   "/doctor --phase model --phase data", "/doctor --tool fetch_bars --phase data", "/doctor --tool",
   "/skill info Alpha --check false", "/skill list --scope", "/skill list extra", "/skill install owner/repo extra",
@@ -52,7 +52,7 @@ it("rejects invalid command arguments before settings, panels, mutation and diag
 it("preserves documented research commands, skill selectors, quoted labels and endpoint parameters", () => {
   for (const input of ["/clear", "/exit", "/compact retain original parameters", "/resume old-session", "/resume --task", "/portfolio",
     "/skill info technical-analyst", "/skill info technical-analyst",
-    '/portfolio create "Growth --US"', '/portfolio add "Growth US" AAPL "Apple Inc"', "/portfolio remove Core AAPL", "/portfolio import old group",
+    '/portfolio create "Growth --US"', '/portfolio select "Growth US"', "/portfolio select group-1", '/portfolio add "Growth US" AAPL "Apple Inc"', "/portfolio remove Core AAPL", "/portfolio import old group",
     "/doctor --phase DATA,tools", "/doctor --tool fetch_bars --market US --symbol AAPL --start 2025-01-06 --end 2025-01-17",
     "/skill list --scope user", "/skill info technical-analyst", "/skill info technical-analyst", "/skill install --repo owner/repo",
     "/skill info technical-analyst", "/skill info technical-analyst",

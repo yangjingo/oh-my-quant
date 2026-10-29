@@ -23,6 +23,8 @@
 | Overview Dock | 默认显示行情概览，关闭后释放分析区宽度 |
 | Market Colors | 默认红涨绿跌，可切换绿涨红跌；保存只重绘，不额外取数 |
 
+`/portfolio select GROUP` 选择一个已有观察组合；`GROUP` 可以是组合 ID 或带引号的名称。缺少参数、多余参数、未知名称或有歧义的名称不会修改当前选择。
+
 配色不翻转风险、失败和缺失值的语义；新报告冻结所选配色，旧版本不改写。历史 `currentPortfolioFile` 仅用于旧文件导入去重，不决定当前 Overview。交互见[UI/UX](../quant-harness/uiux.md)，比较规则见[组合比较](../quant-harness/portfolio-comparison.md)。
 
 ## 研究报告
