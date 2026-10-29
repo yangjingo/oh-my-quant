@@ -1,5 +1,7 @@
 # CI and Releases: Verify the Artifact We Deliver
 
+Prefer `gh` for GitHub issue and PR operations, including checks and reviewer attachments. Use `gh api` for supported operations without a dedicated command; use a browser or computer use when `gh` cannot perform the task or the user requests it. Tool choice does not change authorization or access requirements.
+
 Passing source tests, installing a package, publishing a release and updating the website are separate outcomes. This workflow keeps their evidence separate so that a green build cannot silently become a claim that users received a working download.
 
 `main` is the stable integration target, not necessarily the latest published version. Linux and Windows CI protect the shared foundation and CLI compatibility; Desktop installation checks currently cover Windows. macOS remains a delivery target requiring separate acceptance. See [product scope](./prd.md#scope).
