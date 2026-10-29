@@ -2,6 +2,11 @@ export type SkillFetch = (url: string, init: RequestInit) => Promise<Response>;
 
 const API = "https://api.github.com";
 const MAX_ARCHIVE_BYTES = 32 * 1024 * 1024;
+type Schedule = (ms: number, callback: () => void) => () => void;
+const scheduleTimeout: Schedule = (ms, callback) => {
+  const timer = setTimeout(callback, ms);
+  return () => clearTimeout(timer);
+};
 export const isRevision = (value: unknown): value is string => typeof value === "string" && /^[a-f0-9]{40}$/.test(value);
 
 async function bytes(response: Response, limit: number, signal: AbortSignal, progress: (size: number) => void): Promise<Buffer> {
@@ -18,7 +23,7 @@ async function bytes(response: Response, limit: number, signal: AbortSignal, pro
       signal.throwIfAborted();
       if (done) break;
       size += value.length;
-      progress(size);
+      if (value.length) progress(size);
       if (size > limit) throw new Error("GitHub download exceeded its size limit.");
       chunks.push(value);
     }
@@ -27,37 +32,48 @@ async function bytes(response: Response, limit: number, signal: AbortSignal, pro
 }
 
 /** Credentials go only to GitHub's API, never to the archive redirect or receipts. */
-export function skillGithub(request: SkillFetch, signal?: AbortSignal) {
+export function skillGithub(request: SkillFetch, signal?: AbortSignal, schedule: Schedule = scheduleTimeout) {
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
   const headers: Record<string, string> = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
   if (token) headers.Authorization = `Bearer ${token}`;
   async function get(path: string, archive = false): Promise<Buffer> {
-    const timeoutMs = archive ? 180_000 : 60_000;
+    const timeoutMs = archive ? 600_000 : 60_000;
     let stage = archive ? "requesting archive" : "requesting metadata", received = 0;
-    const timeout = AbortSignal.timeout(timeoutMs);
-    const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
-    combined.throwIfAborted();
+    const timeout = new AbortController(), idle = new AbortController();
+    const cancelTimeout = schedule(timeoutMs, () => timeout.abort());
+    let cancelIdle = () => {};
+    const resetIdle = () => {
+      if (!archive) return;
+      cancelIdle();
+      cancelIdle = schedule(60_000, () => idle.abort());
+    };
+    resetIdle();
+    const combined = AbortSignal.any([timeout.signal, idle.signal, ...(signal ? [signal] : [])]);
     try {
+      combined.throwIfAborted();
       let response = await request(`${API}${path}`, { headers, signal: combined, redirect: "manual" });
+      resetIdle();
       if (archive && response.status === 302) {
         const location = new URL(response.headers.get("location") || "", API);
         await response.body?.cancel();
         if (location.protocol !== "https:" || location.hostname !== "codeload.github.com" || location.port || location.username || location.password) throw new Error("Unexpected GitHub archive redirect.");
         response = await request(location.href, { signal: combined, redirect: "error" });
+        resetIdle();
       }
       if (!response.ok) {
         await response.body?.cancel();
         throw new Error(`GitHub request failed (HTTP ${response.status}). Check access/rate limits; private repositories require GH_TOKEN or GITHUB_TOKEN with Contents read access.`);
       }
       stage = archive ? "receiving archive" : "receiving metadata";
-      return await bytes(response, archive ? MAX_ARCHIVE_BYTES : 4 * 1024 * 1024, combined, size => { received = size; });
+      return await bytes(response, archive ? MAX_ARCHIVE_BYTES : 4 * 1024 * 1024, combined, size => { received = size; resetIdle(); });
     } catch (error) {
       if (signal?.aborted) throw new Error("Skill installation cancelled.");
-      if (timeout.aborted) throw new Error(`GitHub download timed out after ${timeoutMs} ms (${stage}; received ${received} bytes).`);
+      if (idle.signal.aborted) throw new Error(`GitHub archive download stalled for 60000 ms (${stage}; received ${received} bytes).`);
+      if (timeout.signal.aborted) throw new Error(`GitHub download timed out after ${timeoutMs} ms (${stage}; received ${received} bytes).`);
       // Fetch errors may contain signed redirect URLs. Return only our own diagnostics.
       if (error instanceof Error && /^(GitHub (request failed \(HTTP|download exceeded|returned)|Unexpected GitHub archive redirect)/.test(error.message)) throw error;
       throw new Error("GitHub download failed. Check network access and retry.");
-    }
+    } finally { cancelTimeout(); cancelIdle(); }
   }
   async function metadata(path: string): Promise<Record<string, unknown>> {
     const data = await get(path);
