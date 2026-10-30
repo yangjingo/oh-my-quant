@@ -63,6 +63,12 @@ const service = createWorkbenchService({ cwd: root, overview: {
   },
 }, dependencies: () => {
   const deps = createDefaultSessionDependencies({ cwd: root });
+  const cleanup = deps.env.cleanup.bind(deps.env);
+  const cleanupDelayMs = Number(process.env.WHYJ_REVIEW_CLEANUP_DELAY_MS ?? 0);
+  deps.env.cleanup = async () => {
+    if (Number.isFinite(cleanupDelayMs) && cleanupDelayMs > 0) await Bun.sleep(cleanupDelayMs);
+    await cleanup();
+  };
   return { ...deps, tools: deps.tools.map(tool => tool.name !== "calculate_position_scenarios" ? tool : { ...tool, async execute(...args: Parameters<typeof tool.execute>) {
     stage = "executing"; const signal = args[2];
     const gateDelayMs = Number(process.env.WHYJ_REVIEW_TOOL_GATE_DELAY_MS ?? 0);
