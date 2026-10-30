@@ -72,6 +72,15 @@ afterEach(() => {
 // ── Generator tests ──
 
 describe("generateArtifact", () => {
+  it("keeps session-derived chart labels inside generated script elements", () => {
+    const label = "</script><svg/onload=top.q=1>";
+    const path = writeSessionFile("chart-markup", [userMsg(`${label}  ███ 50\nsafe  ███ 60`)]);
+    const html = generateArtifact({ sessionPath: path })!.html;
+    expect(html).toContain("Factor Performance");
+    expect(html).not.toContain(label);
+    expect(html).toContain("\\u003c/script>");
+  });
+
   it("annualizes displayed returns by the actual dates and omits an undefined Sharpe", () => {
     const path = writeSessionFile("calendar-metrics", [userMsg("查看净值"), assistantMsg([
       "日期        净值    基准    沪深300",

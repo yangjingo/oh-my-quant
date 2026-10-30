@@ -9,6 +9,11 @@ import { WHYJ_THEME } from "../../types/theme-colors.ts";
 import { displayedMovement, displayedNumber, movementTone } from "../../types/metric-semantics.ts";
 import { metricValueClass, tableValueClass } from "./semantic-colors.ts";
 
+// JSON strings inside a script element must not close the HTML element.
+function scriptJson(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
 const INDICATOR_GLOSSARY = "<details class=\"ind-glossary\"><summary>指标说明</summary><div class=\"ig-body\"><div class=\"ig-item\"><span class=\"ig-name\">K线</span><span class=\"ig-desc\">蜡烛图, 显示开/收/高/低价, 收盘高于开盘为涨、低于为跌、相等为平；颜色约定见报告顶部</span></div><div class=\"ig-item\"><span class=\"ig-name\">MA5(5日均)</span><span class=\"ig-desc\">5日移动平均线, 反映超短期价格趋势</span></div><div class=\"ig-item\"><span class=\"ig-name\">MA10(10日均)</span><span class=\"ig-desc\">10日移动平均线, 短期趋势参考</span></div><div class=\"ig-item\"><span class=\"ig-name\">MA20(20日均)</span><span class=\"ig-desc\">20日移动平均线, 中期趋势生命线</span></div><div class=\"ig-item\"><span class=\"ig-name\">MA60(60日均)</span><span class=\"ig-desc\">60日移动平均线, 长期趋势, 牛熊分界线</span></div><div class=\"ig-item\"><span class=\"ig-name\">DIF(快线)</span><span class=\"ig-desc\">差离值 = EMA12 - EMA26, 反映短期动量</span></div><div class=\"ig-item\"><span class=\"ig-name\">DEA(慢线)</span><span class=\"ig-desc\">信号线 = DIF的9日EMA, DIF上穿DEA为金叉看涨</span></div><div class=\"ig-item\"><span class=\"ig-name\">MACD(柱线)</span><span class=\"ig-desc\">(DIF-DEA)*2, 正柱与负柱表示动量方向，零值为中性, 长短反映动能强弱</span></div><div class=\"ig-item\"><span class=\"ig-name\">Vol</span><span class=\"ig-desc\">成交量, 放量上涨确认趋势, 缩量上涨警惕背离</span></div></div></details>";
 
 // ── ECharts K-line render (multi-timeframe with tabs) ──
@@ -74,9 +79,9 @@ export function renderEchartsKline(kls: KlineData[]): string {
   const id = `kl${Math.random().toString(36).slice(2,6)}`;
   const firstKl = kls[0]!;
   const rawText = esc(firstKl.header.join("  ") + "\n" + firstKl.rows.map((r) => `${r.date}  ${r.open}  ${r.high}  ${r.low}  ${r.close}` + (r.vol ? `  ${r.vol}` : "")).join("\n"));
-  const json = JSON.stringify(tfData);
-  const bmJson = bm ? JSON.stringify(bm) : "null";
-  const bm2Json = bm2 ? JSON.stringify(bm2) : "null";
+  const json = scriptJson(tfData);
+  const bmJson = bm ? scriptJson(bm) : "null";
+  const bm2Json = bm2 ? scriptJson(bm2) : "null";
 
   const tabsHtml = tfLabels.map((tf, i) =>
     `<button class="klt-btn${i === 0 ? " on" : ""}" data-tf="${esc(tf)}">${esc(tf)}</button>`
@@ -95,7 +100,7 @@ export function renderEchartsKline(kls: KlineData[]): string {
     <div class="ec-raw"><pre>${rawText}</pre></div>
     ${INDICATOR_GLOSSARY}
   </div>
-  <script>(function(){var d=document.getElementById('${id}');if(!d||typeof echarts==='undefined')return;d.innerHTML='';var tfData=${json};var bm=${bmJson};var bm2=${bm2Json};var curTf='${esc(defaultTf)}';var ch=echarts.init(d,'dark');var css=getComputedStyle(d);var up=css.getPropertyValue('--up').trim()||'${WHYJ_THEME.marketUp}',dn=css.getPropertyValue('--down').trim()||'${WHYJ_THEME.marketDown}',gold='${WHYJ_THEME.gold}',cream='${WHYJ_THEME.cream}',muted='${WHYJ_THEME.muted}',hairline='${WHYJ_THEME.hairline}',canvas='${WHYJ_THEME.canvas}';
+  <script>(function(){var d=document.getElementById('${id}');if(!d||typeof echarts==='undefined')return;d.innerHTML='';var tfData=${json};var bm=${bmJson};var bm2=${bm2Json};var curTf=${scriptJson(defaultTf)};var ch=echarts.init(d,'dark');var css=getComputedStyle(d);var up=css.getPropertyValue('--up').trim()||'${WHYJ_THEME.marketUp}',dn=css.getPropertyValue('--down').trim()||'${WHYJ_THEME.marketDown}',gold='${WHYJ_THEME.gold}',cream='${WHYJ_THEME.cream}',muted='${WHYJ_THEME.muted}',hairline='${WHYJ_THEME.hairline}',canvas='${WHYJ_THEME.canvas}';
 	function buildOption(c){
 	  var ohlcData=c.ohlc.map(function(d){return d[0]===d[1]?{value:d,itemStyle:{color:muted,color0:muted,borderColor:muted,borderColor0:muted}}:d});
 	  var legendData=['K线','MA5(5日均)','MA10(10日均)','MA20(20日均)','MA60(60日均)','DIF(快线)','DEA(慢线)','MACD(柱线)'];
@@ -231,7 +236,7 @@ function formatPrice(value: number): string {
 export function renderEchartsBars(bars: FactorBar[]): string {
   const id = `fb${Math.random().toString(36).slice(2,6)}`;
   const rawText = esc(bars.map((b) => `${b.label}    ${"█".repeat(Math.round(b.pct/5))}${"░".repeat(Math.round((100-b.pct)/5))}  ${b.value}`).join("\n"));
-  const json = JSON.stringify(bars.map((b) => ({ label: b.label, value: b.pct })));
+  const json = scriptJson(bars.map((b) => ({ label: b.label, value: b.pct })));
 
   return `<div class="ec-box">
     <div class="ec-hdr"><span>Factor Performance</span>
@@ -269,7 +274,7 @@ export function renderFactorRadar(bars: FactorBar[]): string {
   const top = [...bars].sort((a, b) => b.pct - a.pct).slice(0, 12);
   const id = `fr${Math.random().toString(36).slice(2, 6)}`;
   const rawText = esc(bars.map((b) => `${b.label}    ${"█".repeat(Math.round(b.pct/5))}${"░".repeat(Math.round((100-b.pct)/5))}  ${b.value}`).join("\n"));
-  const json = JSON.stringify({
+  const json = scriptJson({
     indicators: top.map((b) => ({ name: b.label, max: 100 })),
     values: top.map((b) => b.pct),
   });
@@ -315,7 +320,7 @@ export function renderComparisonRadar(series: FactorSeries[]): string {
     <div class="ec-raw"><pre>${rawText}</pre></div>
     ${INDICATOR_GLOSSARY}
   </div>
-  <script>(function(){var d=document.getElementById('${id}');if(!d||typeof echarts==='undefined')return;var ch=echarts.init(d,'dark');ch.setOption({tooltip:{trigger:'item'},legend:{data:${JSON.stringify(series.map(s=>s.name))},bottom:0,textStyle:{fontSize:9,color:'#8F8A7B'}},radar:{indicator:${JSON.stringify(indicators)},center:['50%','48%'],radius:'58%',axisName:{fontSize:9,color:'#8F8A7B'},splitArea:{areaStyle:{color:['rgba(255,255,255,0.02)','rgba(255,255,255,0.04)']}},splitLine:{lineStyle:{color:'#3A362C'}},axisLine:{lineStyle:{color:'#3A362C'}}},series:[{type:'radar',data:[${radarData.map((d,i)=>{const c=COMPARE_COLORS[i%COMPARE_COLORS.length]!;const r=parseInt(c.slice(1,3),16);const g=parseInt(c.slice(3,5),16);const b=parseInt(c.slice(5,7),16);return`{value:${JSON.stringify(d.value)},name:${JSON.stringify(d.name)},lineStyle:{color:'${c}',width:1.5},itemStyle:{color:'${c}'},areaStyle:{color:'rgba(${r},${g},${b},0.08)'}}`;}).join(",")}],symbol:'circle',symbolSize:4,emphasis:{lineStyle:{width:2.5}}}]});window.addEventListener('resize',function(){ch.resize();});})();</script>`;
+  <script>(function(){var d=document.getElementById('${id}');if(!d||typeof echarts==='undefined')return;var ch=echarts.init(d,'dark');ch.setOption({tooltip:{trigger:'item'},legend:{data:${scriptJson(series.map(s=>s.name))},bottom:0,textStyle:{fontSize:9,color:'#8F8A7B'}},radar:{indicator:${scriptJson(indicators)},center:['50%','48%'],radius:'58%',axisName:{fontSize:9,color:'#8F8A7B'},splitArea:{areaStyle:{color:['rgba(255,255,255,0.02)','rgba(255,255,255,0.04)']}},splitLine:{lineStyle:{color:'#3A362C'}},axisLine:{lineStyle:{color:'#3A362C'}}},series:[{type:'radar',data:[${radarData.map((d,i)=>{const c=COMPARE_COLORS[i%COMPARE_COLORS.length]!;const r=parseInt(c.slice(1,3),16);const g=parseInt(c.slice(3,5),16);const b=parseInt(c.slice(5,7),16);return`{value:${scriptJson(d.value)},name:${scriptJson(d.name)},lineStyle:{color:'${c}',width:1.5},itemStyle:{color:'${c}'},areaStyle:{color:'rgba(${r},${g},${b},0.08)'}}`;}).join(",")}],symbol:'circle',symbolSize:4,emphasis:{lineStyle:{width:2.5}}}]});window.addEventListener('resize',function(){ch.resize();});})();</script>`;
 }
 
 // ── Metric cards render ──
@@ -389,7 +394,7 @@ export function renderNavEcharts(nd: NavLineData): string {
 
   const id = `nv${Math.random().toString(36).slice(2, 6)}`;
   const rawText = esc(nd.header.join("  ") + "\n" + nd.rows.map((r) => `${r.date}  ${r.nav}` + (r.bm ? `  ${r.bm}` : "") + (r.hs300 ? `  ${r.hs300}` : "")).join("\n"));
-  const json = JSON.stringify({ dates, navs, bm: bmValues, hs: hsValues, hasBm, hasHs });
+  const json = scriptJson({ dates, navs, bm: bmValues, hs: hsValues, hasBm, hasHs });
 
   return `<div class="ec-box">
     <div class="ec-hdr"><span>业绩走势 (${nd.rows.length}天)</span>
