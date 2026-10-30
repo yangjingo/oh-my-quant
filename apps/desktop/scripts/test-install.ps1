@@ -6,6 +6,7 @@ if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hoste
 }
 $desktopRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $repoRoot = Split-Path (Split-Path $desktopRoot)
+. (Join-Path $desktopRoot 'scripts/shell-icons.ps1')
 $version = (Get-Content (Join-Path $desktopRoot 'package.json') | ConvertFrom-Json).version
 if (-not $InstallerPath) { $InstallerPath = Join-Path $repoRoot "release/WhyJ-Quant-Setup-$version-win-x64.exe" }
 $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
@@ -41,8 +42,8 @@ function Assert-InstalledApp {
   foreach ($folder in @([Environment]::GetFolderPath('DesktopDirectory'), [Environment]::GetFolderPath('Programs'))) {
     $link = Join-Path $folder 'WhyJ Quant.lnk'
     if (-not (Test-Path -LiteralPath $link)) { throw "Shortcut missing: $link" }
-    $target = $shell.Namespace($folder).ParseName('WhyJ Quant.lnk').GetLink.Path
-    if ($target -ne $exe) { throw "Shortcut target mismatch: $link -> $target (expected $exe)" }
+    $shortcut = $shell.Namespace($folder).ParseName('WhyJ Quant.lnk').GetLink
+    Assert-ShortcutIcon $shortcut $exe
   }
 }
 function Install-App([string[]]$InstallerArguments) {
@@ -69,50 +70,32 @@ if ($LASTEXITCODE -ne 0) { throw 'Installed payload and Python runtime checks fa
 $env:WHYJ_SMOKE_EXE = $exe
 $evidence = Join-Path $repoRoot 'output/playwright/desktop'
 New-Item -ItemType Directory -Path $evidence -Force | Out-Null
-# Read each actual file through the Unicode Shell API, without USEFILEATTRIBUTES
-# (which asks for a generic file-type icon rather than the installed resource).
-Add-Type -AssemblyName System.Drawing
-Add-Type @'
-using System;
-using System.Runtime.InteropServices;
-public static class InstalledIcon {
-  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-  public struct Info {
-    public IntPtr Icon;
-    public int Index;
-    public uint Attributes;
-    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string DisplayName;
-    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)] public string TypeName;
-  }
-  [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-  public static extern IntPtr SHGetFileInfo(string path, uint attributes, out Info info, uint size, uint flags);
-  [DllImport("user32.dll")] public static extern bool DestroyIcon(IntPtr icon);
-}
-'@
-$iconPaths = @($exe, $installer,
-  (Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'WhyJ Quant.lnk'),
-  (Join-Path ([Environment]::GetFolderPath('Programs')) 'WhyJ Quant.lnk'))
-for ($index = 0; $index -lt $iconPaths.Count; $index++) {
-  $info = New-Object InstalledIcon+Info
-  $result = [InstalledIcon]::SHGetFileInfo($iconPaths[$index], 0, [ref]$info, [Runtime.InteropServices.Marshal]::SizeOf($info), 0x100)
-  if ($result -eq [IntPtr]::Zero -or $info.Icon -eq [IntPtr]::Zero) { throw "Shell icon unavailable: $($iconPaths[$index])" }
+# Compare actual installed Shell icons with the single authored resource.
+# Shortcut arrows are a Windows overlay; Assert-ShortcutIcon verifies their
+# underlying executable resource before allowing that overlay in the image.
+$iconPaths = @(
+  @{ Path = $exe; Shortcut = $false },
+  @{ Path = $installer; Shortcut = $false },
+  @{ Path = (Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'WhyJ Quant.lnk'); Shortcut = $true },
+  @{ Path = (Join-Path ([Environment]::GetFolderPath('Programs')) 'WhyJ Quant.lnk'); Shortcut = $true }
+)
+$fullInstaller = Join-Path $repoRoot "release/WhyJ-Quant-Setup-$version-win-x64.exe"
+if (Test-Path -LiteralPath $fullInstaller) { $iconPaths += @{ Path = $fullInstaller; Shortcut = $false } }
+foreach ($small in @($false, $true)) {
+  $reference = Get-ShellIconBitmap (Join-Path $desktopRoot 'assets/app-icon.ico') -Small:$small
   try {
-    $icon = [Drawing.Icon]::FromHandle($info.Icon)
-    $bitmap = $icon.ToBitmap()
-    try {
-      $bitmap.Save((Join-Path $evidence "shell-icon-$index.png"), [Drawing.Imaging.ImageFormat]::Png)
-      $goldPixels = 0
-      for ($x = 0; $x -lt $bitmap.Width; $x++) {
-        for ($y = 0; $y -lt $bitmap.Height; $y++) {
-          $pixel = $bitmap.GetPixel($x, $y)
-          if ($pixel.A -gt 200 -and [Math]::Abs([int]$pixel.R - 201) -lt 15 -and [Math]::Abs([int]$pixel.G - 154) -lt 15 -and [Math]::Abs([int]$pixel.B - 46) -lt 15) { $goldPixels++ }
-        }
-      }
-      if ($goldPixels -lt 5) { throw "Expected JQ gold pixels, not a generic Shell icon: $($iconPaths[$index])" }
-    } finally { $bitmap.Dispose(); $icon.Dispose() }
-  } finally { [InstalledIcon]::DestroyIcon($info.Icon) | Out-Null }
+    for ($index = 0; $index -lt $iconPaths.Count; $index++) {
+      $entry = $iconPaths[$index]
+      $bitmap = Get-ShellIconBitmap $entry.Path -Small:$small
+      try {
+        $prefix = if ($small) { 'shell-icon-small' } else { 'shell-icon' }
+        $bitmap.Save((Join-Path $evidence "$prefix-$index.png"), [Drawing.Imaging.ImageFormat]::Png)
+        Assert-ShellIconMatches $bitmap $reference -Shortcut:($entry.Shortcut)
+      } finally { $bitmap.Dispose() }
+    }
+  } finally { $reference.Dispose() }
 }
-Write-Host 'PASS installed executable, installer and both shortcut icons contain the JQ brand; captures saved for review'
+Write-Host 'PASS executable, installer and both shortcut icons match the shared brand resource at large and small Shell sizes; captures saved for review'
 Push-Location $repoRoot
 try {
   bun run --cwd apps/desktop test:smoke
