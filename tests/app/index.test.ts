@@ -1,11 +1,17 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
+import { createFixtureLifetime } from "../../src/app/services/test/fixture-lifetime.ts";
 
 const CLI_PROCESS_TIMEOUT_MS = 25_000;
 const CLI_TEST_TIMEOUT_MS = 30_000;
 const REPOSITORY_ROOT = resolve(import.meta.dir, "../..");
+const cwdFixture = createFixtureLifetime();
+
+// Bun's test deadline does not await a timed-out body. Keep process.cwd and
+// the owned CLI child isolated until that body has completed its cleanup.
+afterEach(() => cwdFixture.drain(), 30000);
 
 async function runCli(args: string[], envOverrides: Record<string, string | undefined> = {}) {
   const ohq = join(tmpdir(), `whyj-doctor-cli-${Date.now()}-${Math.random().toString(16).slice(2)}`);
@@ -48,7 +54,7 @@ function decode(bytes: Uint8Array): string {
 }
 
 describe("CLI doctor command", () => {
-  it("uses the repository entry when a previous integration changed the working directory", async () => {
+  it("uses the repository entry when a previous integration changed the working directory", cwdFixture.track(async () => {
     const original = process.cwd(), foreign = mkdtempSync(join(tmpdir(), "whyj-cli-cwd-"));
     try {
       process.chdir(foreign);
@@ -60,7 +66,7 @@ describe("CLI doctor command", () => {
       if (!resolve(foreign).startsWith(resolve(tmpdir()) + sep)) throw new Error("Unexpected cwd fixture directory");
       rmSync(foreign, { recursive: true, force: true });
     }
-  }, CLI_TEST_TIMEOUT_MS);
+  }), CLI_TEST_TIMEOUT_MS);
   it.each(["text", "json"] as const)("prints canonical slash descriptions in %s help", async (format) => {
     // Each cold CLI process has its own deadline, independent of Bun's test watchdog.
     if (format === "text") {
