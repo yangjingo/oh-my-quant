@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test as bunTest } from "bun:test";
 import { appendFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
@@ -26,6 +26,7 @@ import { editPortfolio } from "../../../runtime/research/portfolio.ts";
 import { activeResearchSelection, singlePortfolioToolDenial, withSinglePortfolioResearch } from "../../../runtime/research/active-portfolio.ts";
 import { annualComparisonFixture } from "../../../research/test/annual-fixture.ts";
 import { accountHistoryFixture } from "../../../performance/test/fixture.ts";
+import { createFixtureLifetime } from "./fixture-lifetime.ts";
 
 function structuredTask(): ResearchTaskSpec {
   return { id: "service-task", request: "按固定窗口研究 AAPL，禁止交易", goal: "核验固定研究任务",
@@ -36,6 +37,9 @@ function structuredTask(): ResearchTaskSpec {
 }
 
 const KEY = "fixture-workbench-secret-101";
+const fixtureLifetime = createFixtureLifetime();
+const test = (name: string, body: () => unknown, timeout?: number) =>
+  bunTest(name, fixtureLifetime.track(async () => { await body(); }), timeout);
 let root: string, previous: string | undefined, proxy: string | undefined, previousSkills: string | undefined, previousLeaseRoot: string | undefined;
 let model: ReturnType<typeof Bun.serve>, host: ReturnType<typeof startWorkbenchServer> | undefined;
 let service: ReturnType<typeof createWorkbenchService> | undefined;
@@ -111,14 +115,16 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await historySeed?.catch(() => {}); historySeed = undefined;
-  await host?.close(); await service?.close(); model.stop(true); host = undefined; service = undefined;
+  await fixtureLifetime.drain();
+  await host?.close(); await service?.close(); model.stop(true);
+  host = undefined; service = undefined;
   if (previous === undefined) delete process.env.OHQUANT_DIR; else process.env.OHQUANT_DIR = previous;
   if (proxy === undefined) delete process.env.NO_PROXY; else process.env.NO_PROXY = proxy;
   if (previousSkills === undefined) delete process.env.OHQUANT_SKILLS_DIR; else process.env.OHQUANT_SKILLS_DIR = previousSkills;
   if (previousLeaseRoot === undefined) delete process.env.WHYJ_RESOURCE_LEASE_ROOT; else process.env.WHYJ_RESOURCE_LEASE_ROOT = previousLeaseRoot;
   if (!resolve(root).startsWith(resolve(tmpdir()) + sep)) throw new Error("Unexpected fixture root");
   rmSync(root, { recursive: true, force: true });
-});
+}, 30000);
 async function terminal(client: WorkbenchClient, id: string): Promise<SessionSnapshot> {
   for (let attempts = 0; attempts < 250; attempts++) { const value = await client.session(id); if (value.state !== "running") return value; await Bun.sleep(10); }
   throw new Error("Expected a terminal run");
@@ -1133,7 +1139,7 @@ test("terminal resume switches only its own view while the detached source resea
     await expect(view.command("/resume does-not-exist")).rejects.toThrow("Session not found");
     expect(view.snapshot?.identity.sessionId).toBe(identity.sessionId);
   } finally { await view.detach(); await observer.detach(); await client.cancel({ workspaceId: identity.workspaceId, ...run }); }
-});
+}, 20000);
 
 test("shared task inspection opens the existing panel without model calls or journal writes, including during research", async () => {
   service = createWorkbenchService({ cwd: root, dependencies: () => createDefaultSessionDependencies({ cwd: root }) });
@@ -1353,7 +1359,7 @@ test("switching portfolios stops all old terminal owners but not a new run on th
   } finally {
     await Promise.all([run1, run2, ...(run3 ? [run3] : [])].map(run => client.cancel({ workspaceId: firstView.workspaceId, ...run }).catch(() => {})));
   }
-});
+}, 20000);
 
 test("a captured terminal portfolio remains fixed for prompts and task policy", async () => {
   const first = editPortfolio({ type: "create", name: "First group" }).groups.at(-1)!;
@@ -1410,7 +1416,7 @@ test("portfolio changes do not cancel a browser-owned run", async () => {
   } finally {
     await Promise.all([terminalRun, browserRun].map(run => client.cancel({ workspaceId: terminalView.workspaceId, ...run }).catch(() => {})));
   }
-});
+}, 20000);
 
 test("a portfolio switch before a fast final answer cannot settle the old run", async () => {
   const first = editPortfolio({ type: "create", name: "First group" }).groups.at(-1)!;

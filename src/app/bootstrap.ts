@@ -64,7 +64,9 @@ export async function connectWorkspaceHost(options: {
     if (owner && hostProcessState(owner.pid) !== "dead") throw failure("HOST_OWNER_NOT_READY", "A live or unverified execution owner has not published readiness. No duplicate was started.");
     const executable = options.executable ?? options.bunExecutable ?? (process.versions.bun ? process.execPath : undefined);
     if (!executable) throw failure("HOST_RUNTIME_REQUIRED", "Provide a runtime executable for this Host entry; Node/Electron callers must select a compatible child runtime explicitly.");
-    child = await launchHostProcess(executable, options.entrypoint ?? fileURLToPath(new URL("./host/run.ts", import.meta.url)), registry.root);
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw failure("HOST_READY_TIMEOUT", "The new Host did not become ready within the startup budget.");
+    child = await launchHostProcess(executable, options.entrypoint ?? fileURLToPath(new URL("./host/run.ts", import.meta.url)), registry.root, remaining);
     for (;;) {
       if (child.terminal()) throw failure("HOST_START_FAILED", child.failed() ? "The Host process could not be launched." : "The Host exited before authenticated readiness; check assets and local configuration.");
       const published = registry.read();

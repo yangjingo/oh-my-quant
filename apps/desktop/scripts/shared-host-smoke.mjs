@@ -32,7 +32,8 @@ let app, page, fixture, browser, blocker;
 try {
   receipt.webAssetsSha256 = await hashAssets(webRoot);
   if (process.env.WHYJ_TEST_DESKTOP_APP && appRoot.endsWith('.asar')) receipt.appArchiveSha256 = createHash('sha256').update(await readFile(appRoot)).digest('hex');
-  const fixtureEnv = { ...env, WHYJ_REVIEW_HOST_ROOT: env.OHQUANT_DIR, WHYJ_REVIEW_WEB_ROOT: webRoot };
+  const fixtureEnv = { ...env, WHYJ_REVIEW_HOST_ROOT: env.OHQUANT_DIR, WHYJ_REVIEW_WEB_ROOT: webRoot,
+    WHYJ_REVIEW_CLEANUP_DELAY_MS: '1500' };
   fixture = spawn('bun', ['run', 'tests/app/dev/review-host-fixture.ts'], { cwd: root, env: fixtureEnv, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   const address = await new Promise((done, reject) => {
     let text = '', errors = ''; const timeout = setTimeout(() => reject(Error('Fixture startup timed out: ' + errors)), 30000);
@@ -84,8 +85,8 @@ try {
   receipt.checks.push('close hides and second launch reopens same Host with draft');
   await capture(page, 'electron-02-reopened.png');
   const bootstrap = await (await fetch(address.origin + '/api/workbench/bootstrap')).json();
-  const rpc = async (method, args = []) => {
-    const response = await fetch(address.origin + '/api/workbench/rpc', { method: 'POST', headers: { 'content-type': 'application/json', 'x-workbench-token': bootstrap.token }, body: JSON.stringify({ method, args }) });
+  const rpc = async (method, args = [], signal) => {
+    const response = await fetch(address.origin + '/api/workbench/rpc', { method: 'POST', headers: { 'content-type': 'application/json', 'x-workbench-token': bootstrap.token }, body: JSON.stringify({ method, args }), signal });
     const value = await response.json(); if (!response.ok || !value.ok) throw Error('Fixture RPC failed: ' + method); return value.result;
   };
   const awaitStage = async stage => { for (let i = 0; i < 200; i++) { const s = await (await fetch(address.control + '/state')).json(); if (s.stage === stage && s.canAdvance) return; await new Promise(done => setTimeout(done, 50)); } throw Error('Missing controlled stage ' + stage); };
@@ -129,6 +130,10 @@ try {
   if (followup.identity.runId === running.identity.runId || !followup.turns.some(turn => turn.operation === 'followup' && turn.previousRunId === running.identity.runId)) throw Error('Follow-up did not reference the prior run');
   await page.getByRole('button', { name: '停止生成', exact: true }).click();
   await page.locator('.agent-status-label').last().filter({ hasText: '已停止' }).waitFor();
+  // A stopped snapshot can be published before the cancelled run releases its owner.
+  // Session reads wait for that exact non-running run to drain before returning.
+  const stopped = await rpc('session', [identityBefore.sessionId], AbortSignal.timeout(30000));
+  if (stopped.state !== 'cancelled' || stopped.identity.runId !== followup.identity.runId) throw Error('Cancelled follow-up did not finish');
   receipt.checks.push('save, follow-up and explicit cancellation use the shared service');
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(390, 720));
   await page.waitForFunction(() => innerWidth <= 390 && document.documentElement.scrollWidth <= innerWidth);
