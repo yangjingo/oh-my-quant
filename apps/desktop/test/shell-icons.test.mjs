@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
@@ -17,7 +17,12 @@ test("Windows shortcut resources and Shell icons match the shared brand", { skip
   });
   const fixture = fileURLToPath(new URL("./shell-icons-fixture.ps1", import.meta.url));
   const icon = fileURLToPath(new URL("../assets/app-icon.ico", import.meta.url));
-  const output = execFileSync("pwsh", ["-NoProfile", "-NonInteractive", "-File", fixture, "-Root", root, "-Icon", icon],
+  const result = spawnSync("pwsh", ["-NoProfile", "-NonInteractive", "-File", fixture, "-Root", root, "-Icon", icon],
     { encoding: "utf8", windowsHide: true, timeout: 20_000 });
-  assert.match(output, /PASS Unicode shortcut identity/);
+  if (result.error) throw Object.assign(result.error, { stdout: result.stdout, stderr: result.stderr });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /PASS Unicode shortcut identity/);
+  for (const stage of ["start", "helper-loaded", "shortcut-checks-complete", "large-start", "large-complete", "small-start", "small-complete"]) {
+    assert.ok(result.stderr.includes(`WHYJ_ICON_STAGE=${stage}`), `Missing icon stage ${stage}`);
+  }
 });

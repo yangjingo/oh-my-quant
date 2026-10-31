@@ -10,7 +10,7 @@ export function inspectProcesses(name, run = execFileSync) {
   let output;
   try {
     output = run(join(process.env.SystemRoot || "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe"),
-      ["-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference = 'Stop'; ConvertTo-Json -Compress -InputObject @([System.Diagnostics.Process]::GetProcessesByName($env:WHYJ_SMOKE_PROCESS_NAME) | ForEach-Object { $_.Id })"],
+      ["-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference = 'Stop'; [Console]::Error.WriteLine('WHYJ_QUERY_STAGE=start'); $ids = @([System.Diagnostics.Process]::GetProcessesByName($env:WHYJ_SMOKE_PROCESS_NAME) | ForEach-Object { $_.Id }); [Console]::Error.WriteLine('WHYJ_QUERY_STAGE=enumerated'); ConvertTo-Json -Compress -InputObject $ids"],
       { windowsHide: true, encoding: "utf8", timeout: query.timeoutMs,
         env: { ...process.env, WHYJ_SMOKE_PROCESS_NAME: name } });
     const pids = JSON.parse(output);
