@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { inspectProcesses } from "../scripts/smoke-processes.mjs";
 
@@ -159,6 +159,18 @@ test("a real stalled subprocess fails with timeout diagnostics", () => {
   });
 });
 
+test("process timeouts preserve partial stage output without replacing the original error", () => {
+  for (const stderr of ["", "WHYJ_QUERY_STAGE=start\n"]) {
+    const failure = Object.assign(new Error("query timed out"), { code: "ETIMEDOUT", stderr });
+    assert.throws(() => inspectProcesses("whyj", () => { throw failure; }), error => {
+      assert.equal(error, failure);
+      assert.equal(error.processQuery.code, "ETIMEDOUT");
+      assert.equal(error.processQuery.stderr, stderr);
+      return true;
+    });
+  }
+});
+
 test("Windows query finds a live child and observes its exit", { skip: process.platform !== "win32" }, async t => {
   const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { windowsHide: true, stdio: "ignore" });
   t.after(() => { if (child.exitCode === null) child.kill(); });
@@ -167,7 +179,15 @@ test("Windows query finds a live child and observes its exit", { skip: process.p
   // The live fixture may start PowerShell slowly on a loaded runner. The
   // production budget is separately asserted above and remains unchanged.
   const runWithTestHeadroom = (file, args, options) => execFileSync(file, args, { ...options, timeout: 60000 });
-  assert.ok(inspectProcesses(name, runWithTestHeadroom).pids.includes(child.pid));
+  const withStages = (file, args, options) => {
+    const result = spawnSync(file, args, { ...options, timeout: 60000 });
+    if (result.error) throw Object.assign(result.error, { stdout: result.stdout, stderr: result.stderr });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stderr, /WHYJ_QUERY_STAGE=start/);
+    assert.match(result.stderr, /WHYJ_QUERY_STAGE=enumerated/);
+    return result.stdout;
+  };
+  assert.ok(inspectProcesses(name, withStages).pids.includes(child.pid));
   const exit = once(child, "exit");
   child.kill();
   await exit;
