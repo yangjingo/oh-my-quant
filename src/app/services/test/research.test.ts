@@ -38,8 +38,10 @@ function structuredTask(): ResearchTaskSpec {
 
 const KEY = "fixture-workbench-secret-101";
 const fixtureLifetime = createFixtureLifetime();
+let fixtureName = "", fixturePhase = "body";
+const phase = (value: string) => { fixturePhase = value; };
 const test = (name: string, body: () => unknown, timeout?: number) =>
-  bunTest(name, fixtureLifetime.track(async () => { await body(); }), timeout);
+  bunTest(name, fixtureLifetime.track(async () => { fixtureName = name; fixturePhase = "body"; await body(); }), timeout);
 let root: string, previous: string | undefined, proxy: string | undefined, previousSkills: string | undefined, previousLeaseRoot: string | undefined;
 let model: ReturnType<typeof Bun.serve>, host: ReturnType<typeof startWorkbenchServer> | undefined;
 let service: ReturnType<typeof createWorkbenchService> | undefined;
@@ -115,7 +117,9 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await historySeed?.catch(() => {}); historySeed = undefined;
-  await fixtureLifetime.drain();
+  await fixtureLifetime.drain(() => console.error("WHYJ_RESEARCH_PENDING " + JSON.stringify({
+    test: fixtureName, phase: fixturePhase, modelRequests: requests.length,
+  })));
   await host?.close(); await service?.close(); model.stop(true);
   host = undefined; service = undefined;
   if (previous === undefined) delete process.env.OHQUANT_DIR; else process.env.OHQUANT_DIR = previous;
@@ -126,8 +130,9 @@ afterEach(async () => {
   rmSync(root, { recursive: true, force: true });
 }, 30000);
 async function terminal(client: WorkbenchClient, id: string): Promise<SessionSnapshot> {
-  for (let attempts = 0; attempts < 250; attempts++) { const value = await client.session(id); if (value.state !== "running") return value; await Bun.sleep(10); }
-  throw new Error("Expected a terminal run");
+  let lastState: SessionSnapshot["state"] | "unobserved" = "unobserved";
+  for (let attempts = 0; attempts < 250; attempts++) { const value = await client.session(id); lastState = value.state; if (value.state !== "running") return value; await Bun.sleep(10); }
+  throw new Error(`Expected a terminal run (phase=${fixturePhase}, lastState=${lastState}, modelRequests=${requests.length})`);
 }
 async function requestFor(client: WorkbenchClient, identity: { workspaceId: string; sessionId: string }, text: string) {
   return { workspaceId: identity.workspaceId, sessionId: identity.sessionId, text,
@@ -632,23 +637,27 @@ test("a separate resource writer excludes a skill listing until released", async
 });
 
 test("a terminal compact in one workspace excludes shared skill mutation in another", async () => {
+  phase("compact-fixture-setup");
   const cache = join(root, "skills", "LLMQuant-skills", "skills", "llmquant-data");
   mkdirSync(cache, { recursive: true }); writeFileSync(join(cache, "SKILL.md"), "---\nname: llmquant-data\ndescription: Shared fixture\n---\nfixture");
   const { client, identity } = await setup();
-  await service!.terminal.submit(await requestFor(client, identity, "Create a synthetic session before compact"));
+  phase("compact-submit-initial"); await service!.terminal.submit(await requestFor(client, identity, "Create a synthetic session before compact"));
+  phase("compact-wait-initial");
   expect((await terminal(client, identity.sessionId)).state).toBe("settled");
   const other = createWorkbenchService({ cwd: root, workspaceId: "3".repeat(24) });
   const otherIdentity = await other.client.identity(), original = TerminalEnvironment.prototype.dependencies;
   let entered!: () => void, release!: () => void;
   const reached = new Promise<void>(resolve => { entered = resolve; }), gate = new Promise<void>(resolve => { release = resolve; });
   TerminalEnvironment.prototype.dependencies = async function(...args) { entered(); await gate; return original.apply(this, args); };
-  const compact = service!.terminal.command(await requestFor(client, identity, "/compact"));
+  phase("compact-start-command"); const compact = service!.terminal.command(await requestFor(client, identity, "/compact"));
   try {
-    await reached;
+    phase("compact-wait-dependencies"); await reached;
+    phase("compact-check-resource-exclusion");
     await expect(other.terminal.command(await requestFor(other.client, otherIdentity, "/skill remove llmquant-data")))
       .rejects.toMatchObject({ code: "RESOURCES_IN_USE" });
     expect(existsSync(join(root, "skills", ".selection.json"))).toBe(false);
-    release(); await compact;
+    phase("compact-release-and-complete"); release(); await compact;
+    phase("compact-check-mutation-after-release");
     expect((await other.terminal.command(await requestFor(other.client, otherIdentity, "/skill remove llmquant-data"))).result.success).toBe(true);
   } finally { release(); await compact.catch(() => {}); TerminalEnvironment.prototype.dependencies = original; await other.close(); }
 });
@@ -1724,15 +1733,17 @@ test("terminal compact on an empty session does not create a journal or start a 
 });
 
 test("queued terminal compact waits for the accepted research and blocks a second mutation of that session", async () => {
+  phase("queued-setup");
   mode = "preparing";
   const { client, identity, submit } = await setup();
-  const run = await submit("保留当前工具研究");
-  await preparing(client, identity.sessionId);
+  phase("queued-submit-initial"); const run = await submit("保留当前工具研究");
+  phase("queued-wait-preparation"); await preparing(client, identity.sessionId);
+  phase("queued-start-compact");
   const pending = service!.terminal.command(await requestFor(client, identity, "/compact 保留工具结果"));
   await Bun.sleep(0);
-  await expect(client.submit(await requestFor(client, identity, "不能插入另一轮"))).rejects.toMatchObject({ code: "SESSION_BUSY" });
+  phase("queued-check-exclusion"); await expect(client.submit(await requestFor(client, identity, "不能插入另一轮"))).rejects.toMatchObject({ code: "SESSION_BUSY" });
   releasePreparation!();
-  const compacted = await pending;
+  phase("queued-wait-compact"); const compacted = await pending;
   expect(compacted.result.success).toBe(true); expect(compacted.result.message).toContain("Compacted");
   const after = await client.session(identity.sessionId);
   expect(after.identity.runId).toBe(run.runId); expect(after.state).toBe("settled"); expect(after.turns).toHaveLength(2);
@@ -1811,16 +1822,17 @@ test("private command cancellation cannot cancel another session or a concurrent
 });
 
 test("terminal automatic reports survive detach and restart, preserving fixed versions without another model call", async () => {
+  phase("auto-report-setup");
   const settings = readSettings(); settings.artifactGeneration.auto = true; saveSettings(settings);
   mode = "preparing";
   service = createWorkbenchService({ cwd: root, dependencies: () => createDefaultSessionDependencies({ cwd: root }) });
   host = startWorkbenchServer({ service, port: 0, assetsRoot: join(root, "assets") });
   const connection = { ...await host.ready, started: false };
   const view = await openTerminalSession(connection, { onSnapshot() {} });
-  const firstRun = await view.submit("分析 SPY 的风险，仅作假设计算");
-  await preparing(service.client, firstRun.sessionId);
+  phase("auto-report-submit"); const firstRun = await view.submit("分析 SPY 的风险，仅作假设计算");
+  phase("auto-report-wait-preparation"); await preparing(service.client, firstRun.sessionId);
   await view.detach(); releasePreparation!();
-  const first = await terminal(service.client, firstRun.sessionId);
+  phase("auto-report-wait-first"); const first = await terminal(service.client, firstRun.sessionId);
   expect(first.state).toBe("settled"); expect(first.output.artifacts).toHaveLength(1);
   expect(first.turns.at(-1)?.text).toContain("自动报告已保存");
   const report = first.output.artifacts[0]!;
@@ -1830,11 +1842,12 @@ test("terminal automatic reports survive detach and restart, preserving fixed ve
   expect(saved?.html).toContain("假设计算");
   expect(requests).toHaveLength(2); // One tool turn and its answer, no report-generation model request.
   expect(JSON.stringify(first)).not.toContain(root); expect(JSON.stringify(first)).not.toContain(KEY);
-  await host.close(); host = undefined;
+  phase("auto-report-restart"); await host.close(); host = undefined;
   service = createWorkbenchService({ cwd: root, dependencies: () => createDefaultSessionDependencies({ cwd: root }) });
   expect(await service.client.session(firstRun.sessionId)).toEqual(first);
   const identity = first.identity;
-  await service.terminal.submit(await requestFor(service.client, identity, "继续分析 SPY 风险，仍仅作假设计算"));
+  phase("auto-report-submit-second"); await service.terminal.submit(await requestFor(service.client, identity, "继续分析 SPY 风险，仍仅作假设计算"));
+  phase("auto-report-wait-second");
   const second = await terminal(service.client, identity.sessionId);
   expect(second.output.artifacts).toHaveLength(2);
   expect(second.output.artifacts[1]).toMatchObject({ id: report.id, version: 2 });
@@ -1845,18 +1858,21 @@ test("terminal automatic reports survive detach and restart, preserving fixed ve
 });
 
 test("terminal report restoration owns the original journal, restores its fixed branch and leaves the requesting session untouched", async () => {
+  phase("restore-report-setup");
   const settings = readSettings(); settings.artifactGeneration.auto = true; saveSettings(settings);
   mode = "tool";
   service = createWorkbenchService({ cwd: root, dependencies: () => createDefaultSessionDependencies({ cwd: root }) });
   const client = service.client, identity = await client.identity();
-  await service.terminal.submit(await requestFor(client, identity, "分析 SPY 风险，仅作假设计算"));
+  phase("restore-report-submit-first"); await service.terminal.submit(await requestFor(client, identity, "分析 SPY 风险，仅作假设计算"));
+  phase("restore-report-wait-first");
   const first = await terminal(client, identity.sessionId), report = first.output.artifacts[0]!;
   expect(report).toBeDefined();
   const reportId = `${report.id}@${report.sha256}`, fixed = loadArtifactSnapshot(reportId);
   expect(fixed?.meta.provenance?.scope).toBe("branch");
   expect(listRestorableArtifactReports(root).some(item => item.revision === report.sha256)).toBe(true);
   expect(listRestorableArtifactReports(join(root, "other-project"))).toEqual([]);
-  await service.terminal.submit(await requestFor(client, identity, "这是报告保存后的新问题"));
+  phase("restore-report-submit-later"); await service.terminal.submit(await requestFor(client, identity, "这是报告保存后的新问题"));
+  phase("restore-report-wait-later");
   const later = await terminal(client, identity.sessionId);
   expect(JSON.stringify(later.turns)).toContain("这是报告保存后的新问题");
   const source = await client.createSession!(), sourceBefore = await client.session(source.sessionId), calls = requests.length;
@@ -1875,14 +1891,15 @@ test("terminal report restoration owns the original journal, restores its fixed 
   let entered!: () => void, release!: () => void;
   const reached = new Promise<void>(resolve => { entered = resolve; }), gate = new Promise<void>(resolve => { release = resolve; });
   TerminalEnvironment.prototype.dependencies = async function(...args) { entered(); await gate; return original.apply(this, args); };
-  const pendingRestore = remote.restoreReport(request);
+  phase("restore-report-start-restore"); const pendingRestore = remote.restoreReport(request);
   let restored: Awaited<ReturnType<typeof remote.restoreReport>>;
   try {
-    await reached;
+    phase("restore-report-wait-dependencies"); await reached;
+    phase("restore-report-check-exclusion");
     await expect(other.terminal.command(await requestFor(other.client, otherIdentity, "/skill remove llmquant-data")))
       .rejects.toMatchObject({ code: "RESOURCES_IN_USE" });
     expect(existsSync(join(root, "skills", ".selection.json"))).toBe(false);
-    release(); restored = await pendingRestore;
+    phase("restore-report-release-and-complete"); release(); restored = await pendingRestore;
     expect((await other.terminal.command(await requestFor(other.client, otherIdentity, "/skill remove llmquant-data"))).result.success).toBe(true);
   } finally { release(); await pendingRestore.catch(() => {}); TerminalEnvironment.prototype.dependencies = original; await other.close(); }
   expect(restored.result.success).toBe(true);
@@ -1911,6 +1928,7 @@ test("terminal report restoration owns the original journal, restores its fixed 
 });
 
 test("shared AppRuntime opens the restored report from its Host cwd and refreshes the selected conversation", async () => {
+  phase("app-restore-setup");
   const settings = readSettings(); settings.artifactGeneration.auto = true; saveSettings(settings);
   mode = "tool";
   service = createWorkbenchService({ cwd: root, dependencies: () => createDefaultSessionDependencies({ cwd: root }) });
@@ -1919,13 +1937,15 @@ test("shared AppRuntime opens the restored report from its Host cwd and refreshe
   const runtime = new AppRuntime({ onMessages: value => messages.push(value), onActivity() {}, onArtifactCwd: value => directories.push(value) },
     async () => [], async () => [], { host: connection }, undefined, undefined, 1000, 0, {}, undefined, path => opened.push(path));
   try {
-    await runtime.bootstrap();
+    phase("app-restore-bootstrap"); await runtime.bootstrap();
     expect(directories.at(-1)).toBe(root);
-    await runtime.submit("分析 SPY 风险，恢复之前的研究");
+    phase("app-restore-submit-first"); await runtime.submit("分析 SPY 风险，恢复之前的研究");
+    phase("app-restore-wait-first");
     const id = (await service.client.identity()).sessionId, first = await terminal(service.client, id), report = first.output.artifacts[0]!;
-    await runtime.submit("这次后续讨论不属于报告"); await terminal(service.client, id);
+    phase("app-restore-submit-later"); await runtime.submit("这次后续讨论不属于报告");
+    phase("app-restore-wait-later"); await terminal(service.client, id);
     const calls = requests.length;
-    await runtime.restoreArtifact(`${report.id}@${report.sha256}`);
+    phase("app-restore-open-report"); await runtime.restoreArtifact(`${report.id}@${report.sha256}`);
     expect(opened).toHaveLength(1); expect(readFileSync(opened[0]!, "utf8")).toBe(loadArtifactSnapshot(`${report.id}@${report.sha256}`)!.html);
     expect(JSON.stringify(messages.at(-1))).toContain("恢复之前的研究");
     expect(JSON.stringify(messages.at(-1))).not.toContain("这次后续讨论不属于报告");
@@ -1934,22 +1954,25 @@ test("shared AppRuntime opens the restored report from its Host cwd and refreshe
 });
 
 test("terminal report restoration rejects a running owner and altered provenance without opening or changing the report", async () => {
+  phase("reject-restore-setup");
   const settings = readSettings(); settings.artifactGeneration.auto = true; saveSettings(settings);
   mode = "tool";
   service = createWorkbenchService({ cwd: root, dependencies: () => createDefaultSessionDependencies({ cwd: root }) });
   const client = service.client, identity = await client.identity();
-  await service.terminal.submit(await requestFor(client, identity, "分析 SPY 风险，固定报告的原始问题"));
+  phase("reject-restore-submit-first"); await service.terminal.submit(await requestFor(client, identity, "分析 SPY 风险，固定报告的原始问题"));
+  phase("reject-restore-wait-first");
   const original = await terminal(client, identity.sessionId), report = original.output.artifacts[0]!;
   const reportId = `${report.id}@${report.sha256}`, fixed = loadArtifactSnapshot(reportId);
   const source = await client.createSession!(), beforeSource = await client.session(source.sessionId);
   const request = { workspaceId: identity.workspaceId, sessionId: source.sessionId, requestId: "busy-report", expectedRevision: beforeSource.revision!, reportId };
   mode = "hold"; const started = new Promise<void>(resolve => { reached = resolve; });
-  const active = await service.terminal.submit(await requestFor(client, identity, "仍在研究的后续问题"));
+  phase("reject-restore-start-active"); const active = await service.terminal.submit(await requestFor(client, identity, "仍在研究的后续问题"));
+  phase("reject-restore-wait-active");
   await started; const calls = requests.length;
-  await expect(service.terminal.restoreReport(request)).rejects.toMatchObject({ code: "SESSION_BUSY" });
+  phase("reject-restore-check-busy"); await expect(service.terminal.restoreReport(request)).rejects.toMatchObject({ code: "SESSION_BUSY" });
   expect((await client.session(identity.sessionId)).state).toBe("running");
   expect(requests).toHaveLength(calls); expect(await client.session(source.sessionId)).toEqual(beforeSource);
-  await client.cancel({ workspaceId: identity.workspaceId, ...active });
+  phase("reject-restore-cancel-active"); await client.cancel({ workspaceId: identity.workspaceId, ...active });
   const targetBefore = await client.session(identity.sessionId);
   const dependencies = createDefaultSessionDependencies({ cwd: root });
   const coreId = createWorkbenchSessionStore().load(identity.workspaceId, identity.sessionId).record.coreSessionId;
@@ -1959,7 +1982,7 @@ test("terminal report restoration rejects a running owner and altered provenance
   expect(bytes).toContain("固定报告的原始问题");
   writeFileSync(metadata.path, bytes.replace("固定报告的原始问题", "原始问题已被修改"));
   try {
-    const rejected = await service.terminal.restoreReport({ ...request, requestId: "altered-report" });
+    phase("reject-restore-check-provenance"); const rejected = await service.terminal.restoreReport({ ...request, requestId: "altered-report" });
     expect(rejected.result.success).toBe(false); expect(rejected.filePath).toBeUndefined();
     expect(await client.session(identity.sessionId)).toEqual({ ...targetBefore, revision: targetBefore.revision! + 2 });
     expect(await client.session(source.sessionId)).toEqual(beforeSource);
@@ -2740,28 +2763,32 @@ test("legacy failed effect is gated across terminal states without rewriting v1"
 });
 
 test("review cannot start a new run from a session with an unconfirmed effect", async () => {
+  phase("effect-review-setup");
   let effects = 0;
   service = createWorkbenchService({ cwd: root, dependencies: () => {
     const deps = createDefaultSessionDependencies({ cwd: root });
     return { ...deps, tools: deps.tools.map(tool => tool.name !== "fetch_bars" ? tool : { ...tool, async execute() { effects++; throw new Error("uncertain effect"); } }) };
   } });
   const client = service.client, identity = await client.identity();
-  const first = await client.submit(await requestFor(client, identity, "先保存旧报告"));
-  const finished = await terminal(client, identity.sessionId);
+  phase("effect-review-submit-first"); const first = await client.submit(await requestFor(client, identity, "先保存旧报告"));
+  phase("effect-review-wait-first"); const finished = await terminal(client, identity.sessionId);
+  phase("effect-review-save-report");
   const report = await client.save!({ workspaceId: identity.workspaceId, ...first, expectedRevision: finished.revision!, expectedArtifactRevision: null });
   scriptedCalls = [() => [{ name: "fetch_bars", args: { symbol: "000300.SH", market: "A" } }]];
-  const second = await client.submit(await requestFor(client, identity, "之后产生未确认结果"));
+  phase("effect-review-submit-uncertain"); const second = await client.submit(await requestFor(client, identity, "之后产生未确认结果"));
+  phase("effect-review-wait-uncertain");
   const uncertain = await terminal(client, identity.sessionId), count = requests.length;
   expect(uncertain.recovery?.acknowledgementRequired).toBe(true); expect(effects).toBe(1);
   const request = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, artifactId: report.id, sha256: report.sha256,
     requestId: randomUUID(), expectedRevision: uncertain.revision!, text: "复核旧报告" };
   expect((await client.reload!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, artifactId: report.id, sha256: report.sha256 })).identity.runId).toBe(first.runId);
   expect(requests).toHaveLength(count);
-  await expect(client.review!(request)).rejects.toMatchObject({ code: "RECONCILE_REQUIRED" });
+  phase("effect-review-check-gate"); await expect(client.review!(request)).rejects.toMatchObject({ code: "RECONCILE_REQUIRED" });
   expect(requests).toHaveLength(count); expect(effects).toBe(1);
-  await client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: second.runId, expectedRevision: uncertain.revision! });
+  phase("effect-review-acknowledge"); await client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: second.runId, expectedRevision: uncertain.revision! });
+  phase("effect-review-start-review");
   const reviewed = await client.review!({ ...request, requestId: randomUUID(), expectedRevision: (await client.session(identity.sessionId)).revision! });
-  expect((await terminal(client, reviewed.sessionId)).state).toBe("settled"); expect(effects).toBe(1);
+  phase("effect-review-wait-review"); expect((await terminal(client, reviewed.sessionId)).state).toBe("settled"); expect(effects).toBe(1);
 }, 30000);
 
 test("save and reload retain fixed versions across later runs, stale clients and damaged report files", async () => {
