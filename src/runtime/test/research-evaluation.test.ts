@@ -127,7 +127,8 @@ it.each(["research", "recovery"] as const)("rejects a second N-1 division of sam
     return undefined;
   };
   const report = await runResearchEvaluation("index", dependencies("index"));
-  expect(report.checks.every(check => check.passed)).toBe(true);
+  expect({ outcome: report.outcome, failedChecks: report.checks.filter(check => !check.passed).map(check => check.name) })
+    .toEqual({ outcome: "finished", failedChecks: [] });
   expect(report.operations).toHaveLength(2);
   expect(report.knownClaimViolations).toEqual([{ phase, code: "wrong-verified-annual-volatility-method" }]);
   expect(report.passed).toBe(false);
