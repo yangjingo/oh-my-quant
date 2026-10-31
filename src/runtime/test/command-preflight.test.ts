@@ -9,9 +9,11 @@ import { AppRuntime } from "../../app-runtime.ts";
 import { piConfigHandler } from "../../cli/handlers/pi-config.ts";
 import { extensionsHandler } from "../../cli/handlers/extensions.ts";
 import { createFixtureLifetime } from "../../app/services/test/fixture-lifetime.ts";
+import { monitorPreflight } from "./preflight-progress.ts";
 
 let root: string, previous: string | undefined;
 let fixtureDraining = false;
+let activeProgress: ReturnType<typeof monitorPreflight> | undefined;
 const fixtureLifetime = createFixtureLifetime();
 const invalid = [
   "/skill info Alpha --check-imports false", "/skill run Alpha --check-imports", "/skill list --check-imports",
@@ -30,13 +32,17 @@ const invalid = [
 ];
 beforeEach(() => {
   fixtureDraining = false;
+  activeProgress = undefined;
   previous = process.env.OHQUANT_DIR;
   root = mkdtempSync(join(tmpdir(), "whyj-command-preflight-")); process.env.OHQUANT_DIR = root;
   writeFileSync(join(root, "settings.json"), "INVALID_CONFIGURATION_MUST_NOT_BE_READ");
 });
 afterEach(async () => {
   fixtureDraining = true;
-  await fixtureLifetime.drain(() => console.error("WHYJ_PREFLIGHT_PENDING: waiting for the timed-out child fixture"));
+  await fixtureLifetime.drain(() => {
+    try { console.error("WHYJ_PREFLIGHT_PENDING: waiting for the timed-out child fixture"); } finally { activeProgress?.report("teardown"); }
+  });
+  activeProgress = undefined;
   if (previous === undefined) delete process.env.OHQUANT_DIR; else process.env.OHQUANT_DIR = previous;
   if (!resolve(root).startsWith(resolve(tmpdir()) + sep)) throw new Error("Unexpected command fixture directory");
   rmSync(root, { recursive: true, force: true });
@@ -127,10 +133,12 @@ it.each([
   { args: ["--json", "-c", "/config --extensions disable"], code: "command_failed" },
 ])("rejects invalid CLI arguments before configuration ($args)", ({ args, code }) => fixtureLifetime.track(async () => {
   try {
+    const started = performance.now();
     const child = Bun.spawn([process.execPath, "src/index.ts", ...args], { env: { ...process.env, OHQUANT_DIR: root }, stdout: "pipe", stderr: "pipe" });
-    const deadline = setTimeout(() => child.kill(), 10000);
+    const progress = monitorPreflight(child, started); activeProgress = progress;
+    const deadline = setTimeout(() => { progress.report("watchdog"); child.kill(); }, 10000);
     try {
-      const [out, error, exit] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+      const [out, error, exit] = await Promise.all([progress.stdout, progress.stderr, progress.exit]);
       expect(exit).toBe(1); expect(error).toBe("");
       expect(JSON.parse(out)).toMatchObject({ ok: false, error: { code } });
       expect(readFileSync(join(root, "settings.json"), "utf8")).toBe("INVALID_CONFIGURATION_MUST_NOT_BE_READ");
