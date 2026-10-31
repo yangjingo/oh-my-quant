@@ -8,8 +8,10 @@ export function createFixtureLifetime(drainTimeoutMs = 25000) {
       void operation.then(() => { if (pending === operation) pending = undefined; }, () => { if (pending === operation) pending = undefined; });
       return operation;
     },
-    drain: async () => {
+    drain: async (onPending?: () => void) => {
       if (!pending) return;
+      // Diagnostics must never prevent the timed-out operation from draining.
+      try { onPending?.(); } catch { /* Preserve fixture ownership on logging failures. */ }
       const watchdog = setTimeout(() => {
         console.error("Timed-out fixture body did not settle; stopping the test process before shared state can be reused");
         process.exit(1);
