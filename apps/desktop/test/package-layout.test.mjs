@@ -17,6 +17,11 @@ test("package check rejects stale, modified, private and PTY assets", () => {
     rmSync(join(packageWeb, "stale.js")); writeFileSync(join(packageWeb, "index.html"), "different"); assert.throws(() => check(), /Changed packaged Web asset/);
     writeFileSync(join(packageWeb, "index.html"), "current"); writeFileSync(join(runtime, ".env"), "fixture");
     assert.throws(() => check(), /Private workspace or environment file shipped/); rmSync(join(runtime, ".env"));
+    writeFileSync(join(runtime, ".env.staging"), "fixture");
+    assert.throws(() => check(), /Private workspace or environment file shipped/); rmSync(join(runtime, ".env.staging"));
+    assert.throws(() => check(["/dist/.env.production.local"]), /Private workspace or environment file shipped/);
+    assert.throws(() => check(["/dist/.ENV.Staging"]), /Private workspace or environment file shipped/);
+    assert.throws(() => check(["/workspace/.OHQUANT/settings.json"]), /Private workspace or environment file shipped/);
     assert.throws(() => check(["\\node_modules\\node-pty\\index.js"]), /Development terminal dependency shipped/);
     assert.throws(() => check(["/workspace/.ohquant/settings.json"]), /Private workspace or environment file shipped/);
     assert.throws(() => check(["/workspace/sessions/session.jsonl"]), /Private workspace or environment file shipped/);

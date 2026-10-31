@@ -17,7 +17,7 @@ export function checkPackageLayout({ app, runtime, sourceWeb, archivePaths }) {
   const packagePaths = [...files(app), ...archivePaths.map(path => path.replaceAll("\\", "/"))];
   for (const path of packagePaths) {
     assert.ok(!/(^|\/)node_modules\/(?:node-pty|@xterm)(?:\/|$)/.test(path), `Development terminal dependency shipped: ${path}`);
-    assert.ok(!/(^|\/)(?:\.ohquant|\.git)(?:\/|$)|(^|\/)\.env(?:\.(?:local|development|production|test))?$|(^|\/)(?:sessions|history)\/[^/]+\.jsonl$/.test(path), `Private workspace or environment file shipped: ${path}`);
+    assert.ok(!/(^|\/)(?:\.ohquant|\.git)(?:\/|$)|(^|\/)\.env(?:\.[^/]+)?$|(^|\/)(?:sessions|history)\/[^/]+\.jsonl$/i.test(path), `Private workspace or environment file shipped: ${path}`);
   }
   const packageWeb = join(runtime, "web"), sourceFiles = files(sourceWeb).sort(), packagedFiles = files(packageWeb).sort();
   assert.deepEqual(packagedFiles, sourceFiles, "Packaged Web assets differ from the current build");
