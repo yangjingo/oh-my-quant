@@ -101,12 +101,24 @@ try {
   assert.equal((await fetch(first.url + "/api/host/ready")).status, 401);
   assert.equal((await fetch(first.url + "/api/host/ready", { headers: { ...headers, origin: "https://foreign.invalid" } })).status, 403);
   assert.equal((await fetch(first.url + "/api/host/ready", { headers: { ...headers, "x-host-instance-id": "obsolete-instance" } })).status, 409);
+  const smokeRpcRequest = async <T>(phase: string, operation: () => Promise<T>): Promise<T> => {
+    try { return await operation(); }
+    catch (error) {
+      // Diagnostics must not expose the request or replace the original failure.
+      try {
+        const host = hostProcessState(registration.pid);
+        console.error(JSON.stringify({ diagnostic: "packaged-rpc", phase, host, modelRequests: modelRequests.length }));
+      } catch { /* Preserve the original transport error. */ }
+      throw error;
+    }
+  };
   for (const streaming of [false, true]) {
     const oversized = new Uint8Array(32769).fill(32);
     const body = streaming ? new ReadableStream<Uint8Array>({ start(controller) {
       controller.enqueue(oversized.subarray(0, 16000)); controller.enqueue(oversized.subarray(16000)); controller.close();
     } }) : oversized;
-    const rejected = await fetch(first.url + "/api/workbench/rpc", { method: "POST", headers, body });
+    const rejected = await smokeRpcRequest(streaming ? "oversized-stream" : "oversized-buffer", () =>
+      fetch(first.url + "/api/workbench/rpc", { method: "POST", headers, body }));
     assert.equal(rejected.status, 413);
   }
   assert.equal(modelRequests.length, 0);
@@ -125,9 +137,11 @@ try {
   const reader = events.body!.getReader(), decoder = new TextDecoder();
   assert.match(decoder.decode((await reader.read()).value), /"type":"ready"/);
   async function rpc<T>(method: string, ...args: unknown[]): Promise<T> {
-    const response = await fetch(first.url + "/api/workbench/rpc", { method: "POST", headers, body: JSON.stringify({ method, args }), signal: AbortSignal.timeout(5000) });
-    assert.equal(response.status, 200);
-    return (await response.json() as { result: T }).result;
+    return smokeRpcRequest(`rpc:${method}`, async () => {
+      const response = await fetch(first.url + "/api/workbench/rpc", { method: "POST", headers, body: JSON.stringify({ method, args }), signal: AbortSignal.timeout(5000) });
+      assert.equal(response.status, 200);
+      return (await response.json() as { result: T }).result;
+    });
   }
   const identity = await rpc<WorkspaceIdentity>("identity"), initial = await rpc<SessionSnapshot>("session", identity.sessionId);
   const terminalInput = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, requestId: "package-terminal-once", expectedRevision: initial.revision, text: "Reply about @file:reference-fixture.txt with text only; do not call tools." };
