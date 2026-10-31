@@ -8,8 +8,11 @@ import { executeCommand, parseCommand } from "../../cli/registry.ts";
 import { AppRuntime } from "../../app-runtime.ts";
 import { piConfigHandler } from "../../cli/handlers/pi-config.ts";
 import { extensionsHandler } from "../../cli/handlers/extensions.ts";
+import { createFixtureLifetime } from "../../app/services/test/fixture-lifetime.ts";
 
 let root: string, previous: string | undefined;
+let fixtureDraining = false;
+const fixtureLifetime = createFixtureLifetime();
 const invalid = [
   "/skill info Alpha --check-imports false", "/skill run Alpha --check-imports", "/skill list --check-imports",
   "/clear --dry-run", "/clear extra", "/exit --force", "/help --verbose", "/artifact --generate", "/config --unknown", "/config extra",
@@ -26,15 +29,18 @@ const invalid = [
   "/config --extensions disable", '/config --extensions disable ""', "/config --extensions list extra", "/config --extensions unknown",
 ];
 beforeEach(() => {
+  fixtureDraining = false;
   previous = process.env.OHQUANT_DIR;
   root = mkdtempSync(join(tmpdir(), "whyj-command-preflight-")); process.env.OHQUANT_DIR = root;
   writeFileSync(join(root, "settings.json"), "INVALID_CONFIGURATION_MUST_NOT_BE_READ");
 });
-afterEach(() => {
+afterEach(async () => {
+  fixtureDraining = true;
+  await fixtureLifetime.drain(() => console.error("WHYJ_PREFLIGHT_PENDING: waiting for the timed-out child fixture"));
   if (previous === undefined) delete process.env.OHQUANT_DIR; else process.env.OHQUANT_DIR = previous;
   if (!resolve(root).startsWith(resolve(tmpdir()) + sep)) throw new Error("Unexpected command fixture directory");
   rmSync(root, { recursive: true, force: true });
-});
+}, 30000);
 
 it("rejects invalid command arguments before settings, panels, mutation and diagnostics", async () => {
   const forbidden = () => { throw new Error("Unexpected command side effect"); };
@@ -119,13 +125,19 @@ it.each([
   { args: ["--json", "-c", "/portfolio delete Core --dry-run"], code: "command_failed" },
   { args: ["--json", "-c", "/config --pi apply"], code: "command_failed" },
   { args: ["--json", "-c", "/config --extensions disable"], code: "command_failed" },
-])("rejects invalid CLI arguments before configuration ($args)", async ({ args, code }) => {
-  const child = Bun.spawn([process.execPath, "src/index.ts", ...args], { env: { ...process.env, OHQUANT_DIR: root }, stdout: "pipe", stderr: "pipe" });
-  const deadline = setTimeout(() => child.kill(), 10000);
+])("rejects invalid CLI arguments before configuration ($args)", ({ args, code }) => fixtureLifetime.track(async () => {
   try {
-    const [out, error, exit] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
-    expect(exit).toBe(1); expect(error).toBe("");
-    expect(JSON.parse(out)).toMatchObject({ ok: false, error: { code } });
-    expect(readFileSync(join(root, "settings.json"), "utf8")).toBe("INVALID_CONFIGURATION_MUST_NOT_BE_READ");
-  } finally { clearTimeout(deadline); child.kill(); await child.exited; }
-}, 15000);
+    const child = Bun.spawn([process.execPath, "src/index.ts", ...args], { env: { ...process.env, OHQUANT_DIR: root }, stdout: "pipe", stderr: "pipe" });
+    const deadline = setTimeout(() => child.kill(), 10000);
+    try {
+      const [out, error, exit] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+      expect(exit).toBe(1); expect(error).toBe("");
+      expect(JSON.parse(out)).toMatchObject({ ok: false, error: { code } });
+      expect(readFileSync(join(root, "settings.json"), "utf8")).toBe("INVALID_CONFIGURATION_MUST_NOT_BE_READ");
+    } finally { clearTimeout(deadline); child.kill(); await child.exited; }
+  } catch (error) {
+    if (!fixtureDraining) throw error;
+    // Bun already reported the timeout; do not leak a late assertion into the next test.
+    console.error("WHYJ_PREFLIGHT_LATE_FAILURE: timed-out child failed while draining");
+  }
+})(), 15000);
