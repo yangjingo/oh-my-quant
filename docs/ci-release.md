@@ -151,6 +151,21 @@ Classify the failed layer before retrying: source regression, check infrastructu
 
 Historical incidents and their tradeoffs belong in the [Repo Ops article](./blog/agentic/vibe-repo-ops.md); run logs belong in CI or PR evidence. This page maintains current responsibilities and essential operations.
 
+### Recover an interrupted Windows CLI installation
+
+An interrupted global npm upgrade can leave `whyj` unavailable while npm is replacing the package. After the original npm process has stopped, inspect the prefix and command resolution in the same shell:
+
+```powershell
+npm config get prefix
+npm list --global whyj-quant --depth=0
+Get-Command whyj -All
+where.exe whyj
+```
+
+The last three commands can fail when the package or command is missing. `Get-Command` shows PowerShell's resolution, including scripts or aliases; `where.exe` lists matching executable paths. If more than one `whyj` appears, check which path your shell runs and whether it belongs to the intended prefix. After confirming the prefix, rerun the intended installation command, including its pinned version or local package path when applicable. `npm install --global whyj-quant` selects the latest published version; it does not select an unpublished candidate. Repeat the checks above after installation. Do not delete the existing workspace, settings or research history to repair the CLI package.
+
+On Windows with npm 11.13.0, a controlled interruption during one package-replacement stage left the command unavailable; reinstalling the same local candidate restored it and retained synthetic settings. This is one observed recovery path, not a guarantee of automatic rollback or of every interruption point. Installed Desktop and clean-target upgrade acceptance remain tracked separately in #56 and #182.
+
 ## Optional Live Provider Evaluation
 
 The separate [manual workflow](../.github/workflows/live-provider-evaluation.yml) is disabled by default and never runs on PRs or a schedule. An authorized maintainer may configure repository variables `WHYJ_LIVE_PROVIDER`, `WHYJ_LIVE_MODEL` and `WHYJ_LIVE_BASE_URL`, and a dedicated restricted secret `WHYJ_LIVE_API_KEY`, then dispatch it on `main` with `run_live=true`. The base URL must be a trusted HTTPS OpenAI-compatible endpoint without credentials, query or fragment. Do not configure or trigger a paid provider without explicit authorization.

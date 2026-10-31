@@ -21,6 +21,8 @@ npm install -g whyj-quant
 whyj
 ```
 
+If a Windows npm upgrade is interrupted and `whyj` is unavailable, see [CLI installation recovery](./docs/ci-release.md#recover-an-interrupted-windows-cli-installation) before retrying.
+
 Open `/config` to connect your model and market-data providers. Use `/doctor` to check the setup, then ask a question:
 
 ```text
