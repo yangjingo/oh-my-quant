@@ -129,11 +129,22 @@ afterEach(async () => {
   if (!resolve(root).startsWith(resolve(tmpdir()) + sep)) throw new Error("Unexpected fixture root");
   rmSync(root, { recursive: true, force: true });
 }, 30000);
-async function terminal(client: WorkbenchClient, id: string): Promise<SessionSnapshot> {
+async function terminal(client: WorkbenchClient, id: string, maxPolls = 250, wait = () => Bun.sleep(10)): Promise<SessionSnapshot> {
   let lastState: SessionSnapshot["state"] | "unobserved" = "unobserved";
-  for (let attempts = 0; attempts < 250; attempts++) { const value = await client.session(id); lastState = value.state; if (value.state !== "running") return value; await Bun.sleep(10); }
+  for (let attempts = 0; attempts < maxPolls; attempts++) { const value = await client.session(id); lastState = value.state; if (value.state !== "running") return value; await wait(); }
   throw new Error(`Expected a terminal run (phase=${fixturePhase}, lastState=${lastState}, modelRequests=${requests.length})`);
 }
+test("terminal fixture respects an explicit bounded polling allowance", async () => {
+  let polls = 0;
+  const slow = { session: async () => ({ state: ++polls <= 250 ? "running" : "settled" }) } as unknown as WorkbenchClient;
+  const noWait = async () => {};
+  await expect(terminal(slow, "synthetic", undefined, noWait)).rejects.toThrow("Expected a terminal run");
+  expect(polls).toBe(250); polls = 0;
+  expect((await terminal(slow, "synthetic", 251, noWait)).state).toBe("settled");
+  expect(polls).toBe(251);
+  const stuck = { session: async () => ({ state: "running" }) } as unknown as WorkbenchClient;
+  await expect(terminal(stuck, "synthetic", 2, noWait)).rejects.toThrow("Expected a terminal run");
+});
 async function requestFor(client: WorkbenchClient, identity: { workspaceId: string; sessionId: string }, text: string) {
   return { workspaceId: identity.workspaceId, sessionId: identity.sessionId, text,
     requestId: randomUUID(), expectedRevision: (await client.session(identity.sessionId)).revision! };
@@ -2771,13 +2782,13 @@ test("review cannot start a new run from a session with an unconfirmed effect", 
   } });
   const client = service.client, identity = await client.identity();
   phase("effect-review-submit-first"); const first = await client.submit(await requestFor(client, identity, "先保存旧报告"));
-  phase("effect-review-wait-first"); const finished = await terminal(client, identity.sessionId);
+  phase("effect-review-wait-first"); const finished = await terminal(client, identity.sessionId, 1000);
   phase("effect-review-save-report");
   const report = await client.save!({ workspaceId: identity.workspaceId, ...first, expectedRevision: finished.revision!, expectedArtifactRevision: null });
   scriptedCalls = [() => [{ name: "fetch_bars", args: { symbol: "000300.SH", market: "A" } }]];
   phase("effect-review-submit-uncertain"); const second = await client.submit(await requestFor(client, identity, "之后产生未确认结果"));
   phase("effect-review-wait-uncertain");
-  const uncertain = await terminal(client, identity.sessionId), count = requests.length;
+  const uncertain = await terminal(client, identity.sessionId, 1000), count = requests.length;
   expect(uncertain.recovery?.acknowledgementRequired).toBe(true); expect(effects).toBe(1);
   const request = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, artifactId: report.id, sha256: report.sha256,
     requestId: randomUUID(), expectedRevision: uncertain.revision!, text: "复核旧报告" };
@@ -2788,7 +2799,7 @@ test("review cannot start a new run from a session with an unconfirmed effect", 
   phase("effect-review-acknowledge"); await client.acknowledgeInterruption!({ workspaceId: identity.workspaceId, sessionId: identity.sessionId, runId: second.runId, expectedRevision: uncertain.revision! });
   phase("effect-review-start-review");
   const reviewed = await client.review!({ ...request, requestId: randomUUID(), expectedRevision: (await client.session(identity.sessionId)).revision! });
-  phase("effect-review-wait-review"); expect((await terminal(client, reviewed.sessionId)).state).toBe("settled"); expect(effects).toBe(1);
+  phase("effect-review-wait-review"); expect((await terminal(client, reviewed.sessionId, 1000)).state).toBe("settled"); expect(effects).toBe(1);
 }, 30000);
 
 test("save and reload retain fixed versions across later runs, stale clients and damaged report files", async () => {
