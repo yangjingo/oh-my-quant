@@ -118,8 +118,13 @@ try {
       controller.enqueue(oversized.subarray(0, 16000)); controller.enqueue(oversized.subarray(16000)); controller.close();
     } }) : oversized;
     const rejected = await smokeRpcRequest(streaming ? "oversized-stream" : "oversized-buffer", () =>
-      fetch(first.url + "/api/workbench/rpc", { method: "POST", headers, body }));
+      fetch(first.url + "/api/workbench/rpc", { method: "POST", headers, body, keepalive: false }));
     assert.equal(rejected.status, 413);
+    await rejected.text();
+    const afterRejection = await smokeRpcRequest(streaming ? "after-oversized-stream" : "after-oversized-buffer", () =>
+      fetch(first.url + "/api/workbench/rpc", { method: "POST", headers, body: JSON.stringify({ method: "identity", args: [] }), signal: AbortSignal.timeout(5000) }));
+    assert.equal(afterRejection.status, 200);
+    assert.equal(((await afterRejection.json()) as { result: WorkspaceIdentity }).result.workspaceId, first.workspaceId);
   }
   assert.equal(modelRequests.length, 0);
   await new Promise<void>((resolve, reject) => {
