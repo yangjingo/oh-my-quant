@@ -1,6 +1,8 @@
 param([string]$Root, [string]$Icon)
 $ErrorActionPreference = 'Stop'
+[Console]::Error.WriteLine('WHYJ_ICON_STAGE=start')
 . (Join-Path $PSScriptRoot '../scripts/shell-icons.ps1')
+[Console]::Error.WriteLine('WHYJ_ICON_STAGE=helper-loaded')
 
 function New-Link([string]$Target, [string]$IconPath, [int]$Index) {
   $link = [pscustomobject]@{ Path = $Target; IconPath = $IconPath; IconIndex = $Index }
@@ -23,8 +25,11 @@ Assert-ShortcutIcon (New-Link $target $target 0) $target
 Assert-Throws { Assert-ShortcutIcon (New-Link $target (Join-Path $Root 'different.ico') 0) $target }
 Assert-Throws { Assert-ShortcutIcon (New-Link $target $target 1) $target }
 Assert-Throws { Assert-ShortcutIcon (New-Link (Join-Path $Root 'different.exe') $target 0) $target }
+[Console]::Error.WriteLine('WHYJ_ICON_STAGE=shortcut-checks-complete')
 
 foreach ($small in @($false, $true)) {
+  $size = if ($small) { 'small' } else { 'large' }
+  [Console]::Error.WriteLine("WHYJ_ICON_STAGE=$size-start")
   $expected = Get-ShellIconBitmap $Icon -Small:$small
   $overlay = $null
   try {
@@ -39,5 +44,6 @@ foreach ($small in @($false, $true)) {
     $overlay.SetPixel($overlay.Width - 1, 0, $color)
     Assert-Throws { Assert-ShellIconMatches $overlay $expected -Shortcut }
   } finally { if ($overlay) { $overlay.Dispose() }; $expected.Dispose() }
+  [Console]::Error.WriteLine("WHYJ_ICON_STAGE=$size-complete")
 }
 Write-Host 'PASS Unicode shortcut identity, incorrect resource/index, and Shell overlay comparisons'
