@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { HOST_MAX_REQUEST_BYTES } from "../../types/workbench-host.ts";
 
 export interface LocalHttpServer {
   readonly url: URL;
@@ -16,7 +17,7 @@ export function startLocalHttpServer(options: {
   fetch(request: Request): Promise<Response>;
 }): LocalHttpServer {
   if (process.versions.bun) {
-    const server = Bun.serve({ ...options, hostname: "127.0.0.1", idleTimeout: 60, maxRequestBodySize: 32768 });
+    const server = Bun.serve({ ...options, hostname: "127.0.0.1", idleTimeout: 60, maxRequestBodySize: HOST_MAX_REQUEST_BYTES });
     return { get url() { return server.url; }, get port() { return server.port!; }, ready: Promise.resolve(),
       timeout: (request, seconds) => { server.timeout(request, seconds); }, stop: async force => { await server.stop(force); } };
   }
@@ -54,7 +55,7 @@ export function startNodeHttpServer(options: { port: number; fetch(request: Requ
         const large = (error as { code?: string })?.code === "BODY_TOO_LARGE";
         outgoing.writeHead(large ? 413 : 400, { "content-type": "application/json", "cache-control": "no-store", "connection": "close" });
         outgoing.end(JSON.stringify({ ok: false, error: { code: large ? "BODY_TOO_LARGE" : "INPUT_INVALID",
-          message: large ? "Request body exceeds 32768 bytes." : "Invalid local HTTP request." } }));
+          message: large ? `Request body exceeds ${HOST_MAX_REQUEST_BYTES} bytes.` : "Invalid local HTTP request." } }));
       } finally { incoming.removeListener("aborted", disconnected); outgoing.removeListener("close", disconnected); }
     })();
   });
@@ -92,7 +93,7 @@ function readBody(request: IncomingMessage): Promise<Buffer> {
     const end = () => { cleanup(); resolve(Buffer.concat(chunks)); };
     const data = (chunk: Buffer) => {
       size += chunk.length;
-      if (size > 32768) { fail(Object.assign(new Error("Body too large"), { code: "BODY_TOO_LARGE" })); request.resume(); }
+      if (size > HOST_MAX_REQUEST_BYTES) { fail(Object.assign(new Error("Body too large"), { code: "BODY_TOO_LARGE" })); request.resume(); }
       else chunks.push(chunk);
     };
     request.on("data", data); request.once("end", end); request.once("error", fail);

@@ -7,6 +7,7 @@ import { assertCompatibleHost } from "./protocol.ts";
 import { tokenizeSlashArguments } from "../../cli/arguments.ts";
 import { isAbsolute } from "node:path";
 import type { TerminalRestoreReceipt } from "../../types/terminal.ts";
+import { terminalRequestConnection } from "./request-body.ts";
 
 /** Private local capability; ordinary Web clients never receive this constructor's connection. */
 export function createTerminalClient(connection: HostConnection, options: { fetch?: HostFetch; retryMs?: number } = {}): TerminalClient {
@@ -17,11 +18,12 @@ export function createTerminalClient(connection: HostConnection, options: { fetc
   async function invoke(method: "submit" | "followup" | "continue" | "command" | "cancelCommand" | "context" | "enqueue" | "suggestReferences" | "restoreReport" | "submitResearch", input: unknown): Promise<unknown> {
     let response: Response;
     try {
+      const body = JSON.stringify({ instanceId: connection.instanceId, method, input });
       response = await request(new URL("/api/host/terminal", connection.url), {
         method: "POST", redirect: "error", signal: AbortSignal.timeout(method === "command" || method === "restoreReport" ? 310_000 : 30_000),
         headers: { "content-type": "application/json", "x-workbench-token": connection.token,
           "x-host-control-token": connection.controlToken, "x-host-instance-id": connection.instanceId },
-        body: JSON.stringify({ instanceId: connection.instanceId, method, input }),
+        ...terminalRequestConnection(body), body,
       });
     } catch { throw new Error("Terminal request outcome is unknown; reconnect and inspect the run before submitting again."); }
     let value: unknown;
