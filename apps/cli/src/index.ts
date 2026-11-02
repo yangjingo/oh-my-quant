@@ -10,6 +10,7 @@ import { parseDoctorPhases } from "../../../src/runtime/workspace/doctor-phases.
 import manifest from "../../../package.json";
 import { existsSync } from "node:fs";
 import type { OhQuantSettings } from "../../../src/types/config.ts";
+import type { CommandResult, ParsedCommand } from "../../../src/types/commands.ts";
 
 interface CliEnvelope {
   ok: boolean;
@@ -149,10 +150,13 @@ if (positional[0] !== "doctor") {
 
 // Usage and argument errors are readable even when saved configuration cannot be loaded.
 if (cmdArg) {
-  const { parseCommand } = await import("../../../src/cli/registry.ts");
-  const { commandPreflight } = await import("../../../src/runtime/workspace/command-preflight.ts");
-  const { isInstalledToolProbeSchemaQuery } = await import("../../../src/runtime/data/tool-probe-schema.ts");
+  const { parseCommand } = await import("../../../src/cli/arguments.ts");
+  const { commandPreflightCore } = await import("../../../src/runtime/workspace/command-preflight-core.ts");
   const parsed = parseCommand(cmdArg);
+  const early = parsed && commandPreflightCore(parsed);
+  if (parsed && early) finishOneShot(parsed, early, json);
+  const { isInstalledToolProbeSchemaQuery } = await import("../../../src/runtime/data/tool-probe-schema.ts");
+  const { commandPreflight } = await import("../../../src/runtime/workspace/command-preflight.ts");
   if (parsed && (parsed.command === "help" || commandPreflight(parsed) || isInstalledToolProbeSchemaQuery(parsed)))
     await runOneShot(cmdArg, json, true);
 }
@@ -243,6 +247,10 @@ async function runOneShot(input: string, json: boolean, preflightOnly = false) {
   } catch (error) {
     result = { success: false, message: error instanceof Error ? error.message : "Resource operation could not be coordinated." };
   }
+  finishOneShot(parsed, result, json);
+}
+
+function finishOneShot(parsed: ParsedCommand, result: CommandResult, json: boolean): never {
   if (json) {
     const envelope: CliEnvelope = result.success
       ? { ok: true, command: parsed.command, message: result.message, data: result.data }

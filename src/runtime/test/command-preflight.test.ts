@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { commandPreflight } from "../workspace/command-preflight.ts";
+import { commandPreflightCore } from "../workspace/command-preflight-core.ts";
 import { parseDoctorPhases } from "../workspace/doctor-phases.ts";
 import { executeCommand, parseCommand } from "../../cli/registry.ts";
 import { AppRuntime } from "../../app-runtime.ts";
@@ -47,6 +48,18 @@ afterEach(async () => {
   if (!resolve(root).startsWith(resolve(tmpdir()) + sep)) throw new Error("Unexpected command fixture directory");
   rmSync(root, { recursive: true, force: true });
 }, 30000);
+
+it("keeps lightweight preflight equivalent and defers schema discovery", () => {
+  for (const input of [...invalid, "/help config", "/config --help", "/doctor --tool search_symbols --market A --schema --bad"]) {
+    const parsed = parseCommand(input)!;
+    const early = commandPreflightCore(parsed);
+    if (parsed.flags.schema === undefined) expect(early).toEqual(commandPreflight(parsed));
+    else { expect(early).toBeUndefined(); expect(commandPreflight(parsed)?.success).toBe(false); }
+  }
+  const validSchema = parseCommand("/doctor --tool search_symbols --market A --schema")!;
+  expect(commandPreflightCore(validSchema)).toBeUndefined();
+  expect(commandPreflight(validSchema)?.success).toBe(true);
+});
 
 it("rejects invalid command arguments before settings, panels, mutation and diagnostics", async () => {
   const forbidden = () => { throw new Error("Unexpected command side effect"); };
