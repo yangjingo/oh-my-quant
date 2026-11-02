@@ -46,10 +46,23 @@ jobs:
       - name: Verify Windows resource ACL fixture
         if: runner.os == 'Windows'
         run: bun test src/storage/test/resource-leases.test.ts
+      - name: Test Desktop failure comparison
+        run: node --test .github/scripts/desktop-failure-comparison.test.mjs
       - name: Run complete release gate
         run: |
           New-Item -ItemType Directory -Force output/ci | Out-Null
           bun run check:release 2>&1 | Tee-Object -FilePath output/ci/release.log
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Compare Desktop tests after a matching Windows failure
+        if: ${{ failure() && runner.os == 'Windows' }}
+        timeout-minutes: 3
+        run: |
+          $counts = @{}
+          foreach ($name in @('node', 'bun', 'pwsh', 'powershell')) {
+            $counts[$name] = @(Get-Process -Name $name -ErrorAction SilentlyContinue).Count
+          }
+          $env:WHYJ_CI_PROCESS_COUNTS = ConvertTo-Json -InputObject $counts -Compress
+          node .github/scripts/desktop-failure-comparison.mjs output/ci/release.log output/ci/desktop-serial.json
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build the localized website
         if: runner.os == 'Linux'
