@@ -161,7 +161,7 @@ try {
     const next = await reader.read(); assert.equal(next.done, false); observed += decoder.decode(next.value);
   }
   assert.ok(observed.includes(receipt.runId)); assert.ok(!observed.includes(registration.controlToken));
-  eventConnection.abort(); await reader.cancel(); reader.releaseLock();
+  await reader.cancel(); eventConnection.abort(); reader.releaseLock();
   let detached = false;
   for (let attempt = 0; attempt < 100; attempt++) {
     const status = await (await fetch(first.url + "/api/host/status", { headers })).json() as { observers: number };
