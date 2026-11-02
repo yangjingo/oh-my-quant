@@ -35,6 +35,8 @@ The [CI workflow](../.github/workflows/ci.yml) uses Bun 1.3.14 and Node 24 on Li
 
 The shared-Host Desktop smoke uses a synthetic provider and deliberately delays fixture cleanup after each run. After cancelling a follow-up, it checks the stopped UI and reads the same run through the Host before submitting again: the read waits for the cancelled owner to drain. The read has a 30-second deadline and verifies both cancelled state and run identity. A stopped UI label alone does not establish that cleanup has finished; this fixture does not change the product's cancellation semantics.
 
+After observing the settled event, the packaged CLI smoke cancels its event reader before aborting the subscription signal, then verifies subscriber detachment while the Host remains available. It retains the existing event deadline and propagates unexpected reader failures; the sequence avoids an abort-before-cancel rejection observed with Bun 1.4.4.
+
 Outdated PR runs may be cancelled; main and manual runs are preserved. CI diagnostic artifacts last 14 days. Report the tested revision, environment and run link; distinguish failure, cancellation, skipped checks and missing evidence. A rerun does not erase its original failure. [Review-skill](../.agents/skills/review-skill/SKILL.md) defines the review procedure.
 
 When the packaged CLI smoke encounters an RPC request or response failure, it records whether the failed request was an oversized buffer, oversized stream, or named fixture RPC, along with a point-in-time Host process state and synthetic provider request count. It preserves the original error and does not log request contents or credentials. These observations identify the failing stage; they do not by themselves establish why a connection closed.
