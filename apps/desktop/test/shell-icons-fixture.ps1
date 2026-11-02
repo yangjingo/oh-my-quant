@@ -33,6 +33,7 @@ foreach ($small in @($false, $true)) {
   $size = if ($small) { 'small' } else { 'large' }
   $prefix = if ($small) { 'shell-icon-small' } else { 'shell-icon' }
   [Console]::Error.WriteLine("WHYJ_ICON_STAGE=$size-start")
+  [Console]::Error.WriteLine("WHYJ_ICON_STAGE=$size-shell-read")
   $expected = Get-ShellIconBitmap $Icon -Small:$small
   $overlay = $null
   $mismatch = $null
@@ -42,13 +43,16 @@ foreach ($small in @($false, $true)) {
     $original = $overlay.GetPixel(0, $overlay.Height - 1)
     $color = if ($original.ToArgb() -eq [Drawing.Color]::Red.ToArgb()) { [Drawing.Color]::Blue } else { [Drawing.Color]::Red }
     $overlay.SetPixel(0, $overlay.Height - 1, $color)
+    [Console]::Error.WriteLine("WHYJ_ICON_STAGE=$size-overlay-compare")
     Assert-ShellIconMatches $overlay $expected -Shortcut
     Assert-Throws { Assert-ShellIconMatches $overlay $expected }
+    [Console]::Error.WriteLine("WHYJ_ICON_STAGE=$size-overlay-record")
     Assert-RecordedShellIcon $overlay $expected $evidence $prefix 2 -Shortcut
     Assert-Throws { Assert-RecordedShellIcon $overlay $expected $evidence $prefix 2 }
     $original = $overlay.GetPixel($overlay.Width - 1, 0)
     $color = if ($original.ToArgb() -eq [Drawing.Color]::Red.ToArgb()) { [Drawing.Color]::Blue } else { [Drawing.Color]::Red }
     $overlay.SetPixel($overlay.Width - 1, 0, $color)
+    [Console]::Error.WriteLine("WHYJ_ICON_STAGE=$size-mismatch-compare")
     Assert-Throws { Assert-ShellIconMatches $overlay $expected -Shortcut }
     Assert-Throws { Assert-RecordedShellIcon $overlay $expected $evidence $prefix 2 -Shortcut }
     $wrongSize = [Drawing.Bitmap]::new($expected.Width + 1, $expected.Height)
@@ -59,6 +63,7 @@ foreach ($small in @($false, $true)) {
     $color = if ($original.ToArgb() -eq [Drawing.Color]::Red.ToArgb()) { [Drawing.Color]::Blue } else { [Drawing.Color]::Red }
     $mismatch.SetPixel(2, 0, $color)
     $message = $null
+    [Console]::Error.WriteLine("WHYJ_ICON_STAGE=$size-mismatch-record")
     try { Assert-RecordedShellIcon $mismatch $expected $evidence $prefix 0 } catch { $message = $_.Exception.Message }
     $actualArgb = $color.ToArgb().ToString('X8')
     $expectedArgb = $original.ToArgb().ToString('X8')
@@ -73,6 +78,7 @@ foreach ($small in @($false, $true)) {
     if (-not (Test-Path -LiteralPath $actualPath) -or -not (Test-Path -LiteralPath $referencePath)) {
       throw 'Mismatch evidence images were not both saved.'
     }
+    [Console]::Error.WriteLine("WHYJ_ICON_STAGE=$size-evidence-read")
     $actualImage = [Drawing.Bitmap]::new($actualPath)
     $referenceImage = [Drawing.Bitmap]::new($referencePath)
     try {
@@ -81,6 +87,7 @@ foreach ($small in @($false, $true)) {
         throw 'Mismatch evidence images do not retain the compared pixels.'
       }
     } finally { $actualImage.Dispose(); $referenceImage.Dispose() }
+    [Console]::Error.WriteLine("WHYJ_ICON_STAGE=$size-final-record")
     Assert-RecordedShellIcon $expected $expected $evidence $prefix 1
   } finally {
     if ($overlay) { $overlay.Dispose() }; if ($mismatch) { $mismatch.Dispose() }

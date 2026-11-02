@@ -37,3 +37,12 @@ test("a timed-out comparison is reported as a failure without raw output", () =>
   assert.equal(result.passed, null); assert.equal(result.failed, null);
   assert.doesNotMatch(JSON.stringify(result), /SECRET_DATA/);
 });
+
+test("partial icon progress retains only known operation markers", () => {
+  const target = "✖ Windows shortcut resources and Shell icons match the shared brand\nETIMEDOUT";
+  const result = compare(target, () => ({ status: null, error: { code: "ETIMEDOUT" },
+    stderr: "WHYJ_ICON_STAGE=large-start\nWHYJ_ICON_STAGE=large-shell-read\nWHYJ_ICON_STAGE=large-overlay-record\nWHYJ_ICON_STAGE=private-path\nSECRET_DATA" }), () => 100);
+  assert.deepEqual(result.stages, ["WHYJ_ICON_STAGE=large-start", "WHYJ_ICON_STAGE=large-shell-read", "WHYJ_ICON_STAGE=large-overlay-record"]);
+  assert.equal(result.timedOut, true);
+  assert.doesNotMatch(JSON.stringify(result), /private-path|SECRET_DATA/);
+});
