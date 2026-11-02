@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      rpc_413_probe:
+        description: Compare packaged Host 413 connection reuse on Linux
+        type: boolean
+        default: false
   workflow_call:
 
 permissions:
@@ -63,6 +68,16 @@ jobs:
           }
           $env:WHYJ_CI_PROCESS_COUNTS = ConvertTo-Json -InputObject $counts -Compress
           node .github/scripts/desktop-failure-comparison.mjs output/ci/release.log output/ci/desktop-serial.json
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Compare packaged Host 413 connection reuse
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.rpc_413_probe && runner.os == 'Linux' }}
+        timeout-minutes: 10
+        run: |
+          $env:WHYJ_RPC_413_REUSE = 'false'
+          bun run --preload ./apps/cli/dev/preload-rpc-413-comparison.ts ./apps/cli/dev/smoke-host.ts
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:WHYJ_RPC_413_REUSE = 'true'
+          bun run --preload ./apps/cli/dev/preload-rpc-413-comparison.ts ./apps/cli/dev/smoke-host.ts
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build the localized website
         if: runner.os == 'Linux'
