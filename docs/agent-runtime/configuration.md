@@ -41,6 +41,8 @@ Auto Artifacts 默认关闭。开启后，合格研究完成且轨迹落盘才�
 
 ## 数据与工具验证
 
+Shell 工具的名称和命令提示按启动时选择的 shell 生成：Windows 默认使用 PowerShell，`WHYJ_SHELL=bash` 或 `WHYJ_SHELL=git-bash` 显式选择 Bash；Unix 使用 Bash/sh 语法。显示提示不证明所选 shell 已安装或命令会成功。
+
 Tool capabilities 展示工具参数、依赖和副作用；Endpoint check 只读检查单个端点，不保存行情或设置。修改参数/连接使回执失效，端点通过不替代数据草稿的保存检查。sample-verified/local 标签也不表示完整工具已执行，见[工具注册表](../quant-harness/quant-tools-design.md#registry)。
 
 数据诊断须分别识别缺凭证、缺依赖、鉴权、权限、空数据、超时和取消；HTTP 200 的空响应不能算通过。三阶段 Doctor 的 exit 0、ok/ready 只表示报告生成，须读取所选 data phase 的状态并排除网络跳过；单端点 `--tool` 则要求 data.status 为 ready 才成功退出。
