@@ -23,7 +23,8 @@ test("Windows shortcut resources and Shell icons match the shared brand", { skip
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /PASS Unicode shortcut identity/);
   assert.match(result.stdout, /saved mismatch evidence/);
-  for (const stage of ["start", "helper-loaded", "shortcut-checks-complete", "large-start", "large-complete", "small-start", "small-complete"]) {
-    assert.ok(result.stderr.includes(`WHYJ_ICON_STAGE=${stage}`), `Missing icon stage ${stage}`);
-  }
+  const phases = ["start", "shell-read", "overlay-compare", "overlay-record", "mismatch-compare", "mismatch-record", "evidence-read", "final-record", "complete"];
+  const expectedStages = ["start", "helper-loaded", "shortcut-checks-complete", ...["large", "small"].flatMap(size => phases.map(phase => `${size}-${phase}`))];
+  const stages = [...result.stderr.matchAll(/^WHYJ_ICON_STAGE=([a-z-]+)\r?$/gm)].map(match => match[1]);
+  assert.deepEqual(stages, expectedStages);
 });

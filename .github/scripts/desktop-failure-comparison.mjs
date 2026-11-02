@@ -6,6 +6,7 @@ const color = /\x1b\[[0-9;]*m/g;
 const targetFailure = /✖ Windows (?:shortcut resources and Shell icons match the shared brand|query finds a live child and observes its exit)/;
 const allowedStages = new Set(["WHYJ_ICON_STAGE=start", "WHYJ_ICON_STAGE=helper-loaded", "WHYJ_ICON_STAGE=shortcut-checks-complete",
   "WHYJ_ICON_STAGE=large-start", "WHYJ_ICON_STAGE=large-complete", "WHYJ_ICON_STAGE=small-start", "WHYJ_ICON_STAGE=small-complete",
+  ...["large", "small"].flatMap(size => ["shell-read", "overlay-compare", "overlay-record", "mismatch-compare", "mismatch-record", "evidence-read", "final-record"].map(phase => `WHYJ_ICON_STAGE=${size}-${phase}`)),
   "WHYJ_QUERY_STAGE=start", "WHYJ_QUERY_STAGE=enumerated"]);
 
 export function isTargetFailure(log) {
