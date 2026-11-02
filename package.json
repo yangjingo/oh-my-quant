@@ -49,7 +49,7 @@
     "gen:insights": "bun run src/insight/dev/generate-insights.ts",
     "test": "npm run test:fence && bun test ./src ./apps/tui ./apps/cli ./tests && npm run test:desktop",
     "test:modules": "bun test ./src ./apps/tui ./apps/cli",
-    "test:desktop": "node --test apps/desktop/test/*.test.mjs",
+    "test:desktop": "node --test --test-concurrency=1 apps/desktop/test/*.test.mjs",
     "test:entry-e2e": "node tests/e2e/cross-entry.mjs",
     "test:integration": "bun test ./tests",
     "test:fence": "bun run tests/architecture/check-test-fence.ts",
