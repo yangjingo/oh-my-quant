@@ -1,7 +1,7 @@
 param([string]$Root, [string]$Icon)
 $ErrorActionPreference = 'Stop'
 [Console]::Error.WriteLine('WHYJ_ICON_STAGE=start')
-. (Join-Path $PSScriptRoot '../scripts/shell-icons.ps1')
+. (Join-Path $PSScriptRoot '../scripts/shell-icons.ps1') -TraceFixture
 [Console]::Error.WriteLine('WHYJ_ICON_STAGE=helper-loaded')
 
 function New-Link([string]$Target, [string]$IconPath, [int]$Index) {

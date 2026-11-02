@@ -41,8 +41,8 @@ test("a timed-out comparison is reported as a failure without raw output", () =>
 test("partial icon progress retains only known operation markers", () => {
   const target = "✖ Windows shortcut resources and Shell icons match the shared brand\nETIMEDOUT";
   const result = compare(target, () => ({ status: null, error: { code: "ETIMEDOUT" },
-    stderr: "WHYJ_ICON_STAGE=large-start\nWHYJ_ICON_STAGE=large-shell-read\nWHYJ_ICON_STAGE=large-overlay-record\nWHYJ_ICON_STAGE=private-path\nSECRET_DATA" }), () => 100);
-  assert.deepEqual(result.stages, ["WHYJ_ICON_STAGE=large-start", "WHYJ_ICON_STAGE=large-shell-read", "WHYJ_ICON_STAGE=large-overlay-record"]);
+    stderr: "WHYJ_ICON_STAGE=helper-enter\nWHYJ_ICON_STAGE=helper-drawing-load\nWHYJ_ICON_STAGE=helper-interop-init\nWHYJ_ICON_STAGE=large-start\nWHYJ_ICON_STAGE=large-shell-read\nWHYJ_ICON_STAGE=large-overlay-record\nWHYJ_ICON_STAGE=private-path\nSECRET_DATA" }), () => 100);
+  assert.deepEqual(result.stages, ["WHYJ_ICON_STAGE=helper-enter", "WHYJ_ICON_STAGE=helper-drawing-load", "WHYJ_ICON_STAGE=helper-interop-init", "WHYJ_ICON_STAGE=large-start", "WHYJ_ICON_STAGE=large-shell-read", "WHYJ_ICON_STAGE=large-overlay-record"]);
   assert.equal(result.timedOut, true);
   assert.doesNotMatch(JSON.stringify(result), /private-path|SECRET_DATA/);
 });
