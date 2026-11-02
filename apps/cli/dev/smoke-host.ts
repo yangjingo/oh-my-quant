@@ -9,6 +9,7 @@ import { generateArtifact } from "../../../src/artifact/src/generator.ts";
 import { editPortfolio } from "../../../src/runtime/research/portfolio.ts";
 import { stopWorkspaceHost } from "../../../src/app/bootstrap.ts";
 import { DEFAULT_SETTINGS } from "../../../src/types/config.ts";
+import { createSmokeRpcDiagnostics } from "./smoke-rpc-diagnostics.ts";
 import type { SessionSnapshot, WorkspaceIdentity } from "../../../src/types/workbench.ts";
 import type { TerminalReferenceResult } from "../../../src/types/terminal.ts";
 
@@ -101,17 +102,7 @@ try {
   assert.equal((await fetch(first.url + "/api/host/ready")).status, 401);
   assert.equal((await fetch(first.url + "/api/host/ready", { headers: { ...headers, origin: "https://foreign.invalid" } })).status, 403);
   assert.equal((await fetch(first.url + "/api/host/ready", { headers: { ...headers, "x-host-instance-id": "obsolete-instance" } })).status, 409);
-  const smokeRpcRequest = async <T>(phase: string, operation: () => Promise<T>): Promise<T> => {
-    try { return await operation(); }
-    catch (error) {
-      // Diagnostics must not expose the request or replace the original failure.
-      try {
-        const host = hostProcessState(registration.pid);
-        console.error(JSON.stringify({ diagnostic: "packaged-rpc", phase, host, modelRequests: modelRequests.length }));
-      } catch { /* Preserve the original transport error. */ }
-      throw error;
-    }
-  };
+  const smokeRpcRequest = createSmokeRpcDiagnostics(() => ({ host: hostProcessState(registration.pid), modelRequests: modelRequests.length }));
   for (const streaming of [false, true]) {
     const oversized = new Uint8Array(32769).fill(32);
     const body = streaming ? new ReadableStream<Uint8Array>({ start(controller) {
@@ -120,11 +111,12 @@ try {
     const rejected = await smokeRpcRequest(streaming ? "oversized-stream" : "oversized-buffer", () =>
       fetch(first.url + "/api/workbench/rpc", { method: "POST", headers, body, keepalive: false }));
     assert.equal(rejected.status, 413);
-    await rejected.text();
+    await smokeRpcRequest(streaming ? "oversized-stream:body" : "oversized-buffer:body", () => rejected.text());
     const afterRejection = await smokeRpcRequest(streaming ? "after-oversized-stream" : "after-oversized-buffer", () =>
       fetch(first.url + "/api/workbench/rpc", { method: "POST", headers, body: JSON.stringify({ method: "identity", args: [] }), signal: AbortSignal.timeout(5000) }));
     assert.equal(afterRejection.status, 200);
-    assert.equal(((await afterRejection.json()) as { result: WorkspaceIdentity }).result.workspaceId, first.workspaceId);
+    const identity = await smokeRpcRequest(streaming ? "after-oversized-stream:body" : "after-oversized-buffer:body", () => afterRejection.json());
+    assert.equal((identity as { result: WorkspaceIdentity }).result.workspaceId, first.workspaceId);
   }
   assert.equal(modelRequests.length, 0);
   await new Promise<void>((resolve, reject) => {
@@ -254,8 +246,8 @@ try {
   const referenceInput = { workspaceId: identity.workspaceId, sessionId: identity.sessionId, input: "@file:reference-fixture" };
   const referenceBody = JSON.stringify({ instanceId: registration.instanceId, method: "suggestReferences", input: referenceInput });
   assert.equal((await fetch(first.url + "/api/host/terminal", { method: "POST", headers, body: referenceBody })).status, 403);
-  assert.equal((await fetch(first.url + "/api/workbench/rpc", { method: "POST", headers,
-    body: JSON.stringify({ method: "suggestReferences", args: [referenceInput] }) })).status, 404);
+  assert.equal((await smokeRpcRequest("rpc-rejected:suggestReferences", () => fetch(first.url + "/api/workbench/rpc", { method: "POST", headers,
+    body: JSON.stringify({ method: "suggestReferences", args: [referenceInput] }) }))).status, 404);
   for (const [query, kind, fill] of [[referenceInput.input, "file", "@file:reference-fixture.txt "],
     [`@session:${coreId}`, "session", `@session:${coreId} `]] as const) {
     const response = await privateCall("suggestReferences", { ...referenceInput, input: query });
@@ -314,8 +306,8 @@ try {
     requestId: "package-restore-report", expectedRevision: beforeRestore.revision, reportId };
   const restoreBody = JSON.stringify({ instanceId: registration.instanceId, method: "restoreReport", input: restoreInput });
   assert.equal((await fetch(first.url + "/api/host/terminal", { method: "POST", headers, body: restoreBody })).status, 403);
-  assert.equal((await fetch(first.url + "/api/workbench/rpc", { method: "POST", headers,
-    body: JSON.stringify({ method: "restoreReport", args: [restoreInput] }) })).status, 404);
+  assert.equal((await smokeRpcRequest("rpc-rejected:restoreReport", () => fetch(first.url + "/api/workbench/rpc", { method: "POST", headers,
+    body: JSON.stringify({ method: "restoreReport", args: [restoreInput] }) }))).status, 404);
   const restoreResponse = await privateCall("restoreReport", restoreInput); assert.equal(restoreResponse.status, 200);
   const restored = (await restoreResponse.json() as { result: { selectedSessionId: string; filePath: string; result: { success: boolean } } }).result;
   assert.equal(restored.result.success, true); assert.equal(restored.selectedSessionId, identity.sessionId);
@@ -333,8 +325,8 @@ try {
     expectedRevision: beforeTask.revision, expectedTaskRevision: null, task };
   const taskBody = JSON.stringify({ instanceId: registration.instanceId, method: "submitResearch", input: taskInput });
   assert.equal((await fetch(first.url + "/api/host/terminal", { method: "POST", headers, body: taskBody })).status, 403);
-  assert.equal((await fetch(first.url + "/api/workbench/rpc", { method: "POST", headers,
-    body: JSON.stringify({ method: "submitResearch", args: [taskInput] }) })).status, 404);
+  assert.equal((await smokeRpcRequest("rpc-rejected:submitResearch", () => fetch(first.url + "/api/workbench/rpc", { method: "POST", headers,
+    body: JSON.stringify({ method: "submitResearch", args: [taskInput] }) }))).status, 404);
   const taskResponse = await privateCall("submitResearch", taskInput); assert.equal(taskResponse.status, 200);
   const taskReceipt = (await taskResponse.json() as { result: { sessionId: string; runId: string } }).result;
   let finishedTask = await rpc<SessionSnapshot>("session", identity.sessionId);
