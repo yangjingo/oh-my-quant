@@ -134,8 +134,14 @@ it.each([
 ])("rejects invalid CLI arguments before configuration ($args)", ({ args, code }) => fixtureLifetime.track(async () => {
   try {
     const started = performance.now();
-    const child = Bun.spawn([process.execPath, "src/index.ts", ...args], { env: { ...process.env, OHQUANT_DIR: root }, stdout: "pipe", stderr: "pipe" });
-    const progress = monitorPreflight(child, started); activeProgress = progress;
+    let runtimeReadyMs: number | null = null;
+    const child = Bun.spawn([process.execPath, "--preload", join(import.meta.dir, "preflight-child-ready.ts"), "src/index.ts", ...args], {
+      env: { ...process.env, OHQUANT_DIR: root }, stdout: "pipe", stderr: "pipe",
+      ipc(message) {
+        if (message === "WHYJ_PREFLIGHT_BUN_READY" && runtimeReadyMs === null) runtimeReadyMs = Math.round(performance.now() - started);
+      },
+    });
+    const progress = monitorPreflight(child, started, () => runtimeReadyMs); activeProgress = progress;
     const deadline = setTimeout(() => { progress.report("watchdog"); child.kill(); }, 10000);
     try {
       const [out, error, exit] = await Promise.all([progress.stdout, progress.stderr, progress.exit]);
