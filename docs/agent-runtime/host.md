@@ -35,6 +35,8 @@ sessionId 标识对话；runId 标识一次执行；artifactId/version/hash 标�
 
 HTTP/SSE 运行于独立子进程。#76 的构建入口可由 Node 或 Bun 执行：两种监听器调用同一个 Request/Response 路由，执行服务、鉴权和所有权协议不分叉。Node 适配器限制请求体为 32768 字节，流式响应保持背压，显式断开释放 SSE 订阅；长命令仍由服务自己的期限控制。监听与服务都就绪后才发布登记，端口绑定失败释放所有权。Node/Electron 直接调用 bootstrap 时需指定与入口相容的 `executable`，旧 `bunExecutable` 参数仍有效；不能把 Electron 本体默认当作普通 Node 子进程。Desktop 使用编译的 Bun Host；安装包和目标机器验收由 #48 完成。
 
+终端客户端及其绑定的 Host 客户端按序列化后的 UTF-8 字节数识别超过 Host 上限的请求，并仅对这些请求设置 `keepalive: false`；在测试过的 Bun 客户端和 Node Host 组合中，这降低了 413 后复用已关闭连接的风险。Host 仍负责拒绝超大请求，普通请求与未绑定的 Web 客户端策略不变；客户端不会自动重试操作，传输失败时仍须核对结果。
+
 状态至少区分 idle、running、needs_input、settled、cancelled、failed、interrupted。取消提交终态后拒绝该 run 的后续写入；继续创建新 run，不能把 cancelled 改回 running。Host 每次启动生成 instanceId，SSE 信封携带实例标识和会话修订；服务快照本身不携带 instanceId。客户端只应在同一实例内比较 revision，实例改变时重新读取；入口侧完整拦截旧实例迟到事件仍须在 #50/#76 验证。
 
 ## 工作区发现与启动

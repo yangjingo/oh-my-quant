@@ -1,5 +1,6 @@
 import { HOST_PROTOCOL_VERSION, HOST_SERVICE_CONTRACT_VERSION } from "../../types/workbench-host.ts";
 import { isWorkbenchSnapshot, isMarketSnapshot, type Preferences, type WorkbenchClient, type WorkbenchEvent } from "../../types/workbench.ts";
+import { terminalRequestConnection } from "./request-body.ts";
 
 const failure = "研究服务连接已中断，请重新连接核对当前会话。关闭页面不会停止服务中的研究。";
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -25,10 +26,12 @@ export function createHostClient(options: { baseUrl: string; fetch?: HostFetch; 
   const rpc = async <T>(method: string, args: unknown[] = []): Promise<T> => {
     let response: Response;
     const capability = await token();
-    try { response = await request(new URL("/api/workbench/rpc", baseUrl), { method: "POST", credentials: "omit", cache: "no-store", redirect: "error",
+    try { const body = JSON.stringify({ method, args });
+      response = await request(new URL("/api/workbench/rpc", baseUrl), { method: "POST", credentials: "omit", cache: "no-store", redirect: "error",
       ...(options.connection ? { signal: AbortSignal.timeout(30_000) } : {}),
       headers: { "Content-Type": "application/json", "x-workbench-token": capability,
-        ...(options.connection ? { "x-host-instance-id": options.connection.instanceId } : {}) }, body: JSON.stringify({ method, args }) }); }
+        ...(options.connection ? { "x-host-instance-id": options.connection.instanceId } : {}) },
+      ...(options.connection ? terminalRequestConnection(body) : {}), body }); }
     catch { throw new Error("请求结果未确认，请重新连接核对会话后再操作；界面不会自动重复提交。"); }
     if (response.status === 401) bootstrap = undefined;
     let value: unknown;
