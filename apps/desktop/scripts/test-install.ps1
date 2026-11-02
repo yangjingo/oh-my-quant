@@ -89,8 +89,7 @@ foreach ($small in @($false, $true)) {
       $bitmap = Get-ShellIconBitmap $entry.Path -Small:$small
       try {
         $prefix = if ($small) { 'shell-icon-small' } else { 'shell-icon' }
-        $bitmap.Save((Join-Path $evidence "$prefix-$index.png"), [Drawing.Imaging.ImageFormat]::Png)
-        Assert-ShellIconMatches $bitmap $reference -Shortcut:($entry.Shortcut)
+        Assert-RecordedShellIcon $bitmap $reference $evidence $prefix $index -Shortcut:($entry.Shortcut)
       } finally { $bitmap.Dispose() }
     }
   } finally { $reference.Dispose() }
