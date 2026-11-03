@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { connect as connectSocket } from "node:net";
@@ -60,6 +60,9 @@ try {
   writeFileSync(join(temporary, "reference-fixture.txt"), "PACKAGE_REFERENCE_CONTENT");
   writeFileSync(join(workspace, "settings.json"), JSON.stringify(settings));
   cpSync(join(project, "dist"), join(packageDir, "dist"), { recursive: true });
+  // The published Node CLI resolves this required native dependency from its
+  // installed package layout; copying only dist would omit it on Windows.
+  cpSync(join(project, "node_modules/koffi"), join(packageDir, "node_modules/koffi"), { recursive: true });
   const entry = join(packageDir, "dist/index.js");
   const oneShotSkills = join(temporary, "one-shot-skills"), oneShotWorkspace = join(temporary, "one-shot-workspace"), oneShotProject = join(temporary, "one-shot-project");
   mkdirSync(oneShotProject);
@@ -406,6 +409,21 @@ try {
   assert.equal(registry.read(), undefined);
   assert.equal(registry.readOwner("owner"), undefined);
   if (!resolve(temporary).startsWith(resolve(tmpdir()) + sep)) throw new Error("Unexpected smoke directory");
+  if (process.platform === "win32") {
+    // Windows can temporarily deny deletion of this copied native image.
+    // Wait only for this fixture asset, and surface persistent access errors.
+    for (const arch of ["ia32", "x64", "arm64"]) {
+      const addon = join(packageDir, `node_modules/koffi/build/koffi/win32_${arch}/koffi.node`);
+      const deadline = Date.now() + 2000;
+      for (;;) {
+        try { unlinkSync(addon); break; }
+        catch (error) {
+          if (!["EPERM", "EACCES"].includes((error as NodeJS.ErrnoException).code ?? "") || Date.now() >= deadline) throw error;
+          await delay(25);
+        }
+      }
+    }
+  }
   rmSync(temporary, { recursive: true, force: true });
   cleaned = true;
   } finally { await model.stop(true); }

@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { atomicWriteJson } from "./atomic-file.ts";
 import { resolveOhquantDir } from "./dirs.ts";
+import { publishHostLock } from "./host-lock-publication.ts";
 
 export interface HostOwner {
   schemaVersion: 1;
@@ -118,7 +119,7 @@ export function createHostRuntimeStore(root = resolveOhquantDir()) {
         try {
           // Same-filesystem rename atomically publishes a populated directory.
           // No valid live lock is ever an empty, stealable directory.
-          renameSync(candidate, destination);
+          publishHostLock(candidate, destination);
           let released = false;
           return { ...record, release() { if (!released) { removeOwner(kind, record); released = true; } }, assertOwned() {
             if (released || readOwner(kind)?.instanceId !== record.instanceId) throw failure("HOST_OWNERSHIP_LOST", "Host ownership changed; this instance must stop.");
@@ -127,7 +128,7 @@ export function createHostRuntimeStore(root = resolveOhquantDir()) {
           if (!["EEXIST", "ENOTEMPTY", "EPERM", "EACCES"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
           // A concurrent winner is inspected on the next iteration. Permission
           // failures without a winner are not treated as permission to overwrite.
-          if (!readOwner(kind)) throw error;
+          if (!readOwner(kind) && (process.platform !== "win32" || (error as NodeJS.ErrnoException).code !== "EEXIST")) throw error;
         }
       }
       throw failure("HOST_LOCKED", "Host ownership changed during acquisition; retry discovery.");

@@ -38,7 +38,7 @@
     "electronLanguages": ["en-US", "zh-CN", "zh-TW"],
     "directories": { "output": "../../release", "buildResources": "assets" },
     "files": [
-      "dist/**/*", "package.json", "node_modules/node-pty/**/*",
+      "dist/**/*", "!dist/koffi-*.node", "package.json", "node_modules/node-pty/**/*",
       "!node_modules/node-pty/prebuilds/linux-*", "!node_modules/node-pty/prebuilds/darwin-*", "!node_modules/node-pty/prebuilds/win32-arm64",
       "!node_modules/node-pty/{src,scripts,third_party,typings}{,/**/*}",
       "!node_modules/node-pty/deps/winpty/{src,misc,ship}{,/**/*}",
@@ -52,7 +52,7 @@
       "!python/Lib/site-packages/plotly/labextension/static/*.js",
       "!python/Lib/site-packages/share/jupyter/labextensions/jupyterlab-plotly/static/*.js"
     ] }],
-    "asarUnpack": ["node_modules/node-pty/**/*"],
+    "asarUnpack": ["node_modules/node-pty/**/*", "dist/host-koffi.node"],
     "npmRebuild": false,
     "win": { "target": "nsis", "icon": "assets/app-icon.ico", "artifactName": "WhyJ-Quant-Setup-${version}-win-${arch}.${ext}" },
     "nsis": {
