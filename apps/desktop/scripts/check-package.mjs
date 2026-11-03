@@ -9,8 +9,8 @@ const app = resolve(process.argv[2] ?? join(root, "release/win-unpacked"));
 const runtime = join(app, "resources/runtime");
 assert.equal(existsSync(join(runtime, "git")), false, "Git must not be bundled, including stale preparation output");
 assert.deepEqual(JSON.parse(readFileSync(join(runtime, "sources.json"), "utf8")).map(source => source.Name).sort(), ["bun", "python"]);
-for (const name of ["tar", "chownr", "minipass", "minizlib", "yallist", "@isaacs/fs-minipass"]) {
-  assert.ok(readdirSync(join(runtime, "licenses", name)).some(file => file.startsWith("LICENSE")), `Missing archive dependency license: ${name}`);
+for (const name of ["tar", "chownr", "minipass", "minizlib", "yallist", "@isaacs/fs-minipass", "koffi"]) {
+  assert.ok(readdirSync(join(runtime, "licenses", name)).some(file => file.startsWith("LICENSE")), `Missing bundled dependency license: ${name}`);
 }
 const packages = join(runtime, "python/Lib/site-packages");
 const pty = join(app, "resources/app.asar.unpacked/node_modules/node-pty");

@@ -190,8 +190,9 @@ test("a gate left by a confirmed dead process can be reclaimed", async () => {
   const modulePath = resolve(import.meta.dir, "../src/host-runtime.ts");
   try {
     const code = 'const {createHostRuntimeStore}=await import(process.argv[1]); createHostRuntimeStore(process.argv[2]).acquire("owner");';
-    const child = Bun.spawn([process.execPath, "-e", code, modulePath, meta], { stdout: "ignore", stderr: "ignore" });
-    expect(await child.exited).toBe(0);
+    const child = Bun.spawn([process.execPath, "-e", code, modulePath, meta], { stdout: "ignore", stderr: "pipe" });
+    const [exit, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+    if (exit !== 0) throw new Error(`Ownership fixture exited ${exit} (signal ${child.signalCode ?? "none"}): ${stderr.slice(0, 2048)}`);
     const store = createHostRuntimeStore(meta); expect(store.readOwner("owner")?.pid).toBe(child.pid);
     await (await acquireResourceLeases([root], "read"))();
     expect(store.readOwner("owner")).toBeUndefined();
