@@ -16,7 +16,8 @@ for (const entry of ["main", "preload"]) {
 const renderer = await Bun.build({ entrypoints: [resolve(desktop, "src/recovery.ts")], outdir: resolve(desktop, "dist"),
   target: "browser", format: "iife", minify: true });
 if (!renderer.success) throw new AggregateError(renderer.logs, "Renderer build failed");
-const adapter = await Bun.build({ entrypoints: [resolve(desktop, "src/host-adapter.ts")], outdir: resolve(desktop, "dist"), target: "node", format: "esm", naming: "host-adapter.mjs" });
+const adapter = await Bun.build({ entrypoints: [resolve(desktop, "src/host-adapter.ts")], outdir: resolve(desktop, "dist"), target: "node", format: "esm",
+  naming: { entry: "host-adapter.mjs", asset: "host-[name].[ext]" } });
 if (!adapter.success) throw new AggregateError(adapter.logs, "Host adapter build failed");
 for (const name of ["recovery.html", "recovery.css"]) copyFileSync(resolve(desktop, "src", name), resolve(desktop, "dist", name));
 copyFileSync(resolve(desktop, "assets/app-icon.ico"), resolve(desktop, "dist/app-icon.ico"));

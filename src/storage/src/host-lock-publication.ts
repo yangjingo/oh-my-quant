@@ -15,9 +15,9 @@ export function publishHostLock(source: string, destination: string): void {
     return;
   }
   if (!windowsMove) {
-    // Bun embeds the Node-API addon in its x64 Desktop executable. The Node
-    // CLI loads the installed package, including its platform-specific addon.
-    const ffi: NativeModule = process.versions.bun && process.arch === "x64"
+    // Bundled x64 Desktop entries embed or include this Node-API addon. The
+    // npm CLI resolves the same file from its required installed package.
+    const ffi: NativeModule = process.arch === "x64"
       ? require("koffi/build/koffi/win32_x64/koffi.node")
       : nodeRequire("koffi");
     const library = ffi.load("kernel32.dll");
