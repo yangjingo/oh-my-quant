@@ -1,3 +1,7 @@
+param([switch]$TraceFixture)
+
+if ($TraceFixture) { [Console]::Error.WriteLine('WHYJ_ICON_STAGE=helper-enter') }
+
 # Verify the resource selected by the actual Windows shortcut. A shortcut may
 # use the target's default icon or an explicit resource in that same executable.
 function Assert-ShortcutIcon($Link, [string]$Executable) {
@@ -15,7 +19,9 @@ function Assert-ShortcutIcon($Link, [string]$Executable) {
   }
 }
 
+if ($TraceFixture) { [Console]::Error.WriteLine('WHYJ_ICON_STAGE=helper-drawing-load') }
 Add-Type -AssemblyName System.Drawing
+if ($TraceFixture) { [Console]::Error.WriteLine('WHYJ_ICON_STAGE=helper-interop-init') }
 if (-not ('WhyJShellIcon' -as [type])) {
   Add-Type @'
 using System;
@@ -33,6 +39,7 @@ public static class WhyJShellIcon {
 }
 '@
 }
+if ($TraceFixture) { [Console]::Error.WriteLine('WHYJ_ICON_STAGE=helper-interop-ready') }
 
 function Get-ShellIconBitmap([string]$Path, [switch]$Small) {
   $info = New-Object WhyJShellIcon+Info
