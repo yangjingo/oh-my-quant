@@ -109,3 +109,11 @@ HTTP `/api/host/terminal` 要求普通连接 token、私有 control token 和当
 直调和 HTTP 使用同一运行时参数校验，拒绝额外字段、任意路径、缺失身份和无效修订。模型凭证不作为偏好或普通快照返回。这里的本机可信存储不是同一账户内恶意进程的隔离边界；Host 的唯一写入者、发现与退出协议由 #75 负责。
 
 回归位于 `src/app/services/test/research.test.ts`、原单股研究测试和 storage 的 artifact/checkpoint 测试，覆盖两客户端陈旧写入、请求去重、精确取消、固定分支、损坏保留与异步关闭。完整门禁为 `bun run check:release`；受控模型测试不证明真实 provider 质量或已安装 Desktop 行为。
+
+## 资源持续测量
+
+`src/app/host/test/resource-duration.ts` 在指定的干净、固定 revision 上运行受控研究和 SSE 重连。调用形式为 `bun src/app/host/test/resource-duration.ts CHECKOUT RECEIPT INTERVAL_MS DURATION_MS`；回执父目录须已存在，回执不得覆盖已有文件。间隔至少一秒，总时长至少两个间隔；实际多日测量须明确选择相应时长，并保证机器持续运行。
+
+每轮创建合成会话，最多保留 40 条，等待研究、订阅和依赖清理结束后记录内存、observer、清理计数和 Agent 弱引用。回执绑定源码 revision、harness/锁文件哈希及运行环境，只保存聚合值；独立临时工作区与 loopback provider 不使用真实凭证。单个进程也包含 provider 和采样开销，不能把全部资源占用归因于 Host。
+
+采样缺口超过容差、清理失败、未收敛、样本不足或检测到源码变化时，结果标为 `incomplete`；缺少最终回执也不能算完成。请求 GC 后弱引用仍存活不单独证明泄漏。短回归覆盖正常结束、强引用正对照、清理失败及模拟时钟缺口，只验证测量机制；实际连续多日数据和后续资源决策仍归 #146，不因合入测试而完成。
