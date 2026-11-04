@@ -176,8 +176,11 @@ test("Windows query finds a live child and observes its exit", { skip: process.p
   t.after(() => { if (child.exitCode === null) child.kill(); });
   await once(child, "spawn");
   const name = process.execPath.split(/[\\/]/).at(-1).replace(/\.exe$/i, "");
+  // The live fixture may start PowerShell slowly on a loaded runner. The
+  // production budget is separately asserted above and remains unchanged.
+  const runWithTestHeadroom = (file, args, options) => execFileSync(file, args, { ...options, timeout: 60000 });
   const withStages = (file, args, options) => {
-    const result = spawnSync(file, args, options);
+    const result = spawnSync(file, args, { ...options, timeout: 60000 });
     if (result.error) throw Object.assign(result.error, { stdout: result.stdout, stderr: result.stderr });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stderr, /WHYJ_QUERY_STAGE=start/);
@@ -188,5 +191,5 @@ test("Windows query finds a live child and observes its exit", { skip: process.p
   const exit = once(child, "exit");
   child.kill();
   await exit;
-  assert.equal(inspectProcesses(name).pids.includes(child.pid), false);
+  assert.equal(inspectProcesses(name, runWithTestHeadroom).pids.includes(child.pid), false);
 });
