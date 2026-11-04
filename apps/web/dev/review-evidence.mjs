@@ -46,6 +46,8 @@ try {
       await page.screenshot({ path: join(output, name + '.png'), scale: 'css' });
     }
   }
+  const overviewCapture = (0, eval)(await readFile(join(web, 'dev/overview-expand-evidence.cjs'), 'utf8'));
+  await overviewCapture(page);
   // The existing trusted repository capture script is a function expression used by playwright-cli.
   const capture = (0, eval)(await readFile(join(web, 'dev/capture.cjs'), 'utf8'));
   receipt.frontend = await capture(page);

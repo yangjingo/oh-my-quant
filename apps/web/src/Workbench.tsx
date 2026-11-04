@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { WorkbenchClient } from "./client/contract";
 import { createWorkbenchStore } from "./state/workbench-store";
 import { Composer } from "./components/Composer";
@@ -18,6 +18,10 @@ export function Workbench({ client }: { client: WorkbenchClient }) {
   useEffect(() => store.connect(), [store]);
   const [sidebar, setSidebar] = useState(false);
   const [overview, setOverview] = useState(() => window.innerWidth > 760);
+  const [overviewExpanded, setOverviewExpanded] = useState(false);
+  const overviewElement = useRef<HTMLElement>(null);
+  const collapsedOverviewScroll = useRef(0);
+  const restoreOverviewScroll = useRef(false);
   const [dialog, setDialog] = useState<DialogPage | null>(null);
   const [research, setResearch] = useState<ResearchPage | null>(null);
   const [positions] = useState(() => new Map<string, number>());
@@ -29,13 +33,22 @@ export function Workbench({ client }: { client: WorkbenchClient }) {
   const selected = view.selected ?? "";
   const openSettings = (page: DialogPage) => { setResearch(null); setDialog(page); };
   const openResearch = (page: ResearchPage) => { setDialog(null); setResearch(page); };
-  const focusInput = () => requestAnimationFrame(() => document.getElementById("input")?.focus());
+  const focusInput = () => requestAnimationFrame(() => {
+    const expandedControl = document.querySelector<HTMLElement>(".overview-expanded #overview .overview-heading-actions .text-action");
+    (expandedControl ?? document.getElementById("input"))?.focus();
+  });
+  useLayoutEffect(() => {
+    if (overview && !overviewExpanded && restoreOverviewScroll.current && overviewElement.current) {
+      overviewElement.current.scrollTop = collapsedOverviewScroll.current;
+      restoreOverviewScroll.current = false;
+    }
+  }, [overview, overviewExpanded]);
   useEffect(() => {
     const narrow = window.matchMedia("(max-width: 760px)");
-    const resize = () => { if (narrow.matches) { setOverview(false); setSidebar(false); } };
+    const resize = () => { if (narrow.matches) { if (!overviewExpanded) setOverview(false); setSidebar(false); } };
     narrow.addEventListener("change", resize);
     return () => narrow.removeEventListener("change", resize);
-  }, []);
+  }, [overviewExpanded]);
   useEffect(() => {
     const stop = (event: KeyboardEvent) => {
       if (running && event.ctrlKey && !event.altKey && !event.metaKey && !event.repeat && !event.isComposing && event.key.toLowerCase() === "g") {
@@ -53,10 +66,10 @@ export function Workbench({ client }: { client: WorkbenchClient }) {
     if (pages[name]) { openSettings(pages[name]!); return true; }
     return false;
   };
-  return <div id="app" className={"app " + (sidebar ? "sidebar-open " : "") + (overview ? "" : "no-panel")} style={{ "--answer-font-size": fontSize + "px" } as React.CSSProperties}>
+  return <div id="app" className={"app " + (sidebar ? "sidebar-open " : "") + (overview ? "" : "no-panel ") + (overviewExpanded ? "overview-expanded" : "")} style={{ "--answer-font-size": fontSize + "px" } as React.CSSProperties}>
     <Header title={session?.name ?? "研究工作台"} code={session?.code ?? ""} running={!!running} mode={client.mode}
-      sidebar={sidebar} onSidebar={() => { if (window.innerWidth <= 760) setOverview(false); setSidebar(!sidebar); }} onNew={() => void store.create().then(focusInput)}
-      onSettings={() => openSettings("reading")} onOverview={() => { setSidebar(false); setOverview(!overview); }} />
+      sidebar={sidebar} onSidebar={() => { if (window.innerWidth <= 760 && !overviewExpanded) setOverview(false); setSidebar(!sidebar); }} onNew={() => void store.create().then(focusInput)}
+      onSettings={() => openSettings("reading")} onOverview={() => { setSidebar(false); if (overviewExpanded) { restoreOverviewScroll.current = true; setOverviewExpanded(false); if (window.innerWidth <= 760) setOverview(false); } else { setOverview(!overview); } }} />
     <div className="workspace">
       {sidebar && <Sessions sessions={view.sessions} active={selected} onSelect={id => void store.select(id).then(() => { if (window.innerWidth <= 760) setSidebar(false); focusInput(); })} onNew={() => void store.create().then(() => { if (window.innerWidth <= 760) setSidebar(false); focusInput(); })} onClose={() => setSidebar(false)} />}
       <main className="session-panel">
@@ -73,7 +86,7 @@ export function Workbench({ client }: { client: WorkbenchClient }) {
         {snapshot && <Transcript key={selected} snapshot={snapshot} positions={positions} mode={client.mode} onEvidence={() => openResearch("evidence")} onReport={() => openResearch("report")} onSuggestion={text => { store.setDraft(text); focusInput(); }} />}
         {!snapshot && view.phase !== "loading" && <div className="empty-state research-welcome"><span className="eyebrow">研究工作台</span><h2>{view.sessions.length ? "这条会话暂时无法打开" : "连接工作区后开始研究"}</h2><p>{view.sessions.length ? "请切换其他会话或新建研究，原记录会保留。" : "当前没有可打开的会话。请检查连接或新建研究。"}</p><div className="welcome-actions"><button className="action" onClick={() => client.mode !== "disconnected" ? void store.create().then(focusInput) : openSettings("about")}>{client.mode !== "disconnected" ? "新建研究" : "了解当前连接方式"}</button><button className="text-action" onClick={() => void store.load()}>重试连接</button></div><p className="supporting">界面不会用演示记录替代缺失的 Host 数据。</p></div>}
       </main>
-      {overview && <Overview snapshot={view.market ?? snapshot?.market ?? null} error={view.marketError} onRefresh={client.refreshMarket ? failedOnly => void store.refreshMarket(failedOnly) : undefined} portfolio={view.preferences.portfolio} demo={client.mode === "demo"} onClose={() => setOverview(false)} />}
+      <Overview elementRef={overviewElement} hidden={!overview} snapshot={view.market ?? snapshot?.market ?? null} error={view.marketError} onRefresh={client.refreshMarket ? failedOnly => void store.refreshMarket(failedOnly) : undefined} portfolio={view.preferences.portfolio} demo={client.mode === "demo"} expanded={overviewExpanded} onExpand={() => { setSidebar(false); if (overviewExpanded) restoreOverviewScroll.current = true; else collapsedOverviewScroll.current = overviewElement.current?.scrollTop ?? 0; if (overviewExpanded && window.innerWidth <= 760) setOverview(false); setOverviewExpanded(!overviewExpanded); if (overviewExpanded && window.innerWidth <= 760) focusInput(); }} onClose={() => { if (overviewExpanded) restoreOverviewScroll.current = true; setOverviewExpanded(false); setOverview(false); focusInput(); }} />
     </div>
     <Composer key={selected} client={client} sessionId={selected} text={view.draft}
       onText={text => store.setDraft(text)}
