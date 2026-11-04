@@ -22,19 +22,30 @@ test("accepted source changes replace the independent market view without forcin
   } finally { release(); }
 });
 test("overview distinguishes refresh time, trading date, stale values and retry", () => {
-  const html = renderToStaticMarkup(<Overview snapshot={market} portfolio="" demo={false} onRefresh={() => {}} onClose={() => {}} />);
+  const html = renderToStaticMarkup(<Overview snapshot={market} portfolio="" demo={false} onRefresh={() => {}} onClose={() => {}} expanded={false} onExpand={() => {}} />);
   for (const text of ["2026-10-24 12:00", "2026-10-23", "旧值", "刷新超时", "重试失败项", "可能延迟", "拉取时间不等于行情时间", "AKShare"]) expect(html).toContain(text);
   expect(isMarketSnapshot({ ...market, status: "fake" })).toBe(false);
   expect(isMarketSnapshot({ ...market, colorScheme: "fake" })).toBe(false);
-  expect(renderToStaticMarkup(<Overview snapshot={{ ...market, colorScheme: "green-up" }} portfolio="" demo={false} onClose={() => {}} />)).toContain('data-market-colors="green-up"');
-  const snapshotHtml = renderToStaticMarkup(<Overview snapshot={{ ...market, quotes: [{ ...market.quotes[0]!, basis: "snapshot", asOfTime: "15:00:03" }] }} portfolio="" demo={false} onClose={() => {}} />);
+  expect(renderToStaticMarkup(<Overview snapshot={{ ...market, colorScheme: "green-up" }} portfolio="" demo={false} onClose={() => {}} expanded={false} onExpand={() => {}} />)).toContain('data-market-colors="green-up"');
+  const snapshotHtml = renderToStaticMarkup(<Overview snapshot={{ ...market, quotes: [{ ...market.quotes[0]!, basis: "snapshot", asOfTime: "15:00:03" }] }} portfolio="" demo={false} onClose={() => {}} expanded={false} onExpand={() => {}} />);
   expect(snapshotHtml).toContain("相对前收涨跌"); expect(snapshotHtml).toContain("15:00:03");
   expect(html).toContain("相邻日线涨跌，非当日快照");
   expect(displayMarketTime("2026-10-28T01:04:05.000Z")).toBe("09:04:05");
-  const automatic = renderToStaticMarkup(<Overview snapshot={{ ...market, pollIntervalMs: 5000 }} portfolio="" demo={false} onClose={() => {}} />);
+  const automatic = renderToStaticMarkup(<Overview snapshot={{ ...market, pollIntervalMs: 5000 }} portfolio="" demo={false} onClose={() => {}} expanded={false} onExpand={() => {}} />);
   expect(automatic).toContain("自动刷新 · 约 5 秒");
   expect(isMarketSnapshot({ ...market, pollIntervalMs: -1 })).toBe(false);
   expect(isMarketSnapshot({ ...market, quotes: [{ ...market.quotes[0], value: Infinity }] })).toBe(false);
+});
+test("expanded overview keeps empty, loading and error states distinct", () => {
+  const render = (snapshot: MarketSnapshot | null, error?: string) => renderToStaticMarkup(
+    <Overview snapshot={snapshot} error={error} portfolio="" demo={false} onClose={() => {}} expanded onExpand={() => {}} />,
+  );
+  expect(render(null)).toContain("尚无行情数据");
+  expect(render({ ...market, quotes: [], status: "fetching" })).toContain("正在获取行情");
+  const failed = render({ ...market, quotes: [], status: "error" }, "行情连接失败");
+  expect(failed).toContain("行情连接失败");
+  expect(failed).toContain("行情暂不可用，请重试");
+  expect(failed).toContain("返回对话");
 });
 test("workspace market events update ended sessions and reject foreign workspaces and late RPC", async () => {
   const base = createDemoClient(); let emit!: (event: WorkbenchEvent) => void; let resolve!: (m: MarketSnapshot) => void;

@@ -6,11 +6,100 @@ import type { WorkbenchEvent } from "../../../types/workbench.ts";
 import type { TerminalContext } from "../../../types/terminal.ts";
 import { resolve } from "node:path";
 import type { ResearchTaskSpec } from "../../../types/research-task.ts";
+import { HOST_MAX_REQUEST_BYTES } from "../../../types/workbench-host.ts";
+import { startNodeHttpServer } from "../../workbench/http-server.ts";
 
 const connection: HostConnection = { url: "http://127.0.0.1:12345", workspaceId: "workspace", instanceId: "instance",
   token: "a".repeat(64), controlToken: "b".repeat(64), protocolVersion: 1, serviceContractVersion: 4,
   applicationVersion: "1.4.0", started: false };
 const input = { workspaceId: connection.workspaceId, sessionId: "session", requestId: "once", expectedRevision: 0, text: "Request" };
+
+test("terminal requests isolate only bodies over the Host UTF-8 byte limit", async () => {
+  const reference = { workspaceId: connection.workspaceId, sessionId: "session", input: "" };
+  const size = (text: string) => new TextEncoder().encode(JSON.stringify({ instanceId: connection.instanceId, method: "suggestReferences", input: { ...reference, input: text } })).byteLength;
+  const overhead = size("");
+  for (const [text, expectedBytes, isolated] of [
+    ["x".repeat(HOST_MAX_REQUEST_BYTES - overhead - 1), HOST_MAX_REQUEST_BYTES - 1, false],
+    ["x".repeat(HOST_MAX_REQUEST_BYTES - overhead), HOST_MAX_REQUEST_BYTES, false],
+    ["x".repeat(HOST_MAX_REQUEST_BYTES - overhead + 1), HOST_MAX_REQUEST_BYTES + 1, true],
+    ["界".repeat(Math.floor((HOST_MAX_REQUEST_BYTES - overhead + 1) / 3)) + "x".repeat((HOST_MAX_REQUEST_BYTES - overhead + 1) % 3), HOST_MAX_REQUEST_BYTES + 1, true],
+  ] as const) {
+    let calls = 0;
+    const client = createTerminalClient(connection, { fetch: async (_url, init) => {
+      calls++;
+      expect(new TextEncoder().encode(String(init?.body)).byteLength).toBe(expectedBytes);
+      expect(init?.keepalive).toBe(isolated ? false : undefined);
+      return isolated ? Response.json({ ok: false, error: { code: "BODY_TOO_LARGE", message: "Request body exceeds 32768 bytes." } }, { status: 413 })
+        : Response.json({ ok: true, result: { ...reference, runId: null, items: [] } });
+    } });
+    if (isolated) await expect(client.suggestReferences({ ...reference, input: text })).rejects.toMatchObject({ code: "BODY_TOO_LARGE", message: "Request body exceeds 32768 bytes." });
+    else expect((await client.suggestReferences({ ...reference, input: text })).items).toEqual([]);
+    expect(calls).toBe(1);
+  }
+  let calls = 0;
+  const client = createTerminalClient(connection, { fetch: async (_url, init) => {
+    calls++; expect(init?.keepalive).toBe(false);
+    throw Object.assign(new Error("Controlled transport failure"), { code: "ECONNRESET" });
+  } });
+  await expect(client.enqueue({ ...input, runId: "run", text: "x".repeat(HOST_MAX_REQUEST_BYTES) })).rejects.toThrow("outcome is unknown");
+  expect(calls).toBe(1);
+});
+
+test("only a connection-bound shared Host client isolates an oversized RPC", async () => {
+  for (const bound of [false, true]) {
+    const seen: Array<{ body: string; keepalive: boolean | undefined }> = [];
+    const client = createHostClient({ baseUrl: connection.url, ...(bound ? { connection } : {}), fetch: async (url, init) => {
+      if (String(url).endsWith("/api/workbench/bootstrap")) return Response.json({ version: 1, token: connection.token, protocolVersion: 1, serviceContractVersion: 4 });
+      seen.push({ body: String(init?.body), keepalive: init?.keepalive });
+      return Response.json({ ok: false, error: { code: "BODY_TOO_LARGE", message: "Request body exceeds 32768 bytes." } }, { status: 413 });
+    } });
+    await expect(client.references("session", "x".repeat(HOST_MAX_REQUEST_BYTES))).rejects.toThrow("Request body exceeds 32768 bytes.");
+    expect(seen).toHaveLength(1);
+    expect(new TextEncoder().encode(seen[0]!.body).byteLength).toBeGreaterThan(HOST_MAX_REQUEST_BYTES);
+    expect(seen[0]!.keepalive).toBe(bound ? false : undefined);
+  }
+});
+
+test("terminal client preserves a 413 and the next identity read with a Node Host", async () => {
+  const server = startNodeHttpServer({ port: 0, async fetch(request) {
+    const value = await request.json() as { method: string };
+    return Response.json({ ok: true, result: value.method === "identity" ? { workspaceId: connection.workspaceId, sessionId: "session", runId: null } : null });
+  } });
+  await server.ready;
+  try {
+    for (const stripIsolation of [false, true]) {
+      let poisoned = false, calls = 0;
+      const client = createTerminalClient({ ...connection, url: server.url.origin }, { fetch: async (url, init) => {
+        calls++;
+        const body = String(init?.body);
+        if (body.includes('"method":"identity"') && poisoned) throw Object.assign(new Error("Controlled closed connection reuse"), { code: "ECONNRESET" });
+        const oversized = new TextEncoder().encode(body).byteLength > HOST_MAX_REQUEST_BYTES;
+        if (oversized && (stripIsolation || init?.keepalive !== false)) poisoned = true;
+        return fetch(url, stripIsolation && oversized ? { ...init, keepalive: undefined } : init);
+      } });
+      await expect(client.suggestReferences({ workspaceId: connection.workspaceId, sessionId: "session", input: "x".repeat(HOST_MAX_REQUEST_BYTES) }))
+        .rejects.toMatchObject({ code: "BODY_TOO_LARGE", message: "Request body exceeds 32768 bytes." });
+      if (stripIsolation) await expect(client.identity()).rejects.toThrow("请求结果未确认");
+      else expect(await client.identity()).toEqual({ workspaceId: connection.workspaceId, sessionId: "session", runId: null });
+      expect(calls).toBe(2);
+    }
+    for (const stripIsolation of [false, true]) {
+      let poisoned = false, calls = 0;
+      const client = createHostClient({ baseUrl: server.url.origin, connection, fetch: async (url, init) => {
+        calls++;
+        const body = String(init?.body);
+        if (body.includes('"method":"identity"') && poisoned) throw Object.assign(new Error("Controlled closed connection reuse"), { code: "ECONNRESET" });
+        const oversized = new TextEncoder().encode(body).byteLength > HOST_MAX_REQUEST_BYTES;
+        if (oversized && (stripIsolation || init?.keepalive !== false)) poisoned = true;
+        return fetch(url, stripIsolation && oversized ? { ...init, keepalive: undefined } : init);
+      } });
+      await expect(client.references("session", "x".repeat(HOST_MAX_REQUEST_BYTES))).rejects.toThrow("Request body exceeds 32768 bytes.");
+      if (stripIsolation) await expect(client.identity()).rejects.toThrow("请求结果未确认");
+      else expect(await client.identity()).toEqual({ workspaceId: connection.workspaceId, sessionId: "session", runId: null });
+      expect(calls).toBe(2);
+    }
+  } finally { await server.stop(true); }
+});
 
 test("private terminal context validates identity and renderer data without accepting a forged snapshot", async () => {
   const context: TerminalContext = { session: { identity: { workspaceId: "workspace", sessionId: "session", runId: null }, revision: 0, state: "idle", turns: [],

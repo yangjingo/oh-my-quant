@@ -1399,6 +1399,7 @@ test("a captured terminal portfolio remains fixed for prompts and task policy", 
 });
 
 test("a portfolio switch during Agent initialization stops before the first model request", async () => {
+  phase("portfolio-init-group-setup");
   const first = editPortfolio({ type: "create", name: "First group" }).groups.at(-1)!;
   editPortfolio({ type: "add", group: first.id, code: "AAPL" });
   const second = editPortfolio({ type: "create", name: "Second group" }).groups.at(-1)!;
@@ -1409,13 +1410,18 @@ test("a portfolio switch during Agent initialization stops before the first mode
     const base = createDefaultSessionDependencies({ cwd: root });
     return { ...base, async loadSkills() { if (hold) { hold = false; entered(); await gate; } return base.loadSkills(); } };
   } });
+  phase("portfolio-init-service-identity");
   const client = service.client, identity = await client.identity();
+  phase("portfolio-init-submit");
   const run = await service.terminal.submit(await requestFor(client, identity, "Do not use a changed portfolio"));
   try {
-    await started; editPortfolio({ type: "select", group: second.id }); release();
+    phase("portfolio-init-wait-skills"); await started;
+    phase("portfolio-init-switch"); editPortfolio({ type: "select", group: second.id }); release();
+    phase("portfolio-init-wait-terminal");
     const stopped = await terminal(client, identity.sessionId);
+    phase("portfolio-init-assert");
     expect(stopped.state).toBe("cancelled"); expect(stopped.identity.runId).toBe(run.runId); expect(requests).toHaveLength(0);
-  } finally { release(); await client.cancel({ workspaceId: identity.workspaceId, ...run }).catch(() => {}); }
+  } finally { phase("portfolio-init-cleanup"); release(); await client.cancel({ workspaceId: identity.workspaceId, ...run }).catch(() => {}); }
 });
 
 test("portfolio changes do not cancel a browser-owned run", async () => {

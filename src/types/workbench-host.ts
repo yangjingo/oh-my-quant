@@ -1,2 +1,3 @@
 export const HOST_PROTOCOL_VERSION = 1;
 export const HOST_SERVICE_CONTRACT_VERSION = 4;
+export const HOST_MAX_REQUEST_BYTES = 32_768;

@@ -35,6 +35,8 @@ sessionId 标识对话；runId 标识一次执行；artifactId/version/hash 标�
 
 HTTP/SSE 运行于独立子进程。#76 的构建入口可由 Node 或 Bun 执行：两种监听器调用同一个 Request/Response 路由，执行服务、鉴权和所有权协议不分叉。Node 适配器限制请求体为 32768 字节，流式响应保持背压，显式断开释放 SSE 订阅；长命令仍由服务自己的期限控制。监听与服务都就绪后才发布登记，端口绑定失败释放所有权。Node/Electron 直接调用 bootstrap 时需指定与入口相容的 `executable`，旧 `bunExecutable` 参数仍有效；不能把 Electron 本体默认当作普通 Node 子进程。Desktop 使用编译的 Bun Host；安装包和目标机器验收由 #48 完成。
 
+终端客户端及其绑定的 Host 客户端按序列化后的 UTF-8 字节数识别超过 Host 上限的请求，并仅对这些请求设置 `keepalive: false`；在测试过的 Bun 客户端和 Node Host 组合中，这降低了 413 后复用已关闭连接的风险。Host 仍负责拒绝超大请求，普通请求与未绑定的 Web 客户端策略不变；客户端不会自动重试操作，传输失败时仍须核对结果。
+
 状态至少区分 idle、running、needs_input、settled、cancelled、failed、interrupted。取消提交终态后拒绝该 run 的后续写入；继续创建新 run，不能把 cancelled 改回 running。Host 每次启动生成 instanceId，SSE 信封携带实例标识和会话修订；服务快照本身不携带 instanceId。客户端只应在同一实例内比较 revision，实例改变时重新读取；入口侧完整拦截旧实例迟到事件仍须在 #50/#76 验证。
 
 ## 工作区发现与启动
@@ -102,6 +104,8 @@ Host 跟踪已附着客户端及活动运行；网络断连不表示用户授权
 ## 当前工作区 Host 实现
 
 `src/app/bootstrap.ts` 持启动锁发现并认证兼容实例；没有存活或无法确认的所有者时才启动 Bun Host。storage 在私有 `.host/` 中原子发布非空锁目录和登记；只在确认进程死亡时回收，损坏、未知或不兼容的状态保留并报错。锁目录不递归删除，PID 和文件时间戳不单独作为终止或抢占凭据。
+
+Windows 使用不覆盖目标的系统移动操作发布候选锁目录。目标已存在时重新检查所有者；如果竞争者已退出，只对明确的目标已存在错误进行有限次重试。权限等其他错误不会被当作可抢占的锁。Node CLI 使用安装包中的原生模块；Windows Desktop 的编译 Host 内嵌该模块，Electron 适配器使用随应用打包的副本。受系统代码完整性策略限制的环境仍需验证其实际加载结果。
 
 Host 仅监听 loopback，校验 Host、Origin、Fetch Metadata 与连接 token；显式停止还要求私有控制能力和匹配的 instanceId，浏览器 bootstrap 不提供该能力。就绪登记含实例、工作区与协议版本，Host 关闭时释放自身登记和锁。登记权限依赖本机文件系统及 Windows 账户 ACL，不承诺同账户恶意程序隔离；工具结果中可能出现本地路径的限制仍由 #142 跟进。
 

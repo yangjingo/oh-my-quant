@@ -14,7 +14,7 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { delimiter, isAbsolute, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import {
 	type ExecutionEnv,
@@ -135,20 +135,36 @@ async function runCommand(
 }
 
 async function findBashOnPath(): Promise<string | null> {
-	const result =
-		process.platform === "win32"
-			? await runCommand("where", ["bash.exe"], 5000)
-			: await runCommand("which", ["bash"], 5000);
+	if (process.platform === "win32") return findExecutableOnPath("bash.exe");
+	const result = await runCommand("which", ["bash"], 5000);
 	if (result.status !== 0 || !result.stdout) return null;
 	const firstMatch = result.stdout.trim().split(/\r?\n/)[0];
 	return firstMatch && (await pathExists(firstMatch)) ? firstMatch : null;
 }
 
 async function findExecutableOnPath(name: string): Promise<string | null> {
-	const result =
-		process.platform === "win32"
-			? await runCommand("where", [name], 5000)
-			: await runCommand("which", [name], 5000);
+	if (process.platform === "win32") {
+		// Search without launching another process: a delayed `where.exe` must not
+		// silently change the language used to execute the user's command.
+		const deadline = performance.now() + 5000;
+		for (const entry of [process.cwd(), ...(process.env.PATH ?? "").split(delimiter)]) {
+			const directory = entry.trim().replace(/^"(.*)"$/, "$1");
+			if (!directory) continue;
+			const candidate = resolve(directory, name);
+			const remaining = deadline - performance.now();
+			if (remaining <= 0) return null;
+			let timedOut = false;
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			const found = await Promise.race([
+				pathExists(candidate),
+				new Promise<boolean>((done) => { timer = setTimeout(() => { timedOut = true; done(false); }, remaining); }),
+			]).finally(() => { if (timer) clearTimeout(timer); });
+			if (found) return candidate;
+			if (timedOut) return null;
+		}
+		return null;
+	}
+	const result = await runCommand("which", [name], 5000);
 	if (result.status !== 0 || !result.stdout) return null;
 	const firstMatch = result.stdout.trim().split(/\r?\n/)[0];
 	return firstMatch && (await pathExists(firstMatch)) ? firstMatch : null;
@@ -192,26 +208,21 @@ async function getShellConfig(
 		if (requestedShell === "bash" || requestedShell === "git-bash") {
 			const bashOnPath = await findBashOnPath();
 			if (bashOnPath) return ok({ shell: bashOnPath, args: ["-c"] });
+			const candidates: string[] = [];
+			const programFiles = process.env.ProgramFiles;
+			if (programFiles) candidates.push(`${programFiles}\\Git\\bin\\bash.exe`);
+			const programFilesX86 = process.env["ProgramFiles(x86)"];
+			if (programFilesX86) candidates.push(`${programFilesX86}\\Git\\bin\\bash.exe`);
+			for (const candidate of candidates) {
+				if (await pathExists(candidate)) return ok({ shell: candidate, args: ["-c"] });
+			}
+			return err(new ExecutionError("shell_unavailable", "Bash was requested but could not be found"));
 		}
 		for (const name of ["pwsh.exe", "powershell.exe"]) {
 			const shell = await findExecutableOnPath(name);
 			if (shell) return ok({ shell, args: powerShellArgs() });
 		}
-		const candidates: string[] = [];
-		const programFiles = process.env.ProgramFiles;
-		if (programFiles) candidates.push(`${programFiles}\\Git\\bin\\bash.exe`);
-		const programFilesX86 = process.env["ProgramFiles(x86)"];
-		if (programFilesX86) candidates.push(`${programFilesX86}\\Git\\bin\\bash.exe`);
-		for (const candidate of candidates) {
-			if (await pathExists(candidate)) {
-				return ok({ shell: candidate, args: ["-c"] });
-			}
-		}
-		const bashOnPath = await findBashOnPath();
-		if (bashOnPath) {
-			return ok({ shell: bashOnPath, args: ["-c"] });
-		}
-		return err(new ExecutionError("shell_unavailable", "No PowerShell or bash shell found"));
+		return err(new ExecutionError("shell_unavailable", "PowerShell was not found; set WHYJ_SHELL=bash to use Bash"));
 	}
 
 	if (await pathExists("/bin/bash")) {

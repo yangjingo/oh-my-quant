@@ -17,7 +17,8 @@ for (const entry of ["main", "preload"]) {
 const renderer = await Bun.build({ entrypoints: [resolve(desktop, "src/recovery.ts")], outdir: resolve(desktop, "dist"),
   target: "browser", format: "iife", minify: true });
 if (!renderer.success) throw new AggregateError(renderer.logs, "Renderer build failed");
-const adapter = await Bun.build({ entrypoints: [resolve(desktop, "src/host-adapter.ts")], outdir: resolve(desktop, "dist"), target: "node", format: "esm", naming: "host-adapter.mjs" });
+const adapter = await Bun.build({ entrypoints: [resolve(desktop, "src/host-adapter.ts")], outdir: resolve(desktop, "dist"), target: "node", format: "esm",
+  naming: { entry: "host-adapter.mjs", asset: "host-[name].[ext]" } });
 if (!adapter.success) throw new AggregateError(adapter.logs, "Host adapter build failed");
 for (const name of ["recovery.html", "recovery.css"]) copyFileSync(resolve(desktop, "src", name), resolve(desktop, "dist", name));
 copyFileSync(resolve(desktop, "assets/app-icon.ico"), resolve(desktop, "dist/app-icon.ico"));
@@ -39,9 +40,9 @@ if (await child.exited !== 0) throw new Error("Standalone CLI build failed");
 mkdirSync(resolve(desktop, "runtime/notes/quant"), { recursive: true });
 for (const name of ["funder.md", "notes.md"]) copyFileSync(resolve(root, "notes/quant", name), resolve(desktop, "runtime/notes/quant", name));
 copyFileSync(resolve(root, "LICENSE"), resolve(desktop, "runtime/LICENSE"));
-// tar and its dependencies are compiled into whyj.exe; keep their notices alongside it.
+// Keep notices for dependencies compiled into the standalone executables.
 for (const [name, license] of [["tar", "LICENSE.md"], ["chownr", "LICENSE.md"], ["minipass", "LICENSE.md"],
-  ["minizlib", "LICENSE"], ["yallist", "LICENSE.md"], ["@isaacs/fs-minipass", "LICENSE"]]) {
+  ["minizlib", "LICENSE"], ["yallist", "LICENSE.md"], ["@isaacs/fs-minipass", "LICENSE"], ["koffi", "LICENSE.txt"]]) {
   const destination = resolve(desktop, "runtime/licenses", name!);
   mkdirSync(destination, { recursive: true });
   copyFileSync(resolve(root, "node_modules", name!, license!), resolve(destination, license!));

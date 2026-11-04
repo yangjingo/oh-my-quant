@@ -116,7 +116,7 @@ it("commits one immutable snapshot across eight processes and supports cancelled
   expect(runs.every(run => run.code === 0 && !run.err)).toBe(true);
   expect(new Set(runs.map(run => run.out.trim())).size).toBe(1);
   const ref = (await archiveFundNav("270042", fundNav(), "fund_open_fund_info_em", NAV_OBSERVED_AT))!;
-  expect(readdirSync(join(root, "data", "akshare", ref.symbol, "nav-revisions"))).toEqual([`${ref.revision}.commit`, `${ref.revision}.json`]);
+  expect(readdirSync(join(root, "data", "akshare", ref.symbol, "nav-revisions")).sort()).toEqual([`${ref.revision}.commit`, `${ref.revision}.json`]);
   const before = readFileSync(path(ref), "utf8"), release = lockSync(path(ref), { realpath: false });
   const controller = new AbortController();
   try {

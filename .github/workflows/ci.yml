@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      rpc_413_probe:
+        description: Compare packaged Host 413 connection reuse on Linux
+        type: boolean
+        default: false
   workflow_call:
 
 permissions:
@@ -46,10 +51,33 @@ jobs:
       - name: Verify Windows resource ACL fixture
         if: runner.os == 'Windows'
         run: bun test src/storage/test/resource-leases.test.ts
+      - name: Test Desktop failure comparison
+        run: node --test .github/scripts/desktop-failure-comparison.test.mjs
       - name: Run complete release gate
         run: |
           New-Item -ItemType Directory -Force output/ci | Out-Null
           bun run check:release 2>&1 | Tee-Object -FilePath output/ci/release.log
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Compare Desktop tests after a matching Windows failure
+        if: ${{ failure() && runner.os == 'Windows' }}
+        timeout-minutes: 3
+        run: |
+          $counts = @{}
+          foreach ($name in @('node', 'bun', 'pwsh', 'powershell')) {
+            $counts[$name] = @(Get-Process -Name $name -ErrorAction SilentlyContinue).Count
+          }
+          $env:WHYJ_CI_PROCESS_COUNTS = ConvertTo-Json -InputObject $counts -Compress
+          node .github/scripts/desktop-failure-comparison.mjs output/ci/release.log output/ci/desktop-serial.json
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Compare packaged Host 413 connection reuse
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.rpc_413_probe && runner.os == 'Linux' }}
+        timeout-minutes: 10
+        run: |
+          $env:WHYJ_RPC_413_REUSE = 'false'
+          bun run --preload ./apps/cli/dev/preload-rpc-413-comparison.ts ./apps/cli/dev/smoke-host.ts
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:WHYJ_RPC_413_REUSE = 'true'
+          bun run --preload ./apps/cli/dev/preload-rpc-413-comparison.ts ./apps/cli/dev/smoke-host.ts
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build the localized website
         if: runner.os == 'Linux'

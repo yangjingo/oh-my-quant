@@ -86,7 +86,7 @@ test("npm script entrypoints keep source and root integration scopes explicit", 
   }
   expect(manifest.scripts.test).toContain("bun test ./src ./apps/tui ./apps/cli ./tests");
   expect(manifest.scripts.test).toContain("npm run test:desktop");
-  expect(manifest.scripts["test:desktop"]).toBe("node --test apps/desktop/test/*.test.mjs");
+  expect(manifest.scripts["test:desktop"]).toBe("node --test --test-concurrency=1 apps/desktop/test/*.test.mjs");
   const web = JSON.parse(readFileSync(join(root, "apps/web/package.json"), "utf8"));
   expect(manifest.scripts["web:check"]).toBe("bun run --cwd apps/web check");
   expect(web.scripts.check).toContain("bun run test"); expect(web.scripts.test).toBe("bun test");

@@ -66,7 +66,7 @@ export function Transcript({ snapshot, positions, onEvidence, onReport, onSugges
   </div>{copyStatus && <span className="copy-feedback" role="status">{copyStatus}</span>}{away && <button className="jump-latest" onClick={() => { setAway(false); stream.current?.scrollTo({ top: stream.current.scrollHeight }); }}>回到最新 ↓</button>}</>;
 }
 
-export function Overview({ snapshot, portfolio, demo, error, onRefresh, onClose }: { snapshot: MarketSnapshot | null; portfolio: string; demo: boolean; error?: string | null; onRefresh?(failedOnly: boolean): void; onClose(): void }) {
+export function Overview({ snapshot, portfolio, demo, error, onRefresh, onClose, expanded, onExpand, hidden, elementRef }: { snapshot: MarketSnapshot | null; portfolio: string; demo: boolean; error?: string | null; onRefresh?(failedOnly: boolean): void; onClose(): void; expanded: boolean; onExpand(): void; hidden?: boolean; elementRef?: React.Ref<HTMLElement> }) {
   const rows = snapshot?.quotes ?? [];
   const watch = rows.filter(q => q.group === "watchlist"), market = rows.filter(q => q.group !== "watchlist");
   const busy = snapshot?.status === "fetching";
@@ -76,7 +76,7 @@ export function Overview({ snapshot, portfolio, demo, error, onRefresh, onClose 
     <div className="quote-row"><small>{q.code}</small><span>{q.name}</span><strong className={q.change === null ? "" : q.change > 0 ? "up" : q.change < 0 ? "down" : ""}>{q.change === null ? "—" : (q.change > 0 ? "+" : "") + q.change.toFixed(2) + "%"}</strong></div>
     {!demo && <p className="quote-meta">{q.basis === "snapshot" ? "指数快照" : "历史日线"} {q.value === null ? "—" : q.value.toFixed(2)} · {q.basis === "snapshot" ? "相对前收涨跌" : "相邻日线涨跌，非当日快照"}<br />数据日期 {q.asOfDate ?? "未提供"}{q.asOfTime ? " " + q.asOfTime : ""} · {q.provider ?? "暂无来源"}{q.freshness && freshness[q.freshness] ? " · " + freshness[q.freshness] : ""}</p>}
   </div>)}</section>;
-  return <aside id="overview" className="overview" data-market-colors={snapshot?.colorScheme ?? "red-up"} aria-label="行情概览" tabIndex={0}><div className="section-label"><strong>行情概览</strong><IconButton name="x" label="收起概览" onClick={onClose} /></div>
+  return <aside id="overview" ref={elementRef} hidden={hidden} className="overview" data-market-colors={snapshot?.colorScheme ?? "red-up"} aria-label="行情概览" tabIndex={0}><div className="section-label"><strong>行情概览</strong><div className="overview-heading-actions"><button className="text-action" onClick={onExpand}>{expanded ? "返回对话" : "展开概览"}</button><IconButton name="x" label="收起概览" onClick={onClose} /></div></div>
     <div className="refresh"><span>最近拉取：{displayMarketTime(snapshot?.refreshedAt ?? "")}</span><small>{demo ? "合成示例" : snapshot?.source.provider ?? "等待数据源返回"}</small>
       {!demo && snapshot?.pollIntervalMs !== undefined && <small className="auto-refresh">{snapshot.pollIntervalMs > 0 ? `自动刷新 · 约 ${snapshot.pollIntervalMs / 1000} 秒` : "自动刷新已暂停"}</small>}
       {!demo && <span role="status">{error ?? states[snapshot?.status ?? "idle"]}{snapshot ? ` · ${snapshot.source.available}/${snapshot.source.total} 可用` : ""}</span>}

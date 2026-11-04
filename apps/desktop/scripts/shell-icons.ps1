@@ -1,3 +1,7 @@
+param([switch]$TraceFixture)
+
+if ($TraceFixture) { [Console]::Error.WriteLine('WHYJ_ICON_STAGE=helper-enter') }
+
 # Verify the resource selected by the actual Windows shortcut. A shortcut may
 # use the target's default icon or an explicit resource in that same executable.
 function Assert-ShortcutIcon($Link, [string]$Executable) {
@@ -15,7 +19,9 @@ function Assert-ShortcutIcon($Link, [string]$Executable) {
   }
 }
 
+if ($TraceFixture) { [Console]::Error.WriteLine('WHYJ_ICON_STAGE=helper-drawing-load') }
 Add-Type -AssemblyName System.Drawing
+if ($TraceFixture) { [Console]::Error.WriteLine('WHYJ_ICON_STAGE=helper-interop-init') }
 if (-not ('WhyJShellIcon' -as [type])) {
   Add-Type @'
 using System;
@@ -33,6 +39,7 @@ public static class WhyJShellIcon {
 }
 '@
 }
+if ($TraceFixture) { [Console]::Error.WriteLine('WHYJ_ICON_STAGE=helper-interop-ready') }
 
 function Get-ShellIconBitmap([string]$Path, [switch]$Small) {
   $info = New-Object WhyJShellIcon+Info
@@ -45,8 +52,10 @@ function Get-ShellIconBitmap([string]$Path, [switch]$Small) {
   } finally { [WhyJShellIcon]::DestroyIcon($info.Icon) | Out-Null }
 }
 
-function Assert-ShellIconMatches([Drawing.Bitmap]$Actual, [Drawing.Bitmap]$Expected, [switch]$Shortcut) {
-  if ($Actual.Width -ne $Expected.Width -or $Actual.Height -ne $Expected.Height) { throw 'Shell icon dimensions differ.' }
+function Assert-ShellIconMatches([Drawing.Bitmap]$Actual, [Drawing.Bitmap]$Expected, [switch]$Shortcut, [string]$Context = 'fixture') {
+  if ($Actual.Width -ne $Expected.Width -or $Actual.Height -ne $Expected.Height) {
+    throw "Shell icon dimensions differ: context=$Context actual=$($Actual.Width)x$($Actual.Height) expected=$($Expected.Width)x$($Expected.Height)."
+  }
   $overlayWidth = [int][Math]::Ceiling($Actual.Width / 2)
   $overlayHeight = [int][Math]::Ceiling($Actual.Height / 2)
   for ($y = 0; $y -lt $Actual.Height; $y++) {
@@ -54,9 +63,18 @@ function Assert-ShellIconMatches([Drawing.Bitmap]$Actual, [Drawing.Bitmap]$Expec
       # Windows adds a link arrow. Its lower-left area is verified separately
       # through the shortcut's exact icon resource and preserved screenshots.
       if ($Shortcut -and $x -lt $overlayWidth -and $y -ge ($Actual.Height - $overlayHeight)) { continue }
-      if ($Actual.GetPixel($x, $y).ToArgb() -ne $Expected.GetPixel($x, $y).ToArgb()) {
-        throw "Shell icon differs from the shared brand resource at ($x,$y)."
+      $actualArgb = $Actual.GetPixel($x, $y).ToArgb()
+      $expectedArgb = $Expected.GetPixel($x, $y).ToArgb()
+      if ($actualArgb -ne $expectedArgb) {
+        throw "Shell icon differs: context=$Context size=$($Actual.Width)x$($Actual.Height) pixel=($x,$y) actual=0x$($actualArgb.ToString('X8')) expected=0x$($expectedArgb.ToString('X8'))."
       }
     }
   }
+}
+
+function Assert-RecordedShellIcon([Drawing.Bitmap]$Actual, [Drawing.Bitmap]$Expected, [string]$Evidence,
+    [ValidateSet('shell-icon', 'shell-icon-small')][string]$Prefix, [ValidateRange(0, 2147483647)][int]$Index, [switch]$Shortcut) {
+  $Expected.Save((Join-Path $Evidence "$Prefix-reference.png"), [Drawing.Imaging.ImageFormat]::Png)
+  $Actual.Save((Join-Path $Evidence "$Prefix-$Index.png"), [Drawing.Imaging.ImageFormat]::Png)
+  Assert-ShellIconMatches $Actual $Expected -Shortcut:$Shortcut -Context "$Prefix-$Index"
 }

@@ -19,6 +19,14 @@ async (page) => {
     const input = page.getByRole('combobox', { name: '研究问题' });
     await page.getByRole('heading', { name: /示例结论/ }).waitFor();
     await capture('01-desktop');
+    await input.fill('概览切换时保留草稿');
+    await page.getByRole('button', { name: '展开概览', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    check(await page.getByRole('button', { name: '返回对话', exact: true }).evaluate(el => document.activeElement === el), 'Overview toggle must retain keyboard focus');
+    await capture('01-overview-expanded');
+    await page.keyboard.press('Enter');
+    check(await input.inputValue() === '概览切换时保留草稿', 'Overview toggle must preserve draft');
+    await input.fill('');
     const inspectOverviewEnd = async name => {
       const overview = page.locator('#overview');
       await overview.focus(); await overview.press('End');
@@ -35,7 +43,7 @@ async (page) => {
     await page.setViewportSize({ width: 1440, height: 480 });
     await inspectOverviewEnd('01-overview-end-low-height');
     await page.setViewportSize({ width: 390, height: 480 });
-    await page.locator('#overview').waitFor({ state: 'detached' });
+    await page.locator('#overview').waitFor({ state: 'hidden' });
     await page.getByRole('button', { name: '切换研究概览', exact: true }).click();
     await inspectOverviewEnd('01-overview-end-narrow-low-height');
     await page.setViewportSize({ width: 1440, height: 960 });
@@ -111,8 +119,8 @@ async (page) => {
     await page.getByRole('combobox', { name: '数据源', exact: true }).selectOption('demo');
     await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator('#overview').waitFor({ state: 'detached' });
-    check(await page.locator('#overview').count() === 0, 'Narrow breakpoint closes retained overview');
+    await page.locator('#overview').waitFor({ state: 'hidden' });
+    check(!(await page.locator('#overview').isVisible()), 'Narrow breakpoint closes retained overview');
     await page.waitForFunction(() => { const input = document.querySelector('#input'); return input.scrollHeight <= input.clientHeight + 1; });
     await capture('10-resized-mobile');
     await page.reload();

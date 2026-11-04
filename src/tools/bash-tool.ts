@@ -12,11 +12,13 @@ import { NodeExecutionEnv } from "../agent/src/session-runtime/node.ts";
 import { shellDisplayName } from "./shell.ts";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
+const shellGuidance = shellDisplayName() === "PowerShell"
+  ? "Use PowerShell syntax: ';', Get-ChildItem -Force, Get-Content -Tail and foreach ($x in @(...)). Set WHYJ_SHELL=bash on Windows to choose Bash."
+  : "Use Bash/sh syntax for commands, paths and pipelines.";
 
 const BashParams = Type.Object({
   command: Type.String({
-    description:
-      "Shell command to execute. Windows uses PowerShell syntax by default: use ';', Get-ChildItem -Force, Get-Content -Tail, foreach ($x in @(...)); do not use Bash idioms such as '&&', 'ls -la', 'tail -n', or 'for x in ...; do'. Unix uses bash/sh syntax. Set WHYJ_SHELL=bash on Windows to force bash.",
+    description: `Shell command to execute. ${shellGuidance}`,
   }),
   workdir: Type.Optional(Type.String({ description: "Working directory (defaults to project root)" })),
   timeout_ms: Type.Optional(Type.Number({ description: "Timeout in milliseconds (default 120000)" })),
@@ -112,8 +114,7 @@ function validateEphemeralCommand(command: string, workdir?: string): string | n
 export const bashTool: AgentTool<typeof BashParams> = {
   name: "bash",
   label: shellDisplayName(),
-  description:
-    "Run a shell command and return stdout/stderr. On Windows this is PowerShell: use ';' for sequencing, Get-ChildItem -Force instead of ls -la, Get-Content -Tail instead of tail, and foreach ($x in @(...)) instead of Bash for loops. On Unix use bash syntax. Prefer direct data / quant tools for market data.",
+  description: `Run a shell command and return stdout/stderr. ${shellGuidance} Prefer direct data / quant tools for market data.`,
   parameters: BashParams,
   prepareArguments: normalizeBashArgs,
   executionMode: "sequential",

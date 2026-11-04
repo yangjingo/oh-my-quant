@@ -18,7 +18,7 @@
     "test:crash-recovery": "node scripts/crash-recovery-smoke.mjs",
     "test:host-conflicts": "node scripts/conflict-smoke.mjs",
     "test:tray-events": "node scripts/tray-smoke.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test --test-concurrency=1 test/*.test.mjs"
   },
   "devDependencies": {
     "@electron/asar": "3.4.1",
@@ -38,7 +38,7 @@
     "productName": "WhyJ Quant",
     "electronLanguages": ["en-US", "zh-CN", "zh-TW"],
     "directories": { "output": "../../release", "buildResources": "assets" },
-    "files": ["dist/**/*", "package.json"],
+    "files": ["dist/**/*", "!dist/koffi-*.node", "package.json"],
     "extraResources": [{ "from": "runtime", "to": "runtime", "filter": [
       "**/*", "!git{,/**/*}", "!**/__pycache__/**", "!**/*.pyc",
       "!python/Lib/site-packages/{numpy,pandas,pyarrow}/**/tests{,/**/*}",
@@ -47,6 +47,7 @@
       "!python/Lib/site-packages/plotly/labextension/static/*.js",
       "!python/Lib/site-packages/share/jupyter/labextensions/jupyterlab-plotly/static/*.js"
     ] }],
+    "asarUnpack": ["dist/host-koffi.node"],
     "npmRebuild": false,
     "win": { "target": "nsis", "icon": "assets/app-icon.ico", "artifactName": "WhyJ-Quant-Setup-${version}-win-${arch}.${ext}" },
     "nsis": {

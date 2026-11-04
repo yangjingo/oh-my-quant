@@ -22,7 +22,20 @@ test("Windows shortcut resources and Shell icons match the shared brand", { skip
   if (result.error) throw Object.assign(result.error, { stdout: result.stdout, stderr: result.stderr });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /PASS Unicode shortcut identity/);
-  for (const stage of ["start", "helper-loaded", "shortcut-checks-complete", "large-start", "large-complete", "small-start", "small-complete"]) {
-    assert.ok(result.stderr.includes(`WHYJ_ICON_STAGE=${stage}`), `Missing icon stage ${stage}`);
-  }
+  assert.match(result.stdout, /saved mismatch evidence/);
+  const phases = ["start", "shell-read", "overlay-compare", "overlay-record", "mismatch-compare", "mismatch-record", "evidence-read", "final-record", "complete"];
+  const expectedStages = ["start", "helper-enter", "helper-drawing-load", "helper-interop-init", "helper-interop-ready", "helper-loaded", "shortcut-checks-complete", ...["large", "small"].flatMap(size => phases.map(phase => `${size}-${phase}`))];
+  const stages = [...result.stderr.matchAll(/^WHYJ_ICON_STAGE=([a-z-]+)\r?$/gm)].map(match => match[1]);
+  assert.deepEqual(stages, expectedStages);
+});
+
+test("Windows Shell icon helper emits no fixture diagnostics by default", { skip: process.platform !== "win32", timeout: 30_000 }, () => {
+  const helper = fileURLToPath(new URL("../scripts/shell-icons.ps1", import.meta.url));
+  const command = `. '${helper.replaceAll("'", "''")}'; [Console]::Out.WriteLine('helper-ready')`;
+  const result = spawnSync("pwsh", ["-NoProfile", "-NonInteractive", "-Command", command],
+    { encoding: "utf8", windowsHide: true, timeout: 20_000 });
+  if (result.error) throw Object.assign(result.error, { stdout: result.stdout, stderr: result.stderr });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "helper-ready");
+  assert.equal(result.stderr, "");
 });

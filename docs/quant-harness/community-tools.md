@@ -14,6 +14,8 @@ Agent Skills 的开放格式把领域知识与工作流组织成可携带资源�
 
 应用负责预制目录、安装选择和接线；Pi 负责对应解析、加载或连接机制；上游作者负责方法与依赖的维护。预制目录不是独立质量认证，也不是对任意脚本、包或外部服务的审阅承诺。
 
+Windows 的 shell 工具默认使用 PowerShell 语法，从当前目录和 PATH 查找 PowerShell；找不到时明确报错，不静默改用 Bash 执行另一种语法。需要 Bash 时可显式设置 `WHYJ_SHELL=bash` 或 `WHYJ_SHELL=git-bash`；显式选择不可用时同样报错。Unix 的 shell 选择不受此规则影响。
+
 <a id="installation"></a>
 
 ## 安装选择不能悄悄变成全部启用
