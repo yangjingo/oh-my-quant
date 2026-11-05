@@ -17,6 +17,8 @@ import { ANNUAL_TOOLS } from "./annual-tools.ts";
 import { createFundDcaTool } from "./fund-dca-tools.ts";
 import { calculatePositionScenariosTool } from "./position-scenarios-tool.ts";
 import { calculateWeightedScoreTool } from "./weighted-score-tool.ts";
+import { createMainboardScanTool, mainboardScanTool } from "./mainboard-scan-tool.ts";
+import { MAINBOARD_SCAN_REQUIREMENTS } from "./requirements.ts";
 
 export { builtinToolDisplay } from "./display.ts";
 export type { BuiltinToolDomain, DataProvider, ToolDisplay } from "./display.ts";
@@ -70,6 +72,7 @@ const DEFAULT_BUILTIN_TOOL_REGISTRATIONS: BuiltinToolRegistration[] = [
 
   { tool: mustTool(COMPUTE_TOOLS, "compute_factor"), domain: "quant", display: mustDisplay("compute_factor"), requirements: priceAnalysisRequirements() },
   { tool: newsResearchTool as AgentTool, domain: "quant", display: mustDisplay("research_news"), requirements: NEWS_REQUIREMENTS },
+  { tool: mainboardScanTool as AgentTool, domain: "quant", display: mustDisplay("scan_mainboard"), requirements: MAINBOARD_SCAN_REQUIREMENTS },
   { tool: mustTool(COMPUTE_TOOLS, "run_backtest"), domain: "quant", display: mustDisplay("run_backtest"), requirements: priceAnalysisRequirements() },
   { tool: mustTool(COMPUTE_TOOLS, "check_risk"), domain: "quant", display: mustDisplay("check_risk"), requirements: priceAnalysisRequirements() },
   { tool: calculateWeightedScoreTool as AgentTool, domain: "quant", display: mustDisplay("calculate_weighted_score"), requirements: {
@@ -130,11 +133,12 @@ export const BUILTIN_TOOLS: AgentTool[] = BUILTIN_TOOL_REGISTRY
 export function createBuiltinTools(options: { analysisData?: Parameters<typeof createPriceAnalysisTools>[0];
   archiveAnalysisData?: Parameters<typeof createPriceAnalysisTools>[1]; fundData?: Parameters<typeof createFundDcaTool>[0];
   comparison?: Parameters<typeof createComparePortfoliosTool>[0]; alpha?: Parameters<typeof createAlphaTools>[0];
-  news?: Parameters<typeof createNewsResearchTool>[0] } = {}): AgentTool[] {
+  news?: Parameters<typeof createNewsResearchTool>[0]; mainboardScan?: Parameters<typeof createMainboardScanTool>[0] } = {}): AgentTool[] {
   // Registry erases each concrete schema type; Pi validates arguments before execute.
   const overrides = new Map<string, AgentTool>(Object.values(createPriceAnalysisTools(options.analysisData, options.archiveAnalysisData)).map(tool => [tool.name, tool as AgentTool]));
   if (options.alpha) for (const tool of Object.values(createAlphaTools(options.alpha))) overrides.set(tool.name, tool as AgentTool);
   if (options.news) overrides.set("research_news", createNewsResearchTool(options.news) as AgentTool);
+  if (options.mainboardScan) overrides.set("scan_mainboard", createMainboardScanTool(options.mainboardScan) as AgentTool);
   if (options.fundData) overrides.set("fund_dca_backtest", createFundDcaTool(options.fundData) as AgentTool);
   if (options.comparison) overrides.set("compare_portfolios", createComparePortfoliosTool(options.comparison) as AgentTool);
   return BUILTIN_TOOLS.map(tool => overrides.get(tool.name) ?? tool);

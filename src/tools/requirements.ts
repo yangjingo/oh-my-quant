@@ -17,6 +17,13 @@ export const NEWS_REQUIREMENTS: ToolRequirements = {
   limitations: "Needs a news route AND a market-compatible price route for the same stock/window. News search is incomplete and title sentiment uncalibrated. One endpoint sample does not verify the combined research or authorize orders.",
 };
 
+export const MAINBOARD_SCAN_REQUIREMENTS: ToolRequirements = {
+  capability: "mainboard-scan", routes: [{ ...AKSHARE, markets: ["A"],
+    endpoints: ["stock_info_sh_name_code", "stock_info_sz_name_code", "daily-series"] }],
+  effects: ["public-network", "market-cache"],
+  limitations: "Both public exchange rosters require Python/AKShare, without a token. Prices additionally need a configured A-share route (AKShare or entitled Tushare) or usable cache. A token or daily sample does not verify roster access, batch coverage, comparable price dates or ranking. Partial runs remain partial; no scheduler or restart recovery.",
+};
+
 export function dailyRequirements(computation = false): ToolRequirements {
   return { capability: "daily-bars", routes: DAILY_ROUTES, effects: ["public-network", "market-cache"],
     limitations: computation ? "A price sample only verifies an input dependency. Check sufficient observations, strategy parameters and benchmark coverage for each computation."

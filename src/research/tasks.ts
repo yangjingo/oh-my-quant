@@ -92,6 +92,7 @@ function differingParameters(operation: ResearchOperation, expected: Record<stri
 
 /** Enforced by a host before execution; narrative notes are preserved but not executable predicates. */
 export function checkResearchTaskCall(task: ResearchTaskSpec, tool: string, parameters: Record<string, unknown>): string | null {
+  if (tool === "scan_mainboard") return "A main-board scan expands the declared symbol scope. Start a fresh discovery session without a declared research task.";
   if (!task.constraints.allowedTools.includes(tool)) return `Tool ${tool} is outside the declared research capabilities.`;
   if (tool === "score_benchmark" && task.scope.benchmark
     && (parameters.benchmark_symbol ?? DEFAULT_BENCHMARK_SYMBOL) !== task.scope.benchmark) return "Benchmark differs from the task.";
