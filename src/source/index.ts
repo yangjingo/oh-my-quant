@@ -42,6 +42,8 @@ export { fetchFromLlmQuant } from "./src/llmquant.ts";
 export { fetchComparisonFx } from "./src/frankfurter.ts";
 export { checkAkshareDependency } from "./src/akshare-dependency.ts";
 export { runPython } from "./src/akshare-python.ts";
+export { fetchMainboardUniverse } from "./src/mainboard-universe.ts";
+export type { MainboardMember, MainboardUniverse } from "./src/mainboard-universe.ts";
 export { fetchNews, normalizeNewsScope } from "./src/news.ts";
 export { readNewsDocument } from "./src/news-document.ts";
 export { fetchSinaAIndexSpotQuotes } from "./src/sina-index-client.ts";

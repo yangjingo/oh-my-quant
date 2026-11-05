@@ -31,6 +31,11 @@ function taskSpec(): ResearchTaskSpec {
 }
 function note(id: string, event: ResearchTaskEvent): ResearchEntry { return { id, type: "custom_message", customType: "research_task", details: event }; }
 function declaration(task = taskSpec()) { return note("task-start", { version: 1, type: "declare", expectedRevision: null, task }); }
+
+it("rejects widening a declared symbol task to a main-board discovery even when allowedTools includes it", () => {
+  const task = taskSpec(); task.constraints.allowedTools.push("scan_mainboard");
+  expect(checkResearchTaskCall(task, "scan_mainboard", { start: task.scope.start, end: task.scope.end })).toContain("fresh discovery session");
+});
 function chain(entries: ResearchEntry[]) { return entries.map((entry, index) => ({ ...entry, parentId: entries[index - 1]?.id ?? null })); }
 
 it("requires declared metrics, parameters and matching observed scope rather than an assistant completion claim", async () => {

@@ -26,6 +26,7 @@ const TOOL_DISPLAYS: Record<string, ToolDisplay> = {
   fetch_index_constituents: { label: "AKShare · Index Constituents", title: "获取指数成分", provider: "akshare" },
   fetch_index_rows: { label: "AKShare · Index Rows", title: "获取指数数据", provider: "akshare" },
   compute_factor: { label: "Quant.Factor", title: "计算研究指标" },
+  scan_mainboard: { label: "Quant.MainboardScan", title: "扫描沪深主板与覆盖率" },
   run_backtest: { label: "Quant.Backtest", title: "运行策略回测" },
   alpha_backtest: { label: "Alpha.Backtest", title: "运行超额收益回测" },
   alpha_runs: { label: "Alpha.Runs", title: "查看回测记录" },

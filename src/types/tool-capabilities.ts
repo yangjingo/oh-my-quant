@@ -3,7 +3,7 @@ import type { DataMarket, DataReadiness, PythonReadiness } from "./data-readines
 export type ToolDataCapability = "daily-bars" | "archived-bars" | "archived-analysis" | "symbol-search" | "index-spot" | "index-catalog" | "index-constituents"
   | "index-endpoint" | "fund-nav" | "fund-profile" | "fund-purchase" | "fund-fee" | "fund-performance" | "fund-endpoint"
   | "benchmark-results" | "shell" | "observation-portfolios" | "portfolio-comparison" | "comparison-results"
-  | "alpha-backtest" | "alpha-results" | "alpha-engine-status" | "news-research" | "annual-research" | "position-scenarios" | "weighted-score";
+  | "alpha-backtest" | "alpha-results" | "alpha-engine-status" | "news-research" | "annual-research" | "position-scenarios" | "weighted-score" | "mainboard-scan";
 export type ToolProvider = "akshare" | "tushare" | "llmquant-data" | "financial-datasets" | "sina" | "local" | "frankfurter" | "yahoo";
 export interface ToolDataRoute {
   provider: ToolProvider;
