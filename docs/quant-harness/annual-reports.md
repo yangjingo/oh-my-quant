@@ -62,4 +62,4 @@
 
 1. Buffett, W. E. [Berkshire Hathaway 2013 Shareholder Letter](https://www.berkshirehathaway.com/letters/2013ltr.pdf). 2014，印刷页 20。保留低成本指数化讨论的原始语境。
 2. Marks, H. [You Can’t Predict. You Can Prepare.](https://www.oaktreecapital.com/docs/default-source/memos/2001-11-20-you-cant-predict-you-can-prepare.pdf). Oaktree Capital, 2001.
-3. oh-my-quant. [组合比较](./portfolio-comparison.md)、[账户业绩](./performance.md)、[报告版本](./artifacts-design.md). 三者分别维护研究假设、私有业绩与不可变产出。
+3. WhyJ-Quant. [组合比较](./portfolio-comparison.md)、[账户业绩](./performance.md)、[报告版本](./artifacts-design.md). 三者分别维护研究假设、私有业绩与不可变产出。

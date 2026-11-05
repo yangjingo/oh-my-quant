@@ -1,6 +1,6 @@
 ---
 name: pr-skill
-description: Prepare and review single-issue PRs for oh-my-quant targeting stable iterative main, with testing, documentation, final-commit CI verification, and remote/local cleanup after authorized merges.
+description: Prepare and review single-issue PRs for WhyJ-Quant targeting stable iterative main, with testing, documentation, final-commit CI verification, and remote/local cleanup after authorized merges.
 ---
 
 # PR Skill

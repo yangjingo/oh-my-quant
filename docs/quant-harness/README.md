@@ -89,4 +89,4 @@ Quant Harness 将这些要求装配到通用运行时上。它维护研究范围
 ## References
 
 1. Groth, P., and Moreau, L., eds. [PROV-Overview](https://www.w3.org/TR/prov-overview/). W3C Working Group Note, 2013.
-2. oh-my-quant. [模块架构](../agent-runtime/architecture.md)、[存储策略](../agent-runtime/storage.md)、[量化评测](../evaluation/README.md). 分别维护结构、持久化与验证方法。
+2. WhyJ-Quant. [模块架构](../agent-runtime/architecture.md)、[存储策略](../agent-runtime/storage.md)、[量化评测](../evaluation/README.md). 分别维护结构、持久化与验证方法。

@@ -1,6 +1,6 @@
 # Agentic / Vibe Repo Ops：让 AGENTS.md、Skills 与 CI 对同一次交付负责
 
-初稿 2026-10-15 · 修订 2026-10-18 · oh-my-quant 工程实践
+初稿 2026-10-15 · 修订 2026-10-18 · WhyJ-Quant 工程实践
 
 本文扩写自《Agent Repo 的基础建设：从工作约定到可核验的交付》。原文解释为什么建立规则；这次进一步追问：规则已经写下、工作流已经运行，为什么仍然频繁失败，又为什么检查失败没有阻止合并？
 
@@ -14,7 +14,7 @@
 
 ## 1. 从一次“合并成功以后检查变红”开始
 
-2026-10-16，产品形态计划 PR #22 的代码 CI 和一轮 PR policy 已经通过。随后更新了 PR 描述，触发另一轮 policy。PR 在这轮检查结束前合并，关联的 Issue #20 自动关闭。几秒钟后，校验脚本读到关闭的 Issue，报告“关闭引用必须指向一个开放 Issue”。[失败运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38908970604)
+2026-10-16，产品形态计划 PR #22 的代码 CI 和一轮 PR policy 已经通过。随后更新了 PR 描述，触发另一轮 policy。PR 在这轮检查结束前合并，关联的 Issue #20 自动关闭。几秒钟后，校验脚本读到关闭的 Issue，报告“关闭引用必须指向一个开放 Issue”。[失败运行](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38908970604)
 
 单独看每个动作都很合理：编辑描述应该重新检查；合并应该关闭已完成的 Issue；一个正在实施的 PR 应该关联开放的问题。错误出现在组合上：检查器没有区分“仍在实施的 PR”和“已经完成的 PR”，合并操作也没有等待最后一次描述编辑触发的运行。
 
@@ -43,30 +43,30 @@
 | 取消运行中的失败 job | 3 次出现 `CI required` 失败 | 上游取消后，聚合门禁拒绝放行；不是另一个产品缺陷 |
 | 旧桌面 UI 失败证据 | 两份 artifact 均可下载 | 可结合失败截图、等待行号与后续修复判断原因 |
 
-最新一次快照中的 main 是 `076b786`：根 [CI 成功](https://github.com/yangjingo/oh-my-quant/actions/runs/38917440076)，但同一提交的 [Windows desktop 工作流失败](https://github.com/yangjingo/oh-my-quant/actions/runs/38917440064)。失败发生在重复执行根测试的 `checks` job，真实 Python 探针超过了 5 秒；这和“安装包构建失败”不是同一个事实。
+最新一次快照中的 main 是 `076b786`：根 [CI 成功](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38917440076)，但同一提交的 [Windows desktop 工作流失败](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38917440064)。失败发生在重复执行根测试的 `checks` job，真实 Python 探针超过了 5 秒；这和“安装包构建失败”不是同一个事实。
 
 这里有两个统计陷阱。一个测试失败可能同时使平台 job 和 `CI required` 失败，不能算两个独立根因。相反，一个 workflow 失败也可能包含两种原因，例如安装验收访问不存在的注册表路径，同时另一个 job 的 provider 测试未在期限内发出请求。归因单位应该是“故障机制及其证据”，不是 UI 上红灯的数量。
 
 复查命令可以保持简单：
 
 ```sh
-gh api --paginate 'repos/yangjingo/oh-my-quant/actions/runs?per_page=100'
-gh api 'repos/yangjingo/oh-my-quant/actions/runs/<run-id>/jobs?filter=all&per_page=100'
-gh run view <run-id> --repo yangjingo/oh-my-quant --log-failed
-gh api 'repos/yangjingo/oh-my-quant/actions/runs/<run-id>/artifacts'
+gh api --paginate 'repos/yangjingo/WhyJ-Quant/actions/runs?per_page=100'
+gh api 'repos/yangjingo/WhyJ-Quant/actions/runs/<run-id>/jobs?filter=all&per_page=100'
+gh run view <run-id> --repo yangjingo/WhyJ-Quant --log-failed
+gh api 'repos/yangjingo/WhyJ-Quant/actions/runs/<run-id>/artifacts'
 ```
 
 如果某次 `run_attempt > 1`，还要按 attempt 读取日志；如果 jobs 超过一页，也要继续分页。已过期 artifact 应标为无法取得，不能用另一轮成功截图替代。我们这次确实找回了两份原始截图，因此可以把旧报告里“UI 超时、内部原因待查”的判断继续收窄。
 
 ### 继续审计时发现：成功 run 也可能藏着一次失败
 
-2026-10-17 再次分页读取全部历史，快照扩展到 **61 次 run：35 成功、18 失败、8 取消**，共有 **62 个 attempt**。新增 17 次运行全部检查 jobs；唯一 `run_attempt=2` 的 [39039089298](https://github.com/yangjingo/oh-my-quant/actions/runs/39039089298) 最终成功，但 attempt 1 的 Windows 取消测试失败。若只按 `conclusion=failure` 搜索，这个问题会完全漏掉。后续本 PR 的验证不计入这份冻结分母。
+2026-10-17 再次分页读取全部历史，快照扩展到 **61 次 run：35 成功、18 失败、8 取消**，共有 **62 个 attempt**。新增 17 次运行全部检查 jobs；唯一 `run_attempt=2` 的 [39039089298](https://github.com/yangjingo/WhyJ-Quant/actions/runs/39039089298) 最终成功，但 attempt 1 的 Windows 取消测试失败。若只按 `conclusion=failure` 搜索，这个问题会完全漏掉。后续本 PR 的验证不计入这份冻结分母。
 
 | 新增证据 | 观察与归因 | 对应处理 |
 | --- | --- | --- |
-| [39020264369](https://github.com/yangjingo/oh-my-quant/actions/runs/39020264369) | task lifecycle 用例约 5.2s 被外层 5s 终止，出现迟到状态断言 | #35 在 `183559c` 给这项多轮集成测试独立预算；已在 main，不重复补丁 |
-| [39039089298 attempt 1](https://github.com/yangjingo/oh-my-quant/actions/runs/39039089298/attempts/1) | Skill 取消用例总耗时 1573ms，断言小于 1000ms；计时从启动命令开始 | 本次用响应 barrier 检查取消因果关系；关联已有 #37 |
-| [39043090574](https://github.com/yangjingo/oh-my-quant/actions/runs/39043090574) | main `1d4488f` 的 Desktop 重复根检查：YTD 归档用例超时，迟到写入报目录 ENOENT | 本次给存储集成测试独立预算，持有并等待完整测试 Promise 后清理 |
+| [39020264369](https://github.com/yangjingo/WhyJ-Quant/actions/runs/39020264369) | task lifecycle 用例约 5.2s 被外层 5s 终止，出现迟到状态断言 | #35 在 `183559c` 给这项多轮集成测试独立预算；已在 main，不重复补丁 |
+| [39039089298 attempt 1](https://github.com/yangjingo/WhyJ-Quant/actions/runs/39039089298/attempts/1) | Skill 取消用例总耗时 1573ms，断言小于 1000ms；计时从启动命令开始 | 本次用响应 barrier 检查取消因果关系；关联已有 #37 |
+| [39043090574](https://github.com/yangjingo/WhyJ-Quant/actions/runs/39043090574) | main `1d4488f` 的 Desktop 重复根检查：YTD 归档用例超时，迟到写入报目录 ENOENT | 本次给存储集成测试独立预算，持有并等待完整测试 Promise 后清理 |
 
 第一行不能只看到 `Expected cancelled / Received active` 就直接修改产品状态机：同一日志明确有测试超时与清理阶段的迟到错误。第三行也不能因为独立根 CI 成功，就删除 Desktop 重复 job 后宣称测试已经修好。本次消除重复执行，同时修复根测试自己的生命周期，因此它在单独 CI 中仍有保护。
 
@@ -104,7 +104,7 @@ main 在这期间合并 #35，删除了旧 Python 探针模块。本次隔离分
 
 ## 4. 策略脚本为什么会在自己的工作流里消失
 
-两次 PR policy 失败都报 `ERR_MODULE_NOT_FOUND`，找不到 `.github/scripts/pr-policy.mjs`：一次发生在 #22，一次发生在 #28。[#22 运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38907862456) · [#28 运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38918415702)
+两次 PR policy 失败都报 `ERR_MODULE_NOT_FOUND`，找不到 `.github/scripts/pr-policy.mjs`：一次发生在 #22，一次发生在 #28。[#22 运行](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38907862456) · [#28 运行](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38918415702)
 
 旧配置是：
 
@@ -137,7 +137,7 @@ on:
 
 ## 5. 为什么最终 SHA 还不够：给策略加入生命周期
 
-旧脚本按顺序读取 PR、文件列表和 Issue，然后立即判断 Issue 是否开放。它没有在开始时检查 PR 是否已经结束，也没有在结束时检查校验期间的 PR 是否变化。[旧策略源码](https://github.com/yangjingo/oh-my-quant/blob/076b78661e61660e4e1c8b0cf7830f72714615e5/.github/scripts/pr-policy.mjs)
+旧脚本按顺序读取 PR、文件列表和 Issue，然后立即判断 Issue 是否开放。它没有在开始时检查 PR 是否已经结束，也没有在结束时检查校验期间的 PR 是否变化。[旧策略源码](https://github.com/yangjingo/WhyJ-Quant/blob/076b78661e61660e4e1c8b0cf7830f72714615e5/.github/scripts/pr-policy.mjs)
 
 这和第一节的合并时序正好相撞。解决方法不是允许所有 closed Issue，而是对适用对象作区分：
 
@@ -176,7 +176,7 @@ workflow run ID + run attempt + 平台
 
 ### 6.1 外层 5 秒，内层 120 秒
 
-研究评测失败时，日志显示用例执行约 5434ms，被 Bun 默认 5000ms 的外层期限终止；随后出现测试之间的未处理断言错误。内部 `runResearchEvaluation` 却默认允许 120 秒，并且负责 HTTP、工具调用、证据持久化、会话恢复和第二轮回答。这不是一个纯函数单测。[失败日志](https://github.com/yangjingo/oh-my-quant/actions/runs/38680849899) · [评测入口](../../../src/runtime/evaluation/research-evaluation.ts)
+研究评测失败时，日志显示用例执行约 5434ms，被 Bun 默认 5000ms 的外层期限终止；随后出现测试之间的未处理断言错误。内部 `runResearchEvaluation` 却默认允许 120 秒，并且负责 HTTP、工具调用、证据持久化、会话恢复和第二轮回答。这不是一个纯函数单测。[失败日志](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38680849899) · [评测入口](../../../src/runtime/evaluation/research-evaluation.ts)
 
 外层先超时，会开始清理 fixture；内部异步操作未必已经结束。旧 `afterEach` 停服务器、恢复环境变量、删除目录，却没有持有并等待评测 Promise。日志证明发生了超时与迟到错误；清理与内部工作之间存在缺少等待的代码事实，但我们不能从这一次日志精确推断每个调度时刻。
 
@@ -197,15 +197,15 @@ workflow run ID + run attempt + 平台
 
 ### 6.2 真实 Python 进程也被更短的测试期限杀掉
 
-全量历史扩展后，新发现的 [38917440064](https://github.com/yangjingo/oh-my-quant/actions/runs/38917440064) 在真实 Python import 测试中执行约 5016ms，日志明确记录 killed dangling process。内部探针允许子进程运行 10 秒，外层测试仍默认只给 5 秒。[历史 Python 探针](https://github.com/yangjingo/oh-my-quant/blob/076b78661e61660e4e1c8b0cf7830f72714615e5/src/skill/python-probe.ts) · [进程入口](../../../src/source/src/akshare-python.ts)
+全量历史扩展后，新发现的 [38917440064](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38917440064) 在真实 Python import 测试中执行约 5016ms，日志明确记录 killed dangling process。内部探针允许子进程运行 10 秒，外层测试仍默认只给 5 秒。[历史 Python 探针](https://github.com/yangjingo/WhyJ-Quant/blob/076b78661e61660e4e1c8b0cf7830f72714615e5/src/skill/python-probe.ts) · [进程入口](../../../src/source/src/akshare-python.ts)
 
-最初在隔离分支验证的修复，是只将真实进程用例设为 15 秒，让内部 10 秒期限先产生结果。但随后 main 合并 #35，删除了旧探针模块与测试。本次同步基线后移除了这个已无适用对象的改动，不重新引入废弃代码。[历史测试](https://github.com/yangjingo/oh-my-quant/blob/076b78661e61660e4e1c8b0cf7830f72714615e5/src/skill/test/python-probe.test.ts) · [#35](https://github.com/yangjingo/oh-my-quant/pull/35)
+最初在隔离分支验证的修复，是只将真实进程用例设为 15 秒，让内部 10 秒期限先产生结果。但随后 main 合并 #35，删除了旧探针模块与测试。本次同步基线后移除了这个已无适用对象的改动，不重新引入废弃代码。[历史测试](https://github.com/yangjingo/WhyJ-Quant/blob/076b78661e61660e4e1c8b0cf7830f72714615e5/src/skill/test/python-probe.test.ts) · [#35](https://github.com/yangjingo/WhyJ-Quant/pull/35)
 
 原修复针对的是期限关系。它不能证明 Windows 冷启动永远小于 10 秒，也不能被表述为所有 flaky tests 已消失。如果之后仍失败，要继续检查解释器选择、进程启动和 runner 负载，而不是无限增加数字。
 
 ### 6.3 取消要验证事件顺序，归档清理要等待整个使用者
 
-新增的 Skill 取消失败已经由 [Issue #37](https://github.com/yangjingo/oh-my-quant/issues/37) 留下可复现反例：在 fixture 收到请求前插入 1100ms 准备耗时，旧测试把这段时间也计入“取消小于 1000ms”。这证明旧断言混合了两个阶段，不能证明 CI 当时具体是哪一段启动变慢。
+新增的 Skill 取消失败已经由 [Issue #37](https://github.com/yangjingo/WhyJ-Quant/issues/37) 留下可复现反例：在 fixture 收到请求前插入 1100ms 准备耗时，旧测试把这段时间也计入“取消小于 1000ms”。这证明旧断言混合了两个阶段，不能证明 CI 当时具体是哪一段启动变慢。
 
 本次服务器保留受控的成功响应 barrier。测试等待请求到达，主动取消，然后要求命令结算时响应仍未放行；保留原始取消原因、没有成功结果、没有正常 assistant stop、streaming=false 的断言。未取消路径仍必须正常完成。15 秒外层预算只用于发现挂死，不再冒充取消性能指标。若实现忽略取消并等待正常回答，barrier 不会释放，测试就会失败。[用例](../../../src/runtime/test/skill-command-cancellation.test.ts)
 
@@ -213,11 +213,11 @@ YTD 用例的 ENOENT 则来自另一个资源使用者：[research-decisions.tes
 
 ### 6.4 同样的错误也藏在文件路径和机器环境里
 
-Linux 凭证回归曾把 fixture 根路径写成 `C:\private-paper`。生产代码在 Linux 正确拒绝了这个非绝对路径，测试却期待先收到缺少凭证的错误。历史修复使用 `resolve()` 生成平台原生绝对路径，保留原凭证断言。[失败](https://github.com/yangjingo/oh-my-quant/actions/runs/38602368594) · [修复提交](https://github.com/yangjingo/oh-my-quant/commit/5be9cdf6b7d12793b629e650f5b14c7678170da5)
+Linux 凭证回归曾把 fixture 根路径写成 `C:\private-paper`。生产代码在 Linux 正确拒绝了这个非绝对路径，测试却期待先收到缺少凭证的错误。历史修复使用 `resolve()` 生成平台原生绝对路径，保留原凭证断言。[失败](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38602368594) · [修复提交](https://github.com/yangjingo/WhyJ-Quant/commit/5be9cdf6b7d12793b629e650f5b14c7678170da5)
 
-Doctor 的“所有提示为空”则依赖开发机已有 Python/AKShare。干净 runner 没有这些依赖，不应该被测试解释为产品错误。后续用显式缺 Python fixture 检查结构化失败，而不是假定机器总是健康。CLI 子进程也改为等待实际退出并读完输出，避免将空退出状态当作正常结果。[失败](https://github.com/yangjingo/oh-my-quant/actions/runs/38603140139) · [当前入口回归](../../../tests/app/index.test.ts)
+Doctor 的“所有提示为空”则依赖开发机已有 Python/AKShare。干净 runner 没有这些依赖，不应该被测试解释为产品错误。后续用显式缺 Python fixture 检查结构化失败，而不是假定机器总是健康。CLI 子进程也改为等待实际退出并读完输出，避免将空退出状态当作正常结果。[失败](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38603140139) · [当前入口回归](../../../tests/app/index.test.ts)
 
-更早的 Git skill 安装测试在 Windows 短路径与长路径别名上，把同一目录误判为不同仓库。修复比较目录身份，而不只比较路径字符串；这保留了“不可更新另一个仓库”的保护。[失败](https://github.com/yangjingo/oh-my-quant/actions/runs/38155354275) · [历史修复](https://github.com/yangjingo/oh-my-quant/commit/e35fdd2bff884adef9fc43f586b57972a0e91790) · [当前实现](../../../src/skill/installer.ts)
+更早的 Git skill 安装测试在 Windows 短路径与长路径别名上，把同一目录误判为不同仓库。修复比较目录身份，而不只比较路径字符串；这保留了“不可更新另一个仓库”的保护。[失败](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38155354275) · [历史修复](https://github.com/yangjingo/WhyJ-Quant/commit/e35fdd2bff884adef9fc43f586b57972a0e91790) · [当前实现](../../../src/skill/installer.ts)
 
 共同点是：**测试把开发机的偶然条件写成了产品必须满足的条件。** 跨平台矩阵的价值，是把这些条件暴露出来。删掉矩阵会减少红灯，也会同时删掉这类发现能力。
 
@@ -225,13 +225,13 @@ Doctor 的“所有提示为空”则依赖开发机已有 Python/AKShare。干�
 
 两次桌面 smoke 都停在等待界面文字的步骤，但它们不是同一种问题。只看 `TimeoutError`，会把测试编排和产品渲染混在一起。
 
-第一次，[38156420320](https://github.com/yangjingo/oh-my-quant/actions/runs/38156420320) 在面板轮换时等待标题超时。原始截图仍显示 portfolio 面板，下面已经出现下一条命令的部分输入。脚本发出 Escape 后立即开始下一次输入，没有确认旧面板已关闭。后续修复增加关闭状态等待，并使用具体面板标题匹配。[修复 4aaf630](https://github.com/yangjingo/oh-my-quant/commit/4aaf630a9a10e24b1d210e3cf5eedb7718125c58)
+第一次，[38156420320](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38156420320) 在面板轮换时等待标题超时。原始截图仍显示 portfolio 面板，下面已经出现下一条命令的部分输入。脚本发出 Escape 后立即开始下一次输入，没有确认旧面板已关闭。后续修复增加关闭状态等待，并使用具体面板标题匹配。[修复 4aaf630](https://github.com/yangjingo/WhyJ-Quant/commit/4aaf630a9a10e24b1d210e3cf5eedb7718125c58)
 
-[历史失败证据：面板切换的 desktop-evidence artifact](https://github.com/yangjingo/oh-my-quant/actions/runs/38156420320/artifacts/11709445008)。其中的 `failure.png` 属于历史失败证据，不是本次修复后的产品截图。它支持状态交接没有完成的判断，不能据此还原所有按键调度时刻；不再将副本提交到文档素材目录。
+[历史失败证据：面板切换的 desktop-evidence artifact](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38156420320/artifacts/11709445008)。其中的 `failure.png` 属于历史失败证据，不是本次修复后的产品截图。它支持状态交接没有完成的判断，不能据此还原所有按键调度时刻；不再将副本提交到文档素材目录。
 
-第二次，[38234986954](https://github.com/yangjingo/oh-my-quant/actions/runs/38234986954) 已经走到多行粘贴，等待第二行 `/exit` 可见却失败。原始图中只看到第一行中文，第二行没有显示。这次后续修复落在 TUI composer 的多行绘制、换行和输入窗口，并补了 paste 回归；原 smoke 随后成功。[产品修复 8ba86ae](https://github.com/yangjingo/oh-my-quant/commit/8ba86ae3d6ab335d5013ffa797f8993e6373812b) · [后续成功运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38236094545)
+第二次，[38234986954](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38234986954) 已经走到多行粘贴，等待第二行 `/exit` 可见却失败。原始图中只看到第一行中文，第二行没有显示。这次后续修复落在 TUI composer 的多行绘制、换行和输入窗口，并补了 paste 回归；原 smoke 随后成功。[产品修复 8ba86ae](https://github.com/yangjingo/WhyJ-Quant/commit/8ba86ae3d6ab335d5013ffa797f8993e6373812b) · [后续成功运行](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38236094545)
 
-[历史失败证据：多行粘贴的 desktop-evidence artifact](https://github.com/yangjingo/oh-my-quant/actions/runs/38234986954/artifacts/11740049274)。2026-10-20 核对这两份 artifact 均未过期；下载可能需要 GitHub 登录，且受运行的保留期限限制，不能将其当作永久公开图床。过期后应明确证据不可下载，不能因此宣称已经复验。
+[历史失败证据：多行粘贴的 desktop-evidence artifact](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38234986954/artifacts/11740049274)。2026-10-20 核对这两份 artifact 均未过期；下载可能需要 GitHub 登录，且受运行的保留期限限制，不能将其当作永久公开图床。过期后应明确证据不可下载，不能因此宣称已经复验。
 
 这里不能把超时全部归为 runner 慢。第二次暴露的正是发布应用的可见行为缺陷。正确措施是保留 E2E 的拒绝能力，修产品，再用同一行为检查验证；用更宽泛的文本匹配让它通过，会丢掉原本有效的保护。
 
@@ -249,7 +249,7 @@ Anthropic 的 [Effective harnesses for long-running agents](https://www.anthropi
 | DisplayName 带版本号 | 安装器展示名始终固定 | 调整识别规则以匹配实际安装项 | 不把其他应用误识别成本应用 |
 | Unicode 快捷方式目标读取错误 | 两种 COM 接口返回的路径等价 | 使用 Shell.Application 的链接目标读取 | 目标仍严格位于选择的安装目录 |
 
-这些故障分别可在 [compiler 运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38156159819)、[依赖运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38583475117)、[首次安装运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38591545423)和 [Unicode 运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38592615490)中追踪。当前执行入口是 [prepare-runtime.ps1](../../../apps/desktop/scripts/prepare-runtime.ps1)、[build.ts](../../../apps/desktop/scripts/build.ts)和 [test-install.ps1](../../../apps/desktop/scripts/test-install.ps1)。compiler 日志只证明提取失败并提示下载可能不完整，不能直接证明某一网络服务是根因。
+这些故障分别可在 [compiler 运行](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38156159819)、[依赖运行](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38583475117)、[首次安装运行](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38591545423)和 [Unicode 运行](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38592615490)中追踪。当前执行入口是 [prepare-runtime.ps1](../../../apps/desktop/scripts/prepare-runtime.ps1)、[build.ts](../../../apps/desktop/scripts/build.ts)和 [test-install.ps1](../../../apps/desktop/scripts/test-install.ps1)。compiler 日志只证明提取失败并提示下载可能不完整，不能直接证明某一网络服务是根因。
 
 这些验收有实际副作用。安装、覆盖升级、卸载测试应该运行在可丢弃的 GitHub runner 用户环境；开发机上运行一次打包命令，不能替代安装验收，也不应为了补一项检查冒险改变日常安装。
 
@@ -385,7 +385,7 @@ Mitchell Hashimoto 在 [My AI Adoption Journey](https://mitchellh.com/writing/my
 
 一个可维护的规则通常有六项信息：触发条件、要读取的事实、执行动作、验收证据、失败处置、适用例外。并非要为每条规则写六个小标题，而是检查关键部分有没有遗漏。比如 worktree 清理需要先确认实际合入、没有依赖与未交付提交、私有数据已经保留，再以远端 head lease 删除确切 ref；“合并后删分支”五个字无法覆盖这些动作。
 
-本次没有复制另一套 review Skill，也没有重写正在进行的 [#38](https://github.com/yangjingo/oh-my-quant/issues/38) / [#39](https://github.com/yangjingo/oh-my-quant/pull/39) 评审方法工作。这里补的是已有 PR Skill 中与工作流故障直接相关的两项规则。并行工作相交时，先确定谁拥有哪个问题，避免两个 PR 各自新增一套相近规范。
+本次没有复制另一套 review Skill，也没有重写正在进行的 [#38](https://github.com/yangjingo/WhyJ-Quant/issues/38) / [#39](https://github.com/yangjingo/WhyJ-Quant/pull/39) 评审方法工作。这里补的是已有 PR Skill 中与工作流故障直接相关的两项规则。并行工作相交时，先确定谁拥有哪个问题，避免两个 PR 各自新增一套相近规范。
 
 ## 12. CI 成功之后，Ops 仍有自己的任务
 
@@ -405,22 +405,22 @@ Desktop 本次增加发布前的 main 分支、稳定版本与 CLI/Desktop 版�
 
 | Run | 失败阶段与可确认原因 | 处理归属 |
 | --- | --- | --- |
-| [38918415702](https://github.com/yangjingo/oh-my-quant/actions/runs/38918415702) | #28 policy 检出旧 base，脚本不存在 | 本次对齐事件策略 SHA |
-| [38917440064](https://github.com/yangjingo/oh-my-quant/actions/runs/38917440064) | 真实 Python 测试外层 5s 先于内部 10s 期限 | 后续 #35 已删除旧模块；保留历史教训 |
-| [38908970604](https://github.com/yangjingo/oh-my-quant/actions/runs/38908970604) | #22 合并后 Issue 关闭，被当作开放 PR 失败 | 本次生命周期校验；补最终正文检查流程 |
-| [38907862456](https://github.com/yangjingo/oh-my-quant/actions/runs/38907862456) | #22 policy 旧 base 缺少脚本 | 同第一行，不能只同步一个旧 PR |
-| [38680849899](https://github.com/yangjingo/oh-my-quant/actions/runs/38680849899) | Windows research evaluation 5s 超时，随后迟到异步错误 | 本次预算和 fixture 取消、等待清理 |
-| [38603140139](https://github.com/yangjingo/oh-my-quant/actions/runs/38603140139) | CLI 子进程状态与 Doctor 开发机假设 | 历史已修，等待退出与显式环境 |
-| [38602368594](https://github.com/yangjingo/oh-my-quant/actions/runs/38602368594) | Linux 测试使用 Windows 绝对路径 | 历史已修，平台原生路径 |
-| [38592615490](https://github.com/yangjingo/oh-my-quant/actions/runs/38592615490) | Unicode 快捷方式目标解析 | 历史已修 COM 读取方式，保留目录断言 |
-| [38591853539](https://github.com/yangjingo/oh-my-quant/actions/runs/38591853539) | 缺少 HKCU 卸载根键；provider 请求未在短预算内发出 | 历史已修路径存在性和测试预算 |
-| [38591545423](https://github.com/yangjingo/oh-my-quant/actions/runs/38591545423) | 干净机器注册表根键不存在 | 历史已修首次安装前提 |
-| [38589849838](https://github.com/yangjingo/oh-my-quant/actions/runs/38589849838) | provider 250ms 启动预算；Doctor 环境假设 | 历史已修，保留中止行为断言 |
-| [38583475117](https://github.com/yangjingo/oh-my-quant/actions/runs/38583475117) | 缺少直接依赖 yaml、ignore | 历史已修清单和锁文件 |
-| [38234986954](https://github.com/yangjingo/oh-my-quant/actions/runs/38234986954) | 多行粘贴第二行不可见 | 历史产品修复，非通用超时豁免 |
-| [38156420320](https://github.com/yangjingo/oh-my-quant/actions/runs/38156420320) | 面板关闭与下次输入缺少状态等待 | 历史 smoke 编排修复 |
-| [38156159819](https://github.com/yangjingo/oh-my-quant/actions/runs/38156159819) | Bun Windows compiler 提取失败 | 历史固定 runtime + SHA-256 + 显式路径 |
-| [38155354275](https://github.com/yangjingo/oh-my-quant/actions/runs/38155354275) | Doctor 环境假设；Windows 8.3 路径误判仓库身份 | 历史环境 fixture 与目录身份修复 |
+| [38918415702](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38918415702) | #28 policy 检出旧 base，脚本不存在 | 本次对齐事件策略 SHA |
+| [38917440064](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38917440064) | 真实 Python 测试外层 5s 先于内部 10s 期限 | 后续 #35 已删除旧模块；保留历史教训 |
+| [38908970604](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38908970604) | #22 合并后 Issue 关闭，被当作开放 PR 失败 | 本次生命周期校验；补最终正文检查流程 |
+| [38907862456](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38907862456) | #22 policy 旧 base 缺少脚本 | 同第一行，不能只同步一个旧 PR |
+| [38680849899](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38680849899) | Windows research evaluation 5s 超时，随后迟到异步错误 | 本次预算和 fixture 取消、等待清理 |
+| [38603140139](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38603140139) | CLI 子进程状态与 Doctor 开发机假设 | 历史已修，等待退出与显式环境 |
+| [38602368594](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38602368594) | Linux 测试使用 Windows 绝对路径 | 历史已修，平台原生路径 |
+| [38592615490](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38592615490) | Unicode 快捷方式目标解析 | 历史已修 COM 读取方式，保留目录断言 |
+| [38591853539](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38591853539) | 缺少 HKCU 卸载根键；provider 请求未在短预算内发出 | 历史已修路径存在性和测试预算 |
+| [38591545423](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38591545423) | 干净机器注册表根键不存在 | 历史已修首次安装前提 |
+| [38589849838](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38589849838) | provider 250ms 启动预算；Doctor 环境假设 | 历史已修，保留中止行为断言 |
+| [38583475117](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38583475117) | 缺少直接依赖 yaml、ignore | 历史已修清单和锁文件 |
+| [38234986954](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38234986954) | 多行粘贴第二行不可见 | 历史产品修复，非通用超时豁免 |
+| [38156420320](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38156420320) | 面板关闭与下次输入缺少状态等待 | 历史 smoke 编排修复 |
+| [38156159819](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38156159819) | Bun Windows compiler 提取失败 | 历史固定 runtime + SHA-256 + 显式路径 |
+| [38155354275](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38155354275) | Doctor 环境假设；Windows 8.3 路径误判仓库身份 | 历史环境 fixture 与目录身份修复 |
 
 8 次取消运行是 `38907411029`、`38906719593`、`38906716456`、`38906711665`、`38593460526`、`38234809279`、`38155780744`、`38155606582`。其中 3 次的 `CI required` 因上游取消而失败；它们不计入上表 16 次 workflow failure。
 
@@ -428,7 +428,7 @@ Desktop 本次增加发布前的 main 分支、稳定版本与 CLI/Desktop 版�
 
 ## 14. 本次验证：正向通过，还要证明检查仍能拒绝错误
 
-配套修复由 [Issue #40](https://github.com/yangjingo/oh-my-quant/issues/40) 跟踪。2026-10-17–18 在独立 Windows worktree、Bun 1.3.14、Node v25.8.1 上，`bun run check:release` 完成：2,686 tests / 299 files / 0 failures，26 项 policy/实际 YAML guard 检查通过，类型、架构、CLI 和文档构建/链接检查通过。网站单独构建得到 4 个本地化页面和 6 个公开内容入口。CI 使用 Node 24，最终平台结果必须查交付 PR，不能由这次本地 Node 25 结果代替。
+配套修复由 [Issue #40](https://github.com/yangjingo/WhyJ-Quant/issues/40) 跟踪。2026-10-17–18 在独立 Windows worktree、Bun 1.3.14、Node v25.8.1 上，`bun run check:release` 完成：2,686 tests / 299 files / 0 failures，26 项 policy/实际 YAML guard 检查通过，类型、架构、CLI 和文档构建/链接检查通过。网站单独构建得到 4 个本地化页面和 6 个公开内容入口。CI 使用 Node 24，最终平台结果必须查交付 PR，不能由这次本地 Node 25 结果代替。
 
 为避免把“在快机器上又通过一次”当作修复证据，另做了六组对照。旧用例取自 main `1d4488f`；修改版取自本次分支；负控仅修改临时验证副本，生产源码没有改动。
 
@@ -449,7 +449,7 @@ Desktop 本次增加发布前的 main 分支、稳定版本与 CLI/Desktop 版�
 
 ### 远端首轮又暴露了一个遗漏：skip network 不等于隔离机器环境
 
-[PR #41 的首次 CI](https://github.com/yangjingo/oh-my-quant/actions/runs/39047623864) 中，Ubuntu 通过，Windows 的两项 Doctor handler 测试分别在约 5009ms 和 5001ms 超时，日志记录 killed dangling process。同一 head 的 [Desktop 安装与交互验收](https://github.com/yangjingo/oh-my-quant/actions/runs/39047623704) 成功。这是交付过程新增证据，不混进前述 61 次历史运行的分母。
+[PR #41 的首次 CI](https://github.com/yangjingo/WhyJ-Quant/actions/runs/39047623864) 中，Ubuntu 通过，Windows 的两项 Doctor handler 测试分别在约 5009ms 和 5001ms 超时，日志记录 killed dangling process。同一 head 的 [Desktop 安装与交互验收](https://github.com/yangjingo/WhyJ-Quant/actions/runs/39047623704) 成功。这是交付过程新增证据，不混进前述 61 次历史运行的分母。
 
 两项测试设置 `WHYJ_DOCTOR_SKIP_NETWORK=1`，却直接调用默认 `doctorHandler`。这个开关只跳过网络阶段，Tools 阶段仍通过 `checkAkshareDependency` 启动真实 Python。收集器允许探针 30 秒，单元测试外层只有 5 秒。它们的验收目标其实是文本报告和 TUI 状态推送；宿主机进程不属于这个目标。早先修过独立 Doctor 测试与 CLI 子进程 fixture，并不能推出所有 Doctor 入口都完成了隔离。
 
@@ -463,7 +463,7 @@ Desktop 本次增加发布前的 main 分支、稳定版本与 CLI/Desktop 版�
 
 ### 参考资料改动后 CI 又失败：刷新时间跨过了分钟边界
 
-[CI 39052800266](https://github.com/yangjingo/oh-my-quant/actions/runs/39052800266) 对 head `b35b10c` 的 Windows 检查报告 Overview 恢复测试失败。日志中首次面板为 `2026-10-17 17:15`，恢复后为 `17:16`；唯一 diff 是 Source 的更新时间。该 head 新增的是参考资料，不能据此把失败归因于博客。继续追踪发现 [Issue #34](https://github.com/yangjingo/oh-my-quant/issues/34) 已记录相同假设在 08:59 → 09:00 时失败；这是基线已有测试问题。#41 在 2026-10-18 01:28（Asia/Shanghai）已合入 `ab5d5ec`，早于时钟修复提交；因此该补丁由 #34 单独交付，不能把后续分支提交算作已经随 #41 进入 main。
+[CI 39052800266](https://github.com/yangjingo/WhyJ-Quant/actions/runs/39052800266) 对 head `b35b10c` 的 Windows 检查报告 Overview 恢复测试失败。日志中首次面板为 `2026-10-17 17:15`，恢复后为 `17:16`；唯一 diff 是 Source 的更新时间。该 head 新增的是参考资料，不能据此把失败归因于博客。继续追踪发现 [Issue #34](https://github.com/yangjingo/WhyJ-Quant/issues/34) 已记录相同假设在 08:59 → 09:00 时失败；这是基线已有测试问题。#41 在 2026-10-18 01:28（Asia/Shanghai）已合入 `ab5d5ec`，早于时钟修复提交；因此该补丁由 #34 单独交付，不能把后续分支提交算作已经随 #41 进入 main。
 
 旧测试先成功取值，再模拟 error，等待约一秒 timeout，最后成功恢复。它用 `expect(lastPanel).toEqual(firstPanel)` 验证恢复，隐含要求两次真实刷新发生在同一分钟。生产代码每次发布面板调用 `new Date()`，更新时间变化是正确行为。把 timeout 调大只会扩大跨分钟窗口，重复 rerun 只是赌下一次没有碰到边界。
 
@@ -485,27 +485,27 @@ Desktop 本次增加发布前的 main 分支、稳定版本与 CLI/Desktop 版�
 
 | PR | 审查 head | 相对远端 main | 本轮关键观察 |
 | --- | --- | --- | --- |
-| [#35](https://github.com/yangjingo/oh-my-quant/pull/35) | `183559c` | 落后 0、领先 2 个提交；无文本冲突 | 最终 head 的跨平台 CI 成功，局部回归 28 项通过 |
-| [#28](https://github.com/yangjingo/oh-my-quant/pull/28) | `a3bb573` | 落后 19、领先 2；docs/README.md 冲突 | 描述仍将 `10184e1` 称为最终实现，之后又追加了站点和图片变更 |
-| [#27](https://github.com/yangjingo/oh-my-quant/pull/27) | `999ce68` | 落后 19、领先 15；docs/README.md 冲突 | 审查时无 GitHub checks；工作台测试通过，另有元数据反例 |
+| [#35](https://github.com/yangjingo/WhyJ-Quant/pull/35) | `183559c` | 落后 0、领先 2 个提交；无文本冲突 | 最终 head 的跨平台 CI 成功，局部回归 28 项通过 |
+| [#28](https://github.com/yangjingo/WhyJ-Quant/pull/28) | `a3bb573` | 落后 19、领先 2；docs/README.md 冲突 | 描述仍将 `10184e1` 称为最终实现，之后又追加了站点和图片变更 |
+| [#27](https://github.com/yangjingo/WhyJ-Quant/pull/27) | `999ce68` | 落后 19、领先 15；docs/README.md 冲突 | 审查时无 GitHub checks；工作台测试通过，另有元数据反例 |
 
 两个冲突都包含文档导航中的手工文件计数。main 新增了维护说明，视觉分支改变了素材集合，工作台分支新增了功能文档。直接保留任意一侧，都可能漏掉另一侧的信息。这说明公共导航是协作热点；每次增加文档又维护一份总数，会制造与功能无关的冲突。
 
 这里可以做一个小改进：导航维护入口与职责，统计交给工具。它只减少无意义的共享编辑，不能消除正常的功能集成。本次 skill 和博客更新也采用这一原则，保留导航覆盖检查，撤掉易漂移的手工文件总数。
 
-#28 还提醒我们，PR 是会变化的容器。旧提交的全量测试和截图有历史价值，但不能自动覆盖后加的改动。本次在 `a3bb573` 重新跑了类型检查、12 项颜色/可读性测试及站点构建，均通过；这些结果仍不能补齐 Windows 安装和实际运行验收。其红色 PR policy 日志显示缺少 `.github/scripts/pr-policy.mjs`，应按检查基础设施问题处理，不能据此宣称视觉代码有 bug。[失败运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38918415702)
+#28 还提醒我们，PR 是会变化的容器。旧提交的全量测试和截图有历史价值，但不能自动覆盖后加的改动。本次在 `a3bb573` 重新跑了类型检查、12 项颜色/可读性测试及站点构建，均通过；这些结果仍不能补齐 Windows 安装和实际运行验收。其红色 PR policy 日志显示缺少 `.github/scripts/pr-policy.mjs`，应按检查基础设施问题处理，不能据此宣称视觉代码有 bug。[失败运行](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38918415702)
 
 #### 测试通过的工作台，仍会丢掉项目编辑
 
 #27 的研究主链已有较完整的保护：真实 Pi 循环的本机模拟、取消与继续、固定证据、不可变保存及重启恢复。本轮工作台的 28 项测试全部通过。问题出在新增的另一条状态通路：项目名、置顶和研究标题等元数据。
 
-浏览器读取整份 metadata，在内存修改，再把整份对象写回。服务端调用 `atomicWriteJson` 替换文件。原子写可以避免半个 JSON 落盘，却没有判断客户端是否基于过期版本编辑。[浏览器读取与保存](https://github.com/yangjingo/oh-my-quant/blob/999ce68a5ce5dd951a4121cdef70421cadcde038/src/app/research-workspace/web/app.js#L31) · [服务端存储](https://github.com/yangjingo/oh-my-quant/blob/999ce68a5ce5dd951a4121cdef70421cadcde038/src/storage/src/workspace-meta.ts#L84)
+浏览器读取整份 metadata，在内存修改，再把整份对象写回。服务端调用 `atomicWriteJson` 替换文件。原子写可以避免半个 JSON 落盘，却没有判断客户端是否基于过期版本编辑。[浏览器读取与保存](https://github.com/yangjingo/WhyJ-Quant/blob/999ce68a5ce5dd951a4121cdef70421cadcde038/src/app/research-workspace/web/app.js#L31) · [服务端存储](https://github.com/yangjingo/WhyJ-Quant/blob/999ce68a5ce5dd951a4121cdef70421cadcde038/src/storage/src/workspace-meta.ts#L84)
 
 用同一份文件模拟两个标签页即可复现：A、B 先读相同快照；A 新增一个项目并保存；B 重命名原项目并保存。最终文件只剩原项目，A 的新增项消失。两次写入都成功，JSON 也完全有效。这不需要多人账户，同一用户打开两个标签页就足够。修复需要明确的过期编辑策略，例如版本校验并提示刷新，或以项目为单位的更新；只在最后写文件时加锁，仍然会覆盖旧快照。
 
-第二个反例发生在读取失败。该 head 的实现把解析异常统一转换成空项目列表。再进行一次正常编辑，就会用新对象替换原来的损坏文件。本地使用临时截断 JSON 复现时，没有抛错，原始字节也未保留。[异常处理位置](https://github.com/yangjingo/oh-my-quant/blob/999ce68a5ce5dd951a4121cdef70421cadcde038/src/storage/src/workspace-meta.ts#L69)
+第二个反例发生在读取失败。该 head 的实现把解析异常统一转换成空项目列表。再进行一次正常编辑，就会用新对象替换原来的损坏文件。本地使用临时截断 JSON 复现时，没有抛错，原始字节也未保留。[异常处理位置](https://github.com/yangjingo/WhyJ-Quant/blob/999ce68a5ce5dd951a4121cdef70421cadcde038/src/storage/src/workspace-meta.ts#L69)
 
-这两项都是新代码引入的可确认问题，影响的是项目元数据，不代表不可变研究快照也被覆盖。主线已有的 [durable-json](https://github.com/yangjingo/oh-my-quant/blob/076b78661e61660e4e1c8b0cf7830f72714615e5/src/storage/src/durable-json.ts) 会区分文件不存在与文件非法，并提供内容修订标识。值得审查的地方是新通路为什么没有接上已有契约，而不是再设计一个通用存储框架。
+这两项都是新代码引入的可确认问题，影响的是项目元数据，不代表不可变研究快照也被覆盖。主线已有的 [durable-json](https://github.com/yangjingo/WhyJ-Quant/blob/076b78661e61660e4e1c8b0cf7830f72714615e5/src/storage/src/durable-json.ts) 会区分文件不存在与文件非法，并提供内容修订标识。值得审查的地方是新通路为什么没有接上已有契约，而不是再设计一个通用存储框架。
 
 **WhyJ 分析：** 本次最值得警惕的是，界面增加一个看似辅助的小功能时，顺带创建了一套新的状态读写规则。研究证据受到严格保护，并不会自动保护项目编辑。review 要沿实际状态通路追到恢复行为，测试数量无法替代这条因果链。
 
@@ -529,13 +529,13 @@ Google 的 [The Standard of Code Review](https://google.github.io/eng-practices/
 
 后续按授权合入了 #35，main 前进到 `1d4488f7f006510265bc228923b3596d9dd22f36`（2026-10-17 14:59 UTC）。网络恢复后也重新 fetch 并核对了这个版本。本文前面的冲突与领先/落后数字仍属于 `076b786` 快照，不能当成合入后的实时状态；后续 PR 的修改和修复也不在这份历史判断之内。
 
-同一个合并提交上，[通用 CI 成功](https://github.com/yangjingo/oh-my-quant/actions/runs/39043090573)，[Windows desktop 失败](https://github.com/yangjingo/oh-my-quant/actions/runs/39043090574)。失败位于共享 CLI 测试步骤：`recorded-year YTD excludes declarations backed by comparisons extending beyond its cutoff` 报 5000ms 超时，随后记录了临时文件锁路径的 ENOENT。日志证明本次运行失败；还不能证明 #35 引入回归，也不能据此认定只是 runner 偶发波动。此前 main 的桌面运行也失败过，但失败的是另一个 Python 导入测试，[旧运行](https://github.com/yangjingo/oh-my-quant/actions/runs/38917440064) 不能用来证明两者同根因。
+同一个合并提交上，[通用 CI 成功](https://github.com/yangjingo/WhyJ-Quant/actions/runs/39043090573)，[Windows desktop 失败](https://github.com/yangjingo/WhyJ-Quant/actions/runs/39043090574)。失败位于共享 CLI 测试步骤：`recorded-year YTD excludes declarations backed by comparisons extending beyond its cutoff` 报 5000ms 超时，随后记录了临时文件锁路径的 ENOENT。日志证明本次运行失败；还不能证明 #35 引入回归，也不能据此认定只是 runner 偶发波动。此前 main 的桌面运行也失败过，但失败的是另一个 Python 导入测试，[旧运行](https://github.com/yangjingo/WhyJ-Quant/actions/runs/38917440064) 不能用来证明两者同根因。
 
-这里有一个实际的覆盖边界：[Desktop 工作流](https://github.com/yangjingo/oh-my-quant/blob/1d4488f7f006510265bc228923b3596d9dd22f36/.github/workflows/desktop.yml) 只在符合路径条件的 main push 或手动触发时运行，并不响应 PR 事件。所以“PR 的检查通过”和“合入后的所有适用工作流通过”是两份证据。review 应记录 workflow、事件、受测 SHA、环境、状态和链接，先分类失败，再决定定位或重跑；不能用旧绿灯覆盖新失败，也不能靠反复重跑把失败记录抹掉。
+这里有一个实际的覆盖边界：[Desktop 工作流](https://github.com/yangjingo/WhyJ-Quant/blob/1d4488f7f006510265bc228923b3596d9dd22f36/.github/workflows/desktop.yml) 只在符合路径条件的 main push 或手动触发时运行，并不响应 PR 事件。所以“PR 的检查通过”和“合入后的所有适用工作流通过”是两份证据。review 应记录 workflow、事件、受测 SHA、环境、状态和链接，先分类失败，再决定定位或重跑；不能用旧绿灯覆盖新失败，也不能靠反复重跑把失败记录抹掉。
 
-合并后的另一项工作是确认依赖。[#36](https://github.com/yangjingo/oh-my-quant/pull/36) 当时仍以 `refactor/32-pi-community-tools` 为 base。虽然 #35 已交付，这个父分支及其 worktree 仍因开放依赖而保留。后续需要更新子 PR 的基线、复验，再按既有规则清理。合并按钮完成的是代码进入 main；依赖与验证记录也要随之更新。
+合并后的另一项工作是确认依赖。[#36](https://github.com/yangjingo/WhyJ-Quant/pull/36) 当时仍以 `refactor/32-pi-community-tools` 为 base。虽然 #35 已交付，这个父分支及其 worktree 仍因开放依赖而保留。后续需要更新子 PR 的基线、复验，再按既有规则清理。合并按钮完成的是代码进入 main；依赖与验证记录也要随之更新。
 
-这些观察已补入 review-skill，属于贡献者的检查方法。评审方法这一轮没有修改工作流、分支保护或自动合并策略，也没有顺带修复产品和测试问题。已有的 [取消计时问题 #37](https://github.com/yangjingo/oh-my-quant/issues/37) 与 [刷新时间戳问题 #34](https://github.com/yangjingo/oh-my-quant/issues/34) 提供了另外的测试边界案例，不能替代对这次新失败的诊断。
+这些观察已补入 review-skill，属于贡献者的检查方法。评审方法这一轮没有修改工作流、分支保护或自动合并策略，也没有顺带修复产品和测试问题。已有的 [取消计时问题 #37](https://github.com/yangjingo/WhyJ-Quant/issues/37) 与 [刷新时间戳问题 #34](https://github.com/yangjingo/WhyJ-Quant/issues/34) 提供了另外的测试边界案例，不能替代对这次新失败的诊断。
 
 ### 简洁需要落实在评论、分工和结束条件里
 
@@ -554,7 +554,7 @@ Google 的 [The Standard of Code Review](https://google.github.io/eng-practices/
 
 这次形成的 [review-skill](../../../.agents/skills/review-skill/SKILL.md) 只维护审查方法，issue 的范围约定和 PR 的交付检查仍由原有技能负责。默认不增加多人或多 Agent 审批；确有必要且已获授权时才分工，并由一位汇总者去重与核实。衡量它是否有效，后续应观察有效发现、误报、复审轮数和合并后回退；本次只完成规则和案例校验，没有声称这些指标已经改善。
 
-这些审查案例由 [Issue #38](https://github.com/yangjingo/oh-my-quant/issues/38) / [PR #39](https://github.com/yangjingo/oh-my-quant/pull/39) 交付，本文整合其内容而不重复创建评审博客。原审查未逐项重验全部 UI、Windows 安装、真实行情/模型或每份 PR 的 release gate；#35 完整 CI 来自远端核对，局部检查不代表重新跑过整个矩阵。固定证据入口包括 [#35 CI](https://github.com/yangjingo/oh-my-quant/actions/runs/39021268590) 和 [#27 工作台回归](https://github.com/yangjingo/oh-my-quant/blob/999ce68a5ce5dd951a4121cdef70421cadcde038/src/app/research-workspace/test/workspace.test.ts)。
+这些审查案例由 [Issue #38](https://github.com/yangjingo/WhyJ-Quant/issues/38) / [PR #39](https://github.com/yangjingo/WhyJ-Quant/pull/39) 交付，本文整合其内容而不重复创建评审博客。原审查未逐项重验全部 UI、Windows 安装、真实行情/模型或每份 PR 的 release gate；#35 完整 CI 来自远端核对，局部检查不代表重新跑过整个矩阵。固定证据入口包括 [#35 CI](https://github.com/yangjingo/WhyJ-Quant/actions/runs/39021268590) 和 [#27 工作台回归](https://github.com/yangjingo/WhyJ-Quant/blob/999ce68a5ce5dd951a4121cdef70421cadcde038/src/app/research-workspace/test/workspace.test.ts)。
 
 ## 15. References：分支设计与 Agent Repo Ops 的学习路径
 
@@ -568,7 +568,7 @@ Google 的 [The Standard of Code Review](https://google.github.io/eng-practices/
 | GitHub 官方：[GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow) | 从创建分支、提交、PR 审查到合并和删除分支的最小流程，适合作为个人或小团队的操作起点 | 一项工作怎样对应 Issue、分支和 PR？合并后远端删分支与本地 worktree 清理为何需要分别确认？后一个问题需要结合本仓库 Skill，官方流程不替我们保管本地证据 |
 | Will Smythe、Lawrence Gripper，2024：[How GitHub uses merge queue to ship hundreds of changes every day](https://github.blog/engineering/engineering-principles/how-github-uses-merge-queue-to-ship-hundreds-of-changes-every-day/) | 进阶材料。看手动合并列车的等待与冲突如何推动分组验证和队列自动化，而不只看吞吐数字 | 多个 PR 单独为绿，组合后为什么仍需验证？我们何时真的有足够的并发集成压力，需要承担队列配置与构建成本？ |
 
-对 oh-my-quant，目前更合适的是短期 issue 分支、可审查 PR、最新 main 上的必需检查和明确的合并后清理。这个判断来自当前维护规模与已有故障，不是上述作者为本项目规定的唯一流程。merge queue 是未来选项，采用前还要确认仓库资格与 `merge_group` 触发覆盖；本文没有启用它。
+对 WhyJ-Quant，目前更合适的是短期 issue 分支、可审查 PR、最新 main 上的必需检查和明确的合并后清理。这个判断来自当前维护规模与已有故障，不是上述作者为本项目规定的唯一流程。merge queue 是未来选项，采用前还要确认仓库资格与 `merge_group` 触发覆盖；本文没有启用它。
 
 ### 15.2 五个值得打开源码学习的项目
 

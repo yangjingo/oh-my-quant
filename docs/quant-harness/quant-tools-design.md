@@ -88,4 +88,4 @@ Alpha101 给出了显式因子公式，是理解“方法必须能被确定表�
 
 1. Kakushadze, Z. [101 Formulaic Alphas](https://arxiv.org/abs/1601.00991). Wilmott, 2016. 显式因子定义的参考，不表示本仓库已实现该因子库。
 2. Sharpe, W. F. [The Sharpe Ratio](https://web.stanford.edu/~wfsharpe/art/sr/sr.htm). The Journal of Portfolio Management, 1994.
-3. oh-my-quant. [数据来源与证据](./source-data-providers.md)、[研究编排](./README.md#tasks)、[报告边界](./artifacts-design.md). 输入、验收和产出的职责分别在这些文档维护。
+3. WhyJ-Quant. [数据来源与证据](./source-data-providers.md)、[研究编排](./README.md#tasks)、[报告边界](./artifacts-design.md). 输入、验收和产出的职责分别在这些文档维护。

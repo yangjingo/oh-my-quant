@@ -1,4 +1,6 @@
-# oh-my-quant 文档
+# WhyJ-Quant 文档
+
+仓库地址：[yangjingo/WhyJ-Quant](https://github.com/yangjingo/WhyJ-Quant)。npm 包名仍为 `whyj-quant`，命令仍为 `whyj`；官网继续使用现有 Vercel 域名。
 
 从读者的问题进入：产品定义说明做什么，设计文档解释为什么这样划分，博客讨论判断如何形成，运行证据留在 PR 与 CI。当前源码、已发布软件和线上网站是不同状态。
 
@@ -83,7 +85,7 @@ Desktop 面向 Windows/macOS，CLI/TUI 面向 Linux 专业用户；Web 是共享
 - [12｜错误出现以后，用户还能做什么？](./blog/12-recovery-as-ux.md)
 - [给 Agent 做桌面，先想清楚关窗之后](./blog/agentic/agent-desktop-lifecycle.html)（架构提案，未实施）
 - [编辑与证据说明](./blog/editorial-notes.md)
-- [Agent Engineering：oh-my-quant 的产品、架构与体验](./blog/README.md)
+- [Agent Engineering：WhyJ-Quant 的产品、架构与体验](./blog/README.md)
 - [博客更新与 Vercel 发布流程](./blog/website-publishing.md)
 - [Agentic / Vibe Repo Ops：代码变快以后，怎样把一次交付做完整](./blog/agentic/vibe-repo-ops-merged-draft.md)
 - [Agentic / Vibe Repo Ops：让 AGENTS.md、Skills 与 CI 对同一次交付负责](./blog/agentic/vibe-repo-ops.md)

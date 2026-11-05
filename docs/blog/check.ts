@@ -154,7 +154,7 @@ for (const match of html.matchAll(/href="([^"#]+\.md)(#[^"]*)?"/g)) {
   }
 }
 const websiteHome = await readFile(resolve(root, "site/templates/home.html"), "utf8");
-for (const match of websiteHome.matchAll(/https:\/\/github\.com\/yangjingo\/oh-my-quant\/blob\/main\/(docs\/[^"#?]+\.md)/g)) {
+for (const match of websiteHome.matchAll(/https:\/\/github\.com\/yangjingo\/WhyJ-Quant\/blob\/main\/(docs\/[^"#?]+\.md)/g)) {
   links++;
   try { await stat(resolve(root, match[1])); } catch { failures.push(`Website repository link: ${match[1]}`); }
 }

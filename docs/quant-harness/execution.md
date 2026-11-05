@@ -45,4 +45,4 @@
 ## References
 
 1. Amazon Web Services. [Making retries safe with idempotent APIs](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/). The Amazon Builders’ Library. 请求身份、意图冲突与不确定结果的设计参考。
-2. oh-my-quant. [账户业绩](./performance.md)、[研究编排](./README.md). 历史读取、研究完成与交易授权各自维护边界。
+2. WhyJ-Quant. [账户业绩](./performance.md)、[研究编排](./README.md). 历史读取、研究完成与交易授权各自维护边界。

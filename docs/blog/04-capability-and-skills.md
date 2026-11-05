@@ -1,6 +1,6 @@
 # 04｜让 Skills 回到 Pi，JQ 只做预制与加载
 
-Agent Engineering / oh-my-quant · 初稿 2026-10-12 · 修订 2026-10-16 · 精选工具与极简接入
+Agent Engineering / WhyJ-Quant · 初稿 2026-10-12 · 修订 2026-10-16 · 精选工具与极简接入
 
 用户想分析一张周线图，应该能够选中技能、提供图片并开始研究。寻找仓库、安装文件、配置数据源这些准备工作，可以由产品提供清晰入口；技能自己的工作流则应随上游演进。
 
@@ -53,7 +53,7 @@ MCP 同样有清晰分工：Financial Datasets、Tushare、LLMQuant Data、智�
 
 ## 实现索引
 
-这次收缩尚未涵盖社区插件宿主。JQ 仍使用 WhyJ Extension API 1，Git 下载和选择文件也保留现有布局；进一步复用 Pi 的包管理、资源过滤和插件协议由 [#33](https://github.com/yangjingo/oh-my-quant/issues/33)跟进，不能从 Skills API 复用推导为 Pi 插件已兼容。
+这次收缩尚未涵盖社区插件宿主。JQ 仍使用 WhyJ Extension API 1，Git 下载和选择文件也保留现有布局；进一步复用 Pi 的包管理、资源过滤和插件协议由 [#33](https://github.com/yangjingo/WhyJ-Quant/issues/33)跟进，不能从 Skills API 复用推导为 Pi 插件已兼容。
 
 - [MCP 预制配置](../../src/runtime/skills/mcp-presets.ts)、[Pi 配置接线](../../src/runtime/skills/mcp-config.ts)。
 - [预制目录](../../src/skill/catalog.ts)、[下载事务](../../src/skill/installer.ts)、[安装与加载入口](../../src/cli/handlers/skill.ts)。

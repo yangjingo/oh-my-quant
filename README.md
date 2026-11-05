@@ -14,7 +14,7 @@ Two product forms share the research foundation: **Desktop for Windows/macOS use
 
 ## Quick start
 
-For Windows Desktop, choose the installer and verify its checksum on the [GitHub Releases page](https://github.com/yangjingo/oh-my-quant/releases). For the CLI, install the [published package](https://www.npmjs.com/package/whyj-quant), then launch the terminal:
+For Windows Desktop, choose the installer and verify its checksum on the [GitHub Releases page](https://github.com/yangjingo/WhyJ-Quant/releases). For the CLI, install the [published package](https://www.npmjs.com/package/whyj-quant), then launch the terminal:
 
 ```sh
 npm install -g whyj-quant
@@ -75,7 +75,7 @@ Use `/help` in the terminal or `whyj --help` in your shell. Command help provide
 
 - **Use the terminal:** [Configuration](./docs/agent-runtime/configuration.md), [data providers](./docs/quant-harness/source-data-providers.md), [reports](./docs/quant-harness/artifacts-design.md), [tools and skills](./docs/quant-harness/community-tools.md).
 - **Product:** [Forms, capabilities, and Quant design](./docs/prd.md).
-- **Windows desktop:** [Downloads](https://github.com/yangjingo/oh-my-quant/releases) and [release verification](./docs/ci-release.md#desktop-release-and-website-handoff).
+- **Windows desktop:** [Downloads](https://github.com/yangjingo/WhyJ-Quant/releases) and [release verification](./docs/ci-release.md#desktop-release-and-website-handoff).
 - **Agent Runtime design:** [Runtime, lifecycle, and Pi integration](./docs/agent-runtime/README.md).
 - **Quant Harness design:** [Data, computation, execution, and reports](./docs/quant-harness/README.md).
 - **System and UI:** [Module architecture](./docs/agent-runtime/architecture.md), [visual design](./DESIGN.md).

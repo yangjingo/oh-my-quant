@@ -10,7 +10,7 @@ import { buildOnline, ONLINE_LIMIT_BYTES, onlineIdentity } from "./build-online.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 test("production identity is immutable HTTPS; test endpoints cannot become release assets", () => {
   const prod = onlineIdentity("1.4.0");
-  assert.equal(prod.url, "https://github.com/yangjingo/oh-my-quant/releases/download/v1.4.0/WhyJ-Quant-Setup-1.4.0-win-x64.exe");
+  assert.equal(prod.url, "https://github.com/yangjingo/WhyJ-Quant/releases/download/v1.4.0/WhyJ-Quant-Setup-1.4.0-win-x64.exe");
   for (const version of ["1.4", "1.4.0/latest", "1.4.0-rc", '1.4.0"']) assert.throws(() => onlineIdentity(version));
   for (const url of ["https://evil.example/payload", "http://localhost:1234/payload", "http://127.0.0.1/payload", "http://user@127.0.0.1:1234/payload", "http://127.0.0.1:1234/payload?token=x"]) assert.throws(() => onlineIdentity("1.4.0", url));
   const fixture = onlineIdentity("1.4.0", "http://127.0.0.1:1234/payload");

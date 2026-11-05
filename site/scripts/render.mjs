@@ -23,7 +23,7 @@ export async function loadContent() {
   const messages = JSON.parse(catalog);
   const release = JSON.parse(releaseData);
   if (!/^\d+\.\d+\.\d+$/.test(release.version) || !Number.isSafeInteger(release.windows?.sizeBytes) || release.windows.sizeBytes <= 0) throw new Error("Invalid Desktop release metadata");
-  const releaseRoot = "https://github.com/yangjingo/oh-my-quant/releases/";
+  const releaseRoot = "https://github.com/yangjingo/WhyJ-Quant/releases/";
   if (release.releaseUrl !== `${releaseRoot}tag/v${release.version}` || release.checksumsUrl !== `${releaseRoot}download/v${release.version}/SHA256SUMS.txt` || release.windows.url !== `${releaseRoot}download/v${release.version}/WhyJ-Quant-Setup-${release.version}-win-x64.exe`) throw new Error("Desktop assets must match the repository release");
   for (const [key, message] of Object.entries(messages)) {
     for (const locale of ["zh", "en"]) {

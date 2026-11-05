@@ -58,4 +58,4 @@ Mozilla Readability 提供正文抽取能力，但抽取成功与金融主张可
 
 1. Mozilla. [Readability](https://github.com/mozilla/readability). 正文提取组件及其边界。
 2. Snowberg, E., Wolfers, J., and Zitzewitz, E. [How Prediction Markets Can Save Event Studies](https://www.nber.org/papers/w16949). NBER Working Paper 16949, 2011. 作为事件识别问题的参考，本项目未实现该论文方法。
-3. oh-my-quant. [数据证据](./source-data-providers.md)、[报告与引用](./artifacts-design.md). 数据观察与研究产出的相邻边界。
+3. WhyJ-Quant. [数据证据](./source-data-providers.md)、[报告与引用](./artifacts-design.md). 数据观察与研究产出的相邻边界。

@@ -1,6 +1,6 @@
 {
   "source": "docs/blog/agentic/vibe-repo-ops-merged-draft.md",
-  "sourceSha256": "cf290632c1b68b5141cca48496fe7060013e935551eb50e3ce17bc3751748678",
+  "sourceSha256": "00f52195ed8b65c61884c670fc69a873cd3f62d82d86e9a513e1e24916edb2cb",
   "designCommit": "10184e1a2ad99d976c33e6c55d6872d7083fe827",
   "locale": "zh-CN",
   "translationStatus": "Chinese original; English translation not published",
@@ -31,6 +31,6 @@
     "images/repo-ops-governance-mobile.svg": "dd01f7dc8e2df497f0bdb757324facc1b830bb4fb5409b0c255720827c81e028",
     "images/repo-ops-governance.svg": "ab5711be6f31fd301162b74aab3cb0a4b10d31d358e4014e6abf269883747d6e",
     "images/repo-ops-rsi.svg": "3bcbb81f0f8680dc13ade26fd23caca1719566e348692e8dc4341fa690d863ff",
-    "index.html": "573a147678252da0bac0aa4f6d651bfdc3fcb848c4676cfb08f5e2ce98d0513a"
+    "index.html": "ddfe2db80cffd0ec7e68c3b23ddce8fc66f5ffb4170decb91c890eab47aa47b7"
   }
 }

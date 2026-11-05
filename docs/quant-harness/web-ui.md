@@ -1,6 +1,6 @@
 # 共享 Web UI：展示、客户端与服务边界
 
-`apps/web` 是供浏览器与 Desktop renderer 复用的 React + TypeScript + Vite 模块。它承接 #84 的终端式布局，并复用 [PR #81](https://github.com/yangjingo/oh-my-quant/pull/81) 的包基础与订阅/取消契约。原来的 `prototypes/web-terminal` 已撤除，不再维护第二套 HTML 字符串渲染器。
+`apps/web` 是供浏览器与 Desktop renderer 复用的 React + TypeScript + Vite 模块。它承接 #84 的终端式布局，并复用 [PR #81](https://github.com/yangjingo/WhyJ-Quant/pull/81) 的包基础与订阅/取消契约。原来的 `prototypes/web-terminal` 已撤除，不再维护第二套 HTML 字符串渲染器。
 
 本页说明已实现的模块边界。[架构](../agent-runtime/architecture.md)定义 Host、服务、runtime 与 storage 的职责；[UI/UX](./uiux.md)和 [DESIGN](../../DESIGN.md)维护交互与视觉原则。Electron 和浏览器加载 Host 提供的同一构建，入口关闭与显式停止的差异见 [Host 生命周期](../agent-runtime/host.md)。
 

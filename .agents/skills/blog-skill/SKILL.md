@@ -1,6 +1,6 @@
 ---
 name: blog-skill
-description: Edit, simplify, consolidate, preview, and publish oh-my-quant docs and blogs. Use for text-first design documentation, illustrated articles, bilingual content, and their website update workflows.
+description: Edit, simplify, consolidate, preview, and publish WhyJ-Quant docs and blogs. Use for text-first design documentation, illustrated articles, bilingual content, and their website update workflows.
 ---
 
 # Blog Skill

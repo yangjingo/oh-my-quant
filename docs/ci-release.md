@@ -132,8 +132,8 @@ Require up-to-date branches and conversation resolution, include administrators,
 The maintainer chose no mandatory approving review count or commit signatures for the solo/agent workflow. Signing proves source identity, not correctness; review counts and linear history are independent decisions. Verify current classic protection and rulesets rather than treating this document as proof of saved settings:
 
 ```sh
-gh api repos/yangjingo/oh-my-quant/branches/main/protection
-gh api 'repos/yangjingo/oh-my-quant/rulesets?includes_parents=true'
+gh api repos/yangjingo/WhyJ-Quant/branches/main/protection
+gh api 'repos/yangjingo/WhyJ-Quant/rulesets?includes_parents=true'
 ```
 
 Inspect the actual PR blocking reason too. After an authorized merge, check runs on the merged revision before reporting integration complete. Preserve unfinished dependencies and private worktree data; cleanup follows pr-skill. No destructive protection test is required.
@@ -161,7 +161,9 @@ For an authorized prose correction, preserve the old body and release metadata, 
 
 ## npm Setup
 
-Configure Trusted Publishing for package `whyj-quant`: owner `yangjingo`, repository `oh-my-quant`, workflow `npm-publish.yml`, no environment. Permit direct `npm publish`; staged publication is a separate mode. Consult [npm's setup requirements](https://docs.npmjs.com/trusted-publishers/) for current configuration and expiry behavior.
+Configure Trusted Publishing for package `whyj-quant`: owner `yangjingo`, repository `WhyJ-Quant`, workflow `npm-publish.yml`, no environment. Permit direct `npm publish`; staged publication is a separate mode. Consult [npm's setup requirements](https://docs.npmjs.com/trusted-publishers/) for current configuration and expiry behavior.
+
+After the repository rename, verify the repository field in npm Trusted Publishing is `WhyJ-Quant` before publishing. Updating this guide does not update npm registry settings.
 
 The [publish workflow](../.github/workflows/npm-publish.yml) uses GitHub-hosted runners, npm >=11.5.1 and `id-token: write`; it needs no long-lived `NPM_TOKEN`. Public publication includes provenance. These workflow declarations do not prove the registry configuration or credentials currently work.
 

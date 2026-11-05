@@ -1,6 +1,6 @@
 ---
 name: issue-skill
-description: Draft and manage single-module issues for oh-my-quant with explicit scope, acceptance criteria, and one implementation PR.
+description: Draft and manage single-module issues for WhyJ-Quant with explicit scope, acceptance criteria, and one implementation PR.
 ---
 
 # Issue Skill

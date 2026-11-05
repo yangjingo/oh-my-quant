@@ -52,4 +52,4 @@ Sharpe 原文专门讨论时间依赖，因此跨期间比较不能只看已经�
 
 1. Frankfurter. [Official Documentation](https://frankfurter.dev/). 参考汇率来源与接口说明。
 2. Sharpe, W. F. [The Sharpe Ratio](https://web.stanford.edu/~wfsharpe/art/sr/sr.htm). The Journal of Portfolio Management, 1994.
-3. oh-my-quant. [数据口径](./source-data-providers.md)、[报告分享](./artifacts-design.md). 数据可比性与公开投影由相邻边界继续约束。
+3. WhyJ-Quant. [数据口径](./source-data-providers.md)、[报告分享](./artifacts-design.md). 数据可比性与公开投影由相邻边界继续约束。

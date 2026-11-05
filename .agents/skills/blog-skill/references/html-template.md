@@ -7,7 +7,7 @@ Use this reference when rendering a blog with the user's approved JQ reading lay
 - [Canonical renderer](../../../../site/previews/vibe-repo-ops/build.ts) and [implementation notes](../../../../site/previews/vibe-repo-ops/README.md): edit these sources when changing the implementation.
 - [Deployment provenance](../../../../site/DEPLOYMENT.md): source/design revisions, hashes, deployment IDs, and verification scope.
 
-The HTML is an article example in Chinese with English figure labels. Skill instructions remain in English. Its historical repository claims and sample data are not current operational status. The current local snapshot's HTML SHA-256 is `4e970877c8305d2bf2694b45dc88b2f6be041cad4b670de98e781edd97d6c7d3`; this fingerprint does not verify the deployed page.
+The HTML is an article example in Chinese with English figure labels. Skill instructions remain in English. Its historical repository claims and sample data are not current operational status. The current local snapshot's HTML SHA-256 is `fda450fee4e2e61d6c7c3f6f7ac2f5d84724905f82a5e60d4e047ebb7885e07f`; this fingerprint does not verify the deployed page.
 
 ## Preview locally
 
