@@ -60,4 +60,4 @@ Source 负责识别市场与标的、适配响应、安排兼容来源回退，�
 
 1. Financial Datasets. [Understanding Pagination](https://docs.financialdatasets.ai/guides/pagination). 官方分页协议；不构成本仓库真实账号可用性的证明。
 2. Tushare. [A 股日线行情](https://tushare.pro/document/2?doc_id=27). 接口口径与字段说明。
-3. oh-my-quant. [Source 模块](../../src/source/README.md). 当前接入与模块职责；真实服务状态仍需当次验证。
+3. WhyJ-Quant. [Source 模块](../../src/source/README.md). 当前接入与模块职责；真实服务状态仍需当次验证。

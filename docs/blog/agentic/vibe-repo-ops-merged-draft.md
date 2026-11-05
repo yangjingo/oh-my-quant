@@ -1,10 +1,10 @@
 # Agentic / Vibe Repo Ops：代码变快以后，怎样把一次交付做完整
 
-WhyJ · oh-my-quant 工程实践 · 合并审阅稿 · 2026-10-23 · 预计阅读约 7 分钟
+WhyJ · WhyJ-Quant 工程实践 · 合并审阅稿 · 2026-10-23 · 预计阅读约 7 分钟
 
 ## TL;DR
 
-Agent 能迅速生成实现、测试和说明，但这些产物可能共同继承一个错误假设。我们在 oh-my-quant 的实践中，把稳定原则交给 AGENTS，把任务方法交给 Skills，把确定性检查交给 CI，再用平台规则约束合并。需要保留的经验是：明确责任，让错误可重现，让检查对应实际交付的对象，同时承认它没有证明的部分。
+Agent 能迅速生成实现、测试和说明，但这些产物可能共同继承一个错误假设。我们在 WhyJ-Quant 的实践中，把稳定原则交给 AGENTS，把任务方法交给 Skills，把确定性检查交给 CI，再用平台规则约束合并。需要保留的经验是：明确责任，让错误可重现，让检查对应实际交付的对象，同时承认它没有证明的部分。
 
 ## 产物齐了，为什么仍不能交付
 
@@ -75,6 +75,6 @@ Windows 上的一次超时很典型：外层测试约五秒就结束，内部操
 
 1. Ryan Lopopolo. [Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/). OpenAI, 2026.
 2. GitHub. [About protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches). GitHub Docs.
-3. WhyJ. [Agentic / Vibe Repo Ops：原始失败与修复记录](./vibe-repo-ops.md). oh-my-quant, 2026.
-4. WhyJ. [测试全绿，为什么仍不能交付结论](../05-evaluation-beyond-green.md). oh-my-quant, 2026.
-5. WhyJ. [报告要固定，设计要演进](../07-artifacts-and-boundaries.md). oh-my-quant, 2026.
+3. WhyJ. [Agentic / Vibe Repo Ops：原始失败与修复记录](./vibe-repo-ops.md). WhyJ-Quant, 2026.
+4. WhyJ. [测试全绿，为什么仍不能交付结论](../05-evaluation-beyond-green.md). WhyJ-Quant, 2026.
+5. WhyJ. [报告要固定，设计要演进](../07-artifacts-and-boundaries.md). WhyJ-Quant, 2026.

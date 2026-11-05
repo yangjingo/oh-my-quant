@@ -1,5 +1,13 @@
 # 官网交付与部署记录
 
+## 2026-11-05 — WhyJ-Quant 仓库改名同步
+
+- 来源：`chore/rename-whyj-quant`，基线 `58178f1`；本节随改名内容同一提交保存。GitHub 仓库、文档引用、下载入口和安装器源码地址统一为 `yangjingo/WhyJ-Quant`。官网域名、npm 包名及 CLI 命令不变。
+- Preview：`dpl_4Fa117mpBvg1c3RtQgFgHTeNqiYJ` / <https://oh-my-quant-p6p4sq9vr-yangjing-s-projects.vercel.app>，完整网站独立构建 Ready。
+- Production：`dpl_28WS85aLwhPDi4zap6yy8MvVajTE` / <https://oh-my-quant-dqwp8zxul-yangjing-s-projects.vercel.app>，已提升且正式域名绑定 Ready。回滚目标：`dpl_8hyFg74MAjBEknvmVWnCJ6jFKZ1S`。
+- 验证：完整 `bun run check:release` 通过；核心套件 3170 pass / 3 skip / 0 fail。独立网站构建通过，本地 390px 首页无横向溢出。浏览器实测正式首页、中英文列表和两篇文章共六个路由均返回 200，旧 GitHub 链接为零，新仓库链接存在。截图留在忽略的 `output/`。
+- 限制：Node / PowerShell HTTP 客户端受连接超时或 TLS 中断影响，未完成线上 HTML 逐字节比对；上述线上结论来自浏览器。未重发 npm 或 Desktop 安装包；独立安装器执行测试仍缺本地打包依赖，npm Trusted Publisher 的仓库字段仍需发布前核实。
+
 本页保留各日期的交付事实。现行[产品定位](../docs/prd.md#scope)为 Windows/macOS Desktop 与 Linux 专业 CLI/TUI；历史上暂撤官网 CLI 卡片不代表终止 CLI。macOS 是目标平台，以下 Windows 发布回执不构成其交付证明。本次文档同步不代表网站已重新部署。
 
 ## 2026-10-22：发布 Agent Desktop 架构定稿（Issue #74，PR 保持未合并）
@@ -20,13 +28,13 @@
 上轮撤下 CLI 入口时保留了已有 1.3.1 安装包；源码版本、Actions 构建成功和公开 Release 是三种不同状态。此前工作流的 `publish` 被跳过，官网版本清单也没有自动刷新。本轮维护者明确要求发布 1.4.0，并要求主下载按钮进入 GitHub Release 页面。
 
 - 维护者授权将尚无 Release 的 `v1.4.0` 从旧提交 `3ff6b7a` 更正到已验证 main `4a8360671f0a303c9d226af56ae7b4141e1849f8`，以原标签对象 `d93473f` 为预期值执行 lease 保护更新。原标签记录保存在私有交付证据目录；不把本次授权推广为自动改写标签。
-- [发布工作流 39576756091](https://github.com/yangjingo/oh-my-quant/actions/runs/39576756091) 的两平台 CI、Desktop 和 publish 均通过。[Desktop 1.4.0](https://github.com/yangjingo/oh-my-quant/releases/tag/v1.4.0) 已为 Latest。下载后的安装包、Release 资产 digest 与 SHA256SUMS 三者一致：`3e3fd44d24508b0e2b8fad1e7cc58ba719d5d70cff48fb82d82b6545a88f7779`，287,728,367 字节。该候选有 12 项应用检查、4 项安装检查的 runner 回执，不替代 #56 的人工目标机验收。
+- [发布工作流 39576756091](https://github.com/yangjingo/WhyJ-Quant/actions/runs/39576756091) 的两平台 CI、Desktop 和 publish 均通过。[Desktop 1.4.0](https://github.com/yangjingo/WhyJ-Quant/releases/tag/v1.4.0) 已为 Latest。下载后的安装包、Release 资产 digest 与 SHA256SUMS 三者一致：`3e3fd44d24508b0e2b8fad1e7cc58ba719d5d70cff48fb82d82b6545a88f7779`，287,728,367 字节。该候选有 12 项应用检查、4 项安装检查的 runner 回执，不替代 #56 的人工目标机验收。
 - 官网候选基于上述 main 加 #67 的下载交接修改；中英文主按钮进入 `releases/tag/v1.4.0`，保留校验和链接和用于核验的安装包元数据。CLI 入口保持下线。
 - Preview：`dpl_FVrJ56zfZcdMxSZXQcvYWjdmoRTW` / <https://oh-my-quant-7peh0o1ya-yangjing-s-projects.vercel.app>，Ready。独立发布副本只含公开网站输入，构建通过；未更改 Preview 访问保护。
 - 中文首页构建 SHA-256：`013bbea9de1c4da9498e65d4ced260da27645b716857e116b5afa6b626a9b336`；英文：`266cec51480762c5cdc3df31fbc2e5429cf0c8e83740d7b32b6b741b04f2725c`。
 - 本地 Chromium 在中英文各 1440/390/320px 验证版本、大小和目标链接，无横向溢出，无 EXE 直链/CLI 卡片；实际点击进入 GitHub 1.4.0 Release 页面。截图留在忽略的 `output/release67/`，不入库。
 - 本地完整 gate：2727 项 Bun 测试和 28 项质量检查通过；网站与文档检查通过。候选增加现有标签与受测提交一致性保护，防止未来把新安装包挂在旧源码标签下。
-- 此提交记录发布准备状态；合并后提升同一 Preview，正式 Production ID、线上验收及最终 PR 链接见 [#67 交付记录](https://github.com/yangjingo/oh-my-quant/issues/67)。网站回滚目标是 `dpl_ActG9NE5Zk55nYyjn3eUKnsQRqgM`；回滚网站不撤销已发布 1.4.0。
+- 此提交记录发布准备状态；合并后提升同一 Preview，正式 Production ID、线上验收及最终 PR 链接见 [#67 交付记录](https://github.com/yangjingo/WhyJ-Quant/issues/67)。网站回滚目标是 `dpl_ActG9NE5Zk55nYyjn3eUKnsQRqgM`；回滚网站不撤销已发布 1.4.0。
 
 ## 2026-10-21：暂时撤下公开 CLI 安装入口（Issue #63 / PR #64）
 
@@ -40,7 +48,7 @@
 - 文章 HTML SHA-256 仍为 `801399b7ff9882334600b1284b7472c88a94bc15ba1f3a4c3c91cfdd0c6392cb`；此次未修改文章。
 - 本地 Chromium 在中英文各 1440、390、320px 验证：单张 Desktop 卡片，无 CLI 控件/npm 页脚链接，无横向溢出，安装说明可用 Enter 展开和关闭，浏览器无错误。实际截图和 DOM 回执保存在忽略的 `output/pr63/`，不入库。
 - 同步 main 后完整 release gate：2727 项测试通过、0 失败；类型、架构、质量、构建与文档检查通过。最终 CI 以 PR head 和最终描述触发的检查为准。
-- 此提交记录的是发布准备状态。PR 合并后提升同一 Preview，核验正式域名与旧下载路径；Production ID、线上验收和清理结果记录在 [PR #64 的交付评论](https://github.com/yangjingo/oh-my-quant/pull/64)。不能用此处的 Preview Ready 代替 Production 已生效。
+- 此提交记录的是发布准备状态。PR 合并后提升同一 Preview，核验正式域名与旧下载路径；Production ID、线上验收和清理结果记录在 [PR #64 的交付评论](https://github.com/yangjingo/WhyJ-Quant/pull/64)。不能用此处的 Preview Ready 代替 Production 已生效。
 - 本轮发布前的 Production / 回滚目标：`dpl_EJBM6M7D21rJRBkBqYj7Q42iJ4RY`。
 
 ## 2026-10-20：补齐 Production 发布与旧下载地址修复（Issue #57）

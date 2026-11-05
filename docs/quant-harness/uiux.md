@@ -83,4 +83,4 @@ W3C 的颜色使用原则要求信息不能只靠颜色区分。[1] 因此涨跌
 ## References
 
 1. W3C. [Understanding Success Criterion 1.4.1: Use of Color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html). WCAG 2.2 理解文档；作为设计参考，不构成全站无障碍符合性声明。
-2. oh-my-quant. [视觉规范](../../DESIGN.md)、[运行与恢复](../agent-runtime/README.md). 视觉真源与状态所有权分别维护。
+2. WhyJ-Quant. [视觉规范](../../DESIGN.md)、[运行与恢复](../agent-runtime/README.md). 视觉真源与状态所有权分别维护。

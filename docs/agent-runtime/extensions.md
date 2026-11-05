@@ -56,5 +56,5 @@ capability 描述宿主已知的能力条件及依赖工具，可以表达可用
 
 ## References
 
-1. oh-my-quant. [公共扩展契约](../../src/extensions/types.ts)、[独立示例](../../src/extensions/test/fixtures/statistics-extension.ts). 接口与资源装配的维护入口。
-2. oh-my-quant. [宿主回归](../../src/extensions/test/host.test.ts)、[会话接线](../../src/runtime/test/extension-session.test.ts)、[应用管理](../../tests/app/app-extensions.test.ts). 分层验证依据，不代表真实服务验收。
+1. WhyJ-Quant. [公共扩展契约](../../src/extensions/types.ts)、[独立示例](../../src/extensions/test/fixtures/statistics-extension.ts). 接口与资源装配的维护入口。
+2. WhyJ-Quant. [宿主回归](../../src/extensions/test/host.test.ts)、[会话接线](../../src/runtime/test/extension-session.test.ts)、[应用管理](../../tests/app/app-extensions.test.ts). 分层验证依据，不代表真实服务验收。

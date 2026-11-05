@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#0C0C0C">
   <meta name="color-scheme" content="dark">
   <link rel="canonical" href="https://oh-my-quant.vercel.app/blog/vibe-repo-ops/"><meta property="og:url" content="https://oh-my-quant.vercel.app/blog/vibe-repo-ops/">
-  <meta name="description" content="从测试全绿却算错、文档漂移到 CI 生命周期竞态：oh-my-quant 如何让 AGENTS.md、Skills、验证与合并对同一次交付负责。">
+  <meta name="description" content="从测试全绿却算错、文档漂移到 CI 生命周期竞态：WhyJ-Quant 如何让 AGENTS.md、Skills、验证与合并对同一次交付负责。">
   <meta property="og:type" content="article">
   <meta property="og:title" content="Agentic / Vibe Repo Ops：代码变快以后，怎样把一次交付做完整">
-  <meta property="og:description" content="从测试全绿却算错、文档漂移到 CI 生命周期竞态：oh-my-quant 如何让 AGENTS.md、Skills、验证与合并对同一次交付负责。">
+  <meta property="og:description" content="从测试全绿却算错、文档漂移到 CI 生命周期竞态：WhyJ-Quant 如何让 AGENTS.md、Skills、验证与合并对同一次交付负责。">
   <title>Agentic / Vibe Repo Ops：代码变快以后，怎样把一次交付做完整 · WhyJ Quant</title>
   <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./assets/theme.css">
@@ -23,7 +23,7 @@
   <header class="site-header">
     <div class="nav-shell">
       <a class="brand" href="/" aria-label="WhyJ Quant 官网"><img class="brand-mark" src="./assets/logo-mark.svg" width="32" height="32" alt="" aria-hidden="true"><span>WhyJ Quant</span></a>
-      <nav class="site-nav" aria-label="网站导航"><a href="/blog/">Blog</a><a class="icon-link" href="https://github.com/yangjingo/oh-my-quant" aria-label="GitHub 仓库" title="GitHub"><svg class="icon" data-icon="github" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <nav class="site-nav" aria-label="网站导航"><a href="/blog/">Blog</a><a class="icon-link" href="https://github.com/yangjingo/WhyJ-Quant" aria-label="GitHub 仓库" title="GitHub"><svg class="icon" data-icon="github" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
   <path d="M9 18c-4.51 2-5-2-7-2" />
   </svg></a></nav>
@@ -33,7 +33,7 @@
   <main class="reading-layout">
       <header class="article-header">
         <h1><span class="series-title" lang="en">Agentic / Vibe Repo Ops</span><span class="main-title">代码变快以后，怎样把一次交付做完整</span></h1>
-        <div class="article-meta"><span class="author">WhyJ</span><span>oh-my-quant</span><time datetime="2026-10-23">2026.10.23</time></div>
+        <div class="article-meta"><span class="author">WhyJ</span><span>WhyJ-Quant</span><time datetime="2026-10-23">2026.10.23</time></div>
         <div class="article-utilities"><span class="reading-time" title="根据当前正文长度估算"><svg class="icon" data-icon="clock" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
   <circle cx="12" cy="12" r="10" />
   <path d="M12 6v6l4 2" />
@@ -64,13 +64,13 @@
     <path d="m6 9 6 6 6-6" />
   </svg></summary><nav aria-label="移动端文章目录"><ol><li><a href="#section-1"><span>01</span>TL;DR</a></li><li><a href="#section-2"><span>02</span>产物齐了，为什么仍不能交付</a></li><li><a href="#section-3"><span>03</span>把规则交给真正能执行它的地方</a></li><li><a href="#section-4"><span>04</span>红灯要修在哪里，取决于错误的假设</a></li><li><a href="#section-5"><span>05</span>让检查覆盖实际交付，而不只覆盖源码</a></li><li><a href="#section-6"><span>06</span>留下了什么，还没有证明什么</a></li><li><a href="#section-7"><span>07</span>References</a></li></ol></nav></details>
       <article class="prose" id="article" tabindex="-1"><h2 id="section-1" tabindex="-1">TL;DR</h2>
-<p>Agent 能迅速生成实现、测试和说明，但这些产物可能共同继承一个错误假设。我们在 oh-my-quant 的实践中，把稳定原则交给 AGENTS，把任务方法交给 Skills，把确定性检查交给 CI，再用平台规则约束合并。需要保留的经验是：明确责任，让错误可重现，让检查对应实际交付的对象，同时承认它没有证明的部分。</p>
+<p>Agent 能迅速生成实现、测试和说明，但这些产物可能共同继承一个错误假设。我们在 WhyJ-Quant 的实践中，把稳定原则交给 AGENTS，把任务方法交给 Skills，把确定性检查交给 CI，再用平台规则约束合并。需要保留的经验是：明确责任，让错误可重现，让检查对应实际交付的对象，同时承认它没有证明的部分。</p>
 <h2 id="section-2" tabindex="-1">产物齐了，为什么仍不能交付</h2>
 <p>使用 Agent 开发后，一次需求很快就有了代码、测试、文档和 PR。评审却没有同样变快：维护者仍要判断，这几份材料是否在描述同一个问题，测试是否真的能识别错误。</p>
-<p>仓库里出现过一个直接的反例：本金 100000，零费用，持有 1000 股，价格从 100 涨到 110，期末权益应为 110000。旧回测实现却给出约 111000，而当时测试仍然全绿。后来的<a href="https://github.com/yangjingo/oh-my-quant/blob/main/src/quant/test/backtest-correctness.test.ts">独立账本回归</a>用现金和股数核对结果。它补上的，是此前没有检查的业务含义。</p>
+<p>仓库里出现过一个直接的反例：本金 100000，零费用，持有 1000 股，价格从 100 涨到 110，期末权益应为 110000。旧回测实现却给出约 111000，而当时测试仍然全绿。后来的<a href="https://github.com/yangjingo/WhyJ-Quant/blob/main/src/quant/test/backtest-correctness.test.ts">独立账本回归</a>用现金和股数核对结果。它补上的，是此前没有检查的业务含义。</p>
 <p>文档也会放大错误。实现已经修正，旧说明还在描述过时的计算口径；下一轮 Agent 若把旧说明当作要求，就可能把错误改回来。保留更多文档，并没有自动保留更准确的上下文。</p>
 <p>交付流程里还有另一种错位：PR 的代码检查已通过，修改描述又触发一轮策略检查；PR 随后合并、Issue 自动关闭，检查器仍按开放 PR 的规则要求 Issue 保持开放，于是“合并成功”之后出现红灯。</p>
-<p>这些历史案例来自<a href="https://github.com/yangjingo/oh-my-quant/blob/main/docs/blog/agentic/vibe-repo-ops.md">原始 Ops 复盘</a>和<a href="https://github.com/yangjingo/oh-my-quant/blob/main/docs/blog/05-evaluation-beyond-green.md">评测文章</a>，本次没有重跑历史任务。它们共同改变了我们的判断：<strong>完成一份产物之后，还要确认它与需求、验证和交付决定之间的关系。</strong></p>
+<p>这些历史案例来自<a href="https://github.com/yangjingo/WhyJ-Quant/blob/main/docs/blog/agentic/vibe-repo-ops.md">原始 Ops 复盘</a>和<a href="https://github.com/yangjingo/WhyJ-Quant/blob/main/docs/blog/05-evaluation-beyond-green.md">评测文章</a>，本次没有重跑历史任务。它们共同改变了我们的判断：<strong>完成一份产物之后，还要确认它与需求、验证和交付决定之间的关系。</strong></p>
 <h2 id="section-3" tabindex="-1">把规则交给真正能执行它的地方</h2>
 <p>最初的反应很容易是继续扩写 AGENTS.md。可一份越来越长的说明，既增加阅读成本，也无法直接阻止错误合并。我们采用的分工是：</p>
 <ul>
@@ -90,7 +90,7 @@
 <h2 id="section-4" tabindex="-1">红灯要修在哪里，取决于错误的假设</h2>
 <p>审计 Actions 时，不能把所有失败都叫作“偶发”。产品计算错误、测试依赖本机环境、异步清理竞态和策略脚本版本不一致，需要不同的修复。</p>
 <p>Windows 上的一次超时很典型：外层测试约五秒就结束，内部操作却允许执行两分钟。测试开始删目录，后台任务还在写文件，后续错误看起来像随机故障。延长超时只能减少出现概率，没有解决谁负责停止任务。</p>
-<p>修复后的 fixture 持有自己的在途任务：先拒绝新工作，再取消并等待已有任务结束，最后释放服务器和临时目录。关键是资源的使用者已经退出，而不只是调用了 <code>abort()</code>。对应逻辑保留在<a href="https://github.com/yangjingo/oh-my-quant/blob/main/src/runtime/test/research-evaluation.test.ts">评测测试</a>中。</p>
+<p>修复后的 fixture 持有自己的在途任务：先拒绝新工作，再取消并等待已有任务结束，最后释放服务器和临时目录。关键是资源的使用者已经退出，而不只是调用了 <code>abort()</code>。对应逻辑保留在<a href="https://github.com/yangjingo/WhyJ-Quant/blob/main/src/runtime/test/research-evaluation.test.ts">评测测试</a>中。</p>
 <p>策略检查则要处理另一种生命周期。新 workflow 曾检出了过旧的基线，找不到刚加入的策略脚本；后来让策略与可信的工作流版本对齐，并只读取 PR 元数据，不执行 PR 提供的代码。检查器也区分开放与已结束的 PR，避免把正常关闭当成违规。</p>
 <p>这些修复的共同方法，是找到一个能区分正确与错误的反例，再把检查放到负责该问题的层。账本测试应独立计算预期值；取消测试应验证事件顺序；策略测试应覆盖状态变化。重复被测逻辑或反复重跑，都不能替代这一步。</p>
 <h2 id="section-5" tabindex="-1">让检查覆盖实际交付，而不只覆盖源码</h2>
@@ -98,7 +98,7 @@
 <p>在现有 CI 中，Linux 与 Windows 的结果汇总到 <code>CI required</code>；聚合检查只有在平台任务成功时才通过。这个稳定名称方便配置分支保护，但名称里写着 required，并不意味着平台已经强制执行。</p>
 <p>分支保护需要选择实际的检查名称；要求分支与最新 main 对齐，可以降低各分支独立通过、合在一起出错的风险，也会增加同步和重跑成本。<a href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches">2</a></p>
 <p>签名、线性历史和质量检查则解决不同问题：签名验证来源，线性历史帮助阅读与回滚，测试核对行为。应按团队的交付方式选择它们，不能用一个开关替代另一个判断。</p>
-<p>最后一次检查还要对应最后一次修改。PR 描述会触发策略校验，因此“这个提交曾经绿过”并不足够。合并前要核对当前代码、描述和相关检查；发布时再确认产物来自已验收的版本。具体操作维护在 <a href="https://github.com/yangjingo/oh-my-quant/blob/main/docs/ci-release.md">CI 与发布文档</a>，不在文章里复制一份容易过期的设置手册。</p>
+<p>最后一次检查还要对应最后一次修改。PR 描述会触发策略校验，因此“这个提交曾经绿过”并不足够。合并前要核对当前代码、描述和相关检查；发布时再确认产物来自已验收的版本。具体操作维护在 <a href="https://github.com/yangjingo/WhyJ-Quant/blob/main/docs/ci-release.md">CI 与发布文档</a>，不在文章里复制一份容易过期的设置手册。</p>
 <h2 id="section-6" tabindex="-1">留下了什么，还没有证明什么</h2>
 <p>这轮实践留下了能重现算术错误的用例、明确持有异步任务的测试 fixture，以及识别 PR 生命周期的策略检查。本文核对了相关源码；这些是可检查的设计变化，不是本次重新完成的产品验收。</p>
 <p>代价同样存在。跨平台与安装包检查消耗时间，跟随 main 重跑增加等待，策略和反例也需要维护。过细的流程会把精力消耗在填模板上；只有形式检查通过，也可能让人误以为业务判断已经完成。</p>
@@ -109,9 +109,9 @@
 <ol class="reference-list" start="1">
 <li id="ref-1">Ryan Lopopolo. <a href="https://openai.com/index/harness-engineering/">Harness engineering: leveraging Codex in an agent-first world</a>. OpenAI, 2026.</li>
 <li id="ref-2">GitHub. <a href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches">About protected branches</a>. GitHub Docs.</li>
-<li id="ref-3">WhyJ. <a href="https://github.com/yangjingo/oh-my-quant/blob/main/docs/blog/agentic/vibe-repo-ops.md">Agentic / Vibe Repo Ops：原始失败与修复记录</a>. oh-my-quant, 2026.</li>
-<li id="ref-4">WhyJ. <a href="https://github.com/yangjingo/oh-my-quant/blob/main/docs/blog/05-evaluation-beyond-green.md">测试全绿，为什么仍不能交付结论</a>. oh-my-quant, 2026.</li>
-<li id="ref-5">WhyJ. <a href="https://github.com/yangjingo/oh-my-quant/blob/main/docs/blog/07-artifacts-and-boundaries.md">报告要固定，设计要演进</a>. oh-my-quant, 2026.</li>
+<li id="ref-3">WhyJ. <a href="https://github.com/yangjingo/WhyJ-Quant/blob/main/docs/blog/agentic/vibe-repo-ops.md">Agentic / Vibe Repo Ops：原始失败与修复记录</a>. WhyJ-Quant, 2026.</li>
+<li id="ref-4">WhyJ. <a href="https://github.com/yangjingo/WhyJ-Quant/blob/main/docs/blog/05-evaluation-beyond-green.md">测试全绿，为什么仍不能交付结论</a>. WhyJ-Quant, 2026.</li>
+<li id="ref-5">WhyJ. <a href="https://github.com/yangjingo/WhyJ-Quant/blob/main/docs/blog/07-artifacts-and-boundaries.md">报告要固定，设计要演进</a>. WhyJ-Quant, 2026.</li>
 </ol>
 </section></article>
       <div class="article-end"><span>WhyJ <span class="end-dot" aria-hidden="true">·</span> 2026</span><a href="#top">返回顶部 <svg class="icon" data-icon="arrow-up" viewBox="0 0 24 24" aria-hidden="true" focusable="false">

@@ -53,4 +53,4 @@ GIPS 对外部现金流和时间加权收益的讨论提供方法背景。[1] �
 ## References
 
 1. CFA Institute. [GIPS Standards Handbook for Firms](https://www.gipsstandards.org/standards/gips-standards-for-firms/gips-standards-handbook-for-firms/). Input Data and Calculation Methodology 部分，提供时间加权收益、现金流与估值的背景；不构成合规声明。
-2. oh-my-quant. [年度报告](./annual-reports.md)、[执行边界](./execution.md). 分别维护私有输出与交易操作的责任。
+2. WhyJ-Quant. [年度报告](./annual-reports.md)、[执行边界](./execution.md). 分别维护私有输出与交易操作的责任。

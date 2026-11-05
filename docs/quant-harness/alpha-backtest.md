@@ -52,4 +52,4 @@
 
 1. AKFamily. [AKQuant](https://github.com/akfamily/akquant). 上游框架；本仓库以已锁定适配版本为准。
 2. Bailey, D. H., Borwein, J. M., López de Prado, M., and Zhu, Q. J. [The Probability of Backtest Overfitting](https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf). 2015 修订稿。说明策略选择与历史模拟的统计风险，本项目未实现该文完整方法。
-3. oh-my-quant. [报告与制品](./artifacts-design.md). 保存、恢复与分享承担不同证明范围。
+3. WhyJ-Quant. [报告与制品](./artifacts-design.md). 保存、恢复与分享承担不同证明范围。

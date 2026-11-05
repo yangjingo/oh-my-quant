@@ -1,6 +1,6 @@
 {
   "source": "docs/blog/agentic/agent-desktop-lifecycle.html",
-  "sourceSha256": "f1c4e3078bb8a370402c845fbaaf7e794469ead4fecc1706e1bb6e16d3811dcc",
+  "sourceSha256": "432ea11b93caf11af6a670e970708aa1713b918a2119e08fbeb76673fb20cb33",
   "locale": "zh-CN",
   "translationStatus": "Chinese original; English translation not published",
   "designSource": "Approved self-contained HTML, 2026-10-22",
@@ -19,6 +19,6 @@
     "assets/fonts/OFL-Geist.txt": "f12f59163d92084b0473315ae4566cde0c1233d940ae464f5225a69c347cc691",
     "assets/licenses/lucide.txt": "668dcc52803480e0a026b31140a4cae668772663cd764e5991d252eef03f98db",
     "assets/tables.js": "10c1ce694ffa6d0396ca84f5b65bbc1a9ce28d250e778ea4372742a760486665",
-    "index.html": "f0f9793c96483853e491daab1ac3e3530ff2197d9db834aa38169124e2ca43d7"
+    "index.html": "45935d7ac42de4da0768d57ea223edbc5fcc7ab7ec65dbddf9c995145453db36"
   }
 }

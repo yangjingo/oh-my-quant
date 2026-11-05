@@ -70,5 +70,5 @@ Storage 接收带身份和版本的内容，交付已提交的记录、固定引
 
 ## References
 
-1. oh-my-quant. [Storage 实现与入口](../../src/storage/README.md)、[存储回归](../../src/storage/test). 具体格式与故障边界的依据，不替代目标文件系统验收。
-2. oh-my-quant. [数据源](../quant-harness/source-data-providers.md)、[报告](../quant-harness/artifacts-design.md)、[私有执行](../quant-harness/execution.md). 分别维护来源语义、公开投影和账户授权。
+1. WhyJ-Quant. [Storage 实现与入口](../../src/storage/README.md)、[存储回归](../../src/storage/test). 具体格式与故障边界的依据，不替代目标文件系统验收。
+2. WhyJ-Quant. [数据源](../quant-harness/source-data-providers.md)、[报告](../quant-harness/artifacts-design.md)、[私有执行](../quant-harness/execution.md). 分别维护来源语义、公开投影和账户授权。

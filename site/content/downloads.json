@@ -1,11 +1,11 @@
 {
   "version": "1.4.0",
   "verifiedAt": "2026-10-21",
-  "releaseUrl": "https://github.com/yangjingo/oh-my-quant/releases/tag/v1.4.0",
-  "checksumsUrl": "https://github.com/yangjingo/oh-my-quant/releases/download/v1.4.0/SHA256SUMS.txt",
+  "releaseUrl": "https://github.com/yangjingo/WhyJ-Quant/releases/tag/v1.4.0",
+  "checksumsUrl": "https://github.com/yangjingo/WhyJ-Quant/releases/download/v1.4.0/SHA256SUMS.txt",
   "windows": {
     "architecture": "x64",
     "sizeBytes": 287728367,
-    "url": "https://github.com/yangjingo/oh-my-quant/releases/download/v1.4.0/WhyJ-Quant-Setup-1.4.0-win-x64.exe"
+    "url": "https://github.com/yangjingo/WhyJ-Quant/releases/download/v1.4.0/WhyJ-Quant-Setup-1.4.0-win-x64.exe"
   }
 }

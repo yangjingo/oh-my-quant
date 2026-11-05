@@ -121,7 +121,7 @@ body = body.replace(/href="(\.{1,2}\/[^"?#]+)((?:[?#][^"]*)?)"/g, (link, path, s
   if (!/\.(?:md|ts|mjs)$/.test(path)) return link;
   const target = resolve(dirname(sourcePath), path);
   const href = published
-    ? `https://github.com/yangjingo/oh-my-quant/blob/main/${relative(root, target).split("\\").join("/")}`
+    ? `https://github.com/yangjingo/WhyJ-Quant/blob/main/${relative(root, target).split("\\").join("/")}`
     : relative(output, target).split("\\").join("/");
   return `href="${href}${suffix}"`;
 });
@@ -130,7 +130,7 @@ const assetVersions = new Map(await Promise.all(previewAssets.map(async name => 
 const shortTitles = sections.map(section => section.title);
 const nav = sections.map((section, i) => `<li><a class="toc-link" href="#${section.id}"><span class="toc-number">${String(i + 1).padStart(2, "0")}</span><span>${shortTitles[i]}</span></a><div class="toc-children-wrap"><div><ol class="toc-children">${section.children.map(child => `<li><a href="#${child.id}">${child.title}</a></li>`).join("")}</ol></div></div></li>`).join("\n");
 const mobileNav = sections.map((section, i) => `<li><a href="#${section.id}"><span>${String(i + 1).padStart(2, "0")}</span>${shortTitles[i]}</a></li>`).join("");
-const description = "从测试全绿却算错、文档漂移到 CI 生命周期竞态：oh-my-quant 如何让 AGENTS.md、Skills、验证与合并对同一次交付负责。";
+const description = "从测试全绿却算错、文档漂移到 CI 生命周期竞态：WhyJ-Quant 如何让 AGENTS.md、Skills、验证与合并对同一次交付负责。";
 const readingText = source.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/<[^>]*>/g, "");
 const readMinutes = Math.max(1, Math.ceil((readingText.match(/[\u4e00-\u9fff]/g)?.length ?? 0) / 350 + (readingText.match(/[A-Za-z]+(?:['-][A-Za-z]+)*/g)?.length ?? 0) / 220));
 const html = `<!doctype html>
@@ -160,14 +160,14 @@ ${hasInteractiveContent ? `  <script defer src="./assets/interactive.js?v=${asse
   <header class="site-header">
     <div class="nav-shell">
       <a class="brand" href="${published ? '/' : 'https://oh-my-quant.vercel.app/'}" aria-label="WhyJ Quant 官网"><img class="brand-mark" src="./assets/logo-mark.svg" width="32" height="32" alt="" aria-hidden="true"><span>WhyJ Quant</span></a>
-      <nav class="site-nav" aria-label="网站导航"><a href="${published ? '/blog/' : 'https://oh-my-quant.vercel.app/blog/'}">Blog</a><a class="icon-link" href="https://github.com/yangjingo/oh-my-quant" aria-label="GitHub 仓库" title="GitHub">${icon("github")}</a></nav>
+      <nav class="site-nav" aria-label="网站导航"><a href="${published ? '/blog/' : 'https://oh-my-quant.vercel.app/blog/'}">Blog</a><a class="icon-link" href="https://github.com/yangjingo/WhyJ-Quant" aria-label="GitHub 仓库" title="GitHub">${icon("github")}</a></nav>
     </div>
     <progress id="reading-progress" max="100" value="0" aria-label="文章阅读进度" hidden></progress>
   </header>
   <main class="reading-layout">
       <header class="article-header">
         <h1><span class="series-title" lang="en">${esc(series)}</span><span class="main-title">${esc(mainTitle)}</span></h1>
-        <div class="article-meta"><span class="author">WhyJ</span><span>oh-my-quant</span><time datetime="${date}">${date.replaceAll("-", ".")}</time>${published ? '' : '<span class="draft-label">合并审阅稿</span>'}</div>
+        <div class="article-meta"><span class="author">WhyJ</span><span>WhyJ-Quant</span><time datetime="${date}">${date.replaceAll("-", ".")}</time>${published ? '' : '<span class="draft-label">合并审阅稿</span>'}</div>
         <div class="article-utilities"><span class="reading-time" title="根据当前正文长度估算">${icon('clock')}预计阅读 ${readMinutes} 分钟</span><div class="article-actions"><button id="share-article" class="article-action" type="button" aria-label="分享文章或复制链接" title="分享文章；不支持系统分享时复制链接" hidden>${icon('share-2')}<span>分享</span></button><button id="print-article" class="article-action" type="button" aria-label="打印或保存为 PDF" title="打开打印窗口，可选择保存为 PDF" hidden>${icon('printer')}<span>PDF</span></button></div></div>
         <p id="article-action-status" class="action-status" role="status"></p><a id="share-fallback" class="share-fallback" hidden>当前页面链接</a>
       </header>

@@ -1,8 +1,8 @@
-# Agent Engineering：oh-my-quant 的产品、架构与体验
+# Agent Engineering：WhyJ-Quant 的产品、架构与体验
 
 一个量化研究 Agent，应该对什么负责？
 
-它需要拿到数据、解释结果，也需要说清数据来自哪里，保存当时的输入，在会话被压缩或切换之后恢复研究，并在能力不足时留下可理解的失败。oh-my-quant 的演进围绕这个问题展开：如何把模型的一次合理回答，放进一个有明确状态与证据边界的应用里。
+它需要拿到数据、解释结果，也需要说清数据来自哪里，保存当时的输入，在会话被压缩或切换之后恢复研究，并在能力不足时留下可理解的失败。WhyJ-Quant 的演进围绕这个问题展开：如何把模型的一次合理回答，放进一个有明确状态与证据边界的应用里。
 
 这组中文文章面向**技术负责人和 Agent 应用架构师**。除了可靠性，还讨论产品为什么围绕研究工作流组织、技术边界如何承接变化，以及用户如何在有限屏幕里发现动作、理解状态和处理失败。从原方案的合理性出发，说明什么反例迫使它变化，再交代新选择解决了什么、增加了什么成本。每篇围绕一个具体问题沿因果推进，结果回到证据，不把迭代写成一路正确的故事。
 
@@ -10,7 +10,7 @@
 
 ## 系列文章
 
-架构文章：[给 Agent 做桌面，先想清楚关窗之后](./agentic/agent-desktop-lifecycle.html)。讨论共享 Host、入口职责、关窗后的执行归属与恢复边界；文中目标架构尚未实施，历史评审保留在 [PR #79](https://github.com/yangjingo/oh-my-quant/pull/79)。
+架构文章：[给 Agent 做桌面，先想清楚关窗之后](./agentic/agent-desktop-lifecycle.html)。讨论共享 Host、入口职责、关窗后的执行归属与恢复边界；文中目标架构尚未实施，历史评审保留在 [PR #79](https://github.com/yangjingo/WhyJ-Quant/pull/79)。
 
 工程实践补篇：[Agentic / Vibe Repo Ops：让 AGENTS.md、Skills 与 CI 对同一次交付负责](./agentic/vibe-repo-ops.md)。统一说明 AGENTS、Skills、Issue、PR 评审、CI、合并与 npm 发布的分工；结合冲突、验证漂移和元数据反例讨论简洁与协作，配套仓库 review-skill。这篇独立 Markdown 不加入下方十一篇离线合集。
 

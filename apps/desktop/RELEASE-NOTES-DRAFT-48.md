@@ -4,9 +4,9 @@ This draft describes a candidate, not a published version or an accepted install
 
 ## Candidate changes
 
-- The Windows shell presents the shared React workbench and attaches to the same local Host as Web and terminal entrypoints. Closing the window hides it to the tray; explicit quit detaches the Desktop view. ([#149](https://github.com/yangjingo/oh-my-quant/pull/149), [#150](https://github.com/yangjingo/oh-my-quant/pull/150))
-- Unknown tool outcomes require explicit review before further work; confirmation does not replay or verify an external action. ([#151](https://github.com/yangjingo/oh-my-quant/pull/151))
-- The React Desktop package no longer includes the unused PTY runtime. Terminal development and verification tools retain their own dependencies. ([#48](https://github.com/yangjingo/oh-my-quant/issues/48))
+- The Windows shell presents the shared React workbench and attaches to the same local Host as Web and terminal entrypoints. Closing the window hides it to the tray; explicit quit detaches the Desktop view. ([#149](https://github.com/yangjingo/WhyJ-Quant/pull/149), [#150](https://github.com/yangjingo/WhyJ-Quant/pull/150))
+- Unknown tool outcomes require explicit review before further work; confirmation does not replay or verify an external action. ([#151](https://github.com/yangjingo/WhyJ-Quant/pull/151))
+- The React Desktop package no longer includes the unused PTY runtime. Terminal development and verification tools retain their own dependencies. ([#48](https://github.com/yangjingo/WhyJ-Quant/issues/48))
 
 ## Installation and verification limits
 

@@ -13,7 +13,7 @@ const quote = value => String(value).replaceAll("$", () => "$$").replaceAll('"',
 export function onlineIdentity(version, testUrl, testName = "fixture") {
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) throw new Error("A stable version is required");
   const payloadName = `WhyJ-Quant-Setup-${version}-win-x64.exe`;
-  const url = `https://github.com/yangjingo/oh-my-quant/releases/download/v${version}/${payloadName}`;
+  const url = `https://github.com/yangjingo/WhyJ-Quant/releases/download/v${version}/${payloadName}`;
   if (testUrl !== undefined) {
     const parsed = new URL(testUrl);
     if (parsed.protocol !== "http:" || parsed.hostname !== "127.0.0.1" || !parsed.port || parsed.username || parsed.password

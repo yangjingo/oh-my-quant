@@ -47,7 +47,7 @@ Browser disconnect/reload preserves live work and restores workspace-scoped sele
 
 `mountWorkbench(element, client)` is the integration seam. It accepts a `WorkbenchClient`; unmount releases observers and never cancels a run. Only an explicit cancel action targets a run. The default bundle contains no demo adapter. `src/app/workbench` owns the initial HTTP/SSE Host; `src/types/workbench.ts` owns neutral DTOs, re-exported by the UI contract. The renderer cannot import provider, storage or service implementations.
 
-The package foundation and detach/cancel contract originate in [PR #81](https://github.com/yangjingo/oh-my-quant/pull/81) at `a5ac07d` (Liears). This migration preserves result access while applying #84's terminal layout, and extends events with session/run identity. It does not close #50/#81 or implement #46/#75.
+The package foundation and detach/cancel contract originate in [PR #81](https://github.com/yangjingo/WhyJ-Quant/pull/81) at `a5ac07d` (Liears). This migration preserves result access while applying #84's terminal layout, and extends events with session/run identity. It does not close #50/#81 or implement #46/#75.
 
 ## Review evidence
 

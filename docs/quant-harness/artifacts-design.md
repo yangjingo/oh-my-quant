@@ -55,4 +55,4 @@ Artifact 不需要复制所有算法和接口细节。它只需要确认各生�
 ## References
 
 1. Groth, P., and Moreau, L., eds. [PROV-Overview](https://www.w3.org/TR/prov-overview/). W3C Working Group Note, 2013.
-2. oh-my-quant. [报告设计的演进与取舍](../blog/07-artifacts-and-boundaries.md). 历史方案及其代价；当前职责以本页为准。
+2. WhyJ-Quant. [报告设计的演进与取舍](../blog/07-artifacts-and-boundaries.md). 历史方案及其代价；当前职责以本页为准。

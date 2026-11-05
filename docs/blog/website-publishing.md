@@ -98,4 +98,4 @@ vercel inspect oh-my-quant.vercel.app --scope yangjing-s-projects
 
 1. Vercel. [Deploy](https://vercel.com/docs/cli/deploy)、[Promote](https://vercel.com/docs/cli/promote)、[Rollback](https://vercel.com/docs/cli/rollback). 部署命令与状态的官方说明。
 2. Vercel. [trailingSlash](https://vercel.com/docs/project-configuration/vercel-json#trailingslash). 部署路由规范化的依据，仍需实际 URL 验收。
-3. oh-my-quant. [网站维护](../../site/README.md)、[发布约定](../../.agents/skills/blog-skill/references/vercel-publishing.md). 网站构建与授权边界。
+3. WhyJ-Quant. [网站维护](../../site/README.md)、[发布约定](../../.agents/skills/blog-skill/references/vercel-publishing.md). 网站构建与授权边界。

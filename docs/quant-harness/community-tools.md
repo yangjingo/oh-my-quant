@@ -74,4 +74,4 @@ MCP 配置保存在哪个作用域、何时加载、使用哪份凭证，都属�
 
 1. Agent Skills. [Overview](https://agentskills.io/home). 开放的技能与工作流资源格式。
 2. Model Context Protocol. [Architecture](https://modelcontextprotocol.io/specification/2025-06-18/architecture). 2025-06-18 规范，宿主、客户端与服务端的职责。
-3. oh-my-quant. [扩展宿主](../agent-runtime/extensions.md). 显式受信任扩展与社区资源的不同边界，不表示可直接安装任意 Pi 插件。
+3. WhyJ-Quant. [扩展宿主](../agent-runtime/extensions.md). 显式受信任扩展与社区资源的不同边界，不表示可直接安装任意 Pi 插件。
