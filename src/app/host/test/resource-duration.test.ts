@@ -1,29 +1,16 @@
 import { expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { withResourceCheckout } from "./resource-checkout.ts";
 
-// A detached checkout lets the measurement enforce clean source even when the
+// A pinned source checkout lets the measurement enforce clean source even when the
 // developer's working tree contains intentional edits. Dependencies are read
 // from the already-installed checkout; the Host workspace is separately isolated.
 test("resource duration receipts detect retained Agents and swallowed cleanup failures", async () => {
   const repo = resolve(import.meta.dir, "../../../..");
-  const scratch = mkdtempSync(join(tmpdir(), "whyj-resource-test-"));
-  const scratchReal = realpathSync(scratch), tempReal = realpathSync(tmpdir());
-  if (dirname(scratchReal) !== tempReal || !basename(scratchReal).startsWith("whyj-resource-test-")) throw new Error("Unexpected test directory");
-  const checkout = join(scratch, "checkout"), modules = join(checkout, "node_modules");
   const harness = join(repo, "src/app/host/test/resource-duration.ts");
   const source = readFileSync(harness, "utf8");
-  const git = async (...args: string[]) => {
-    const child = Bun.spawn(["git", ...args], { cwd: repo, stdout: "pipe", stderr: "pipe", timeout: 20_000, killSignal: "SIGKILL" });
-    const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text(), new Response(child.stdout).text()]);
-    if (code !== 0) throw new Error(`Git worktree operation failed (${code}): ${stderr}`);
-  };
-  let checkoutAdded = false;
-  try {
-    await git("worktree", "add", "--detach", checkout, "HEAD");
-    checkoutAdded = true;
-    symlinkSync(realpathSync(join(repo, "node_modules")), modules, process.platform === "win32" ? "junction" : "dir");
+  await withResourceCheckout(repo, async ({ checkout, scratch }) => {
     const run = async (file: string, label: string) => {
       const receipt = join(scratch, `${label}.jsonl`), canary = "resource-test-canary-49ec";
       const child = Bun.spawn([process.execPath, file, checkout, receipt, "1000", "3000"], {
@@ -77,11 +64,5 @@ test("resource duration receipts detect retained Agents and swallowed cleanup fa
     const gap = await run(gapFile, "gap");
     expect(gap.end.outcome).toBe("incomplete");
     expect(gap.end.gaps).toBeGreaterThan(0);
-  } finally {
-    if (existsSync(modules)) unlinkSync(modules);
-    if (checkoutAdded) await git("worktree", "remove", checkout);
-    if (!checkoutAdded && existsSync(checkout)) throw new Error(`Partial checkout retained for inspection: ${checkout}`);
-    if (realpathSync(scratch) !== scratchReal || dirname(scratchReal) !== tempReal) throw new Error("Test directory changed before cleanup");
-    rmSync(scratchReal, { recursive: true });
-  }
+  });
 }, 150_000);
